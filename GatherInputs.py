@@ -4,12 +4,17 @@ import pygame.joystick
 
 
 def gather_inputs(player, joystick):
-    player.main_stick = (joystick.get_axis(0), joystick.get_axis(1))
+    player.main_stick = [joystick.get_axis(0), joystick.get_axis(1)]
+    print(str(joystick.get_axis(0)) + "  <-- x axis    initialized stick ---> " + str(player.main_stick))
     player.c_stick = (joystick.get_axis(5), joystick.get_axis(4))
     player.r_trigger = joystick.get_axis(3)
     player.l_trigger = joystick.get_axis(2)
   #  keys = pygame.key.get_pressed()
    # buttons = joystick.get_buttons()
+
+    # create deadzone
+    if abs(player.main_stick[0]) < 0.22:
+        player.main_stick[0] = 0
 
   #  if joystick.event == pygame.JOYBUTTONDOWN:
     if joystick.get_button(0):  # A

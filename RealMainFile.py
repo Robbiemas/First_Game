@@ -132,6 +132,7 @@ def gameloop():
     players = []
 
     player1 = Character(stageSelection.spawn_position(1)[0], stageSelection.spawn_position(1)[1], players)
+    player1.spawn = stageSelection.spawn_position(1)
     player2 = Character(stageSelection.spawn_position(2)[0], stageSelection.spawn_position(2)[1], players)
 
     player1.choosechar("DolphinMole")
@@ -165,7 +166,7 @@ def gameloop():
                 if event.key == joys.get_button(7):
                     Pause(win, monitor_size)
 
-        gather_inputs(player1, joys)
+
     #    gather_inputs(player2, joys2)
 
 
@@ -181,28 +182,19 @@ def gameloop():
                     play.is_grounded()
                     curr = plat
 
+
             if play.grounded:
-                print("on plat")
-                if play.jumpkey:
-                    play.reset_ground()
-                    play.change_velocity(play.jumpHeight)
-                elif play.main_stick[1] > .3 and not curr.solid:
-                    play.fast_fall(play.main_stick[1])
-                    play.gravity(play.gWeight)
+                if play.main_stick[1] > .55 and not curr.solid:
                     play.reset_ground()
                 else:
                     play.changeY(curr.plat_y() - 1)
 
-            # in air
-            else:
-                if not play.jumpkey and play.yVelocity >= 0:
-                    play.change_velocity(play.yVelocity)
-                play.fast_fall(play.main_stick[1])
-                play.gravity(play.gWeight)  # normal gravity
+
 
         win.blit(bg, (0, 0))
         xpos = 100
         for play in players:
+            gather_inputs(player1, joys)
             resolve_action_state(play)
             play.set_prev_cords()
             play.move_x()
@@ -215,15 +207,15 @@ def gameloop():
             play.draw(win)
             play.draw_ecb(win)
             play.draw_prev_ecb(win)
-            disp_state(win, play)
 
             xpos += 650
 
         # draw platforms
         for p in platforms:
             p.draw_platform(win)
-        clock.tick(60)
+        disp_state(win, player1)
         pygame.display.update()
+
 
 gameloop()
 

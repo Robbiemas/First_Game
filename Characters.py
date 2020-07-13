@@ -1,6 +1,5 @@
 import pygame
 
-
 class Character(object):
 
     def __init__(self, x, y, players):
@@ -79,14 +78,16 @@ class Character(object):
         self.rightkey = 0
         self.mainstickx = 0
 
-        self.main_stick = (0, 0)
-        self.c_stick = (0, 0)
+        self.main_stick = [0, 0]
+        self.c_stick =[0, 0]
         self.r_trigger = 0
         self.l_trigger = 0
 
         self.aniCount = 0
-        self.jumpCount = 10
+        self.jumpCount = 0
         self.walkCount = 0
+        self.xCount = 0
+        self.gCount = 1
 
     def set_prev_cords(self):
         self.prevX = self.x
@@ -104,28 +105,19 @@ class Character(object):
     def get_grounded(self):
         return self.grounded
 
-  #  def get_collision(self):
-   #     return self.collision
-
     def is_grounded(self):
         self.grounded = 1
         self.reset_y_velocity()
-        # if ecb one pixel higher than platform or stage floor set ground to true
-
-  #  def is_colliding(self):
-     #   self.collision = 1
-    #    self.reset_y_velocity()
+        self.gCount = 1
         # if ecb one pixel higher than platform or stage floor set ground to true
 
     def reset_ground(self):
         self.grounded = 0
 
- #   def reset_collision(self):
-      #  self.collision = 0
-
-    def gravity(self, fallaccel):
+    def gravity(self, gWeight):
         if self.yVelocity <= self.fallSpeed:
-            self.change_velocity(self.yVelocity + fallaccel)
+            self.gCount *= 1 + gWeight
+            self.change_velocity(self.yVelocity + self.gCount)
 
     def call_x(self):
         return self.x
@@ -139,7 +131,7 @@ class Character(object):
     def move_y(self):
         self.y += self.yVelocity
 
-    def change_velocity(self, vel):
+    def change_velocity(self, vel):  # checks if given velocity is over the ff speed then sets new velocity
         #    self.y = self.y - vel * .05
         if vel > self.fastFallSpeed:
             self.yVelocity = self.fastFallSpeed
@@ -191,9 +183,30 @@ class Character(object):
 
     def new_game(self):
         self.lives = 4
+        self.x = self.spawn[0]
+        self.y = self.spawn[1]
 
     def jump(self, bool):
         self.jumpkey = bool
+
+    def air_friction(self):
+        if abs(self.xVelocity) > 0:
+            if self.main_stick[0] != 0:
+                self.xVelocity *= 1 - self.airFriction
+
+
+
+    def drift(self, xjoyvalue): # defines how far you drift while holding the stick midair
+        if -0.1 >= xjoyvalue >= -1.0:  # left
+            if self.xVelocity > -1 * self.airSpeed:  # velocity isn't at max airspeed
+                self.xVelocity -= 10*self.airAccelBase  # accel at base speed first
+                self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)  # add accel based on x value
+
+        if 0.1 <= xjoyvalue <= 1.0:  # right
+            if self.xVelocity < self.airSpeed:  # velocity isn't at max airspeed
+                self.xVelocity += 10*self.airAccelBase  # accel at base speed first
+                self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)  # add accel based on x value
+
 
     def walk(self, xjoyvalue):
         if -0.1 >= xjoyvalue >= -1.0:  # left
@@ -217,13 +230,13 @@ class Character(object):
             print("x velocity: " + str(self.xVelocity) + "  runspeed: " + str(self.runSpeed))
 
     def apply_traction(self, vel):
-        vel *= .35
-        if vel < .01:
+        vel *= .65
+        if abs(vel) < .01:
             vel = 0
         self.xVelocity = vel
 
     def fast_fall(self, yjoyvalue):
-        if 0 <= self.yVelocity < self.fastFallSpeed and yjoyvalue >= 0.3:
+        if (0 <= self.yVelocity < self.fastFallSpeed) and yjoyvalue >= 0.3:
             self.yVelocity = self.fastFallSpeed
 
     def crouch(self, yjoyvalue):
@@ -496,18 +509,22 @@ class Character(object):
         self.width = 56
         self.height = 142
         self.weight = 30
-        self.runSpeed = 20
+        self.runSpeed = 12
         self.walkSpeed = 8
-        self.airSpeed = 10
+        self.airSpeed = 36
+        self.airAccelBase = 0.02
+        self.airAccelAdd = 0.06
+        self.airFriction = 0.02
         self.jumps = 2
-        self.fallSpeed = 30
-        self.fastFallSpeed = 40
+        self.jumpCount = 2
+        self.fallSpeed = 20
+        self.fastFallSpeed = 28
         self.dashLength = 150
         self.rollLength = 200
         self.airDodgeLength = 200
-        self.jumpHeight = -80
+        self.jumpHeight = -40
         self.jumpSquatNumber = 5
-        self.gWeight = 8
+        self.gWeight = 0.1
 
     def ecb(self):
         ecb_bot = (self.x, self.y)
