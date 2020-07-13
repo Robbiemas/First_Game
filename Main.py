@@ -1,15 +1,19 @@
-import pygame
+import pygame, sys
 import glob
 import pygame_input
 import pygame_assets
 pygame.init()
+pygame.joystick.init()
 
+monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
 screenWidth = 580
 screenHeight = 476
 floor = screenHeight / 2
 
 
-win = pygame.display.set_mode((screenWidth, screenHeight))
+win = pygame.display.set_mode((screenWidth, screenHeight), pygame.RESIZABLE)
+
+fullscreen = False
 
 pygame.display.set_caption("First Game")
 
@@ -21,8 +25,9 @@ walkRight = [pygame.image.load('R (1).png'), pygame.image.load('R (2).png'), pyg
 walkLeft = [pygame.image.load('L (1).png'), pygame.image.load('L (2).png'), pygame.image.load('L (3).png'),
             pygame.image.load('L (4).png'), pygame.image.load('L (5).png'), pygame.image.load('L (6).png'),
             pygame.image.load('L (7).png'), pygame.image.load('L (8).png')]
-char = pygame.image.load('standing.png')
-charL = pygame.image.load('standingL.png')
+#char = pygame.image.load('standing.png')
+#charL = pygame.image.load('standingL.png')
+standing = []
 bg = pygame.image.load('FinalDestination.png')
 fireBall = [pygame.image.load('Fireball1.png'), pygame.image.load('Fireball2.png'), pygame.image.load('Fireball3.png'),
             pygame.image.load('Fireball4.png'), pygame.image.load('Fireball5.png'), pygame.image.load('Fireball6.png'),
@@ -35,6 +40,15 @@ air = pygame.image.load('air.png')
 airL = pygame.image.load('airL.png')
 crouchStart = []
 crouchStartL = []
+landingLag = []
+
+for filename in glob.glob('standing/*.png'):
+    im = pygame.image.load(filename)
+    standing.append(im)
+
+for filename in glob.glob('landingLag/*.png'):
+    im = pygame.image.load(filename)
+    landingLag.append(im)
 
 for filename in glob.glob('crouchStart/*R.png'):
     im = pygame.image.load(filename)
@@ -52,7 +66,16 @@ for filename in glob.glob('crouchingpngL/*.png'):
     crouchingL.append(im)
 
 
+
+joys = pygame.joystick.Joystick(1)
+joysticks = []
 clock = pygame.time.Clock()
+
+for x in range(pygame.joystick.get_count()):
+    joysticks.append(pygame.joystick.Joystick(x))
+    joysticks[-1].init()
+    print("detected joystick" + str(joysticks[-1].get_name()))
+   # print("x axis position" + str(js.get_axis(0)))
 
 
 class Rotator:
@@ -122,10 +145,23 @@ class character(object):
         self.crouching = False
         self.crouchStart = False
         self.action = False
+        self.landingLag = False
 
     def draw(self, win):
         if self.walkCount + 1 >= 24:
             self.walkCount = 0
+
+        if self.landingLag:
+            if self.isRight:
+                if self.aniCount + 1 >= 3:
+                    self.aniCount = 0
+                win.blit(landingLag[self.aniCount//3], (self.x, self.y))
+                self.aniCount += 1
+            else:
+                if self.aniCount + 1 >= 3:
+                    self.aniCount = 0
+                win.blit(pygame.transform.flip(landingLag[self.aniCount//3], True, False), (self.x, self.y))
+                self.aniCount += 1
 
         if self.crouchStart:
             if self.isRight:
@@ -164,9 +200,7 @@ class character(object):
             else:
                 win.blit(jumpSquatL, (self.x, self.y))
 
-        if not self.action and not self.standing and not self.isJump and not self.jumpSquat:
-            self.walking = True
-        else:
+        if self.isJump or self.jumpSquat or self.landingLag:
             self.walking = False
 
         if self.isJump:
@@ -184,15 +218,37 @@ class character(object):
                 self.walkCount += 1
                 self.isRight = True
 
-        if self.standing and not self.isJump and not self.jumpSquat and not self.action:
-            if self.right:
-                win.blit(char, (self.x, self.y))
-                self.isRight = True
-            elif self.left:
-                win.blit(charL, (self.x, self.y))
-                self.isRight = False
+        if self.standing and not self.isJump and not self.jumpSquat and not self.action and not self.landingLag:
+            if self.isRight:
+                if self.aniCount + 1 >= 33:
+                    self.aniCount = 0
+                win.blit(standing[self.aniCount], (self.x, self.y))
+                self.aniCount += 1
+            else:
+                if self.aniCount + 1 >= 33:
+                    self.aniCount = 0
+                win.blit(pygame.transform.flip(standing[self.aniCount], True, False), (self.x, self.y))
+                self.aniCount += 1
 
+class enemy(object):
+    walkRight = []
+    walkLeft = []
 
+    def __init__(self, x, y, width, height, end):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.end = end
+        self.walkCount = 0
+        self.vel = 3
+
+    def draw(self, win):
+        pass
+
+    def move(self):
+
+        pass
 
 class projectile(object):
     def __init__(self, x, y, radius, color, facing):
@@ -256,6 +312,8 @@ mario = character(screenWidth//2, screenHeight//2 - 60, 65, 82)
 bullets = []
 run = True
 canDown = True
+landing = False
+Y = False
 
 while run:
     clock.tick(60)
@@ -263,6 +321,51 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+        if event.type == pygame.VIDEORESIZE:
+            if not fullscreen:
+                win = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
+            if event.key == pygame.K_f:
+                fullscreen = not fullscreen
+                if fullscreen:
+                    win = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+                else:
+                    win = pygame.display.set_mode((win.get_width(), win.get_height()), pygame.RESIZABLE)
+   # print("x axis position" + str(joys.get_axis(4)))
+
+    main_stick = (joys.get_axis(0), joys.get_axis(1))
+    c_stick = (joys.get_axis(5), joys.get_axis(4))
+    r_trigger = joys.get_axis(3)
+    l_trigger = joys.get_axis(2)
+
+    if event.type == pygame.JOYBUTTONDOWN:
+        if event.button == 0:
+            print("a")
+        if event.button == 1:
+            print("b")
+        if event.button == 2:
+            print("x")
+        if event.button == 3:
+            print("y")
+        if event.button == 4:
+            print("z")
+        if event.button == 5:
+            print("R")
+        if event.button == 6:
+            print("L")
+        if event.button == 7:
+            print("start")
+        if event.button == 8:
+            print("up")
+        if event.button == 9:
+            print("down")
+        if event.button == 10:
+            print("left")
+        if event.button == 11:
+            print("right")
 
     for bullet in bullets:
         if 580 > bullet.x > 0:
@@ -274,7 +377,7 @@ while run:
             bullet.projectile_active = False
 
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_SPACE]:
+    if keys[pygame.K_SPACE] or joys.get_button(1):
 
       #  if not attacking:
       #      if mario.attacking and not mario.isJump:
@@ -304,8 +407,8 @@ while run:
         flag = True
         doubleFire = True
 
-    if not mario.jumpSquat and not mario.attacking and not mario.crouchStart:
-        if (keys[pygame.K_LEFT] or keys[pygame.K_a]) and mario.x > mario.vel and not mario.action:
+    if not mario.jumpSquat and not mario.attacking and not mario.crouchStart and not landing:
+        if (main_stick[0] < -.4 or keys[pygame.K_LEFT] or keys[pygame.K_a]) and mario.x > mario.vel and not mario.action:
             mario.x -= mario.vel
             mario.left = True
             mario.right = False
@@ -313,7 +416,7 @@ while run:
             mario.walking = True
             mario.crouching = False
             cr = True
-        elif (keys[pygame.K_RIGHT] or keys[pygame.K_d]) and mario.x < screenWidth - mario.width and not mario.action:
+        elif (main_stick[0] > .4 or keys[pygame.K_RIGHT] or keys[pygame.K_d]) and mario.x < screenWidth - mario.width and not mario.action:
             mario.x += mario.vel
             mario.left = False
             mario.right = True
@@ -328,8 +431,8 @@ while run:
             mario.walking = False
     if mario.y < 0:
         mario.jumpCount = -3
-    if not js:
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
+    if not js and not landing:
+        if keys[pygame.K_UP] or keys[pygame.K_w] or joys.get_button(3):
             mario.jumpSquat = True
             mario.crouching = False
             js = True
@@ -342,7 +445,6 @@ while run:
         if (pygame.time.get_ticks() - jumpTime) >= 80 and js:
             mario.jumpSquat = False
             mario.isJump = True
-            mario.candown = False
             if mario.jumpCount >= -10:
                 neg = 1
                 if mario.jumpCount < 0:
@@ -350,13 +452,24 @@ while run:
                 mario.y -= (mario.jumpCount ** 2) * 0.3 * neg
                 mario.jumpCount -= 1
             else:
-                canDown = True
+                landTime = pygame.time.get_ticks()
+                landing = True
+          #      canDown = True
                 js = False
-                mario.standing = True
+                mario.standing = False
                 mario.isJump = False
                 mario.jumpCount = 10
-    if not mario.jumpSquat and not mario.isJump and not keys[pygame.K_UP]:
-        if (keys[pygame.K_s] or keys[pygame.K_DOWN]) and not mario.isJump and canDown:
+                mario.action = True
+        if landing:
+            mario.landingLag = True
+            if pygame.time.get_ticks() - landTime >= 50:
+                landing = False
+                mario.aniCount = 0
+                mario.landingLag = False
+                canDown = True
+
+    if not mario.jumpSquat and not mario.isJump and not (keys[pygame.K_UP] or keys[pygame.K_w]):
+        if (main_stick[1] > .4 or keys[pygame.K_s] or keys[pygame.K_DOWN]) and not mario.isJump and canDown:
             if cr:
                 mario.standing = False
                 mario.crouchStart = True
