@@ -5,7 +5,7 @@ class Stage():
     def __init__(self, name):
         self.stageName = name
         if name == 'first':
-            self.lowerbound = 1200
+            self.lowerbound = 1400
             self.upperbound = -250
             self.rightbound = 2250
             self.leftbound = -330

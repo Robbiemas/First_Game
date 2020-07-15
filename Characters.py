@@ -1,4 +1,5 @@
 import pygame
+import math
 
 class Character(object):
 
@@ -35,16 +36,23 @@ class Character(object):
         self.air = False
         self.standing = True
         self.walking = False
+        self.walkSlow = False
+        self.walkMiddle = False
+        self.walkFast = False
         self.dash = False
         self.running = False
+        self.canRun = True
 
         self.jumpSquat = False
         self.crouchStart = False
         self.crouching = False
         self.landingLag = False
+        self.landing = False
 
-        self.action = False
+        self.actionable = True
         self.attacking = False
+        self.sliding = False
+        self.freeFall = False
 
         self.airDodge = False
         self.blocking = False
@@ -67,6 +75,8 @@ class Character(object):
 
         #  Keys
         self.jumpkey = 0
+        self.canJump = 0
+        self.jumpWait = 0
         self.akey = 0
         self.grabkey = 0
         self.specialkey = 0
@@ -79,15 +89,24 @@ class Character(object):
         self.mainstickx = 0
 
         self.main_stick = [0, 0]
-        self.c_stick =[0, 0]
+        self.c_stick = [0, 0]
         self.r_trigger = 0
         self.l_trigger = 0
 
+        # counts
+
         self.aniCount = 0
         self.jumpCount = 0
+        self.jsCount = 0            # jump squat counter
         self.walkCount = 0
         self.xCount = 0
         self.gCount = 1
+        self.dodgeCount = 0
+        self.landLagCount = 0
+        self.dropCount = 0
+
+        # timers
+        self.timer = 0
 
     def set_prev_cords(self):
         self.prevX = self.x
@@ -191,53 +210,98 @@ class Character(object):
 
     def air_friction(self):
         if abs(self.xVelocity) > 0:
-            if self.main_stick[0] != 0:
+            if self.main_stick[0] == 0:
                 self.xVelocity *= 1 - self.airFriction
 
 
-
     def drift(self, xjoyvalue): # defines how far you drift while holding the stick midair
-        if -0.1 >= xjoyvalue >= -1.0:  # left
-            if self.xVelocity > -1 * self.airSpeed:  # velocity isn't at max airspeed
-                self.xVelocity -= 10*self.airAccelBase  # accel at base speed first
-                self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)  # add accel based on x value
+        if -0.1 >= xjoyvalue >= -1.0 and self.xVelocity > -1 * self.airSpeed:  # left, velocity isn't at max airspeed
+            self.xVelocity -= 5*self.airAccelBase                      # accel at base speed first
+            self.xVelocity += 5*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
 
-        if 0.1 <= xjoyvalue <= 1.0:  # right
-            if self.xVelocity < self.airSpeed:  # velocity isn't at max airspeed
-                self.xVelocity += 10*self.airAccelBase  # accel at base speed first
-                self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)  # add accel based on x value
+        if 0.1 <= xjoyvalue <= 1.0 and self.xVelocity < self.airSpeed:  # right, velocity isn't at max airspeed
+            self.xVelocity += 5*self.airAccelBase                      # accel at base speed first
+            self.xVelocity += 5*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
 
 
     def walk(self, xjoyvalue):
         if -0.1 >= xjoyvalue >= -1.0:  # left
-            if self.xVelocity >= -1 * self.walkSpeed:
+            if -0.23 >= xjoyvalue >= -0.32:
+                self.walkSlow = True
+                self.walkMiddle = False
+                self.walkFast = False
+                self.xVelocity = -self.walkSpeed / 3
+            if -0.33 >= xjoyvalue >= -0.53:
+                self.walkMiddle = True
+                self.walkSlow = False
+                self.walkFast = False
+                self.xVelocity = -self.walkSpeed / 2
+            if xjoyvalue < -0.53:
+                self.walkFast = True
+                self.walkSlow = False
+                self.walkMiddle = False
                 self.xVelocity = self.walkSpeed * xjoyvalue
-            else:
-                self.xVelocity += 0.20
+            self.isRight = False
         if 0.1 <= xjoyvalue <= 1.0:  # right
-            if self.xVelocity <= self.walkSpeed:
+            if 0.23 <= xjoyvalue <= 0.32:
+                self.walkSlow = True
+                self.walkMiddle = False
+                self.walkFast = False
+                self.xVelocity = self.walkSpeed / 3
+            if 0.33 <= xjoyvalue <= 0.53:
+                self.walkMiddle = True
+                self.walkSlow = False
+                self.walkFast = False
+                self.xVelocity = self.walkSpeed / 3
+            if xjoyvalue > 0.53:
+                self.walkFast = True
+                self.walkSlow = False
+                self.walkMiddle = False
                 self.xVelocity = self.walkSpeed * xjoyvalue
-            else:
-                self.xVelocity -= 0.20
+            self.isRight = True
+          #  else:
+           #     self.xVelocity -= 0.20
 
     def run(self, xjoyvalue):
         if -0.2 >= xjoyvalue >= -1.0:  # left
             self.xVelocity = -(self.runSpeed)
-            print("x velocity: " + str(self.xVelocity) + "  runspeed: " + str(-self.runSpeed))
+            self.isRight = False
 
         if 0.2 <= xjoyvalue <= 1.0:  # right
             self.xVelocity = self.runSpeed
-            print("x velocity: " + str(self.xVelocity) + "  runspeed: " + str(self.runSpeed))
+            self.isRight = True
 
     def apply_traction(self, vel):
-        vel *= .65
-        if abs(vel) < .01:
+        vel *= 1 - self.traction
+        if abs(vel) < 0.5:
             vel = 0
         self.xVelocity = vel
 
     def fast_fall(self, yjoyvalue):
-        if (0 <= self.yVelocity < self.fastFallSpeed) and yjoyvalue >= 0.3:
+        if (0 <= self.yVelocity < self.fastFallSpeed) and yjoyvalue >= 0.8:
             self.yVelocity = self.fastFallSpeed
+
+    def air_dodge(self):
+        if self.main_stick == [0, 0]:
+            self.xVelocity = 0
+            self.yVelocity = 0
+        else:
+            self.xVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[0] * self.airDodgeLength
+            self.yVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[1] * self.airDodgeLength
+        self.airDodge = True
+        self.air = False
+        self.actionable = False
+
+    def angle_to_trajectory(self, angle):
+        yValue = -(math.sin(math.radians(angle)))
+        xValue = (math.cos(math.radians(angle)))
+        return [xValue, yValue]
+
+    def trajectory_to_Angle(self):
+        angle = math.degrees(-math.atan2(self.main_stick[1], self.main_stick[0]))
+        angle %= 360
+        return angle
+
 
     def crouch(self, yjoyvalue):
         if yjoyvalue > 0.3 and self.grounded:
@@ -253,6 +317,7 @@ class Character(object):
             pygame.draw.rect(win, (255, 0, 0), (xpos, ypos, 10, 10))
             xpos += 15
 
+        """
     def draw(self, win):
         x = self.x - (self.width // 2)
         y = self.y - self.height
@@ -273,9 +338,10 @@ class Character(object):
                 win.blit(pygame.transform.flip("crouch folder with pngs"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
         if self.standing:
-            pygame.draw.rect(win, (255, 0, 0), (x, y, self.width, self.height))
+            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
             # actual code
-            """
+        """
+        """
             if self.isRight:
                 if self.aniCount + 1 >= "standing animation frames":
                     self.aniCount = 0
@@ -286,31 +352,49 @@ class Character(object):
                     self.aniCount = 0
                 win.blit(pygame.transform.flip("stand folder"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
-            """
+        """
+        """
         if self.air:
-            if self.isRight:
-                if self.aniCount + 1 >= "air animation frames":
-                    self.aniCount = 0
-                win.blit("air folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "air animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("air folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
+            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
+            # actual code
+        """
 
+
+        """
+        if self.isRight:
+            if self.aniCount + 1 >= "air animation frames":
+                self.aniCount = 0
+            win.blit("air folder"[self.aniCount], (x, y))
+            self.aniCount += 1
+        else:
+            if self.aniCount + 1 >= "air animation frames":
+                self.aniCount = 0
+            win.blit(pygame.transform.flip("air folder"[self.aniCount], True, False), (x, y))
+            self.aniCount += 1
+        """
+        """
         if self.jumpSquat:
+            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + 30 + scroll[1], self.width, self.height))
+            # actual code
+        """
+        """
             if self.isRight:
                 if self.aniCount + 1 >= "jumpquat animation frames":
                     self.aniCount = 0
                 win.blit("jumpSquat folder"[self.aniCount], (x, y))
                 self.aniCount += 1
             else:
-                if self.aniCount + 1 >= "jumpquat animation frames":
+                if self.aniCount + 1 >= "jumpsquat animation frames":
                     self.aniCount = 0
                 win.blit("jumpSquat folder"[self.aniCount], (x, y))
                 self.aniCount += 1
+        """
+        """
         if self.landingLag:
+            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + 12 + scroll[1], self.width, self.height))
+        """
+        """
+            # actual code
             if self.isRight:
                 if self.aniCount + 1 >= "landing animation frames":
                     self.aniCount = 0
@@ -321,6 +405,9 @@ class Character(object):
                     self.aniCount = 0
                 win.blit(pygame.transform.flip("landingLag folder with pngs"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
+        """
+        """
+
         if self.crouchStart:
             if self.isRight:
                 if self.aniCount + 1 >= "crouch start animation frames":
@@ -345,9 +432,10 @@ class Character(object):
                 self.aniCount += 1
 
         if self.walking:
-            pygame.draw.rect(win, (255, 0, 0), (x, y, self.width, self.height))
+            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
             # actual code
-            """
+        """
+        """
             # if holding past .30 on x stick, else do slow walk
             if self.isRight:
                 if self.aniCount + 1 >= "walk animation frames":
@@ -359,12 +447,14 @@ class Character(object):
                     self.aniCount = 0
                 win.blit(pygame.transform.flip("walk folder"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
-            """
+        """
+        """
 
         if self.running:
-            pygame.draw.rect(win, (175, 0, 0), (x, y, self.width, self.height))
+            pygame.draw.rect(win, (175, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
             # actual code
-            """
+        """
+        """
             if self.isRight:
                 if self.aniCount + 1 >= "run animation frames":
                     self.aniCount = 0
@@ -375,7 +465,8 @@ class Character(object):
                     self.aniCount = 0
                 win.blit(pygame.transform.flip("run folder"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
-            """
+        """
+        """
 
         if self.blocking:
             if self.isRight:
@@ -500,6 +591,7 @@ class Character(object):
                     self.aniCount = 0
                 win.blit(pygame.transform.flip("dtilt folder"[self.aniCount], True, False), (x, y))
                 self.aniCount += 1
+    """
 
     def choosechar(self, char):
         if char == "DolphinMole":
@@ -510,21 +602,27 @@ class Character(object):
         self.height = 142
         self.weight = 30
         self.runSpeed = 12
-        self.walkSpeed = 8
-        self.airSpeed = 36
+        self.walkSpeed = 6
+        self.airSpeed = 8
         self.airAccelBase = 0.02
         self.airAccelAdd = 0.06
-        self.airFriction = 0.02
+        self.airFriction = 0.06
+        self.traction = 0.12
         self.jumps = 2
         self.jumpCount = 2
-        self.fallSpeed = 20
-        self.fastFallSpeed = 28
+        self.js = 5                         # jump squat frames
+        self.fallSpeed = 16
+        self.fastFallSpeed = 18
         self.dashLength = 150
         self.rollLength = 200
-        self.airDodgeLength = 200
-        self.jumpHeight = -40
-        self.jumpSquatNumber = 5
-        self.gWeight = 0.1
+        self.airDodgeLength = 26
+        self.airDodgeResistance = 0.80
+        self.jumpHeight = -24
+        self.shortHop = -18
+        self.airJumpHeight = -28
+        self.jumpSquatNumber = 3
+        self.gWeight = 0.04
+
 
     def ecb(self):
         ecb_bot = (self.x, self.y)

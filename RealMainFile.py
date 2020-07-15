@@ -1,25 +1,35 @@
 import pygame, sys
+from pygame.locals import *
 import glob
 import time
-from states import Pause, game_intro, text_objects
-from platform import Platform
+from states import Pause, text_objects
 from stages import Stage
 from Characters import Character
 from GatherInputs import gather_inputs
 from ChooseAction import resolve_action_state
+from DisplayInputs import disp_fps
 from DisplayInputs import disp_state
+import Camera
+
+
+pygame.init()
+flags = FULLSCREEN | HWSURFACE | DOUBLEBUF
+
 
 pygame.init()
 pygame.joystick.init()
 clock = pygame.time.Clock()
 
+true_scroll = [0, 0]
+zoom = 1
+
 #global monitor_size
 monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
 
 #global win
-win = pygame.display.set_mode(monitor_size, pygame.RESIZABLE)
+win = pygame.display.set_mode(monitor_size, flags)
 
-fullscreen = False
+fullscreen = True
 
 
 joys = pygame.joystick.Joystick(0)
@@ -29,8 +39,6 @@ joysticks = []
 glob.scale_fraction = 1
 
 #Animations
-bg = pygame.transform.scale(pygame.image.load('background.png'), monitor_size)
-
 """
 crouching = []
 crouchingL = []
@@ -84,18 +92,9 @@ for filename in glob.glob('crouchingpngL/*.png'):
 """
 
 
-#def collision_check(player, platform):
-  #  y = player.y
-   # x = player.x
-   # if (platform.y + platform.h >= y >= platform.y) and (platform.x <= x <= platform.x + platform.w):
-   # else:
-   #     return False
-
 for x in range(pygame.joystick.get_count()):
     joysticks.append(pygame.joystick.Joystick(x))
     joysticks[-1].init()
-    print("detected joystick" + str(joysticks[-1].get_name()))
-   # print("x axis position" + str(js.get_axis(0)))
 
 
 def message_display(text):
@@ -110,26 +109,17 @@ def message_display(text):
 
 
 
-"""
-def redrawGameWindow():
-   # pygame.transform(bg, monitor_size, win)
-    win.blit(bg, (0, 0))
-    mario.draw(win)
-    mario.ecb()
-    print(str(monitor_size))
-    for bullet in bullets:
-        bullet.draw(win)
-    pygame.display.update()
-"""
-
 def gameloop():
     global monitor_size
     global win
     global fullscreen
+    global flags
+
     run = True
     stageSelection = Stage('first')
     platforms = stageSelection.load_platforms()
     players = []
+
 
     player1 = Character(stageSelection.spawn_position(1)[0], stageSelection.spawn_position(1)[1], players)
     player1.spawn = stageSelection.spawn_position(1)
@@ -141,6 +131,8 @@ def gameloop():
     # Main loop
     while run:
         clock.tick(60)
+        win.fill([255, 255, 255])
+        scroll = Camera.camera_adjust(player1, player2, monitor_size, true_scroll)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -148,10 +140,7 @@ def gameloop():
             if event.type == pygame.VIDEORESIZE:
                 if not fullscreen:
                     win = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-
-                    ##scale characters and stage
                     monitor_size = [pygame.display.Info().current_w, pygame.display.Info().current_h]
-                    ##glob.scale_fraction =
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -166,11 +155,6 @@ def gameloop():
                 if event.key == joys.get_button(7):
                     Pause(win, monitor_size)
 
-
-    #    gather_inputs(player2, joys2)
-
-
-
         player1.player_collision(player2)
         player2.player_collision(player1)
 
@@ -181,17 +165,11 @@ def gameloop():
                     play.offset(play.x, plat.y)
                     play.is_grounded()
                     curr = plat
-
-
             if play.grounded:
-                if play.main_stick[1] > .55 and not curr.solid:
-                    play.reset_ground()
-                else:
+                if curr.solid or play.main_stick[1] < 0.55 or play.dropCount >= 5 or not play.actionable:
                     play.changeY(curr.plat_y() - 1)
 
-
-
-        win.blit(bg, (0, 0))
+        Camera.draw_bg(win, scroll)
         xpos = 100
         for play in players:
             gather_inputs(player1, joys)
@@ -203,18 +181,19 @@ def gameloop():
             if play.is_dead():
                 print("you lose loser")
                 play.new_game()
-            play.draw_lives(win, xpos, 50)
-            play.draw(win)
-            play.draw_ecb(win)
-            play.draw_prev_ecb(win)
+            Camera.draw_char(win, play, xpos, scroll)
+            Camera.draw_ecb(win, play, scroll)
+            Camera.draw_prev_ecb(win, play, scroll)
+
 
             xpos += 650
 
         # draw platforms
         for p in platforms:
-            p.draw_platform(win)
+            Camera.draw_stage(win, p, scroll)
         disp_state(win, player1)
-        pygame.display.update()
+        disp_fps(win, clock)
+        pygame.display.flip()
 
 
 gameloop()
