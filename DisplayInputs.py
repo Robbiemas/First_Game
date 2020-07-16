@@ -19,6 +19,9 @@ def disp_state(win, player):
     win.blit(text_objects("freeFall:  " + str(player.freeFall), font)[0], (1520, 250))
     win.blit(text_objects("xCount:  " + str(player.xCount), font)[0], (1520, 300))
     win.blit(text_objects("jumpSquat:  " + str(player.jumpSquat), font)[0], (1520, 350))
+    win.blit(text_objects("dashing:  " + str(player.dashing), font)[0], (1520, 400))
+    win.blit(text_objects("dashCount:  " + str(player.dashCount), font)[0], (1520, 450))
+    win.blit(text_objects("canRun:  " + str(player.canRun), font)[0], (1520, 500))
 
 def disp_fps(win, clock):
     font = pygame.font.SysFont("calibri", 30)

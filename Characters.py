@@ -39,7 +39,7 @@ class Character(object):
         self.walkSlow = False
         self.walkMiddle = False
         self.walkFast = False
-        self.dash = False
+        self.dashing = False
         self.running = False
         self.canRun = True
 
@@ -104,6 +104,7 @@ class Character(object):
         self.dodgeCount = 0
         self.landLagCount = 0
         self.dropCount = 0
+        self.dashCount = 0
 
         # timers
         self.timer = 0
@@ -216,51 +217,65 @@ class Character(object):
 
     def drift(self, xjoyvalue): # defines how far you drift while holding the stick midair
         if -0.1 >= xjoyvalue >= -1.0 and self.xVelocity > -1 * self.airSpeed:  # left, velocity isn't at max airspeed
-            self.xVelocity -= 5*self.airAccelBase                      # accel at base speed first
-            self.xVelocity += 5*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
+            self.xVelocity -= 10*self.airAccelBase                      # accel at base speed first
+            self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
 
         if 0.1 <= xjoyvalue <= 1.0 and self.xVelocity < self.airSpeed:  # right, velocity isn't at max airspeed
-            self.xVelocity += 5*self.airAccelBase                      # accel at base speed first
-            self.xVelocity += 5*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
+            self.xVelocity += 10*self.airAccelBase                      # accel at base speed first
+            self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
 
 
     def walk(self, xjoyvalue):
         if -0.1 >= xjoyvalue >= -1.0:  # left
-            if -0.23 >= xjoyvalue >= -0.32:
+            if -0.23 >= xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3)):
                 self.walkSlow = True
                 self.walkMiddle = False
                 self.walkFast = False
-                self.xVelocity = -self.walkSpeed / 3
-            if -0.33 >= xjoyvalue >= -0.53:
+                self.xVelocity += -self.walkSpeed / 30
+            if -0.33 >= xjoyvalue >= -0.53 and (self.xVelocity > (-self.walkSpeed/2)):
                 self.walkMiddle = True
                 self.walkSlow = False
                 self.walkFast = False
-                self.xVelocity = -self.walkSpeed / 2
-            if xjoyvalue < -0.53:
+                self.xVelocity += -self.walkSpeed / 20
+            if xjoyvalue < -0.53 and (self.xVelocity > (-self.walkSpeed)):
                 self.walkFast = True
                 self.walkSlow = False
                 self.walkMiddle = False
-                self.xVelocity = self.walkSpeed * xjoyvalue
+                self.xVelocity += self.walkSpeed * xjoyvalue / 10
             self.isRight = False
         if 0.1 <= xjoyvalue <= 1.0:  # right
-            if 0.23 <= xjoyvalue <= 0.32:
+            if 0.23 <= xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3)):
                 self.walkSlow = True
                 self.walkMiddle = False
                 self.walkFast = False
-                self.xVelocity = self.walkSpeed / 3
-            if 0.33 <= xjoyvalue <= 0.53:
+                self.xVelocity += self.walkSpeed / 30
+            if 0.33 <= xjoyvalue <= 0.53 and (self.xVelocity < (self.walkSpeed/2)):
                 self.walkMiddle = True
                 self.walkSlow = False
                 self.walkFast = False
-                self.xVelocity = self.walkSpeed / 3
-            if xjoyvalue > 0.53:
+                self.xVelocity += self.walkSpeed / 20
+            if xjoyvalue > 0.53 and (self.xVelocity < (self.walkSpeed)):
                 self.walkFast = True
                 self.walkSlow = False
                 self.walkMiddle = False
-                self.xVelocity = self.walkSpeed * xjoyvalue
+                self.xVelocity += self.walkSpeed * xjoyvalue / 10
             self.isRight = True
           #  else:
            #     self.xVelocity -= 0.20
+
+    def dash(self, xjoyvalue):
+        if -0.1 >= xjoyvalue >= -1.0:
+            self.xVelocity -= 5 * self.dashAccelBase  # accel at base speed first
+            self.xVelocity += 5 * (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
+            self.isRight = False
+
+        if 0.1 <= xjoyvalue <= 1.0:  # right, velocity isn't at max airspeed
+            self.xVelocity += 5 * self.dashAccelBase  # accel at base speed first
+            self.xVelocity += 5 * (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
+            self.isRight = True
+        self.running = False
+        self.walking = False
+
 
     def run(self, xjoyvalue):
         if -0.2 >= xjoyvalue >= -1.0:  # left
@@ -270,6 +285,7 @@ class Character(object):
         if 0.2 <= xjoyvalue <= 1.0:  # right
             self.xVelocity = self.runSpeed
             self.isRight = True
+
 
     def apply_traction(self, vel):
         vel *= 1 - self.traction
@@ -598,6 +614,7 @@ class Character(object):
             self.dolphinmole()
 
     def dolphinmole(self):
+        self.character = 'DolphinMole'
         self.width = 56
         self.height = 142
         self.weight = 30
@@ -607,21 +624,25 @@ class Character(object):
         self.airAccelBase = 0.02
         self.airAccelAdd = 0.06
         self.airFriction = 0.06
-        self.traction = 0.12
+        self.traction = 0.1
         self.jumps = 2
         self.jumpCount = 2
         self.js = 5                         # jump squat frames
         self.fallSpeed = 16
         self.fastFallSpeed = 18
-        self.dashLength = 150
+        self.dashFrames = 11
+        self.initialDash = 10
+        self.dashAccelBase = 0.02
+        self.dashAccelBase = 0.02
+        self.dashAccelAdd = 0.1
         self.rollLength = 200
         self.airDodgeLength = 26
         self.airDodgeResistance = 0.80
-        self.jumpHeight = -24
+        self.jumpHeight = -28
         self.shortHop = -18
         self.airJumpHeight = -28
         self.jumpSquatNumber = 3
-        self.gWeight = 0.04
+        self.gWeight = 0.02
 
 
     def ecb(self):

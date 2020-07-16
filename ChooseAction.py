@@ -16,6 +16,12 @@ def resolve_action_state(play):
         play.walking = False
         play.xCount = 0
         play.canRun = True
+      #  play.aniCount = 0
+        play.dashCount = 0
+        if play.dashing:
+            play.dashing = False
+            play.aniCount = 0
+
 
     if play.grounded:                       # if grounded
         play.freeFall = False                   # set cancel freeFall
@@ -41,7 +47,7 @@ def resolve_action_state(play):
             play.actionable = False                     # no longer ACTIONABLE
             play.apply_traction(play.xVelocity)         # apply TRACTION to come to stop
             play.sliding = True                         # set SLIDING TRUE
-            if play.landLagCount == 10:                      # wait 10 frames
+            if play.landLagCount == 6:                      # wait 10 frames
                 play.landingLag = False                         # set landingLag to FALSE
                 play.actionable = True                          # make ACTIONABLE
                 play.landLagCount = 0                           # reset langLagCount
@@ -66,14 +72,31 @@ def resolve_action_state(play):
                 play.standing = False                   # not longer standing
 
                 if abs(stick) > 0.6 and play.xCount <= 2 and play.canRun:   # providing two frames for a dash input
-                                                                        # the stick is past 0.6 on x, initiate run
+                                                                            # the stick is past 0.6 on x, initiate dash
                     play.walking = False                            # sets walking to FALSE
-                    play.running = True                             # set running TRUE
-                    play.run(stick)                                 # ACTIVATE RUN
+                    play.dashing = True                             # sets dash to TRUE
+                    if play.isRight:
+                        play.xVelocity = play.initialDash
+                    else:
+                        play.xVelocity = -play.initialDash
+                    play.aniCount = 0
 
+                if play.dashCount > play.dashFrames:                # if dashFrames elapsed
+                    print("hmmm")
+                    play.running = True                     # set running TRUE
+                    play.dashing = False                    # set dashing False
+                    play.canRun = False                     # can no longer Dash until stopped running
+                    play.run(stick)                         # ACTIVATE RUN
+                if play.dashing:
+                    play.dash(stick)            # ACTIVATE DASH
+                    play.dashCount += 1
+                 #   if
 
-                if not play.running:        # if stick is no longer at 0 and not running, begin walk
-                    play.walking = True                             # set walking true
+                if play.dashing or play.running:        # if stick is no longer at 0 and not running, begin walk
+                    play.walking = False                         # set walking true
+                elif not play.jumpSquat:
+                    play.walking = True
+                if play.walking:
                     play.walk(stick)                                # ACTIVATE WALK
 
             if play.jumpkey and play.canJump:               # if JUMP BUTTON pressed and canJump
@@ -112,12 +135,14 @@ def resolve_action_state(play):
             play.jumpSquat = False
             play.actionable = True
             play.air = True
+            play.aniCount = 0
         if play.running or play.walking or play.standing:
             play.walking = False
             play.standing = False
             play.running = False
             play.actionable = True
             play.air = True
+            play.aniCount = 0
 
         if play.airDodge:
             play.dodgeCount += 1
@@ -161,7 +186,7 @@ def resolve_action_state(play):
                 play.xVelocity = play.airSpeed * 0.85 * stick      # allow reversing momentum with jumps
                 if stick > 0:
                     play.isRight = True
-                else:
+                if stick < 0:
                     play.isRight = False
             if play.blockkey and play.canBlock:
                 play.canBlock = False

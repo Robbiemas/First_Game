@@ -1,6 +1,5 @@
 import pygame, sys
 from pygame.locals import *
-import glob
 import time
 from states import Pause, text_objects
 from stages import Stage
@@ -9,14 +8,24 @@ from GatherInputs import gather_inputs
 from ChooseAction import resolve_action_state
 from DisplayInputs import disp_fps
 from DisplayInputs import disp_state
-import Camera
-
 
 pygame.init()
-flags = FULLSCREEN | HWSURFACE | DOUBLEBUF
+
+framePassed = 0
+initialized = False
+
+if framePassed < 1:
+    framePassed += 1
+else:
+    import Camera
+    initialized = True
 
 
-pygame.init()
+
+flags = FULLSCREEN | HWSURFACE | DOUBLEBUF | HWACCEL
+
+
+#pygame.init()
 pygame.joystick.init()
 clock = pygame.time.Clock()
 
@@ -33,10 +42,9 @@ fullscreen = True
 
 
 joys = pygame.joystick.Joystick(0)
-#joys2 = pygame.joystick.Joystick(1)
+joys2 = pygame.joystick.Joystick(1)
 joysticks = []
 
-glob.scale_fraction = 1
 
 #Animations
 """
@@ -114,16 +122,21 @@ def gameloop():
     global win
     global fullscreen
     global flags
+    global framePassed
+    global initialized
+
 
     run = True
     stageSelection = Stage('first')
     platforms = stageSelection.load_platforms()
     players = []
+    hasImportedCamera = False
 
 
     player1 = Character(stageSelection.spawn_position(1)[0], stageSelection.spawn_position(1)[1], players)
     player1.spawn = stageSelection.spawn_position(1)
     player2 = Character(stageSelection.spawn_position(2)[0], stageSelection.spawn_position(2)[1], players)
+    player2.spawn = stageSelection.spawn_position(2)
 
     player1.choosechar("DolphinMole")
     player2.choosechar("DolphinMole")
@@ -132,7 +145,15 @@ def gameloop():
     while run:
         clock.tick(60)
         win.fill([255, 255, 255])
-        scroll = Camera.camera_adjust(player1, player2, monitor_size, true_scroll)
+        if framePassed < 1:
+            framePassed += 1
+        else:
+            initialized = True
+            if not hasImportedCamera:
+                import Camera
+                Camera.grab_images()
+
+                hasImportedCamera = True
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -169,29 +190,34 @@ def gameloop():
                 if curr.solid or play.main_stick[1] < 0.55 or play.dropCount >= 5 or not play.actionable:
                     play.changeY(curr.plat_y() - 1)
 
-        Camera.draw_bg(win, scroll)
         xpos = 100
-        for play in players:
-            gather_inputs(player1, joys)
-            resolve_action_state(play)
-            play.set_prev_cords()
-            play.move_x()
-            play.move_y()  # move player
-            play.check_death(stageSelection)
-            if play.is_dead():
-                print("you lose loser")
-                play.new_game()
-            Camera.draw_char(win, play, xpos, scroll)
-            Camera.draw_ecb(win, play, scroll)
-            Camera.draw_prev_ecb(win, play, scroll)
+        if initialized:
+            scroll = Camera.camera_adjust(player1, player2, monitor_size, true_scroll)
+            Camera.draw_bg(win, scroll)
+            for play in players:
+                gather_inputs(player1, joys)
+                gather_inputs(player2, joys2)
+                resolve_action_state(play)
+                play.set_prev_cords()
+                play.move_x()
+                play.move_y()  # move player
+                play.check_death(stageSelection)
+                if play.is_dead():
+                    print("you lose loser")
+                    play.new_game()
+                Camera.draw_prev_ecb(win, play, scroll)
+                Camera.draw_char(win, play, xpos, scroll)
+              #  Camera.draw_ecb(win, play, scroll)
 
 
-            xpos += 650
 
-        # draw platforms
-        for p in platforms:
-            Camera.draw_stage(win, p, scroll)
-        disp_state(win, player1)
+                xpos += 650
+
+            # draw platforms
+           # map(lambda n: Camera.draw_stage(win, n, scroll), platforms)
+            for p in platforms:
+                Camera.draw_stage(win, p, scroll)
+     #   disp_state(win, player1)
         disp_fps(win, clock)
         pygame.display.flip()
 

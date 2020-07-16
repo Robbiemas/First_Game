@@ -14,9 +14,9 @@ class Stage():
     def load_platforms(self):
         platforms = set()
         if self.stageName == 'first':
-            left = Platform(470, 530, 246, 10, platforms, 0)
-            right = Platform(1196, 530, 246, 10, platforms, 0)
-            top = Platform(833, 408, 246, 10, platforms, 0)
+            left = Platform(470, 490, 246, 10, platforms, 0)     #530
+            right = Platform(1196, 490, 246, 10, platforms, 0)
+            top = Platform(833, 330, 246, 10, platforms, 0)     # 408
             floor = Platform(290, 710, 1360, 18, platforms, 1)
             return platforms
 
