@@ -1,5 +1,4 @@
-import pygame
-import pygame.joystick
+
 
 
 
@@ -16,6 +15,9 @@ def gather_inputs(player, joystick):
         player.main_stick[0] = 0
     if abs(player.main_stick[1]) < 0.22:
         player.main_stick[1] = 0
+
+    # angle deadzones
+    #if player.trajectory_to_Angle
 
 
   #  if joystick.event == pygame.JOYBUTTONDOWN:
@@ -37,6 +39,7 @@ def gather_inputs(player, joystick):
         player.grabkey = True
     else:
         player.grabkey = False
+        player.releasePause = True
     if joystick.get_button(5) or joystick.get_button(6):  # R and L
         player.blockkey = True
     else:
@@ -46,6 +49,7 @@ def gather_inputs(player, joystick):
         player.menukey = True
     else:
         player.menukey = False
+        player.menu = True
     if joystick.get_button(8):  # UP
         player.upkey = True
     else:

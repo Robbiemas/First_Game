@@ -46,59 +46,6 @@ joys2 = pygame.joystick.Joystick(1)
 joysticks = []
 
 
-#Animations
-"""
-crouching = []
-crouchingL = []
-walkRight = [pygame.image.load('R (1).png'), pygame.image.load('R (2).png'), pygame.image.load('R (3).png'),
-             pygame.image.load('R (4).png'), pygame.image.load('R (5).png'), pygame.image.load('R (6).png'),
-             pygame.image.load('R (7).png'), pygame.image.load('R (8).png')]
-walkLeft = [pygame.image.load('L (1).png'), pygame.image.load('L (2).png'), pygame.image.load('L (3).png'),
-            pygame.image.load('L (4).png'), pygame.image.load('L (5).png'), pygame.image.load('L (6).png'),
-            pygame.image.load('L (7).png'), pygame.image.load('L (8).png')]
-#char = pygame.image.load('standing.png')
-#charL = pygame.image.load('standingL.png')
-standing = []
-fireBall = [pygame.image.load('Fireball1.png'), pygame.image.load('Fireball2.png'), pygame.image.load('Fireball3.png'),
-            pygame.image.load('Fireball4.png'), pygame.image.load('Fireball5.png'), pygame.image.load('Fireball6.png'),
-            pygame.image.load('Fireball7.png'), pygame.image.load('Fireball8.png')]
-shootFire = [pygame.image.load('fball1.png'), pygame.image.load('fball2.png'), pygame.image.load('fball3.png'), pygame.image.load('fball4.png')]
-shootFireL = [pygame.image.load('fball1L.png'), pygame.image.load('fball2L.png'), pygame.image.load('fball3L.png'), pygame.image.load('fball4L.png')]
-jumpSquat = pygame.image.load('jumpsquat.png')
-jumpSquatL = pygame.image.load('jumpsquatL.png')
-air = pygame.image.load('air.png')
-airL = pygame.image.load('airL.png')
-crouchStart = []
-crouchStartL = []
-landingLag = []
-
-
-
-for filename in glob.glob('standing/*.png'):
-    im = pygame.image.load(filename)
-    standing.append(im)
-
-for filename in glob.glob('landingLag/*.png'):
-    im = pygame.image.load(filename)
-    landingLag.append(im)
-
-for filename in glob.glob('crouchStart/*R.png'):
-    im = pygame.image.load(filename)
-    crouchStart.append(im)
-
-for filename in glob.glob('crouchStart/*L.png'):
-    im = pygame.image.load(filename)
-    crouchStartL.append(im)
-
-for filename in glob.glob('crouchingpng/*.png'):
-    im = pygame.image.load(filename)
-    crouching.append(im)
-for filename in glob.glob('crouchingpngL/*.png'):
-    im = pygame.image.load(filename)
-    crouchingL.append(im)
-
-"""
-
 
 for x in range(pygame.joystick.get_count()):
     joysticks.append(pygame.joystick.Joystick(x))
@@ -125,13 +72,11 @@ def gameloop():
     global framePassed
     global initialized
 
-
     run = True
     stageSelection = Stage('first')
     platforms = stageSelection.load_platforms()
     players = []
     hasImportedCamera = False
-
 
     player1 = Character(stageSelection.spawn_position(1)[0], stageSelection.spawn_position(1)[1], players)
     player1.spawn = stageSelection.spawn_position(1)
@@ -143,7 +88,8 @@ def gameloop():
 
     # Main loop
     while run:
-        clock.tick(60)
+        #clock.tick(60)
+        clock.tick_busy_loop(60)
         win.fill([255, 255, 255])
         if framePassed < 1:
             framePassed += 1
@@ -173,8 +119,6 @@ def gameloop():
                         win = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
                     else:
                         win = pygame.display.set_mode((win.get_width(), win.get_height()), pygame.RESIZABLE)
-                if event.key == joys.get_button(7):
-                    Pause(win, monitor_size)
 
         player1.player_collision(player2)
         player2.player_collision(player1)
@@ -207,6 +151,9 @@ def gameloop():
                     play.new_game()
                 Camera.draw_prev_ecb(win, play, scroll)
                 Camera.draw_char(win, play, xpos, scroll)
+                if (play.menukey and play.menu) or (joys2.get_button(4) and not play.releasePause):
+                    play.menu = False
+                    Pause(win, monitor_size, joys2, play, scroll, platforms, xpos)
               #  Camera.draw_ecb(win, play, scroll)
 
 
@@ -217,7 +164,7 @@ def gameloop():
            # map(lambda n: Camera.draw_stage(win, n, scroll), platforms)
             for p in platforms:
                 Camera.draw_stage(win, p, scroll)
-     #   disp_state(win, player1)
+        #disp_state(win, player2)
         disp_fps(win, clock)
         pygame.display.flip()
 

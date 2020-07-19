@@ -1,7 +1,7 @@
-from platform import Platform
+from Plat import Platform
 
 
-class Stage():
+class Stage:
     def __init__(self, name):
         self.stageName = name
         if name == 'first':

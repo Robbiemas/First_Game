@@ -19,13 +19,14 @@ def gather_images(character, state):        # gather images
 def store_images(character, state):         # store images
     global DolphinMoleAnimations
     image_list = gather_images(character, state)            # take array of converted images of character state
-    #DolpinMoleAnimations
     character_animation = str(character + "Animations")
     if str(character_animation) == "DolphinMoleAnimations":
         DolphinMoleAnimations.append(image_list)                             # append array state list per character
 
 
-animations = ['standing', 'running', 'air', 'dashing']
+# order should match camera dictionary
+animations = ['standing', 'running', 'dashing', 'walking', 'air', "landingLag", "airDodge", "jumpSquat", "freeFall",
+              "turning", "runTurn", 'blocking', 'shield']
 characters = ["DolphinMole"]
 
 
