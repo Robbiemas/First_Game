@@ -79,6 +79,21 @@ def draw_shield(win, play, scroll):
             win.blit(pygame.transform.flip(DMAni[12][0], True, False), (get_x(play, scroll) - 10 , get_y(play, scroll)))
 
 
+def get_mask(play):
+    state = play.state
+    if play.character == 'DolphinMole':
+        if play.aniCount + 1 > len(DMAni[d[state]]):
+            play.aniCount = 0
+
+        play.height = DMAni[d[state]][play.aniCount].get_height()
+        play.width = DMAni[d[state]][play.aniCount].get_width()
+
+        if play.isRight:
+            play.mask = pygame.mask.from_surface(DMAni[d[state]][play.aniCount])
+            print(play.mask)
+        else:
+            play.mask = pygame.mask.from_surface(pygame.transform.flip(DMAni[d[state]][play.aniCount], True, False))
+
 
 def draw_char(win, play, xpos, scroll):
     play.draw_lives(win, xpos, 50)
@@ -90,8 +105,8 @@ def draw_char(win, play, xpos, scroll):
         if play.aniCount + 1 > len(DMAni[d[state]]):
             play.aniCount = 0
 
-        play.height = DMAni[d[state]][play.aniCount].get_height()
-        play.width = DMAni[d[state]][play.aniCount].get_width()
+        #play.height = DMAni[d[state]][play.aniCount].get_height()
+        #play.width = DMAni[d[state]][play.aniCount].get_width()
 
         if play.isRight:
             win.blit(DMAni[d[state]][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
@@ -103,279 +118,6 @@ def draw_char(win, play, xpos, scroll):
 
     if play.shielding:
         draw_shield(win, play, scroll)
-
-
-
-    """
-    # setting animations
-    if play.crouching:
-        if play.isRight:
-            if play.aniCount + 1 >= "crouch animation frames":
-                play.aniCount = 0
-            win.blit("crouch folder with pngs"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "crouch animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("crouch folder with pngs"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.standing:
-        play.height = DMAni[0][(play.aniCount // 50) - 1].get_height()
-        play.width = DMAni[0][(play.aniCount // 50) - 1].get_width()
-        if play.isRight:
-            if play.aniCount + 1 > 100:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(DMAni[0][play.aniCount // 50],
-                         (get_x(play, scroll), get_y(play, scroll)))  # [play.aniCount//8]
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 > 100:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(pygame.transform.flip(DMAni[0][play.aniCount // 50], True, False),
-                         (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-
-    #  play.height = DMAni[0][play.aniCount//50].get_height()
-    #  play.width = DMAni[0][play.aniCount//50].get_width()
-
-    if play.air:
-        play.height = DMAni[2][play.aniCount].get_height()
-        play.width = DMAni[2][play.aniCount].get_width()
-
-        if play.isRight:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(DMAni[2][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(pygame.transform.flip(DMAni[2][play.aniCount], True, False),
-                         (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-
-    if play.jumpSquat:
-        pygame.draw.rect(win, (255, 0, 0), (x, y + 30, play.width, play.height))
-        # actual code
-        
-        if play.isRight:
-            if play.aniCount + 1 >= "jumpquat animation frames":
-                play.aniCount = 0
-            win.blit("jumpSquat folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "jumpsquat animation frames":
-                play.aniCount = 0
-            win.blit("jumpSquat folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        
-    if play.landingLag:
-        pygame.draw.rect(win, (255, 0, 0), (x, y + 12, play.width, play.height))
-        
-        # actual code
-        if play.isRight:
-            if play.aniCount + 1 >= "landing animation frames":
-                play.aniCount = 0
-            win.blit("landingLag folder with pngs"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "landing animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("landingLag folder with pngs"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-        
-    if play.crouchStart:
-        if play.isRight:
-            if play.aniCount + 1 >= "crouch start animation frames":
-                play.aniCount = 0
-            win.blit("crouch start folder with pngs"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "crouch start animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("crouch start folder with pngs"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.dashing:
-        play.height = DMAni[3][play.aniCount].get_height()
-        play.width = DMAni[3][play.aniCount].get_width()
-
-        if play.isRight:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(DMAni[3][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(pygame.transform.flip(DMAni[3][play.aniCount], True, False),
-                         (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-
-    if play.walking:
-        pygame.draw.rect(win, (255, 0, 0), (x, y, play.width, play.height))
-        # actual code
-        
-        # if holding past .30 on x stick, else do slow walk
-        if play.isRight:
-            if play.aniCount + 1 >= "walk animation frames":
-                play.aniCount = 0
-            win.blit("walk folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "walk animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("walk folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-        
-
-    if play.running:
-        play.height = DMAni[1][play.aniCount].get_height()
-        play.width = DMAni[1][play.aniCount].get_width()
-
-        if play.isRight:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(DMAni[1][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= 2:
-                play.aniCount = 0
-            if play.character == 'DolphinMole':
-                win.blit(pygame.transform.flip(DMAni[1][play.aniCount], True, False),
-                         (get_x(play, scroll), get_y(play, scroll)))
-            play.aniCount += 1
-
-    if play.blocking:
-        if play.isRight:
-            if play.aniCount + 1 >= "block animation frames":
-                play.aniCount = 0
-            win.blit("block folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "block animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("block folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.roll:
-        if play.isRight:
-            if play.aniCount + 1 >= "roll animation frames":
-                play.aniCount = 0
-            win.blit("roll folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "roll animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("roll folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.dodge:
-        if play.isRight:
-            if play.aniCount + 1 >= "dodge animation frames":
-                play.aniCount = 0
-            win.blit("dodge folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "dodge animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("dodge folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-
-    if play.uair:
-        if play.isRight:
-            if play.aniCount + 1 >= "uair animation frames":
-                play.aniCount = 0
-            win.blit("uair folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "uair animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("uair folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.fair:
-        if play.isRight:
-            if play.aniCount + 1 >= "fair animation frames":
-                play.aniCount = 0
-            win.blit("air folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "fair animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("fair folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.dair:
-        if play.isRight:
-            if play.aniCount + 1 >= "dair animation frames":
-                play.aniCount = 0
-            win.blit("dair folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "dair animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("dair folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.bair:
-        if play.isRight:
-            if play.aniCount + 1 >= "bair animation frames":
-                play.aniCount = 0
-            win.blit("bair folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "bair animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("bair folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.nair:
-        if play.isRight:
-            if play.aniCount + 1 >= "nair animation frames":
-                play.aniCount = 0
-            win.blit("nair folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "nair animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("nair folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-
-    if play.ftilt:
-        if play.isRight:
-            if play.aniCount + 1 >= "ftilt animation frames":
-                play.aniCount = 0
-            win.blit("ftilt folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "ftilt animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("ftilt folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.utilt:
-        if play.isRight:
-            if play.aniCount + 1 >= "utilt animation frames":
-                play.aniCount = 0
-            win.blit("utilt folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "utilt animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("utilt folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-    if play.dtilt:
-        if play.isRight:
-            if play.aniCount + 1 >= "dtilt animation frames":
-                play.aniCount = 0
-            win.blit("dtilt folder"[play.aniCount], (x, y))
-            play.aniCount += 1
-        else:
-            if play.aniCount + 1 >= "dtilt animation frames":
-                play.aniCount = 0
-            win.blit(pygame.transform.flip("dtilt folder"[play.aniCount], True, False), (x, y))
-            play.aniCount += 1
-"""
 
 def draw_ecb(win, self, scroll):
     ecb_bot = (self.x - scroll[0], self.y - scroll[1])

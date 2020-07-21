@@ -22,7 +22,7 @@ else:
 
 
 
-flags = FULLSCREEN | HWSURFACE | DOUBLEBUF | HWACCEL
+flags = FULLSCREEN | HWSURFACE | DOUBLEBUF  | HWACCEL
 
 
 #pygame.init()
@@ -142,10 +142,15 @@ def gameloop():
                 gather_inputs(player1, joys)
                 gather_inputs(player2, joys2)
                 resolve_action_state(play)
+                Camera.get_mask(play)
+
                 play.set_prev_cords()
                 play.move_x()
                 play.move_y()  # move player
                 play.check_death(stageSelection)
+
+              #  Camera.draw_ecb(win, play, scroll)
+            for play in players:
                 if play.is_dead():
                     print("you lose loser")
                     play.new_game()
@@ -154,8 +159,6 @@ def gameloop():
                 if (play.menukey and play.menu) or (joys2.get_button(4) and not play.releasePause):
                     play.menu = False
                     Pause(win, monitor_size, joys2, play, scroll, platforms, xpos)
-              #  Camera.draw_ecb(win, play, scroll)
-
 
 
                 xpos += 650
@@ -170,120 +173,3 @@ def gameloop():
 
 
 gameloop()
-
-"""
-        for bullet in bullets:
-            if monitor_size[0] > bullet.x > 0:
-                bullet.projectile_active = True
-                bullet.x += bullet.vel
-                bullet.Bounciness(bullet.y)
-            else:
-                bullets.pop(bullets.index(bullet))
-                bullet.projectile_active = False
-
-        if keys[pygame.K_SPACE] or joys.get_button(1):
-            if flag:
-                startTime = pygame.time.get_ticks()
-                if mario.isRight:
-                    facing = 1
-                else:
-                    facing = -1
-                if len(bullets) < 9 and flag:
-                    bullets.append(projectile(round(mario.x + mario.width //2), round(mario.y + mario.height//2), 6, (0, 0, 0), facing))
-                    flag = False
-
-        if not flag and ((pygame.time.get_ticks() - startTime) >= 180) and doubleFire:
-            flag = True
-            doubleFire = False
-        if not flag and ((pygame.time.get_ticks() - startTime) >= 540):
-            flag = True
-            doubleFire = True
-
-        if not mario.jumpSquat and not mario.attacking and not mario.crouchStart and not landing:
-            if (main_stick[0] < -.4 or keys[pygame.K_LEFT] or keys[pygame.K_a]) and mario.x > mario.vel and not mario.action:
-                mario.x -= mario.vel
-                mario.left = True
-                mario.right = False
-                mario.standing = False
-                mario.walking = True
-                mario.crouching = False
-                cr = True
-            elif (main_stick[0] > .4 or keys[pygame.K_RIGHT] or keys[pygame.K_d]) and mario.x < monitor_size[0] - mario.width and not mario.action:
-                mario.x += mario.vel
-                mario.left = False
-                mario.right = True
-                mario.standing = False
-                mario.walking = True
-                mario.crouching = False
-                cr = True
-            else:
-                if not mario.isJump:
-                    mario.standing = True
-                mario.walkCount = 0
-                mario.walking = False
-        if mario.y < 0:
-            mario.jumpCount = -3
-        if not js and not landing:
-            if keys[pygame.K_UP] or keys[pygame.K_w] or joys.get_button(3):
-                mario.jumpSquat = True
-                mario.crouching = False
-                js = True
-                jumpTime = pygame.time.get_ticks()
-                mario.walkCount = 0
-                cr = False
-                mario.action = False
-                canDown = False
-        else:
-            if (pygame.time.get_ticks() - jumpTime) >= 80 and js:
-                mario.jumpSquat = False
-                mario.isJump = True
-                if mario.jumpCount >= -10:
-                    neg = 1
-                    if mario.jumpCount < 0:
-                        neg = -1
-                    mario.y -= (mario.jumpCount ** 2) * 0.3 * neg
-                    mario.jumpCount -= 1
-                else:
-                    landTime = pygame.time.get_ticks()
-                    landing = True
-              #      canDown = True
-                    js = False
-                    mario.standing = False
-                    mario.isJump = False
-                    mario.jumpCount = 10
-                    mario.action = True
-            if landing:
-                mario.landingLag = True
-                if pygame.time.get_ticks() - landTime >= 50:
-                    landing = False
-                    mario.aniCount = 0
-                    mario.landingLag = False
-                    canDown = True
-
-        if not mario.jumpSquat and not mario.isJump and not (keys[pygame.K_UP] or keys[pygame.K_w]):
-            if (main_stick[1] > .4 or keys[pygame.K_s] or keys[pygame.K_DOWN]) and not mario.isJump and canDown:
-                if cr:
-                    mario.standing = False
-                    mario.crouchStart = True
-                    mario.crouching = False
-                    mario.walking = False
-                    mario.action = True
-                    crouchTime = pygame.time.get_ticks()
-                    mario.walkCount = 0
-                    mario.aniCount = 0
-                    cr = False
-
-                if mario.crouchStart:
-                    if pygame.time.get_ticks() - crouchTime >= 50:
-                        mario.crouchStart = False
-                        mario.crouching = True
-                        mario.aniCount = 0
-            else:
-                cr = True
-                mario.crouchStart = False
-                mario.crouching = False
-                mario.action = False
-                
-"""
-
-

@@ -2,9 +2,6 @@ import pygame
 import math
 
 
-
-
-
 class Character(object):
 
     def __init__(self, x, y, players):
@@ -38,6 +35,8 @@ class Character(object):
         self.shieldDepletionRate = -0.28
         self.shieldRegenRate = 0.07
         self.state = "air"
+        self.multiplier = 6
+        self.hitBoxes = []
         players.append(self)
 
         self.air = False
@@ -131,6 +130,7 @@ class Character(object):
         self.dashLagCount = 0
         self.turnCount = 0
         self.lagCount = 0
+        self.attackCount = 0
         self.shieldHP = 60
 
         # timers
@@ -188,6 +188,30 @@ class Character(object):
                 #    self.d[ref] = False  # else set self.(reference state) = False
         self.aniCount = 0
         print(self.state)
+
+    def set_hit_boxes(self, attack, scroll):
+        if self.isRight:
+            o = 1
+        else:
+            o = -1
+        if self.choosechar == "DolphinMole":
+            if attack == "jab":
+                self.attackCount += 1
+
+                # on frame 3 append jab 1 hitbox to self.hitboxes
+                if self.attackCount == 3:     #(pos, radius, type, damage, angle, baseKnockback, knockbackScaling, fixed)
+                    self.hitBoxes.append(Hitbox(((self.x - scroll) + 40*o, (self.y - scroll) - 80), 10, type, 3, 90, 20, 100, False))
+                # after 2 frames clear self.hitboxes
+                if self.attackCount == 5:
+                    self.hitBoxes = []
+                # after 19 frames end jab 1
+                if self.attackCount == 19:
+                    # stop jab
+                    self.attackCount = 0
+
+    def check_hit(self, HITBOXES):
+        for hitbox in HITBOXES:
+            result = self.mask.overlap(hitbox, )
 
     def block(self):
         release = False
@@ -435,39 +459,40 @@ class Character(object):
 
 
     def walk(self, xjoyvalue):
+        m = self.multiplier
         if -0.1 >= xjoyvalue >= -1.0:  # left
-            if 0 > xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3)):
+            if 0 > xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3) * m):
                 self.walkSlow = True
                 self.walkMiddle = False
                 self.walkFast = False
-                self.xVelocity += -self.walkSpeed / 30
-            if -0.33 >= xjoyvalue >= -0.53 and (self.xVelocity > (-self.walkSpeed/2)):
+                self.xVelocity += -self.walkSpeed
+            if -0.33 >= xjoyvalue >= -0.53 and (self.xVelocity > (-self.walkSpeed * 2/3) * m):
                 self.walkMiddle = True
                 self.walkSlow = False
                 self.walkFast = False
-                self.xVelocity += -self.walkSpeed / 20
-            if xjoyvalue < -0.53 and (self.xVelocity > (-self.walkSpeed)):
+                self.xVelocity += -self.walkSpeed
+            if xjoyvalue < -0.53 and (self.xVelocity > (-self.walkSpeed) * m):
                 self.walkFast = True
                 self.walkSlow = False
                 self.walkMiddle = False
-                self.xVelocity += self.walkSpeed * xjoyvalue / 10
+                self.xVelocity += self.walkSpeed * xjoyvalue
             self.isRight = False
         if 0.1 <= xjoyvalue <= 1.0:  # right
-            if 0 < xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3)):
+            if 0 < xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3) * m):
                 self.walkSlow = True
                 self.walkMiddle = False
                 self.walkFast = False
-                self.xVelocity += self.walkSpeed / 30
-            if 0.33 <= xjoyvalue <= 0.53 and (self.xVelocity < (self.walkSpeed/2)):
+                self.xVelocity += self.walkSpeed
+            if 0.33 <= xjoyvalue <= 0.53 and (self.xVelocity < (self.walkSpeed * 2/3) * m):
                 self.walkMiddle = True
                 self.walkSlow = False
                 self.walkFast = False
-                self.xVelocity += self.walkSpeed / 20
-            if xjoyvalue > 0.53 and (self.xVelocity < (self.walkSpeed)):
+                self.xVelocity += self.walkSpeed
+            if xjoyvalue > 0.53 and (self.xVelocity < (self.walkSpeed) * m):
                 self.walkFast = True
                 self.walkSlow = False
                 self.walkMiddle = False
-                self.xVelocity += self.walkSpeed * xjoyvalue / 10
+                self.xVelocity += self.walkSpeed * xjoyvalue
             self.isRight = True
           #  else:
            #     self.xVelocity -= 0.20
@@ -512,8 +537,6 @@ class Character(object):
                 self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
                 self.xVelocity *= 1 + (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
         """
-        if stick == 0:
-            self.apply_traction(self.xVelocity)
 
 
         if self.dashCount >= self.dashFrames:  # if dashFrames elapsed
@@ -531,12 +554,13 @@ class Character(object):
                 self.dashCount = 0
                 #self.turnCount = 2
                 self.actionable = True
-        elif ((self.isRight and stick <= -0.80) or (not self.isRight and stick >= 0.80)) and ((self.canDash and self.xCount < self.dashFrames) or self.dashCount) == 1:
+        elif ((self.isRight and stick <= -0.80) or (not self.isRight and stick >= 0.80)) and ((self.canDash and self.xCount < self.dashFrames) or self.dashCount == 1):
             self.set_state("standing")
             self.xVelocity = 0
             self.dashCount = 0
             self.actionable = True
             self.dashTurn = True
+            self.smashTurn = True
             #self.turnCount += 1
 
         self.dashCount += 1
@@ -624,284 +648,6 @@ class Character(object):
             pygame.draw.rect(win, (255, 0, 0), (xpos, ypos, 10, 10))
             xpos += 15
 
-
-
-        """
-    def draw(self, win):
-        x = self.x - (self.width // 2)
-        y = self.y - self.height
-
-        #  if self.walkCount + 1 >= "walk animation frame #":
-        #      self.walkCount = 0
-
-        # setting animations
-        if self.crouching:
-            if self.isRight:
-                if self.aniCount + 1 >= "crouch animation frames":
-                    self.aniCount = 0
-                win.blit("crouch folder with pngs"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "crouch animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("crouch folder with pngs"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.standing:
-            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
-            # actual code
-        """
-        """
-            if self.isRight:
-                if self.aniCount + 1 >= "standing animation frames":
-                    self.aniCount = 0
-                win.blit("stand folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "standing animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("stand folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        """
-        """
-        if self.air:
-            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
-            # actual code
-        """
-
-
-        """
-        if self.isRight:
-            if self.aniCount + 1 >= "air animation frames":
-                self.aniCount = 0
-            win.blit("air folder"[self.aniCount], (x, y))
-            self.aniCount += 1
-        else:
-            if self.aniCount + 1 >= "air animation frames":
-                self.aniCount = 0
-            win.blit(pygame.transform.flip("air folder"[self.aniCount], True, False), (x, y))
-            self.aniCount += 1
-        """
-        """
-        if self.jumpSquat:
-            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + 30 + scroll[1], self.width, self.height))
-            # actual code
-        """
-        """
-            if self.isRight:
-                if self.aniCount + 1 >= "jumpquat animation frames":
-                    self.aniCount = 0
-                win.blit("jumpSquat folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "jumpsquat animation frames":
-                    self.aniCount = 0
-                win.blit("jumpSquat folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-        """
-        """
-        if self.landingLag:
-            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + 12 + scroll[1], self.width, self.height))
-        """
-        """
-            # actual code
-            if self.isRight:
-                if self.aniCount + 1 >= "landing animation frames":
-                    self.aniCount = 0
-                win.blit("landingLag folder with pngs"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "landing animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("landingLag folder with pngs"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        """
-        """
-
-        if self.crouchStart:
-            if self.isRight:
-                if self.aniCount + 1 >= "crouch start animation frames":
-                    self.aniCount = 0
-                win.blit("crouch start folder with pngs"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "crouch start animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("crouch start folder with pngs"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.dash:
-            if self.isRight:
-                if self.aniCount + 1 >= "dash animation frames":
-                    self.aniCount = 0
-                win.blit("dash folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "dash animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("dash folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-
-        if self.walking:
-            pygame.draw.rect(win, (255, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
-            # actual code
-        """
-        """
-            # if holding past .30 on x stick, else do slow walk
-            if self.isRight:
-                if self.aniCount + 1 >= "walk animation frames":
-                    self.aniCount = 0
-                win.blit("walk folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "walk animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("walk folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        """
-        """
-
-        if self.running:
-            pygame.draw.rect(win, (175, 0, 0), (x + scroll[0], y + scroll[1], self.width, self.height))
-            # actual code
-        """
-        """
-            if self.isRight:
-                if self.aniCount + 1 >= "run animation frames":
-                    self.aniCount = 0
-                win.blit("run folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "run animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("run folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        """
-        """
-
-        if self.blocking:
-            if self.isRight:
-                if self.aniCount + 1 >= "block animation frames":
-                    self.aniCount = 0
-                win.blit("block folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "block animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("block folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.roll:
-            if self.isRight:
-                if self.aniCount + 1 >= "roll animation frames":
-                    self.aniCount = 0
-                win.blit("roll folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "roll animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("roll folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.dodge:
-            if self.isRight:
-                if self.aniCount + 1 >= "dodge animation frames":
-                    self.aniCount = 0
-                win.blit("dodge folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "dodge animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("dodge folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-
-        if self.uair:
-            if self.isRight:
-                if self.aniCount + 1 >= "uair animation frames":
-                    self.aniCount = 0
-                win.blit("uair folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "uair animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("uair folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.fair:
-            if self.isRight:
-                if self.aniCount + 1 >= "fair animation frames":
-                    self.aniCount = 0
-                win.blit("air folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "fair animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("fair folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.dair:
-            if self.isRight:
-                if self.aniCount + 1 >= "dair animation frames":
-                    self.aniCount = 0
-                win.blit("dair folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "dair animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("dair folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.bair:
-            if self.isRight:
-                if self.aniCount + 1 >= "bair animation frames":
-                    self.aniCount = 0
-                win.blit("bair folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "bair animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("bair folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.nair:
-            if self.isRight:
-                if self.aniCount + 1 >= "nair animation frames":
-                    self.aniCount = 0
-                win.blit("nair folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "nair animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("nair folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-
-        if self.ftilt:
-            if self.isRight:
-                if self.aniCount + 1 >= "ftilt animation frames":
-                    self.aniCount = 0
-                win.blit("ftilt folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "ftilt animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("ftilt folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.utilt:
-            if self.isRight:
-                if self.aniCount + 1 >= "utilt animation frames":
-                    self.aniCount = 0
-                win.blit("utilt folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "utilt animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("utilt folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-        if self.dtilt:
-            if self.isRight:
-                if self.aniCount + 1 >= "dtilt animation frames":
-                    self.aniCount = 0
-                win.blit("dtilt folder"[self.aniCount], (x, y))
-                self.aniCount += 1
-            else:
-                if self.aniCount + 1 >= "dtilt animation frames":
-                    self.aniCount = 0
-                win.blit(pygame.transform.flip("dtilt folder"[self.aniCount], True, False), (x, y))
-                self.aniCount += 1
-    """
-
     def choosechar(self, char):
         if char == "DolphinMole":
             self.dolphinmole()
@@ -911,8 +657,8 @@ class Character(object):
         self.width = 56
         self.height = 142
         self.weight = 30
-        self.runSpeed = 1.8
-        self.walkSpeed = 1.6 * 6
+        self.runSpeed = 2.3
+        self.walkSpeed = 0.85
         self.airSpeed = 8
         self.airAccelBase = 0.02
         self.airAccelAdd = 0.06
@@ -924,9 +670,9 @@ class Character(object):
         self.fallSpeed = 16
         self.fastFallSpeed = 18
         self.dashFrames = 15
-        self.initialDash = 1.5
-        self.dashAccelBase = 0.00
-        self.dashAccelAdd = 0.06
+        self.initialDash = 2
+        self.dashAccelBase = 0.10
+        self.dashAccelAdd = 0.15
         self.rollLength = 200
         self.airDodgeLength = 26
         self.airDodgeResistance = 0.80
@@ -967,40 +713,18 @@ class Character(object):
         pygame.draw.polygon(win, (235, 155, 0), (ecb_top, ecb_right, ecb_bot, ecb_left))
 
 
-"""
-class CharSelect(object):
-    def __init__(self, width, height, weight, runspeed, walkspeed, jumps, fallspeed, ffspeed, dashlength, rolllength, airdodgelength, jumpheight, jumpsquatnumber):
-        self.width = width
-        self.height = height
-        self.weight = weight
-        self.runSpeed = runspeed
-        self.walkSpeed = walkspeed
-        self.jumps = jumps
-        self.fallSpeed = fallspeed
-        self.fastFallSpeed = ffspeed
-        self.dashLength = dashlength
-        self.rollLength = rolllength
-        self.airDodgeLength = airdodgelength
-        self.jumpHeight = jumpheight
-        self.jumpSquatNumber = jumpsquatnumber
+class Hitbox(object):
+    def __init__(self, win, pos, radius, type, damage, angle, baseKnockback, knockbackScaling, fixed):
+        self.pos = pos
+        self.radius = radius
+        self.type = type
+        self.damage = damage
+        self.angle = angle
+        self.baseKnockback = baseKnockback
+        self.knockbackScaling = knockbackScaling
+        self.fixed = fixed
 
-    def choosechar(self, char):
-        if char == "DolphinMole":
-            self.dolphinmole()
+        self.mask = pygame.mask.from_surface(pygame.draw.circle(win, (255, 0, 0), pos, radius, 1))
 
-    def dolphinmole(self):
-        self.width = 56
-        self.height = 142
-        self.weight = 30
-        self.runSpeed = 10
-        self.walkSpeed = 8
-        self.jumps = 2
-        self.fallSpeed = 5
-        self.fastFallSpeed = 8
-        self.dashLength = 150
-        self.rollLength = 200
-        self.airDodgeLength = 200
-        self.jumpHeight = 200
-        self.jumpSquatNumber = 5
 
-"""
+

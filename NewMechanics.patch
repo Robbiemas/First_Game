@@ -1,0 +1,2754 @@
+Index: Camera.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- Camera.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ Camera.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -2,20 +2,21 @@
+ import math
+ from StoreImages import DolphinMoleAnimations, run_image_store
+ 
+-
+-#DMAni = DolphinMoleAnimations
+-            ######## USE pygame.image.load(imagepath).convert_alpha()
+-            ######## when implimenting images
+-            ######## just use .conver() if no alpha in image
+-
+-"""
+-standing = []
+-
+-for filename in glob.glob('DolphinMole/standing/*.png'):
+-    im = pygame.image.load(filename).convert_alpha()
+-    standing.append(im)
+-"""
+-
++d = {
++    'standing': 0,
++    'running': 1,
++    'dashing': 2,
++    'walking': 3,
++    'air': 4,
++    'landingLag': 5,
++    'airDodge': 6,
++    'jumpSquat': 7,
++    'freeFall': 8,
++    'turning': 9,
++    'runTurn': 10,
++    'blocking': 11,
++    'shield': 12
++}
+ 
+ def grab_images():
+     global DMAni
+@@ -35,12 +36,7 @@
+         return 1 / (dist / 600)
+ 
+ 
+-def scale(surface, xscale, yscale):
+-    return pygame.transform.scale(surface, [xscale, yscale])
+-
+-
+ def camera_adjust(player1, player2, monitor_size, true_scroll):
+-
+     xDist = player2.x - player1.x
+     yDist = player2.y - player2.y
+     dist = int(math.hypot(xDist, yDist))
+@@ -53,27 +49,64 @@
+     scroll = true_scroll.copy()
+     return [int(scroll[0]), int(scroll[1])]
+ 
++
+ def draw_bg(win, scroll):
+     bg = pygame.image.load('background.png')
+     win.blit(bg, (0 - scroll[0], 0 - scroll[1]))
+ 
++
+ def get_x(play, scroll):
+     x = (play.x - (play.width // 2)) - scroll[0]
+     return x
+ 
++
+ def get_y(play, scroll):
+     y = (play.y - play.height) - scroll[1]
+     return y
+ 
++def draw_shield(win, play, scroll):
++    if play.shieldHP > 60:
++        play.shieldHP = 60
++    if play.shieldHP < 0:
++        play.shieldHP = 0
++    size = int(play.shieldHP)
++    #circle = pygame.draw.circle(win, (255, 0, 0), (play.widgth/2 - scroll[0], play.height/2 - scroll[1]), size)
++    if size > 0:
++        #pygame.draw.circle(win, (255, 0, 0), (int(play.x - scroll[0]), int(play.y - (play.height/2) - scroll[1])), size)
++        if play.isRight:
++            win.blit(DMAni[12][0], (get_x(play, scroll) + 30, get_y(play, scroll)))
++        else:
++            win.blit(pygame.transform.flip(DMAni[12][0], True, False), (get_x(play, scroll) - 10 , get_y(play, scroll)))
++
++
++
+ def draw_char(win, play, xpos, scroll):
+     play.draw_lives(win, xpos, 50)
+-
++    state = play.state
+     x = (play.x - (play.width // 2)) - scroll[0]
+     y = (play.y - play.height) - scroll[1]
+ 
+-    #  if play.walkCount + 1 >= "walk animation frame #":
+-    #      play.walkCount = 0
++    if play.character == 'DolphinMole':
++        if play.aniCount + 1 > len(DMAni[d[state]]):
++            play.aniCount = 0
++
++        play.height = DMAni[d[state]][play.aniCount].get_height()
++        play.width = DMAni[d[state]][play.aniCount].get_width()
+ 
++        if play.isRight:
++            win.blit(DMAni[d[state]][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
++            play.aniCount += 1
++        else:
++            win.blit(pygame.transform.flip(DMAni[d[state]][play.aniCount], True, False),
++                     (get_x(play, scroll), get_y(play, scroll)))
++            play.aniCount += 1
++
++    if play.shielding:
++        draw_shield(win, play, scroll)
++
++
++
++    """
+     # setting animations
+     if play.crouching:
+         if play.isRight:
+@@ -87,25 +120,26 @@
+             win.blit(pygame.transform.flip("crouch folder with pngs"[play.aniCount], True, False), (x, y))
+             play.aniCount += 1
+     if play.standing:
+-        play.height = DMAni[0][(play.aniCount // 50)-1].get_height()
+-        play.width = DMAni[0][(play.aniCount // 50)-1].get_width()
++        play.height = DMAni[0][(play.aniCount // 50) - 1].get_height()
++        play.width = DMAni[0][(play.aniCount // 50) - 1].get_width()
+         if play.isRight:
+             if play.aniCount + 1 > 100:
+                 play.aniCount = 0
+             if play.character == 'DolphinMole':
+-                win.blit(DMAni[0][play.aniCount//50], (get_x(play, scroll), get_y(play, scroll)))        # [play.aniCount//8]
++                win.blit(DMAni[0][play.aniCount // 50],
++                         (get_x(play, scroll), get_y(play, scroll)))  # [play.aniCount//8]
+             play.aniCount += 1
+         else:
+             if play.aniCount + 1 > 100:
+                 play.aniCount = 0
+             if play.character == 'DolphinMole':
+-                win.blit(pygame.transform.flip(DMAni[0][play.aniCount//50], True, False), (get_x(play, scroll), get_y(play, scroll)))
++                win.blit(pygame.transform.flip(DMAni[0][play.aniCount // 50], True, False),
++                         (get_x(play, scroll), get_y(play, scroll)))
+             play.aniCount += 1
+ 
+-      #  play.height = DMAni[0][play.aniCount//50].get_height()
+-      #  play.width = DMAni[0][play.aniCount//50].get_width()
++    #  play.height = DMAni[0][play.aniCount//50].get_height()
++    #  play.width = DMAni[0][play.aniCount//50].get_width()
+ 
+-
+     if play.air:
+         play.height = DMAni[2][play.aniCount].get_height()
+         play.width = DMAni[2][play.aniCount].get_width()
+@@ -127,7 +161,7 @@
+     if play.jumpSquat:
+         pygame.draw.rect(win, (255, 0, 0), (x, y + 30, play.width, play.height))
+         # actual code
+-        """
++        
+         if play.isRight:
+             if play.aniCount + 1 >= "jumpquat animation frames":
+                 play.aniCount = 0
+@@ -138,10 +172,10 @@
+                 play.aniCount = 0
+             win.blit("jumpSquat folder"[play.aniCount], (x, y))
+             play.aniCount += 1
+-        """
++        
+     if play.landingLag:
+         pygame.draw.rect(win, (255, 0, 0), (x, y + 12, play.width, play.height))
+-        """
++        
+         # actual code
+         if play.isRight:
+             if play.aniCount + 1 >= "landing animation frames":
+@@ -153,7 +187,7 @@
+                 play.aniCount = 0
+             win.blit(pygame.transform.flip("landingLag folder with pngs"[play.aniCount], True, False), (x, y))
+             play.aniCount += 1
+-        """
++        
+     if play.crouchStart:
+         if play.isRight:
+             if play.aniCount + 1 >= "crouch start animation frames":
+@@ -186,7 +220,7 @@
+     if play.walking:
+         pygame.draw.rect(win, (255, 0, 0), (x, y, play.width, play.height))
+         # actual code
+-        """
++        
+         # if holding past .30 on x stick, else do slow walk
+         if play.isRight:
+             if play.aniCount + 1 >= "walk animation frames":
+@@ -198,7 +232,7 @@
+                 play.aniCount = 0
+             win.blit(pygame.transform.flip("walk folder"[play.aniCount], True, False), (x, y))
+             play.aniCount += 1
+-        """
++        
+ 
+     if play.running:
+         play.height = DMAni[1][play.aniCount].get_height()
+@@ -214,11 +248,10 @@
+             if play.aniCount + 1 >= 2:
+                 play.aniCount = 0
+             if play.character == 'DolphinMole':
+-                win.blit(pygame.transform.flip(DMAni[1][play.aniCount], True, False), (get_x(play, scroll), get_y(play, scroll)))
++                win.blit(pygame.transform.flip(DMAni[1][play.aniCount], True, False),
++                         (get_x(play, scroll), get_y(play, scroll)))
+             play.aniCount += 1
+ 
+-
+-
+     if play.blocking:
+         if play.isRight:
+             if play.aniCount + 1 >= "block animation frames":
+@@ -342,7 +375,7 @@
+                 play.aniCount = 0
+             win.blit(pygame.transform.flip("dtilt folder"[play.aniCount], True, False), (x, y))
+             play.aniCount += 1
+-
++"""
+ 
+ def draw_ecb(win, self, scroll):
+     ecb_bot = (self.x - scroll[0], self.y - scroll[1])
+@@ -362,4 +395,3 @@
+ 
+ def draw_stage(win, plat, scroll):
+     pygame.draw.rect(win, (0, 225, 0), (plat.x - scroll[0], plat.y - scroll[1], plat.w, plat.h))
+-
+Index: Characters.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- Characters.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ Characters.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -1,6 +1,10 @@
+ import pygame
+ import math
+ 
++
++
++
++
+ class Character(object):
+ 
+     def __init__(self, x, y, players):
+@@ -31,6 +35,9 @@
+         self.lives = 4
+         self.collision = 0
+         self.grounded = 0
++        self.shieldDepletionRate = -0.28
++        self.shieldRegenRate = 0.07
++        self.state = "air"
+         players.append(self)
+ 
+         self.air = False
+@@ -41,13 +48,26 @@
+         self.walkFast = False
+         self.dashing = False
+         self.running = False
+-        self.canRun = True
++        self.canDash = True
++        self.turning = False
++        self.smashTurn = False
++        self.tiltTurn = False
++        self.runTurn = False
++        self.dashTurn = False
++        self.fromDash = False
++        #self.canRun = True
++        self.smashFlag = False
++        self.resetFlag = False
++        self.releasePause = True
++
+ 
+         self.jumpSquat = False
+         self.crouchStart = False
+         self.crouching = False
+         self.landingLag = False
+         self.landing = False
++        self.endDash = False
++        self.endLag = False
+ 
+         self.actionable = True
+         self.attacking = False
+@@ -56,6 +76,8 @@
+ 
+         self.airDodge = False
+         self.blocking = False
++        self.canBlock = True
++        self.shielding = False
+         self.dodge = False
+         self.roll = False
+ 
+@@ -105,10 +127,188 @@
+         self.landLagCount = 0
+         self.dropCount = 0
+         self.dashCount = 0
++        self.dashLagCount = 0
++        self.turnCount = 0
++        self.lagCount = 0
++        self.shieldHP = 60
+ 
+         # timers
+         self.timer = 0
+ 
++    d = {
++        'standing': 'standing',
++        'running': 'running',
++        'dashing': 'dashing',
++        'air': 'air',
++        'walking': 'walking',
++        'jumpSquat': 'jumpSquat',
++        'crouchStart': 'crouchStart',
++        'crouching': 'crouching',
++        'landingLag': 'landingLag',
++        'endDash': 'endDash',
++        'hitstun': 'hitstun',
++        'freeFall': 'freefall',
++        'airDodge': 'airDodge',
++        'blocking': 'blocking',
++        'shieldstun': 'shieldstun',
++        'dodge': 'dodge',
++        'roll': 'roll',
++        'turning': 'turning',
++        'runTurn': 'runTurn',
++        'ftilt': 24,
++        'utilt': 25,
++        'dtilt': 26,
++        'fsmash': 27,
++        'usmash': 28,
++        'dsmash': 29,
++        'fair': 30,
++        'bair': 31,
++        'uair': 32,
++        'dair': 33,
++        'nair': 34,
++        'jab': 35,
++        'special': 37,
++        'uspecial': 38,
++        'dspecial': 39,
++        'fspecial': 40
++
++    }
++
++    def set_state(self, state):  # sets state with reference state, disables all other states
++        for ref in self.d:  # for each state in dictionary of states
++            if str(state) == ref:  # if reference state == dictionary state in for loop
++
++                setattr(self, state, True)
++                #self.d[ref] = True  # set self.(reference state) = True
++                self.state = ref# str(self.d[ref])
++            else:
++                setattr(self, ref, False)
++                #if self.d[ref]:
++                #    self.d[ref] = False  # else set self.(reference state) = False
++        self.aniCount = 0
++        print(self.state)
++
++    def block(self):
++        release = False
++        self.shieldHP += self.shieldDepletionRate
++        self.shielding = True
++        self.actionable = False
++        self.apply_traction(self.xVelocity)
++
++        if self.canBlock:
++            release = True
++            self.dodgeCount += 1
++        if release and self.dodgeCount > 15:
++            self.set_state("standing")
++            self.shielding = False
++            self.actionable = True
++            self.dodgeCount = 0
++
++
++
++    def turn(self, stick):
++        if self.turnCount < 2:              # if on frame 1 or 2
++
++            if self.turnCount == 0:
++
++                if abs(stick) >= 0.80:           # smash turn
++                    self.canDash = True
++                    self.smashTurn = True
++
++                    if self.isRight:
++                        self.isRight = False
++                    else:
++                        self.isRight = True
++                if 0.28 <= abs(stick) < -0.80:                 # tilt turn
++                    self.tiltTurn = True
++                    self.canDash = False
++
++                if self.dashTurn and self.smashTurn:
++
++                    if self.isRight:
++                        self.xVelocity = self.initialDash * 8
++                    else:
++                        self.xVelocity = -self.initialDash * 8
++                    self.set_state("dashing")  # DASH
++                    print("smash")
++                    self.smashFlag = False
++                    self.smashTurn = False
++                    self.tiltTurn = False
++                    self.turnCount = -1
++                    self.dashTurn = False
++
++            if self.turnCount == 1:
++                if abs(stick) >= 0.80:           # smash turn
++                    if not self.smashTurn:
++                        if self.isRight:
++                            self.isRight = False
++                        else:
++                            self.isRight = True
++                    self.canDash = True
++                    self.smashTurn = True
++                    self.tiltTurn = False
++
++                if abs(stick) < 0.80:                 # tilt turn
++                    self.tiltTurn = True
++                    self.smashTurn = False
++                    self.canDash = False
++
++            if self.smashTurn and self.turnCount == 1: # and self.smashFlag:    # if turn 2 and still in smashturn with flag
++                if self.isRight:
++                    self.xVelocity = self.initialDash * 8
++                else:
++                    self.xVelocity = -self.initialDash * 8
++                self.set_state("dashing")                               # DASH
++                print("smash")
++                self.smashFlag = False
++                self.smashTurn = False
++                self.tiltTurn = False
++                self.turnCount = -1
++
++        if self.turnCount == 2:
++           # if (stick == 0 and self.resetFlag) or (self.tiltTurn and self.resetFlag):
++             #   self.set_state("standing")
++             #   self.turnCount = 0
++              #  self.canDash = True
++
++            if abs(stick) > 0.28:
++                self.smashTurn = False
++                self.canDash = False
++                if abs(stick) >= 0.64:
++                    self.smashFlag = True
++
++        if 2 < self.turnCount <= self.turnFrames:
++            if self.turnCount == self.tiltFrames:
++                if self.isRight:
++                    self.isRight = False
++                else:
++                    self.isRight = True
++
++            if self.tiltFrames < self.turnCount <= self.turnFrames:
++                if abs(stick) >= 0.8 and self.smashFlag:  # smash turn
++                    # self.canDash = True
++                    if self.isRight:
++
++                        self.xVelocity = self.initialDash * 6
++                    else:
++                        self.xVelocity = -self.initialDash * 6
++
++                    self.set_state("dashing")  # DASH
++                    self.turnCount = -1
++                    self.tiltFlag = False
++                    self.smashTurn = False
++                    # self.canDash = False
++
++        self.turnCount += 1
++
++        if self.turnCount >= 12:
++            self.set_state("standing")
++            self.turnCount = 0
++            self.tiltTurn = False
++            self.smashTurn = False
++
++
++
+     def set_prev_cords(self):
+         self.prevX = self.x
+         self.prevY = self.y
+@@ -139,11 +339,6 @@
+             self.gCount *= 1 + gWeight
+             self.change_velocity(self.yVelocity + self.gCount)
+ 
+-    def call_x(self):
+-        return self.x
+-
+-    def call_y(self):
+-        return self.y
+ 
+     def move_x(self):
+         self.x += self.xVelocity
+@@ -151,6 +346,9 @@
+     def move_y(self):
+         self.y += self.yVelocity
+ 
++    def changeY(self, newY):
++        self.y = newY
++
+     def change_velocity(self, vel):  # checks if given velocity is over the ff speed then sets new velocity
+         #    self.y = self.y - vel * .05
+         if vel > self.fastFallSpeed:
+@@ -164,9 +362,6 @@
+     def reset_y_velocity(self):
+         self.yVelocity = 0
+ 
+-    def changeY(self, newY):
+-        self.y = newY
+-
+     def check_death(self, stage):
+         if stage.stageName == 'first':
+             if self.y > stage.lowerbound:
+@@ -227,7 +422,7 @@
+ 
+     def walk(self, xjoyvalue):
+         if -0.1 >= xjoyvalue >= -1.0:  # left
+-            if -0.23 >= xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3)):
++            if 0 > xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3)):
+                 self.walkSlow = True
+                 self.walkMiddle = False
+                 self.walkFast = False
+@@ -244,7 +439,7 @@
+                 self.xVelocity += self.walkSpeed * xjoyvalue / 10
+             self.isRight = False
+         if 0.1 <= xjoyvalue <= 1.0:  # right
+-            if 0.23 <= xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3)):
++            if 0 < xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3)):
+                 self.walkSlow = True
+                 self.walkMiddle = False
+                 self.walkFast = False
+@@ -264,27 +459,92 @@
+            #     self.xVelocity -= 0.20
+ 
+     def dash(self, xjoyvalue):
+-        if -0.1 >= xjoyvalue >= -1.0:
+-            self.xVelocity -= 5 * self.dashAccelBase  # accel at base speed first
+-            self.xVelocity += 5 * (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
+-            self.isRight = False
++        stick = xjoyvalue
++        """
++        if abs(stick) > 0.64 and (abs(self.xVelocity) > self.runSpeed * 8):
++            if self.isRight:
++                if stick > 0:
++                    self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
++                else:
++                    self.xVelocity *= 1 - self.dashAccelBase
++
++                self.xVelocity *= 1 + (self.dashAccelAdd * stick)  # add accel based on x value
++            else:
++                if stick > 0:
++                    self.xVelocity *= 1 - self.dashAccelBase
++                else:
++                    self.xVelocity *= 1 + self.dashAccelBase
++
++                self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
++        """
++        if -0.1 >= xjoyvalue >= -1.0 and (self.xVelocity > -self.runSpeed * 8) and not self.isRight:
++
++            if -0.64 >= xjoyvalue >= -0.76 and (self.xVelocity * 0.85 > 8 * -self.runSpeed):
++                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
++                self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
++            if xjoyvalue < -0.76 and (self.xVelocity > 8 * (-self.runSpeed)):
++                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
++                self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
++
++            #self.isRight = False
++
++        if 0.1 <= xjoyvalue <= 1.0 and (self.xVelocity < self.runSpeed * 8) and self.isRight:  # right, velocity isn't at max airspeed
++
++            if 0.64 <= xjoyvalue <= 0.76 and (self.xVelocity * 0.85 < 8 * self.runSpeed):
++                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
++                self.xVelocity *= 1 + (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
++            if xjoyvalue > 0.76 and (self.xVelocity < 8 * self.runSpeed):
++                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
++                self.xVelocity *= 1 + (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
++
++        if stick == 0:
++            self.apply_traction(self.xVelocity)
+ 
+-        if 0.1 <= xjoyvalue <= 1.0:  # right, velocity isn't at max airspeed
+-            self.xVelocity += 5 * self.dashAccelBase  # accel at base speed first
+-            self.xVelocity += 5 * (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
+-            self.isRight = True
+-        self.running = False
+-        self.walking = False
++        if self.dashCount > self.dashFrames:  # if dashFrames elapsed
++            if (self.isRight and stick >= 0.64) or (not self.isRight and stick <= -0.64):   # if dash is over, run
++                self.set_state("running")
++                self.dashCount = 0
++            elif 0 < abs(stick) < 0.64:
++                self.set_state("walking")
++                self.actionable = True
++                self.dashCount = 0
++                #self.turnCount = 2
++            else:
++                self.set_state("standing")
++                self.actionable = True
++                self.dashCount = 0
++                #self.turnCount = 2
++                self.actionable = True
++        elif (self.isRight and stick <= -0.80) or (not self.isRight and stick >= 0.80) and self.canDash:
++            self.set_state("standing")
++            self.xVelocity = 0
++            self.dashCount = 0
++            self.actionable = True
++            self.dashTurn = True
++            #self.turnCount += 1
++
++        self.dashCount += 1
++        if self.dashCount == 4:
++            self.canDash = True
+ 
+ 
+     def run(self, xjoyvalue):
+-        if -0.2 >= xjoyvalue >= -1.0:  # left
+-            self.xVelocity = -(self.runSpeed)
+-            self.isRight = False
++        speed = self.xVelocity
++        if -0.1 >= xjoyvalue >= -1.0 and not self.isRight:  # left
++            if -0.64 >= xjoyvalue >= -0.76 and (self.xVelocity > 8 * (-self.runSpeed * 0.90)):
++                self.xVelocity += -self.runSpeed * xjoyvalue * 0.85
++            if xjoyvalue < -0.76 and (self.xVelocity > 8 * (-self.runSpeed)):
++                self.xVelocity += self.runSpeed * xjoyvalue
++            #self.isRight = False
++        if 0.1 <= xjoyvalue <= 1.0 and self.isRight:  # right
++            if 0.64 <= xjoyvalue <= 0.76 and (self.xVelocity < 8 * (self.runSpeed * 0.90)):
++                self.xVelocity += self.runSpeed * xjoyvalue * 0.85
++            if xjoyvalue > 0.76 and (self.xVelocity < 8 * self.runSpeed):
++                self.xVelocity += self.runSpeed * xjoyvalue
++            #self.isRight = True
++        if not self.runTurn and (self.runSpeed == self.initialDash):
++            self.xVelocity = speed
+ 
+-        if 0.2 <= xjoyvalue <= 1.0:  # right
+-            self.xVelocity = self.runSpeed
+-            self.isRight = True
+ 
+ 
+     def apply_traction(self, vel):
+@@ -298,15 +558,30 @@
+             self.yVelocity = self.fastFallSpeed
+ 
+     def air_dodge(self):
+-        if self.main_stick == [0, 0]:
+-            self.xVelocity = 0
+-            self.yVelocity = 0
+-        else:
+-            self.xVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[0] * self.airDodgeLength
+-            self.yVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[1] * self.airDodgeLength
+-        self.airDodge = True
+-        self.air = False
+-        self.actionable = False
++        self.dodgeCount += 1
++
++        if self.dodgeCount == 1:
++            if self.main_stick == [0, 0]:
++                self.xVelocity = 0
++                self.yVelocity = 0
++            else:
++                self.xVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[0] * self.airDodgeLength
++                self.yVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[1] * self.airDodgeLength
++            self.actionable = False
++        else:
++            if self.xVelocity < 0:
++                self.xVelocity = -((math.sqrt(abs(self.xVelocity)) - 0.2) ** 2)
++            else:
++                self.xVelocity = (math.sqrt(self.xVelocity) - 0.2) ** 2
++            if self.yVelocity < 0:
++                self.yVelocity = -((math.sqrt(abs(self.yVelocity)) - 0.2) ** 2)
++            else:
++                self.yVelocity = (math.sqrt(self.yVelocity) - 0.2) ** 2
++
++        if self.dodgeCount >= 40:
++            self.set_state("freeFall")
++            self.dodgeCount = 0
++            self.xVelocity = 0
+ 
+     def angle_to_trajectory(self, angle):
+         yValue = -(math.sin(math.radians(angle)))
+@@ -333,6 +608,8 @@
+             pygame.draw.rect(win, (255, 0, 0), (xpos, ypos, 10, 10))
+             xpos += 15
+ 
++
++
+         """
+     def draw(self, win):
+         x = self.x - (self.width // 2)
+@@ -618,31 +895,31 @@
+         self.width = 56
+         self.height = 142
+         self.weight = 30
+-        self.runSpeed = 12
+-        self.walkSpeed = 6
++        self.runSpeed = 2.3
++        self.walkSpeed = .85 * 8
+         self.airSpeed = 8
+         self.airAccelBase = 0.02
+         self.airAccelAdd = 0.06
+         self.airFriction = 0.06
+-        self.traction = 0.1
++        self.traction = 0.08
+         self.jumps = 2
+         self.jumpCount = 2
+-        self.js = 5                         # jump squat frames
++        self.js = 3                         # jump squat frames
+         self.fallSpeed = 16
+         self.fastFallSpeed = 18
+-        self.dashFrames = 11
+-        self.initialDash = 10
+-        self.dashAccelBase = 0.02
+-        self.dashAccelBase = 0.02
+-        self.dashAccelAdd = 0.1
++        self.dashFrames = 15
++        self.initialDash = 2
++        self.dashAccelBase = 0.1
++        self.dashAccelAdd = 0.15
+         self.rollLength = 200
+         self.airDodgeLength = 26
+         self.airDodgeResistance = 0.80
+         self.jumpHeight = -28
+         self.shortHop = -18
+         self.airJumpHeight = -28
+-        self.jumpSquatNumber = 3
+         self.gWeight = 0.02
++        self.turnFrames = 11
++        self.tiltFrames = 5
+ 
+ 
+     def ecb(self):
+Index: ChooseAction.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- ChooseAction.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ ChooseAction.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -3,8 +3,6 @@
+ 
+ def resolve_action_state(play):
+     stick = play.main_stick[0]    # SAVE SPACE WHEN CALLING X AXIS
+-    walk = play.walking
+-    run = play.running
+ 
+     if play.main_stick[1] == 0:  # resets the count for dropping through platforms if stick Y axis = 0
+         play.dropCount = 0
+@@ -12,164 +10,290 @@
+         play.dropCount += 1
+ 
+     if stick == 0:
+-        play.running = False
+-        play.walking = False
+         play.xCount = 0
+-        play.canRun = True
+-      #  play.aniCount = 0
+-        play.dashCount = 0
+-        if play.dashing:
+-            play.dashing = False
+-            play.aniCount = 0
++        #play.dashCount = 0
++        if play.running:
++
++            play.endLag = True
++    else:
++        play.xCount += 1
++        #play.dashCount += 1
++
+ 
+ 
+     if play.grounded:                       # if grounded
+-        play.freeFall = False                   # set cancel freeFall
++        play.jumpCount = play.jumps
+ 
+-        if play.xVelocity == 0:                 # STOPS SLIDING when not moving
+-            play.sliding = False
+-
+-        if play.airDodge:                       # LANDING with an AIR DODGE
+-            play.jumpCount = play.jumps             # reset jumps
+-            play.airDodge = False                   # sets airDodge to FALSE
+-            play.air = True                         # sets air to TRUE to initialize landingLag
+-            play.sliding = True                     # set's sliding to True buy default
+-
+-        if play.air:                                # LANDING from the AIR
++        if play.air or play.airDodge or play.freeFall:                                # LANDING from the AIR
+             play.jumpCount = play.jumps                 # reset jumps
+-            play.timer = pygame.time.get_ticks()        # sets TIMER for landingLag
+-            play.air = False                            # sets air to FALSE
+-            play.landingLag = True                      # sets landingLag to TRUE
++            play.set_state("landingLag")
++            play.dodgeCount = 0
+ 
+         if play.landingLag:                         # in LANDING LAG
+             play.landLagCount += 1                      # count landLagCount
+-            play.standing = False                       # sets standing to FALSE
++            play.canJump = False
+             play.actionable = False                     # no longer ACTIONABLE
+-            play.apply_traction(play.xVelocity)         # apply TRACTION to come to stop
+-            play.sliding = True                         # set SLIDING TRUE
+-            if play.landLagCount == 6:                      # wait 10 frames
+-                play.landingLag = False                         # set landingLag to FALSE
++            play.canDash = False
++            #play.apply_traction(play.xVelocity)
++            if play.landLagCount == 10:                      # wait 10 frames
+                 play.actionable = True                          # make ACTIONABLE
+                 play.landLagCount = 0                           # reset langLagCount
+-                play.canRun = False
++                play.canDash = True
++                play.set_state("standing")
++                play.canJump = True
++
++        if play.blockkey and not (play.landingLag or play.jumpSquat):
++            play.actionable = False
++            play.set_state("blocking")
++            play.canBlock = False
++
++        if play.blocking:
++            play.block()
++        else:
++            play.shieldHP += play.shieldRegenRate
++
++        if play.actionable:     # if actionable
++            if abs(stick) >= 0.6 and play.xCount <= 2 and (play.standing or play.walking):  # providing two frames for a dash input
++                if play.xCount == 1:
++                    play.canDash = True
++                if play.xCount == 2 and play.canDash:
++                    play.set_state("dashing")  # the stick is past 0.6 on x, initiate dash
++                    if stick > 0:
++                        play.isRight = True
++                        play.xVelocity += play.initialDash * 8
++                    else:
++                        play.isRight = False
++                        play.xVelocity += -play.initialDash * 8
++                    play.actionable = False
++                    play.canDash = False
++            if stick != 0 and not play.jumpSquat:
++                if play.dashing or play.running or play.turning or play.runTurn:  # if stick is no longer at 0 and not running, begin walk
++                    play.walking = False
++                elif not play.jumpSquat:
++                    play.set_state("walking")
+ 
++        if play.standing or play.walking:  # in a neutral state
++            play.canJump = True             # allow jumping and running, later shielding and attacking
++            if play.isRight and stick < 0:
++                play.set_state("turning")
++            if not play.isRight and stick > 0:
++                play.set_state("turning")
++            play.tiltTurn = False
++            play.smashTurn = False
++            play.dashCount = 0
++            if play.standing:
++                play.apply_traction(play.xVelocity)
++
++        if play.turning:
++            play.turn(stick)
++            print("yeee")
++
++        if play.dashing:
++            play.dash(stick)
++
++        if play.runTurn:
++            play.endLag = False
++            play.canJump = False
++            if play.turnCount > 30 and abs(stick) >= 0.80:
++                play.canJump = True
++                if play.isRight:
++                    if stick > 0.64:
++                        play.set_state("running")
++                        print("showHERE")
++                    else:
++                        play.set_state("standing")
++                else:
++                    if stick < -0.64:
++                        play.set_state("running")
++                    else:
++                        play.set_state("standing")
++                play.turnCount = -1
++            if play.turnCount > 30 and 0 < abs(stick) < 0.80:
++                play.canJump = True
++                play.set_state("walking")
++                play.turnCount = -1
++            play.turnCount += 1
++            if stick == 0:
++                play.apply_traction(play.xVelocity)
++                if play.turnCount > 30:
++                    play.set_state("standing")
++                    play.canJump = True
++                    play.xVelocity = 0
++                    play.turnCount = 0
++            if play.isRight:
++                if stick < 0:
++                    play.apply_traction(play.xVelocity)
++                elif play.turnCount > 20:
++                    play.run(stick)
++            else:
++                if stick > 0:
++                    play.apply_traction(play.xVelocity)
++                elif play.turnCount > 20:
++                    play.run(stick)
++            #play.apply_traction(play.xVelocity)
++
++        if play.running:
++            if abs(play.xVelocity) > play.runSpeed * 8:
++                play.apply_traction(play.xVelocity)
++            play.canDash = False
++            if play.isRight and stick <= -0.64:
++                play.set_state("runTurn")
++                play.isRight = False
++                play.turnCount = 0
++            elif not play.isRight and stick >= 0.64:
++                play.set_state("runTurn")
++                play.isRight = True
++                play.turnCount = 0
++            elif play.xCount == 0:
++                play.endLag = True
++            if not play.endLag:
++                play.run(stick)  # ACTIVATE RUN
++            else:
++                if play.lagCount > 20:
++                    play.set_state("standing")
++                    play.lagCount = 0
++                    play.endLag = False
++                    play.canDash = True
++                    play.actionable = True
++
++                play.lagCount += 1
++
++        if play.walking:
++            play.walk(stick)  # ACTIVATE WALK
++            if stick == 0:
++                play.set_state("standing")
++
++        if play.air or play.airDodge or play.freeFall:                                # LANDING from the AIR
++            play.jumpCount = play.jumps                 # reset jumps
++            play.set_state("landingLag")
++
++
++
++            """
+         if play.actionable:                     # when ACTIONABLE and GROUNDED
+ 
+-            if play.jumpSquat:                      # if in JUMPSQUAT
+-                play.jsCount += 1                       # add to jsCount
++            if play.dashing:
++                play.dashCount += 1
++                if play.dashCount > play.dashFrames:  # if dashFrames elapsed
++                    play.dashCount = 0
++                    play.set_state("running")
++
++            if play.jumpSquat:  # if in JUMPSQUAT
++                play.jsCount += 1  # add to jsCount
++                play.canRun = False
+ 
+-            if stick == 0 and not play.jumpSquat:   # if stick is centered and NOT in jumpSquat
+-                play.xCount = 0                         # reset counter for 2 frame dash, xCount
+-                play.running = False                    # set run and walk to FALSE
+-                play.walking = False
+-                if not play.sliding:                     # if NOT SLIDING
+-                    play.standing = True                    # set STANDING to TRUE
+-                if not (run or walk):                    # prevent TRACTION for RUN and WALK
+-                    play.apply_traction(play.xVelocity)  # if grounded, actionable, and not holding stick apply traction
+ 
+             if stick != 0 and not play.jumpSquat:  # if using stick and not jumpSquat
+-                play.xCount += 1                        # add count to DASH COUNT
+-                play.standing = False                   # not longer standing
++
++                if play.standing:
++                    play.canRun = True
+ 
+                 if abs(stick) > 0.6 and play.xCount <= 2 and play.canRun:   # providing two frames for a dash input
+-                                                                            # the stick is past 0.6 on x, initiate dash
+-                    play.walking = False                            # sets walking to FALSE
+-                    play.dashing = True                             # sets dash to TRUE
++                    play.set_state("dashing")                               # the stick is past 0.6 on x, initiate dash
++                    if stick > 0:
++                        play.isRight = True
++                    else:
++                        play.isRight = False
++                    play.xVelocity = 0
+                     if play.isRight:
+                         play.xVelocity = play.initialDash
+                     else:
+                         play.xVelocity = -play.initialDash
+-                    play.aniCount = 0
+ 
+-                if play.dashCount > play.dashFrames:                # if dashFrames elapsed
+-                    print("hmmm")
+-                    play.running = True                     # set running TRUE
+-                    play.dashing = False                    # set dashing False
+-                    play.canRun = False                     # can no longer Dash until stopped running
+-                    play.run(stick)                         # ACTIVATE RUN
+-                if play.dashing:
+-                    play.dash(stick)            # ACTIVATE DASH
+-                    play.dashCount += 1
+-                 #   if
++
++                if play.running:
++                    play.run(stick)  # ACTIVATE RUN
++                    if abs(play.xVelocity) > play.runSpeed:
++                        play.apply_traction(play.xVelocity)
++                    play.canRun = False
+ 
+-                if play.dashing or play.running:        # if stick is no longer at 0 and not running, begin walk
+-                    play.walking = False                         # set walking true
+-                elif not play.jumpSquat:
+-                    play.walking = True
++                if not play.jumpSquat and not play.running and not play.dashing:
++                    play.set_state("walking")
++
+                 if play.walking:
+-                    play.walk(stick)                                # ACTIVATE WALK
++                    play.walk(stick)            # ACTIVATE WALK
+ 
++
++        # if actionable
+             if play.jumpkey and play.canJump:               # if JUMP BUTTON pressed and canJump
+                 play.jsCount = 0                                # resets jsCount
+-                play.standing = False                           # turn off standing walking and running
+-                play.walking = False
+-                play.running = False
+-                play.jumpSquat = True                           # set JUMPSQUAT to TRUE
++
++                play.set_state("jumpSquat")
++
+                 play.canJump = False                            # set canJump to FALSE
+ 
+             if play.jsCount >= play.js and play.jumpSquat:     # if done with JUMPSQUAT
+                 if play.canJump:
+-                 #   play.jumpSquat = False
+                     play.reset_ground()             # set no longer grounded
+                     play.change_velocity(play.shortHop)  # set new velocity to jumpHeight          ~~~~JUMPS!!!~~~~
+                     play.jumpCount -= 1  # removes jump count
+                     play.jumpWait += 1
+                 else:
+-                 #   play.jumpSquat = False
+                     play.reset_ground()  # set no longer grounded
+                     play.change_velocity(play.jumpHeight)  # set new velocity to jumpHeight       ~~~~JUMPS!!!~~~~
+                     play.jumpCount -= 1  # removes jump count
+                     play.jumpWait += 1
+ 
++        if play.xVelocity != 0 and not play.running and not play.walking and not play.dashing: # or rolling
++            play.sliding = True
++
++        if play.xVelocity == 0:                 # STOPS SLIDING when not moving
++            play.sliding = False
++
++        if play.sliding:
++            play.apply_traction(play.xVelocity)
++            """
++
++        if play.jumpSquat:  # if in JUMPSQUAT
++            play.jsCount += 1  # add to jsCount
++            #play.canBlock = False
++
++        if play.jumpkey and play.canJump:  # if JUMP BUTTON pressed and canJump
++            play.jsCount = 0  # resets jsCount
++
++            play.set_state("jumpSquat")
++            play.dodgeCount = 0
++            play.canJump = False  # set canJump to FALSE
++
++        if (play.jsCount == play.js) and play.jumpSquat:  # if done with JUMPSQUAT
++            play.reset_ground()  # set no longer grounded
++            play.jumpCount -= 1  # removes jump count
++            play.jumpWait += 1
++            play.actionable = True
++        if play.standing or play.endLag or play.turning or play.blocking or play.landingLag or play.runTurn:
++            play.apply_traction(play.xVelocity)
++
++    if not play.grounded:  # if airborne
+ 
+-
+-    else:  # if airborne
++        play.shielding = False
+         play.jumpWait += 1
+ 
+         if play.freeFall:
+             play.gravity(play.gWeight)
+             play.drift(stick)
+ 
++        if play.jumpSquat:
++            print(str(play.canBlock))
+ 
+-        if play.jumpSquat:              # leaving jumpsquat
+-            play.jumpSquat = False
+-            play.actionable = True
+-            play.air = True
+-            play.aniCount = 0
+-        if play.running or play.walking or play.standing:
+-            play.walking = False
+-            play.standing = False
+-            play.running = False
+-            play.actionable = True
+-            play.air = True
+-            play.aniCount = 0
+-
+-        if play.airDodge:
+-            play.dodgeCount += 1
+-            if play.xVelocity < 0:
+-                play.xVelocity = -((math.sqrt(abs(play.xVelocity)) - 0.2) ** 2)
++            if play.blockkey and play.canBlock:
++                play.canBlock = False
++                play.set_state("airDodge")
+             else:
+-                play.xVelocity = (math.sqrt(play.xVelocity) - 0.2) ** 2
+-            if play.yVelocity < 0:
+-                play.yVelocity = -((math.sqrt(abs(play.yVelocity)) - 0.2) ** 2)
+-            else:
+-                play.yVelocity = (math.sqrt(play.yVelocity) - 0.2) ** 2
++                if play.canJump:
++                    play.change_velocity(play.shortHop)  # set new velocity to jumpHeight          ~~~~JUMPS!!!~~~~
++                else:
++                    play.change_velocity(play.jumpHeight)  # set new velocity to jumpHeight       ~~~~JUMPS!!!~~~~
++                play.set_state("air")
++                play.dashCount = 0
++                play.canDash = True
++                print("weeeeeee")
+ 
+-            if play.dodgeCount >= 40:
+-                play.air = True
+-                play.airDodge = False
+-                play.freeFall = True
+-                play.dodgeCount = 0
+-                play.xVelocity = 0
+-
+-        if play.sliding:
+-            play.air = True
++        if play.running or play.walking or play.standing or play.dashing or play.landingLag or play.runTurn:
++            play.set_state("air")
+             play.actionable = True
+-            play.sliding = False
+-            play.airDodge = False
+-
+-            # actionable if coming out of hitstun
+-            # actionable if sliding off of platform in shield
++            play.dashCount = 0
++            play.canDash = True
++            play.canJump = True
+ 
+         if play.actionable:
+ 
+@@ -190,10 +314,23 @@
+                     play.isRight = False
+             if play.blockkey and play.canBlock:
+                 play.canBlock = False
+-                play.air_dodge()
++                play.set_state("airDodge")
+ 
+             play.drift(stick)
+             play.gravity(play.gWeight)
+ 
++        if play.airDodge:
++            play.air_dodge()
++
++        if play.sliding:
++            play.set_state("air")
++          #  play.air = True
++            play.actionable = True
++         #   play.sliding = False
++         #   play.airDodge = False
++
++            # actionable if coming out of hitstun
++            # actionable if sliding off of platform in shield
++
+ 
+         play.air_friction()
+Index: DisplayInputs.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- DisplayInputs.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ DisplayInputs.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -1,27 +1,51 @@
+ import pygame
+-from states import text_objects
++import math
++
++def text_objects(text, font):
++    textSurface = font.render(text, True, (0, 0, 0))
++    return textSurface, textSurface.get_rect()
+ 
+ def disp_state(win, player):
+-    font = pygame.font.SysFont("calibri", 30)
+-    win.blit(text_objects("air:  " + str(player.air), font)[0], (300, 150))
+-    win.blit(text_objects("standing:  " + str(player.standing), font)[0], (300, 200))
+-    win.blit(text_objects("walking:   " + str(player.walking), font)[0], (300, 250))
+-    win.blit(text_objects("running:   " + str(player.running), font)[0], (300, 300))
+-    win.blit(text_objects("grounded:  " + str(player.grounded), font)[0], (300, 350))
+-    win.blit(text_objects("crouching: " + str(player.crouching), font)[0], (300, 400))
+-    win.blit(text_objects("jumpCount: " + str(player.jumpCount), font)[0], (300, 450))
+-    win.blit(text_objects("isRight: " + str(player.isRight), font)[0], (300, 500))
+-    win.blit(text_objects("actionable: " + str(player.actionable), font)[0], (300, 550))
+-    win.blit(text_objects("landinglag: " + str(player.landingLag), font)[0], (300, 600))
++    font = pygame.font.SysFont("calibri", 28)
++    win.blit(text_objects("air:  " + str(player.air), font)[0], (150, 150))
++    win.blit(text_objects("standing:  " + str(player.standing), font)[0], (150, 200))
++    win.blit(text_objects("walking:   " + str(player.walking), font)[0], (150, 250))
++    win.blit(text_objects("running:   " + str(player.running), font)[0], (150, 300))
++    win.blit(text_objects("grounded:  " + str(player.grounded), font)[0], (150, 350))
++    win.blit(text_objects("resetFlag: " + str(player.resetFlag), font)[0], (150, 400))
++    win.blit(text_objects("smashFlag: " + str(player.smashFlag), font)[0], (150, 450))
++    win.blit(text_objects("isRight: " + str(player.isRight), font)[0], (150, 500))
++    win.blit(text_objects("actionable: " + str(player.actionable), font)[0], (150, 550))
++    win.blit(text_objects("landinglag: " + str(player.landingLag), font)[0], (150, 600))
++
++
++    win.blit(text_objects("airDodge:  " + str(player.airDodge), font)[0], (1620, 150))
++    win.blit(text_objects("sliding:  " + str(player.sliding), font)[0], (1620, 200))
++    win.blit(text_objects("freeFall:  " + str(player.freeFall), font)[0], (1620, 250))
++
++    win.blit(text_objects("jumpSquat:  " + str(player.jumpSquat), font)[0], (1620, 350))
++    win.blit(text_objects("dashing:  " + str(player.dashing), font)[0], (1620, 400))
++    win.blit(text_objects("dashCount:  " + str(player.dashCount), font)[0], (1620, 450))
++    win.blit(text_objects("endLag:  " + str(player.endLag), font)[0], (1620, 550))
++    win.blit(text_objects("state:  " + str(player.state), font)[0], (1620, 600))
++    win.blit(text_objects("turnCount:  " + str(player.turnCount), font)[0], (1620, 650))
++    win.blit(text_objects("dodgeCount:  " + str(player.dodgeCount), font)[0], (1620, 700))
++
++    win.blit(text_objects("tiltTurn:  " + str(player.tiltTurn), font)[0], (1150, 150))
++    win.blit(text_objects("smashTurn:  " + str(player.smashTurn), font)[0], (1150, 200))
++    win.blit(text_objects("dashTurn:  " + str(player.runTurn), font)[0], (1150, 250))
+ 
+-    win.blit(text_objects("airDodge:  " + str(player.airDodge), font)[0], (1520, 150))
+-    win.blit(text_objects("sliding:  " + str(player.sliding), font)[0], (1520, 200))
+-    win.blit(text_objects("freeFall:  " + str(player.freeFall), font)[0], (1520, 250))
+-    win.blit(text_objects("xCount:  " + str(player.xCount), font)[0], (1520, 300))
+-    win.blit(text_objects("jumpSquat:  " + str(player.jumpSquat), font)[0], (1520, 350))
+-    win.blit(text_objects("dashing:  " + str(player.dashing), font)[0], (1520, 400))
+-    win.blit(text_objects("dashCount:  " + str(player.dashCount), font)[0], (1520, 450))
+-    win.blit(text_objects("canRun:  " + str(player.canRun), font)[0], (1520, 500))
++    win.blit(text_objects("canDash:  " + str(player.canDash), font)[0], (800, 150))
++    win.blit(text_objects("canJump:  " + str(player.canJump), font)[0], (800, 200))
++    win.blit(text_objects("canBlock:  " + str(player.canBlock), font)[0], (800, 250))
++
++
++    win.blit(text_objects("xCount:  " + str(player.xCount), font)[0], (550, 150))
++    win.blit(text_objects("xVelocity: " + str(player.xVelocity), font)[0], (550, 200))
++    win.blit(text_objects("x stick: " + str(player.main_stick[0]), font)[0], (550, 250))
++    win.blit(text_objects("y stick: " + str(player.main_stick[1]), font)[0], (550, 300))
++    angle = math.degrees(-math.atan2(player.main_stick[1], player.main_stick[0]))
++    win.blit(text_objects("angle: " + str(angle), font)[0], (550, 350))
+ 
+ def disp_fps(win, clock):
+     font = pygame.font.SysFont("calibri", 30)
+Index: GatherInputs.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- GatherInputs.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ GatherInputs.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -1,5 +1,4 @@
+-import pygame
+-import pygame.joystick
++
+ 
+ 
+ 
+@@ -17,6 +16,9 @@
+     if abs(player.main_stick[1]) < 0.22:
+         player.main_stick[1] = 0
+ 
++    # angle deadzones
++    #if player.trajectory_to_Angle
++
+ 
+   #  if joystick.event == pygame.JOYBUTTONDOWN:
+     if joystick.get_button(0):  # A
+@@ -37,6 +39,7 @@
+         player.grabkey = True
+     else:
+         player.grabkey = False
++        player.releasePause = True
+     if joystick.get_button(5) or joystick.get_button(6):  # R and L
+         player.blockkey = True
+     else:
+@@ -46,6 +49,7 @@
+         player.menukey = True
+     else:
+         player.menukey = False
++        player.menu = True
+     if joystick.get_button(8):  # UP
+         player.upkey = True
+     else:
+Index: Plat.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- Plat.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
++++ Plat.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -0,0 +1,20 @@
++import pygame
++
++
++class Platform:
++    def __init__(self, x, y, w, h, platforms, solid):
++        self.x = x
++        self.y = y
++        self.w = w
++        self.h = h
++        self.solid = solid
++        platforms.add(self)
++
++    def plat_y(self):
++        return self.y
++
++   # def get_h(self):
++   #     return self.h
++
++    def draw_platform(self, win):
++        pygame.draw.rect(win, (0, 225, 0), (self.x, self.y, self.w, self.h))
+Index: RealMainFile.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- RealMainFile.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ RealMainFile.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -46,59 +46,6 @@
+ joysticks = []
+ 
+ 
+-#Animations
+-"""
+-crouching = []
+-crouchingL = []
+-walkRight = [pygame.image.load('R (1).png'), pygame.image.load('R (2).png'), pygame.image.load('R (3).png'),
+-             pygame.image.load('R (4).png'), pygame.image.load('R (5).png'), pygame.image.load('R (6).png'),
+-             pygame.image.load('R (7).png'), pygame.image.load('R (8).png')]
+-walkLeft = [pygame.image.load('L (1).png'), pygame.image.load('L (2).png'), pygame.image.load('L (3).png'),
+-            pygame.image.load('L (4).png'), pygame.image.load('L (5).png'), pygame.image.load('L (6).png'),
+-            pygame.image.load('L (7).png'), pygame.image.load('L (8).png')]
+-#char = pygame.image.load('standing.png')
+-#charL = pygame.image.load('standingL.png')
+-standing = []
+-fireBall = [pygame.image.load('Fireball1.png'), pygame.image.load('Fireball2.png'), pygame.image.load('Fireball3.png'),
+-            pygame.image.load('Fireball4.png'), pygame.image.load('Fireball5.png'), pygame.image.load('Fireball6.png'),
+-            pygame.image.load('Fireball7.png'), pygame.image.load('Fireball8.png')]
+-shootFire = [pygame.image.load('fball1.png'), pygame.image.load('fball2.png'), pygame.image.load('fball3.png'), pygame.image.load('fball4.png')]
+-shootFireL = [pygame.image.load('fball1L.png'), pygame.image.load('fball2L.png'), pygame.image.load('fball3L.png'), pygame.image.load('fball4L.png')]
+-jumpSquat = pygame.image.load('jumpsquat.png')
+-jumpSquatL = pygame.image.load('jumpsquatL.png')
+-air = pygame.image.load('air.png')
+-airL = pygame.image.load('airL.png')
+-crouchStart = []
+-crouchStartL = []
+-landingLag = []
+-
+-
+-
+-for filename in glob.glob('standing/*.png'):
+-    im = pygame.image.load(filename)
+-    standing.append(im)
+-
+-for filename in glob.glob('landingLag/*.png'):
+-    im = pygame.image.load(filename)
+-    landingLag.append(im)
+-
+-for filename in glob.glob('crouchStart/*R.png'):
+-    im = pygame.image.load(filename)
+-    crouchStart.append(im)
+-
+-for filename in glob.glob('crouchStart/*L.png'):
+-    im = pygame.image.load(filename)
+-    crouchStartL.append(im)
+-
+-for filename in glob.glob('crouchingpng/*.png'):
+-    im = pygame.image.load(filename)
+-    crouching.append(im)
+-for filename in glob.glob('crouchingpngL/*.png'):
+-    im = pygame.image.load(filename)
+-    crouchingL.append(im)
+-
+-"""
+-
+ 
+ for x in range(pygame.joystick.get_count()):
+     joysticks.append(pygame.joystick.Joystick(x))
+@@ -125,14 +72,12 @@
+     global framePassed
+     global initialized
+ 
+-
+     run = True
+     stageSelection = Stage('first')
+     platforms = stageSelection.load_platforms()
+     players = []
+     hasImportedCamera = False
+ 
+-
+     player1 = Character(stageSelection.spawn_position(1)[0], stageSelection.spawn_position(1)[1], players)
+     player1.spawn = stageSelection.spawn_position(1)
+     player2 = Character(stageSelection.spawn_position(2)[0], stageSelection.spawn_position(2)[1], players)
+@@ -143,7 +88,8 @@
+ 
+     # Main loop
+     while run:
+-        clock.tick(60)
++        #clock.tick()
++        clock.tick_busy_loop(60)
+         win.fill([255, 255, 255])
+         if framePassed < 1:
+             framePassed += 1
+@@ -173,8 +119,6 @@
+                         win = pygame.display.set_mode(monitor_size, pygame.FULLSCREEN)
+                     else:
+                         win = pygame.display.set_mode((win.get_width(), win.get_height()), pygame.RESIZABLE)
+-                if event.key == joys.get_button(7):
+-                    Pause(win, monitor_size)
+ 
+         player1.player_collision(player2)
+         player2.player_collision(player1)
+@@ -207,6 +151,9 @@
+                     play.new_game()
+                 Camera.draw_prev_ecb(win, play, scroll)
+                 Camera.draw_char(win, play, xpos, scroll)
++                if (play.menukey and play.menu) or (joys2.get_button(4) and not play.releasePause):
++                    play.menu = False
++                    Pause(win, monitor_size, joys2, play, scroll, platforms, xpos)
+               #  Camera.draw_ecb(win, play, scroll)
+ 
+ 
+@@ -217,7 +164,7 @@
+            # map(lambda n: Camera.draw_stage(win, n, scroll), platforms)
+             for p in platforms:
+                 Camera.draw_stage(win, p, scroll)
+-     #   disp_state(win, player1)
++        disp_state(win, player2)
+         disp_fps(win, clock)
+         pygame.display.flip()
+ 
+Index: StoreImages.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- StoreImages.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ StoreImages.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -19,13 +19,14 @@
+ def store_images(character, state):         # store images
+     global DolphinMoleAnimations
+     image_list = gather_images(character, state)            # take array of converted images of character state
+-    #DolpinMoleAnimations
+     character_animation = str(character + "Animations")
+     if str(character_animation) == "DolphinMoleAnimations":
+         DolphinMoleAnimations.append(image_list)                             # append array state list per character
+ 
+ 
+-animations = ['standing', 'running', 'air', 'dashing']
++# order should match camera dictionary
++animations = ['standing', 'running', 'dashing', 'walking', 'air', "landingLag", "airDodge", "jumpSquat", "freeFall",
++              "turning", "runTurn", 'blocking', 'shield']
+ characters = ["DolphinMole"]
+ 
+ 
+Index: stages.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- stages.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ stages.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -1,7 +1,7 @@
+-from platform import Platform
++from Plat import Platform
+ 
+ 
+-class Stage():
++class Stage:
+     def __init__(self, name):
+         self.stageName = name
+         if name == 'first':
+Index: states.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- states.py	(revision 9822ebec4488f4638be881a7771132279d92c777)
++++ states.py	(revision 04f6a2a11e198e6abe713ee26418a3cf571f70e1)
+@@ -1,27 +1,44 @@
+ import pygame
++from GatherInputs import gather_inputs
++from DisplayInputs import text_objects, disp_state
++import Camera
+ 
+ 
+-def text_objects(text, font):
+-    textSurface = font.render(text, True, (0, 0, 0))
+-    return textSurface, textSurface.get_rect()
++def Pause(display, monitor_size, joys, player, scroll, platforms, xpos):
+ 
+-
+-def Pause(display, monitor_size):
+-    paused = True
+     text = pygame.font.SysFont("calibri", 115)
+     TextSurf, TextRect = text_objects("PAUSED", text)
+     TextRect.center = ((monitor_size[0] / 2), (monitor_size[1] / 2))
+     display.blit(TextSurf, TextRect)
+-    while paused:
+-        pygame.display.update()
++    while True:
++        #display.fill([255, 255, 255])
++        #Camera.draw_bg(display, scroll)
++        gather_inputs(player, joys)
++        disp_state(display, player)
++        Camera.draw_prev_ecb(display, player, scroll)
++        #Camera.draw_char(display, player, xpos, scroll)
++
+         for event in pygame.event.get():  # Gets a list of all of the events that happen
+             if event.type == pygame.QUIT:
+                 return
+             if event.type == pygame.KEYDOWN:
+                 if event.key == pygame.K_ESCAPE:
+                     return
+-                if event.key == pygame.K_p:
++                if event.key == joys.get_button(7):
+                     return
++                #if event.key == joys.get_button(4):
++                 #   display.clock.tick(1)
++        if player.menukey and player.menu:
++            player.menu = False
++            player.releasePause = True
++            return
++        if player.grabkey and player.releasePause:
++            player.releasePause = False
++            return
++        for p in platforms:
++            Camera.draw_stage(display, p, scroll)
++        pygame.display.flip()
++
+ 
+ 
+ def game_intro(display, monitor_size):
+diff --git DolphinMole/airDodge/running1 - Copy.png DolphinMole/airDodge/running1 - Copy.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..579be2c76c29014f116ad4cb660fa21549249c2a
+GIT binary patch
+literal 2071
+zc%17D@N?(olHy`uVBq!ia0vp^tAW^%gBeIpI=zw)NHG=%xjQkeJ16rJ$YDu$^mSxl
+z*x1kgCy|wbftew|C&U#f&LCXRB+|el*2pH&#39wpCDXzq*UBf~#;?#Opx7>`)Gnml
+zA*$9Xrrss4(IuhTEveNlrQIW=(<`Ufr(n>pWHdp=WTKkcBn^wnT9#9^t)}SOOx3fU
+zrf)aRz<#=+!*nCZ879s%&0J<#xXrfmm}BEL*Uo32gWr6ofCVmr3tfX2x`!<C2wm(I
+zzQj9XiBIHGhEXsI=mjRH&S(eb6NZu?zu^BP8!!ZaXIBLV31@*vWHAE+-(e7DJf6QI
+z1z1>2@pN$v$#8x<gE#n*fk0dA>2{_%#g0YG<&-!cRsR2f{%M)Hes0h#C+}io^WyUs
+zWt%-GFVD=pJa0yQ`~P)?9nZY<PRM$)Twh-<@vecbH1n2d7?04QUybXmmz&wnJ}Y+2
+zC#P}Wg+~ffrBg4qcW?*VS8bi$bI$hF>CAJX?yfR!(S_C~t~xs3-`#0hE!*w5Q)ZE<
+z()502D~n5^?g0~4oZqv1{p{qJ>sp>)I*N2Vc6Ibfs!WVotIoCc<W~c&*Bh5*E6;PS
+znN|{g+;r9op?AC5vUvi(e`vlNUe;^0)aC8HiuF0J;bytYIYL{Nt+p?nkfR!Iw%6f?
+zLD9B3l^WC5J~&k?`|Zv;){BxCHMz{)cZu0c&u(6>WU5oA77;FW*W>cT_Gw)OR$Z;e
+zE;mgNoSk-g;R~Z=-^zk-qKP&Y0xoHBuU1L7uK!@XKXYTf&#7luD@u)aa?ISHcWQq^
+zl=8P5yWXAHmsxT?@Q8f9qLG!8{ElZSOaJcO>C?1ZmZ4W5q>X8JUhGl6iLNG}cY0m9
+z|J`gu`YWxu{px#EypLNP3SPOt{(*t)^=*Dn41-@f>#|(coOWZ^J=09iSNg?lsq0u5
+z@$R_(e!&OD)$1-Z>CSwfoVvR7!PaF>(Q9^m`u*b2G^3QWm$_~V*?wpHyPC1fF>Pwh
+zZ_AtFE}D;`5=vI@oa(nOIQz8Z+Q!-xmLIVvLwC(rN-A6Hcc%ZYO7w$`vu@p5TacX1
+zk|GnpXtmomc{ck`_Vw*G<u>d8EIQ0{f7&dGImHj7olnQCo?7_e@U8C~?!Vs><=K9F
+zhxw{M343dlRL@o?dw=fE5x>J8_D<&Jl+$U+c7pF3SIk#1sX3_3;265@rh=FB$FhUZ
+z&e;{PuKtkpJK;z8%zb8w+=o^ji%Fg8^1dwj%%#~@_qPfz`G1*{edqcq|GLiF*O$%h
+zXS#lJ=fh32dmf!SAyMu>ueb8s`x(lyN0xs0>%UKU(WJ%e${v*p9uGYq=d?c{;LXgl
+z5+C2}Ke2w|_HWnJ&sVP9#GdWw)baGx1(`;tqEL&Rj&*`*JVBO|7H?R+^84G>aX#VS
+zcdz*`n4<e$x}#QZr&E8RY5K4F+eY(NYftWF@0=8FvCsQr+wwcxgaZUGf0b;s$=#Nn
+zylkq<^b_q9(sKW*tXGh}Y+9=(@O9dJ{mU<(WNwVmTQ5IBk9pd^EbT?BOD8d!t~lZ^
+zDw=k};A718@8@^r8`X4t(^s9h+S6+8JJCn4RxGJ@>-ov7W%FH7jNf=2s37xn^>bP0
+Hl+XkKz<3qN
+
+diff --git DolphinMole/blocking/Standing1.png DolphinMole/blocking/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+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
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/freeFall/running1 - Copy.png DolphinMole/freeFall/running1 - Copy.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..579be2c76c29014f116ad4cb660fa21549249c2a
+GIT binary patch
+literal 2071
+zc%17D@N?(olHy`uVBq!ia0vp^tAW^%gBeIpI=zw)NHG=%xjQkeJ16rJ$YDu$^mSxl
+z*x1kgCy|wbftew|C&U#f&LCXRB+|el*2pH&#39wpCDXzq*UBf~#;?#Opx7>`)Gnml
+zA*$9Xrrss4(IuhTEveNlrQIW=(<`Ufr(n>pWHdp=WTKkcBn^wnT9#9^t)}SOOx3fU
+zrf)aRz<#=+!*nCZ879s%&0J<#xXrfmm}BEL*Uo32gWr6ofCVmr3tfX2x`!<C2wm(I
+zzQj9XiBIHGhEXsI=mjRH&S(eb6NZu?zu^BP8!!ZaXIBLV31@*vWHAE+-(e7DJf6QI
+z1z1>2@pN$v$#8x<gE#n*fk0dA>2{_%#g0YG<&-!cRsR2f{%M)Hes0h#C+}io^WyUs
+zWt%-GFVD=pJa0yQ`~P)?9nZY<PRM$)Twh-<@vecbH1n2d7?04QUybXmmz&wnJ}Y+2
+zC#P}Wg+~ffrBg4qcW?*VS8bi$bI$hF>CAJX?yfR!(S_C~t~xs3-`#0hE!*w5Q)ZE<
+z()502D~n5^?g0~4oZqv1{p{qJ>sp>)I*N2Vc6Ibfs!WVotIoCc<W~c&*Bh5*E6;PS
+znN|{g+;r9op?AC5vUvi(e`vlNUe;^0)aC8HiuF0J;bytYIYL{Nt+p?nkfR!Iw%6f?
+zLD9B3l^WC5J~&k?`|Zv;){BxCHMz{)cZu0c&u(6>WU5oA77;FW*W>cT_Gw)OR$Z;e
+zE;mgNoSk-g;R~Z=-^zk-qKP&Y0xoHBuU1L7uK!@XKXYTf&#7luD@u)aa?ISHcWQq^
+zl=8P5yWXAHmsxT?@Q8f9qLG!8{ElZSOaJcO>C?1ZmZ4W5q>X8JUhGl6iLNG}cY0m9
+z|J`gu`YWxu{px#EypLNP3SPOt{(*t)^=*Dn41-@f>#|(coOWZ^J=09iSNg?lsq0u5
+z@$R_(e!&OD)$1-Z>CSwfoVvR7!PaF>(Q9^m`u*b2G^3QWm$_~V*?wpHyPC1fF>Pwh
+zZ_AtFE}D;`5=vI@oa(nOIQz8Z+Q!-xmLIVvLwC(rN-A6Hcc%ZYO7w$`vu@p5TacX1
+zk|GnpXtmomc{ck`_Vw*G<u>d8EIQ0{f7&dGImHj7olnQCo?7_e@U8C~?!Vs><=K9F
+zhxw{M343dlRL@o?dw=fE5x>J8_D<&Jl+$U+c7pF3SIk#1sX3_3;265@rh=FB$FhUZ
+z&e;{PuKtkpJK;z8%zb8w+=o^ji%Fg8^1dwj%%#~@_qPfz`G1*{edqcq|GLiF*O$%h
+zXS#lJ=fh32dmf!SAyMu>ueb8s`x(lyN0xs0>%UKU(WJ%e${v*p9uGYq=d?c{;LXgl
+z5+C2}Ke2w|_HWnJ&sVP9#GdWw)baGx1(`;tqEL&Rj&*`*JVBO|7H?R+^84G>aX#VS
+zcdz*`n4<e$x}#QZr&E8RY5K4F+eY(NYftWF@0=8FvCsQr+wwcxgaZUGf0b;s$=#Nn
+zylkq<^b_q9(sKW*tXGh}Y+9=(@O9dJ{mU<(WNwVmTQ5IBk9pd^EbT?BOD8d!t~lZ^
+zDw=k};A718@8@^r8`X4t(^s9h+S6+8JJCn4RxGJ@>-ov7W%FH7jNf=2s37xn^>bP0
+Hl+XkKz<3qN
+
+diff --git DolphinMole/jumpSquat/Standing1.png DolphinMole/jumpSquat/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+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
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/jumpSquat/Standing2.png DolphinMole/jumpSquat/Standing2.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ec232e2a8aefd62d7a4d631b00d6b21c767baef
+GIT binary patch
+literal 5512
+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
+KMNUMnLSTYsl-xG}
+
+diff --git DolphinMole/landingLag/running1 - Copy.png DolphinMole/landingLag/running1 - Copy.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..579be2c76c29014f116ad4cb660fa21549249c2a
+GIT binary patch
+literal 2071
+zc%17D@N?(olHy`uVBq!ia0vp^tAW^%gBeIpI=zw)NHG=%xjQkeJ16rJ$YDu$^mSxl
+z*x1kgCy|wbftew|C&U#f&LCXRB+|el*2pH&#39wpCDXzq*UBf~#;?#Opx7>`)Gnml
+zA*$9Xrrss4(IuhTEveNlrQIW=(<`Ufr(n>pWHdp=WTKkcBn^wnT9#9^t)}SOOx3fU
+zrf)aRz<#=+!*nCZ879s%&0J<#xXrfmm}BEL*Uo32gWr6ofCVmr3tfX2x`!<C2wm(I
+zzQj9XiBIHGhEXsI=mjRH&S(eb6NZu?zu^BP8!!ZaXIBLV31@*vWHAE+-(e7DJf6QI
+z1z1>2@pN$v$#8x<gE#n*fk0dA>2{_%#g0YG<&-!cRsR2f{%M)Hes0h#C+}io^WyUs
+zWt%-GFVD=pJa0yQ`~P)?9nZY<PRM$)Twh-<@vecbH1n2d7?04QUybXmmz&wnJ}Y+2
+zC#P}Wg+~ffrBg4qcW?*VS8bi$bI$hF>CAJX?yfR!(S_C~t~xs3-`#0hE!*w5Q)ZE<
+z()502D~n5^?g0~4oZqv1{p{qJ>sp>)I*N2Vc6Ibfs!WVotIoCc<W~c&*Bh5*E6;PS
+znN|{g+;r9op?AC5vUvi(e`vlNUe;^0)aC8HiuF0J;bytYIYL{Nt+p?nkfR!Iw%6f?
+zLD9B3l^WC5J~&k?`|Zv;){BxCHMz{)cZu0c&u(6>WU5oA77;FW*W>cT_Gw)OR$Z;e
+zE;mgNoSk-g;R~Z=-^zk-qKP&Y0xoHBuU1L7uK!@XKXYTf&#7luD@u)aa?ISHcWQq^
+zl=8P5yWXAHmsxT?@Q8f9qLG!8{ElZSOaJcO>C?1ZmZ4W5q>X8JUhGl6iLNG}cY0m9
+z|J`gu`YWxu{px#EypLNP3SPOt{(*t)^=*Dn41-@f>#|(coOWZ^J=09iSNg?lsq0u5
+z@$R_(e!&OD)$1-Z>CSwfoVvR7!PaF>(Q9^m`u*b2G^3QWm$_~V*?wpHyPC1fF>Pwh
+zZ_AtFE}D;`5=vI@oa(nOIQz8Z+Q!-xmLIVvLwC(rN-A6Hcc%ZYO7w$`vu@p5TacX1
+zk|GnpXtmomc{ck`_Vw*G<u>d8EIQ0{f7&dGImHj7olnQCo?7_e@U8C~?!Vs><=K9F
+zhxw{M343dlRL@o?dw=fE5x>J8_D<&Jl+$U+c7pF3SIk#1sX3_3;265@rh=FB$FhUZ
+z&e;{PuKtkpJK;z8%zb8w+=o^ji%Fg8^1dwj%%#~@_qPfz`G1*{edqcq|GLiF*O$%h
+zXS#lJ=fh32dmf!SAyMu>ueb8s`x(lyN0xs0>%UKU(WJ%e${v*p9uGYq=d?c{;LXgl
+z5+C2}Ke2w|_HWnJ&sVP9#GdWw)baGx1(`;tqEL&Rj&*`*JVBO|7H?R+^84G>aX#VS
+zcdz*`n4<e$x}#QZr&E8RY5K4F+eY(NYftWF@0=8FvCsQr+wwcxgaZUGf0b;s$=#Nn
+zylkq<^b_q9(sKW*tXGh}Y+9=(@O9dJ{mU<(WNwVmTQ5IBk9pd^EbT?BOD8d!t~lZ^
+zDw=k};A718@8@^r8`X4t(^s9h+S6+8JJCn4RxGJ@>-ov7W%FH7jNf=2s37xn^>bP0
+Hl+XkKz<3qN
+
+diff --git DolphinMole/landingLag/running1.png DolphinMole/landingLag/running1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..579be2c76c29014f116ad4cb660fa21549249c2a
+GIT binary patch
+literal 2071
+zc%17D@N?(olHy`uVBq!ia0vp^tAW^%gBeIpI=zw)NHG=%xjQkeJ16rJ$YDu$^mSxl
+z*x1kgCy|wbftew|C&U#f&LCXRB+|el*2pH&#39wpCDXzq*UBf~#;?#Opx7>`)Gnml
+zA*$9Xrrss4(IuhTEveNlrQIW=(<`Ufr(n>pWHdp=WTKkcBn^wnT9#9^t)}SOOx3fU
+zrf)aRz<#=+!*nCZ879s%&0J<#xXrfmm}BEL*Uo32gWr6ofCVmr3tfX2x`!<C2wm(I
+zzQj9XiBIHGhEXsI=mjRH&S(eb6NZu?zu^BP8!!ZaXIBLV31@*vWHAE+-(e7DJf6QI
+z1z1>2@pN$v$#8x<gE#n*fk0dA>2{_%#g0YG<&-!cRsR2f{%M)Hes0h#C+}io^WyUs
+zWt%-GFVD=pJa0yQ`~P)?9nZY<PRM$)Twh-<@vecbH1n2d7?04QUybXmmz&wnJ}Y+2
+zC#P}Wg+~ffrBg4qcW?*VS8bi$bI$hF>CAJX?yfR!(S_C~t~xs3-`#0hE!*w5Q)ZE<
+z()502D~n5^?g0~4oZqv1{p{qJ>sp>)I*N2Vc6Ibfs!WVotIoCc<W~c&*Bh5*E6;PS
+znN|{g+;r9op?AC5vUvi(e`vlNUe;^0)aC8HiuF0J;bytYIYL{Nt+p?nkfR!Iw%6f?
+zLD9B3l^WC5J~&k?`|Zv;){BxCHMz{)cZu0c&u(6>WU5oA77;FW*W>cT_Gw)OR$Z;e
+zE;mgNoSk-g;R~Z=-^zk-qKP&Y0xoHBuU1L7uK!@XKXYTf&#7luD@u)aa?ISHcWQq^
+zl=8P5yWXAHmsxT?@Q8f9qLG!8{ElZSOaJcO>C?1ZmZ4W5q>X8JUhGl6iLNG}cY0m9
+z|J`gu`YWxu{px#EypLNP3SPOt{(*t)^=*Dn41-@f>#|(coOWZ^J=09iSNg?lsq0u5
+z@$R_(e!&OD)$1-Z>CSwfoVvR7!PaF>(Q9^m`u*b2G^3QWm$_~V*?wpHyPC1fF>Pwh
+zZ_AtFE}D;`5=vI@oa(nOIQz8Z+Q!-xmLIVvLwC(rN-A6Hcc%ZYO7w$`vu@p5TacX1
+zk|GnpXtmomc{ck`_Vw*G<u>d8EIQ0{f7&dGImHj7olnQCo?7_e@U8C~?!Vs><=K9F
+zhxw{M343dlRL@o?dw=fE5x>J8_D<&Jl+$U+c7pF3SIk#1sX3_3;265@rh=FB$FhUZ
+z&e;{PuKtkpJK;z8%zb8w+=o^ji%Fg8^1dwj%%#~@_qPfz`G1*{edqcq|GLiF*O$%h
+zXS#lJ=fh32dmf!SAyMu>ueb8s`x(lyN0xs0>%UKU(WJ%e${v*p9uGYq=d?c{;LXgl
+z5+C2}Ke2w|_HWnJ&sVP9#GdWw)baGx1(`;tqEL&Rj&*`*JVBO|7H?R+^84G>aX#VS
+zcdz*`n4<e$x}#QZr&E8RY5K4F+eY(NYftWF@0=8FvCsQr+wwcxgaZUGf0b;s$=#Nn
+zylkq<^b_q9(sKW*tXGh}Y+9=(@O9dJ{mU<(WNwVmTQ5IBk9pd^EbT?BOD8d!t~lZ^
+zDw=k};A718@8@^r8`X4t(^s9h+S6+8JJCn4RxGJ@>-ov7W%FH7jNf=2s37xn^>bP0
+Hl+XkKz<3qN
+
+diff --git DolphinMole/runTurn/Standing1.png DolphinMole/runTurn/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+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
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/shield/shield.png DolphinMole/shield/shield.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..720dfbea087c5fea8ec5a67a09e53c61b76520c1
+GIT binary patch
+literal 2624
+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
+Vi)%9bW8=FM$R^gtm4?pj{{lF>?a}}M
+
+diff --git DolphinMole/tiltTurn/Standing1.png DolphinMole/tiltTurn/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+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
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/turning/Standing1.png DolphinMole/turning/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+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
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/walking/Standing1.png DolphinMole/walking/Standing1.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..deae01a33f233d53719e0867364a6868b367c87b
+GIT binary patch
+literal 6662
+zc$@(S8u{gkP)<h;3K|Lk000e1NJLTq002G!004*x1^@s6zfxE%00001b5ch_0Itp)
+z=>Px#1ZP1_K>z@;j|==^1poj532;bRa{vGi!vFvd!vV){sAK>D8JkH&K~#8Nz1<18
+zEJsxb@b~f(5e!S1ghdh%6;VNyJ)nY!fU>Fxg0d)!3MdG;;gb8FA%-Q&qJlwG6j6{(
+z1PoCS5o8e&L>5sLK|sJf46+5XJpR9~uDLyZXYNe*%)S5bJGW<gx~uEdId#sdQ&oKr
+z9y@mIz<%K1$%nr&hlhq97J5_Yexa*`ZV>taI(EU~3v%2S>^b9M_(nPWMCe;XUkrUi
+z=qo~(hCl_53mpu-C-m1SjqsN_?iu!s@i2V%93B(8PUz1<PYE+0%lXst`3FOH34J_-
+z;hTp}3LOevA#_PdBmHsck-5+JjbfvWhpC(9@FSsngfMXV(7i(EA2@oXNO-c<90Cl3
+z3SjtZp=*aUz@0+330*IAV(2BI2d4o(mE%URX~usq2Nix!2s0l`WuJBMVCAvJWXlPS
+z;`oJ-MmfIyesS(Oma;H>R)|ed)@MSG%5TbE8~WBp&@%mi(C>tv96BpfepZg#*p~K}
+zhe-Bv?Pq<S1TM)v$J&O{AU_?tR_ISc8tNH&&f`P0X)SDo@l-?wG5y=2r-l}lTSb3S
+z=%b-ehd%E_K&mIS+5q~sa;Uem?;6rbKNoswo~f}$V{KJW1%4q1D*0ETUkklC>UeRE
+zQ;?wN<XVgzBh~UtP#8U!bC;D9Eu42<`TdF^s?JzGA>`Uu<~iS&<0z~p@i6lE9L@;6
+zAw(jMvkU|srb$U(E|_dxH-B0A<Ma8ZA*$~@$sTIIyYDk?!~ACGCZTtSPD`1W-(f#i
+z#AwFz(C^6M(V;ho?wZ!Gepz3fBG(-X`KVu>5C$#|LkAl=aNx^AZw$RR^vcjhIsflD
+z-amv<F71SnM$i?U`<KwKhrT(qe-hWiVdQJ`@i#(m3nSl|<7aY?Bu~nBD%r)MG>YTr
+zLZ9>@z%=Q<F65jb2NN_1qfZRIEp%G$We@asOkdile`)NGh0fG~W28P@;*%}+JR{^t
+zGT_N*hUvCK7pGA$b6F}~`?OH?ouLauw+(5Oe++$hh!rR4>xXWbdyD!PC<p#CBogHE
+zZs$ZJkO2)ai1AcH$qdY`L-z|KA8d`|B%d!1sqid{gs60>Rr&tH5Qgp+iT<C{&HV=s
+zoDx!oV1_%pbMxIj<v!hn%KQA^A)eukwlN#5%KT7?8)Q(!!>P!-oM@%_|33FI^%zHw
+zeAd_I^JGh-335IWdVkZHn3`<eG2dwd#{VaD<q+eC3K+N&0baSer;Gs%e!e|42rDz5
+z3aZr8LT}AO&uLC>xAeu!++y3$;Ul42g(jij4V~1MLwcl7+Aj*h|Auao-;0X7u3USY
+z91o=)Z^>us{&YVN!AgvWX_Yi;(%ScQE)S-b)K0W@Syi!q1MFy!bdUV~uaG`^%g}2=
+zj|g#71})<KtA~K`W8Ah~V3G8PL&vveiy^L?`b>FQMcr4G_=7_%`3v%35(DZ>_4541
+z(yo<gj*~6^nra(&lQ8CgKg4c0Y6!7_5uHB#RiXEV^!LKFG7cQLX6V@w2$%ZjAs*s}
+zp_Q>J<N74a`zy`25?GML@}`}IV5O=ngT*%dR!F0Mb%^S-9aQ}GA^!Rkxvm67Mdew0
+z_Tj3bvqLmQSlif~3JtxR<W~w=)3OSFTKef3t>i>jtZl7OW1!}hwd3KFEz%-!jVDeo
+zWmFWYlJo`nT-;-6sH*0^lP+V(*6{HkPu))2jZx^<Z>hw?^e^Y&j$+UXxSlST3(N7a
+zUW2&yN}<oDvX_R6tEyDM4$RyXT&rn-V$?_%<Lm>2c+J%FjOIDz8t$`Tvh|?Q1)<Zs
+zTCl6cQ<wt&E%eq@@LtmvErz72sQYu><?{IpyOlK$T?s9^cSefkxwMU@7}hd~KM=ZG
+zNMlM^{8WhH{g%+*hF%d8-aa*T{KXubXDyRBpKE0F2hBI=sa;#K?G_$@F0;y+M_r`x
+z8Pm_T&(=j4$VY{~DfGAyTlCtH43O?1=3p1tqg%EOM^IN;#<)x<#*g+Y(HD<vMgjB7
+zG^PHo4%2Io9=R~|p3oOU;(ZAa29o44%y2$3<TvAfF8OL<-q_;Z3mH$V7)^<TS<nwT
+z*J4%-1#4$SrkHHqKlJ{PAg4jM(NnMD74-GV*7iv7=n+OvJ$@|2D6;sHB3z^>kZ>4H
+z<BV(WCh_kNaT%|TiU}brG`YZ~i|qho0OqN4kdaJd@y`om&kczfyYL%7uO1pe@N(zS
+z^YdL!;GaW2^F-eh5(1wa5)?f<g!yB;G0tFU#TT`$T&^wsYbxPZ_4J|9=rJ#flg$w&
+z{&47%dG>ol!qgk)`4@#mej3|zMR7kLx_3zE`u>odJiBAKd*6_FKpdhGd8CWxG9E@*
+zOo4&lUlr<0SgUvYrs3saOz)?%lP!664SQZlq)4ia)IWs2CM0})d#*b_M1740%NV_+
+zqd=UmZu0i5KO6P>kp3<@<o*Ol7cP=GX;X9IAXTZ^m5RPGV?5@m?NYSN)1XI$p*Mxj
+z4GCo#t(S*R&u2`0TgaHbhP5Bbbz+Q@L&gyjokCkYad*lvJ;k+sZwN1Pf;8djix{Uu
+ze$yu!=>{h>l`OHc0AmV)Nc(XdjvhIhzbd8`Jo{%uFV3@G5HjWD8GoMx_ev8CM~xLE
+zI>qvG?Jo@psr7B{jqs$US#{%ohS2W<o;xgJoLl%*D)gp2P(?8R#a5!+!c{wJzCI>f
+zDk&3Vh)FtpFiGAaL{*=e?ssbH<DsO=YM&o6n$u|42r-I+8GZg1A;Ahh%+3&&dh0s0
+z_4K)sTOJ}U<ihKO@k<)x)&?vU{rmcAKBQq%zCNtd1}4<n%@|ins;c6Miy~Q;TmKfe
+zJ}~4OD$E5|VTw3)4_#J-=Xc#fxBBQJ#;L<Q!u0JhonxKdm||VVQ!WXU4C#`L3d^^-
+z@vWi%2&p`kR&h*Gdxn-}X7m`Ve+`*srQ&}Pa^2sBo)_YVF{@l)Ba8qK?O;3=ViZ{N
+zmxbZ`VZ1MG7|MA6_o%ll%XftY7o>+=#8q8C&u;8S^ZXKx$*o`7b_-Kfw4_>fjYcC}
+z%LStv+~^vTle7o9=ahMjzc>f3g&{a+9@DTE<0U4LzY|ovEW|*a8hUt$@8(V!E~zdI
+z7y{2GGACQQB2Cae+-tD`4?r7~LA5o2uJE7`ZJ`;A<D=&>Zk9q~K;-tSrj>i>-vbR}
+zqAW3VFz*^@uPfcBNE41D;r2U5%`WogvOOj(3_NP^v^yqSG)VS_p*%0dSQ?$tViq1f
+zX@>Fk!F(WQWja1G?_o3d%u2GEDOtocEYl2V8%J8n!T{RwM<G62!|uLZWU{591S@>|
+zLvlUUc3wFe)Lg*Bed&Us!8kGl($uP3x%#<EtA2OP^~<xZu4@S}+0e;{kE@N+{$^?k
+z!=z{6LF#32G6$V9e=_u{)a5~y>E^c#X+szn62H37xFMT<A+9~4R-_*D(Dp-v6T6jd
+zD&L`1P%AsFSgCkH>C@bo%#VI6DEZY;4X73Y4+5NN*<Iv0=Y=lmGtSs3SO|*w?Hk*c
+zZWt@l7TC;|+QE<p*aalUuM1)ncAt=-W+B4V2SZCE$v)!-@R%_Gklkp|GOrR6fj+AQ
+z%~;5I#Te#0_h?)y&$<hf)%S4f!0J!Ym+C6$Gj15iACmAx6&UF@6m(1XS<bC|TY}M&
+zk4K601TuWPhpC&P<+atV(irp^|GE%K3K+z^1v?pBndyol%+F!w#vy|kp{njUwLfFg
+zXI$T=(tP3TT1jsMvz7K3J!uL?#N5veNgkGItToVQTuK(+7v^L$yG+h?BSWx;l=x(8
+z-YgW9F1B`VEle4YbVWL~Ksl=d#;mxpek1K0($5V*NScfL)6g|iC)t+K=rVJ&5S8N2
+z4E-ux!>AY_G$&SqC~mTKYDk%zfLNT?8F`r`6w;1HmvJc_Eou}bTB^{|^!p|X8URK}
+zf?pzFZA9woCNMED;pU7YN2ANQ*jyq`Dz*!Zmw;fHQIi$HbU#10GT4NkT~L<kWCJOQ
+ziqYsYt{|?=ilS{)12>Fmuo}_uu&i+zh}azYa&bi$9|&m)DqrG_k!TptLxhDSq<_D|
+zxu!px2cK-67#e2LOG1(rHuj}OV<1qGBkw{&fyx`YuH|K_#4VtasgTmGD;~70L_AAh
+z)~VDL4a*?_vIs!sX2Qz>z%&i)Lc)T&6I59jGZK|?X<NCiBJBbUav4@7Gbp}ud8;sP
+z@?ZZpye-Q(hQo+##-O%tO?lP(jK*<MbJ8)zs*;j>6&S>{J}OP*LC%$RD0NDykK*#a
+zKE&m)zT;+DE;xKqs4sDlFvR@vsrzW=RbF2rN&S+wtYFDay<pZ*ka}qx_vm9gjZ0x#
+zXelA+KIM%YMFe4NUgH|HNFNzJj`kP|t|?p0%cmC<E6y-cFO|nE^}|r1Za`B$s|epM
+zZR8#^981T>3sKWXvtZfvZ{vxzB+h@A*^)Aq(}nz&`EiWu@0dV4`d{E0eVYr@h#Kr=
+zDRZ>M7l6^DrKWpjS4RQk^3y6e&j?|Vy1PybgKM4dOA_OCmep*<E5dY>#TkRBc@yf+
+z8KROn4ONHHzz``Zgk<}`jG?Lr9p9=yV7jbE-UjtErGt6pJ$$As1Ot->vpKjHF?d!y
+ziQ8dpjL<Ny?~;u5-}68dT-U{Hjf#aAteBkF@17Fk9@oKTk$U@a2M9|bGuBl$3|Zg8
+z<#Y!o75XuWyRNIY{f1!4e>}uq$lRRW^zDvD43st;i*(zMJ5a;xwI$9?nR4xe$~w>Z
+zm31(MnZiZ!=M0T0C&NUQ;qysjUCeE%)_3bpA5O!Jeh$X@XEd*mS5T?$42DYS|E6cH
+z71tU9A@fvkXr#RXEXdf12nkE}bu=(8re?8O?>_v_N^?)7-i64_=*e^qw_^3dOTzSc
+zzr7mFgOR#4)M#J~(|qDQ#<``h3{l~3^Rx2YphY(3x%KPEEMj_S|89)htjB1O^BUXk
+zMFm=<KN?ly`tmH}#Zog?`jfuYWy-n7hO8>`8>tH;O9a<*V<WI=j!c@Fw9S?b%?Ql^
+zbJbUWt|uA&h>P-@A1+H}ZXWuXe3qs8q4vB<dP}h`X&F}DR69mkbHMaf=G<!xz#iH9
+zwH7e0bd&7*aThAjV9^Bb%KlMPOr&eM1@+gjsh)MEIW%zJC~hI@Z197*nIvV-E7uln
+znkW6V7BDV8uMN-zOYWS32dNu)h?)dC{HTfcGeg{5w;N2$8PT^%8i^UY%Sgc#HbH!J
+z9XD2iVGnU^9@MF<esAle#WfniI#Dgo5WXNp@`9f-X5Q}CgQu4|V7y4Y9}a^!LFGJq
+zZD6<>wdwe}VZJ=rnh}fNk#%KKKPq4=GfO^efZWqoc!adoMFW3c8QuHyoBW;SV1!Zj
+z#jFVrt6?9v)rU});j(nfHYX2%bx5#7?c~mPU?|faH2YlU+;4dYV|&gf)Eu}CefMud
+zw@9JVI#V=}Q*kQ{4fjE<YkwBC*&i}9xEaHABs$}_d(sxLygcODH%cA*n|4Qm#4+nh
+z0+D&ZXh|9hP_`>b8)gz0d%(2puk~;OsV8iTX&~|1w=C$R$}?DHhI0(V5XNQ}5BAH+
+z?-uIVm~X!90jVDWYy`*U!Bm)3#pFAnGL^bmbbeJdl5R1toczv>TI}<oFnq5~G7Y2+
+zcHv(s4->vF#JbD^h8r!S-jVh$Woa3z{gCF{hH+f`U~9uX#45l&!<69`i<nO1h!lS`
+zBv`ThW8<jn)T{)S6<vFY#XM9yfzdAQ0y~Ac%e97{yP;9_w5nQ|kUKrCEi&6EmM}Sk
+zJpV~KcwYqDGy4La4WjmO5D|&qSkf7gSd|*o?|mAJX&EOU{-u1ib5Olr6M?Louv~~z
+z+wB=p(=$eC*UCeMhblt@Eau&@PPH;SM4}Zl4ON09QJ|R|5gGy9Gj*`gXHQTh&bk(L
+zx58hNp}Wk&8t^72?@M)szPbZdx;-?@%R&;DJd8xco-qwmRgYxV#(P+VhK8FJGx7MG
+zO0R^u3=5tnTjtk<y;52Fv~3jn`JQ5?CZv}JVBw91Zk|^6)((?^W<5V0&6o}lnrmA|
+zmPvhv;nJ<d-!ih6i%@NeOpEGm5TJduY)>(*QLTI!#k6tw^HPBaHkB@~D5$R@X|O8e
+zDbH39BS68CZX_ZzLn}-+p2xI?wGY&}d*`_})a@y@RXt3gJk-0EWLoZ$N}H;I8Kz-I
+ziVKkY&9GWVW&q?Ui((bBSsP1C%z^z=$chUCk@NS1Y3RDM1}#IPB>{x=af3xtU83ej
+zaQ6r^B>b>6o-%EElaH^N9a8s_8-Cl;&3!=)S^MBW_2)-L&82f^7TUO{(jqhs$R->;
+z;$>Anzp(A!wn)g~nP6nh^mh$F2wrWlFW4dR7P2k!<fdz=X~Xyu=}s}X8*Il4*4>;O
+z=8do4p6~K_{I+Dr==t=an9q1w^5vDGDr-*&>pR6N{X2{vY8t9CT*lopHj)|Lc{l?S
+zTE&L!Iy&4W7D*gfV%ZrLJ2O&Rf!i6BePuP#P#T~qLxX6%wgGi1Q6gW?2J8!VV_dBy
+z`B+<@x8Jh01dXI6I9jIL{_gV?(g4cqf>G0zq_^!c-4`^BFX+2YayN#nRM9I3R_^Dn
+zo4K|u-*#fUWh>`AzplEH<z?{p1yhOFicTwAQc`MY(Z1_UC=5c+7GV6dDYqmHCtDJU
+zHp5F-v+`nweKT%5_Lf#Ol`gJKB*)Eod0g|>0KYA|uZtez1(U5m%wL=51T(;v*hOeh
+z*)?M6ci%#}A?()2Nu7TcPL`KLPqtKeU05Zp)$HSz0}v#M+}^lfOv6IPI}+9Z%uZ^A
+z`_7f(989k(+nu*@^vIn;Hw{U67?=Q~W@NZ;*j?fU{A-<8Yu<=C5a!iS3C(M<YCCi(
+z<MDmNu8cQQFK)<wFUF}3T9%@tF}#9_$?Jvr?a+6!RbO9FU6@4(`-Y_wZ<$x|VtI$|
+zDk}b5H?d9f#7=_<T3C3aK_^#k)J<R&Rj-hsaJ^R(tb`7e8bE}m@hTWHV{zwo1Mgtn
+zH>|{X%Ydn372I_jb00Izvw7R0ul$<NBo0F3eZvrmn@VQrEYux@Df8uRyZX21))uKR
+zncRe{Tp24f9v^GOCbD9r2EX3B!@LiO+S~S_@B1#_wr?0Bagcsy+}2A57Uq?sAvFNw
+zH>@Ss#8Ae)9ZRK++SWy*?$IRWk-FL1VIE@*3}sxB(BS2^YpFYw!HV^4Age1vtgkKK
+za|~iU(xI9nEYnQZ&deW(td1|T@+sHLcDOgw)%${>5(m2v%(kq*?5d=!<>0iQec?Cg
+zxVt^YV8$aIb6O&~8%N!*)brDW(A>M7uV*)ev^&<}>;=Y194u=vuvmKqMQyk=DBEG3
+zOZQdBdxo)$3pMrkv!j~R6_Kl8u7<?DwYI|Q$x~D2T6@D+!6?Qf9q)3K6*ZH(k^fE9
+zqArE9QhHA@R^lMnZhz;!BcUCuD0Ty>FOa;cE3x~YtaR#PG~<!F%`o0=Oh=y_=Iv%!
+z4`s+J0eMQw>!+bNighFo-o8gY1s~R%jzUNJ1~J~;r!nQ^_6!TNtV0m#NI}bqKPQ^t
+zHGzY{xT#CZGM#KpAV|7mYwb6VbtPV5;?II!{e9FlP{VYw>?RWHBB1&vqK#uE#>33z
+zL;Ut!L@L~y>0SZIdW&{SrbhUx6|8RD6D(ErFl>vJen*n#%}LfmeaS(C3={h%9K`Vc
+zfumRXTQ+v9G{~TZw~fS0Hr9(|O)^;0xsey>^sx%#mS16#ByG*G?oDD)g@mpG89rSq
+z$<hxC_#O4rtyJ8~he60Q&C*hH<MgYij56)CL9D{Kh4Lg|p}=iYiG{Nrxt6;7zbCe5
+zx$d30esHQP<tW1oDs{!1rHt;|N;ZO3`nXY(5YjY~*B~rJDkuOkTs4Bz4L%tr8jCd$
+zx`<R4sd)L;#<7&~Fk`uv1$XAR?jA;Vy(iZjZMmMhT8ukpjE&*SxP^Zk$4XW`@G@A&
+ziwaw{v@62A8Bk%YSA9P*jrG{jLa#6ff}-*s*0Mrs<5-FDFd~THTJ-a?!o<?|ujC$v
+z&>m3ZY+Ec|nfn;PrO3SurnEEHwkOL&R+YHQaAP*o3QxV+XDM=zWa7CYI|wBdhlI8A
+zaE81!QL$01%y<h@ApOThdiwmz2=fmKt^A+pa;@l1{mK^34P#}-!>DzrUJU#CkhyFU
+z+-vOaYuCUke%vIXH-6Z=ePJZAFSD9?E_WzWd`q6`?PD9ot`g6~O%%$uc;)}$b(l_B
+z{x#R_L#z6A%(}MjecdSLN<5Xbrj1&2L3a5uPzxirc}N+$h84<&tCn=tO}paw`=&hq
+zCt)FSzoD-C@0e@-uY`?a5#yLPuC~#ZbsdD<?;odI4~t=Ow$}&K7Au|VE+-B7+z<x+
+zqYD4nmB-*J1wCBgyK;U{{P+&W^Kik6hZ<mXw`lB&+-DuC6-<_GSt5oBQ%<L+9Lqr(
+z<T}4wOjM_j{AMs>z@zI)K$u9hXz13tckm!*70hFtwKf{#wh#kTD^@`&NCgELx`ZiT
+z0SC3Tc)+H)=cnS`w*ofEGi<)`pQWvg#-Q?z<@s&Qn~T3s?(IHvqnO8d{f`sos|^rH
+z4`Z0D%R5Qa3I;<^U4bgwjcm8U%E+^nBSnpQjX(<|G2foDHoA#+76%S|36uY+V8RM(
+QiU0rr07*qoM6N<$f@yo`<p2Nx
+
+diff --git DolphinMole/walking/Standing2.png DolphinMole/walking/Standing2.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ec232e2a8aefd62d7a4d631b00d6b21c767baef
+GIT binary patch
+literal 5512
+zc$@)<6?f{1P)<h;3K|Lk000e1NJLTq002G!004*x1^@s6zfxE%00001b5ch_0Itp)
+z=>Px#1ZP1_K>z@;j|==^1poj532;bRa{vGi!vFvd!vV){sAK>D6&*=LK~#8N<=qLm
+zZDm;p@QVuR1x;Eig%w&fIGa-r4Ob0=j3RANp;A*aGkqk?v|zb2(Mm9f5GqRx)U+U{
+z(!}9{CS{ovD3o(S4s5j;E|@_7-~P^OpR>=}`|Q2f+UMTq>Hj?MS$kM#t@VEI_r25i
+ze&62l{}ubK9rq5Z`eyli$IuO-n?iR8?F@Y(^obqA!Hqet1bc_^s&?P63;ks1p`q^z
+z-6nKR=)lm|gy6qI9}oRi==3ziwLa_vt7W_}c<aztL)V2K75d@O{X%yN9T2*Ch~$CP
+zNqJA`(vbhX{o2tv{~3Bp8sKd?cEV~Huj+&Ia9_$1W4bQMeSPTE5Gj8)bYbZIp)Z9<
+z`-1$>KjpX?Reh`cJuXy-4hj8fNCSK&$EDCe<5m5Q`AafDf)5P6CiJzTPltXj^zJ;g
+zUa&Z-`t1CDT<G6IcVCwIri=B1sy;9e@*jDHVb}iY(Az`b5c=)VgF^3In&|@9{GE^n
+zzB2cGun!kSe-f{1U3yQL!nF4<$=_cHT@m`u5N2<&tb{h9svn-eZw`_CeRAD}EI>bu
+zSM}|3<15!*YXD>Lo}o8}UKF}2bU@CzKF8%z)fD0Wp+;}qH}viheQ{*2KX*^+&UjUm
+zV!2^eSNV(C`-GmF&tE%w*x`Vk?ia;kP?*0TViMmMdQ9&1<s7#}H^$4&8+>c%??R-j
+z^)Jo$H_Ne`6H@NMw$tW@4YPQwT({Wts`fdlJ3c$aI{a&nGtrgtTjsAZd)JWhMsvR)
+zH$E-jb(8e?+TRp<MCd0%B>dl@3qtP=eK@2cZV`G@=+L##9-n(VZz`78>czHxB{v|^
+zw}cK3ow~*}?cTL}d$vc0ULSg4=pLcZggzF!d*~NK=Y@{Ry@ol`_MYJ`q3;gO1Z7cB
+z)raobx$CeUdv<?*?UU&!-A^muE&tPWvloO;&3j{>6uM#0?*GZPFvN5Fz7XY!(NBc_
+zA@sK)%wCss-xT_C&ZqG7j3e{<%+WQbU@Y<B;EK@2YwxxK#=k#A8s8Q=CG_IZjk!iY
+z=Bj|A;^J~&AC_yMl%w(cm=JS`(c452`~>*p(DOnB%F~;QWxKi{!c9oySs_eo43SoU
+zD8q&4XS{wm4C?OB4Y3@C+F>F0ELNqM%QHr=ckFm_&etnju^8iHEq-E%AAW9b_PaS6
+z=S<1J=h!bw5Bh<S2#w-0zTIC}*Ok8*8Y}7H;OhMK92(`$K5E0F62Ezv7c>7#Nb5d(
+ztuZ(&?EywVV9s70V$K9KdfE{oOuscm7p#Y&aZqU2=v@ouXS}L;Oz=k`Zs{p$T{pzI
+z8==*pm?n{&xcv`8#_&IeF!z>xUo1#fKPdFHyrQ6)LrSp~i%8sfp;TP#b0OmlI1|^0
+zijTf3lzY(Z7^6(t^yBiGps2x<L%$SyXUOpT=1?o<W4!ptOqTJ?W4cRj__<Lx9}Z+q
+zwhzTU77Lse`k;?SD1L?L53}zH>51zbWdr7wIL6sb7k}>B&0*{ZY$t|;FN9tgYT|wn
+zxDbLaE(F#C-w|rX){K{gpl<$zkg(Gj_c>|L9S!w@sy<=u)n*iZL*kyvaFD*@T(x2z
+ziIb`TL>H1eYOuZ1F4lw<IlO$(g5iL9<JgpE+c^F=U>?RP3F#uH;|)GoL;s=XZ1Cck
+zP&R!QULN8yAF$R~t(bR=9~HVNEhyF7bo13}@kta%Mz-ZgM(?MgI8pZx5zO23tc@Ao
+zfO!~~3g$qRvArr(^}RwTh8{5OVS_&m9g**6=h;fk@t2`{h5p1xlbFqTF%iEJqA;c^
+zik?6jJtf3HxHk7bIYdLRhwuJ8bauXbW@x&e84ezszuekma^4S(K3j*aBrcKvfY2v%
+zAx_Kcx_QZ(JR~Hx$B-!NiJ>uAk-`u&_3NRNeY^=({lt*5j$vNhGkrV)D^=C!Y{mG)
+zLhPgL%IcVIpmB!-rs(L9`@AgoeAVc_8^Nr-VsxzP-y40h5qAs8@cvAQ89p@UiSppj
+zLPt+taE#K;bQM!QF7UPy)7z!ks`_X1m(&b53hSuc_p%(vsA`huLi6OFmG8ypK4<cr
+zE2yEEUl(#6M~!yLEQw3l%cZ&4h5yIwDw*CmW+^DSw(~<$O1ty@u_57b1K#9EL%Ott
+zNCVbKW0{zgi@PW!L>10zko{&cPRhO)Zkh+%Z{orFMY;AJbG&8f$h_Vi(&MC#>6+Vx
+zXy`$xU^p;-PY(%G&(HsHv>M?ER{_KH6lgTb%fq)~oFnk}p_@h*TSb1nLAf?h%NY02
+z>^5tn$I14{0r1R@3xm%Om8s<6fQfroNLPMOJ~zI>*f(5VLxWr%GPL!cn`SXCRcu!C
+zvRwSeTyVNR=nExdi(!%!0t-Su5Hc-{c{w)>3qRMp&&;4_m0o^-p4Iopwrgq7e-3$m
+zjWC+knZ>vp+%{x-259%yV>ozO{!&iN8wpcfo<Uca+mmv}#8F}JjiCqTf25ra0d6gU
+zk@nAp3?BiOB#HQ)b;8H>?TlBoF{Py_0^{3xT5G#Nu~JAZ3h85rsWaR@7?K;1ijsjn
+zE6-;P^Y%UxB4w{Np6BL&{8UJ9lD5)F2ThZ>*-fn_c`q<971V9QZ!w$}()c8+OP?8%
+zL|l*G3>gl_E;Hr(<3n<BdJ07*up&IklOGG|4d|+NExmIWkI2NI3mRkl@7S|@b&72g
+zJ9m-HB_WdLc#z)Zc?P|pU{93(p52$_Ttni=LrkwDB?y$Fphiks&JI6{ibR^9ohI=n
+zLI0Ui_bM&FeHaeT2>ohaQBox7{s*N?3s5El81~!vm3D?EY?Y0n$dEB^I2an{+%BFb
+zao&wY{l$50e(Y1D&$k<Uc3+eGn}KCoDJ8Qv=jHS9gy7Cyc+j<(Udc#76>w=a0zL?j
+zX)|1zy^l<jxbfwJf(9Y!-otRfks&2aGjApZ#~2Pi6cU6eKrmTIi|Zk}JSH`WUc$Zg
+z|0Wv`p2j%M$Q9(ZnZ4NC5UD8~l1DGz*?Lqp$qH97X&lq|7<^6$kIf_qQ%EPAF^zF8
+z#-zM5tvNYMvHchhc#q5y^R}7sqS@JTg#j<h`Lw$!C&?3IT{z2s|9FnFGmmIjT2<{N
+zLBgYRVn6n~_yWcCT?P^lMI&FEYfPOe*nr|~GRcCKJLLc9f)S=k+=aEynCTLv7&FTP
+z!%WVyFgqekb4Z@!Nuy7;LTO|TcJg|rVKd`ZEz+SNCYfxv0P~<kUbL$5wH!(wjn_p{
+z9qXgHFdV!&B(C3pHi=8^XdOYpBsR3#Txhy@$>xZxcvH*bZ$hrsc^<xvaf2U&V>4EK
+zcimJ^SO#n`bE2zCEG!F|Q$BZ>AvZ!B<GK<<U(z@Q&j_hIk!oHPB;-MvlAjM@emM*W
+zTvn#GbEMeDINz3EzJ9)2XsAJ?aTY^~sMuCPf`*d_=mO8io_9hU<HipkeOwej9B>}E
+zgVI78W`2wl7$yPS@7&S5<)JsWo8bkpk?}IuWNbJ2s`XHXtlNI?=-vEa2ERQ=*%6vu
+zwATe35)MlzOiH}TXaDu+-A2f5iE-yQYh#Tr((=F8rT0h!b%DbE$p~#>OfoK><+M;_
+zlkniQ`qUZ74JciF|IrxVu|tmB*i>lS70de*>oCc<>Ls(H8{O2B%cfA6lJD`+98lqS
+zeg0Sa*L_aP`yU*Avkzd*c(K*eGSa(~(8|rY(g?Frk_9re5|&ID6SO`n+6A&RuGb0c
+zCI0l#)sc!as!8asx-QK=yV$36@uqUw+7b6SG4EZY8x#i@<vW>wTNvvZe|+e|T>ReU
+z?FL}RgL53Vs&^%k#>0DQh*^B)=v{XRo`lI`Q@bSAGcJdY!8YZkdvjTJU9%SLDAC(B
+zk?z%btr*Ync~0K<6WR_3k|VsgnYHNipfFz5JSvI{;}`g70vNVf&e$DiI-zk;s+xZA
+za9_=9=L;j{>r4>zgW?Y$Can`1iBo7iqL1Z4+k9!?nU0kN7*`TC)xqVc6s-AQ&W;`=
+z57sB-`@bX9n*+lelZe}#Un`Q7hB9``{B%i5(DaSMx*<##O<UFSV@#f&(Ueg41w)7T
+zC-d3~$|5k&KPS}>`EUXhntU|8KIiN19zcNrhR5los&*X-J`?iNSDnqy1ey$Mm(X?u
+zOq)DldXSliNk|+t(zPstqEb-Xrm%EvvzE=QXBq$ffyHs{QjgOC7&i;yA%|gx)HkAh
+zCLINjT$AwT^QxNGe{_fi5Qsc2=dt^J!aY8n>tenWOa^jTD6Cnn*eES)P&T8gRT)U-
+z8V0B3nvV;a_v#Ntr|6xnb!&^FQEsr6Q=qGF4iL&h7)p`GwcgVl_9~#x#n5TX1ul$+
+zapQGXK22S?;b0DHjN;|dumYGTM9Sxf8cp9f%#2)>>&vuuM#DJYSJJ&5!-1@cA#rq=
+zeNE^YAyo=Kv!3)JYv-&I=Ed5=<)zRt&b?IkISZ17(z|L)L|V@0<=rVv_x3=oC<Q%C
+zsCDDLpm8@bWCH$>FtK$Olr5i_nOG^RS{*I7y6Wq`jl^FS;$N%q-x}M?v<ZDv#INh~
+zz769N^&A)}qJ0Nd%}wSM>6!8cy`eB(91^pNN+|awNMx`a=d3+rZ)hYAQp&eaD|eok
+z>JjQ%Jmbdl?H;h6@qY>FQu9s0ZVxQOI4jcboOqbTdd5}#HB&u%A60E}pNtMap?8cK
+zFDnLlVe8AE_YR6uQ=iJTitl^JdWnPO4m)$>y{+T~L!Rwj5lBgX^o)&+4+q9M$x9~e
+z9aOcwT}(X42w7gS5==@QR0}B%*nZd?t5_F-&Z8m-<y$L38{-zQm=0DFvfU8qNP4^^
+zOt(#J^oI7-P*p3I)8+1$2UvZbTS;$Qj$u~y(%f^I%8P~2CUFq^N+FpESsmoxt6EVW
+z(?xqrP|jXL*%LNrRG<{kN=_V~<2~~JobpA_*tzSs^4DS;RTip@<@7$8<I2(A)uE)F
+zg@X!t56T1e=PQ@Zu*BA~IyAUt7k2&YXR2uqOzY}Qn@py4TF?}~cSlw8zwN>&#8iMU
+zZ*T5=+n9#wj2Eb0mg71p54>q%>XJ}MM1M$3N*5c~TdfK29kUrPbKGiQ=z@M?_2Ix+
+z=A1}iYE1Pui&awffUP7BmNGeSzU<6A7!HmNJvJmQZG3mGTU!)cGhRYMp43XBq`-AM
+zS1K-wc_a?XJMFo!b^XiY;Fhi`7e5vAGET!A=T->x4fEamEaO%ovH2ddZ&+%v&obWB
+zy-eSLW_hq2%NOu3iFp|ppPMH)<I){vjkr8M&>MYECvS=Q7%%pm={YbDY(Z;RSPp$r
+zu4O(<X$L1}TQRT1L8L~($%S>pa9}kN+ileXt-cR4Zc$4akA0<sENyPeNVk18<029V
+ze)etCMb(~n!*F0nzNQphx%jqXQN~p}2wF_yb;od^z?agzcN%kgh`a(U%DDL4nCyq~
+z0wF5hAq%r@Sd8(qEm2v_-rv?JmOYy|P(-|KSXAPm>d3_6)ICoZLP=(trrtk|xow5~
+z%P?*;J3)&n+`eGnX7;?VWXG0RobeK-s&H)5Qr$5e*bjpDwhuF2fN6U+DDLeGyt%`3
+z&3V_nbi#6smnBqENNQ*Lf?mX8Y>ReZR^ni*l!rz_#%6a62MYU58y%KwHoKCn3|$z1
+zYDgT-4)+CVY%Z*=4pxfg883Nvzj&kIuP>;2Hj{FEq~3X{^el9dIGFFcA`kiMP<Mx>
+z)WO<Ko7DR>mz&UyaX&v$HjGp^(^nORJrz9{Ex$5!l{oxGNKNaxk$U&~nX;j*`gyzg
+zt*j8KJL6?C(cXz-^~D#~x8t=T&(=NZF$H}{9P`$JVV(mb)a(kyKN|9$x!&}0@(!3!
+zA&Hf3BewpybJqc(n?hb={-ZfcMxK!4xjD}UbjxAS?kjT**%^A{lDzM_=6n<83;xR<
+zsit{M_lTsd_T#gwe-*F@RjqKKl|AIG(-79FERQmstP1M`xz<v@X*LV9882B8RY=x*
+zncVZ<Ja#k5=QXB%Cnx8ZsPrP6OTIi0ynMxRDNJyE%Q4FG%^op*jF+u_DK6O-W7u4|
+zM!0_-#A+jHX4?c>tzZR{+7;j1*j?z#2{G=MLvfJwCc#keb$7Fro3blimz34O{AlP&
+zc_7`}gMBgdzR-(9qO@-bS%Rg!!|#)5jMMYb&6>4k&}^XBZP>J6I^)BEUz@a~ij&e*
+zB%K;YNP9EbU&+Jaz$Cw|L2V?d;V#erEIaWpP6vvvSIjnNr2@%97(4%n!gSqJ!br0}
+zVmpR|w}$xLdIzOv$LwWN(#^_ct08;EY{tPV;o-mr7k0UnTBfk(-OI(UT5@VO-FQcs
+zU(}yhG6KC94$NoH)}yK|y3-Iet~|T2)EH#yNY^jrjF&-HHQ)P~kn@?q2j~0wYT3%Z
+zZ7juk`JY}Zs<)Q-dQ`P_=61i7DKYMheJN+=%hrKX#FM-0@d3=0**gm3whf+dFPY-K
+zX)r64d&SlgFZNVHFSDh9UU#MFlw$g6Eer7s0}}V3R`VYb32mMTtZM7fDMy>s)Bdwj
+zRw?*xBlWG#F510dHsj?tNNq^LTq&40V|sQTV)J$+rCL$uM9mrp=ggef?Uy!6bSC=a
+z3{kMXVR~1uYI{7GB*gRyx$#{?m}%dG#l(Q$Cn_bH&89b9!Aa7KnqS)L4eb)IYCoU%
+z{17JZ8-|M0(iK&0_J!mqKMkc}+fmglf%0($M-R`rV*cK+k@2#e(S{Zl%<86oZFc@;
+zjip+`FH_m>h?3*MnJDo4WSpU<`~xURyX?xe*rLIb5Z{|elVvqc<)^*qggfV&oT1*(
+z#yA_zNB5nF@!Mff&y5?Kx*6rS3wUeHmhNs@q+ujs=z;nAyfD`yaSlln&9U>mJnuCC
+z{lH>KUwe*SGw;15Hh1-^rc6kk#H4$5H30)JN~6fEzBdnZL(Ua{lNhZ|TC_f9^%5y0
+zTOPh5=Wbr*P-aY+K=tZ|k`+)UDO~fHL$+4(6Cs_qH)=y0<ARM(<%Z4gCg^H@qLW!6
+z36ddAT~#%MqjN|Hqi@Ln&bMz{F_mI_Q^g`Z4d*(dJU`plhk|UyX2zkabvF!p2)pk2
+zVHiC?=-DjNVdkWQRUsSOpU-(T@bai?y9;T6m*!e4ECJiG<9`7W1{_3VFN#k90000<
+KMNUMnLSTYsl-xG}
+

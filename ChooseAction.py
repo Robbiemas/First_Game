@@ -19,6 +19,8 @@ def resolve_action_state(play):
         if play.standing and play.dashTurn:
             play.turnAround()
             play.dashTurn = False
+        if play.turning and play.dashTurn:
+            play.dashTurn = False
     else:
         play.xCount += 1
         #play.dashCount += 1
