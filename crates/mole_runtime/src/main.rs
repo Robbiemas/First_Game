@@ -1,3 +1,5 @@
+#[cfg(all(feature = "sdl", feature = "wup"))]
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use mole_core::{step_world, Frame, PlayerInput, World};
@@ -17,8 +19,10 @@ use mole_runtime::{
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use sdl3::{
     pixels::Color,
+    pixels::PixelFormat,
     rect::Point,
-    render::{FRect, WindowCanvas},
+    render::{BlendMode, FRect, Texture, TextureCreator, WindowCanvas},
+    video::WindowContext,
 };
 
 #[cfg(feature = "wup")]
@@ -29,7 +33,7 @@ mod wup_monitor;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let frames = parse_frames(args.iter().cloned());
+    let frames = parse_frames(&args);
     let replay_path = parse_replay_path(&args, frames);
     #[cfg(feature = "sdl")]
     let frame_log = has_flag(&args, "--frame-log");
@@ -308,6 +312,9 @@ fn run_udp_sdl(
         .build()
         .map_err(|error| error.to_string())?;
     let mut canvas = window.into_canvas();
+    let texture_creator = canvas.texture_creator();
+    let mut texture_cache =
+        SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
     let mut local_input_source = WupInputSource::open()?;
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
@@ -362,7 +369,12 @@ fn run_udp_sdl(
                     .to_json_line()
             );
         }
-        draw_sdl_scene(&mut canvas, &scene, Some(&overlay))?;
+        draw_sdl_scene(
+            &mut canvas,
+            &scene,
+            Some(&overlay),
+            Some(&mut texture_cache),
+        )?;
 
         if sdl_shell_input.quit_requested() {
             break;
@@ -418,6 +430,9 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Re
         .build()
         .map_err(|error| error.to_string())?;
     let mut canvas = window.into_canvas();
+    let texture_creator = canvas.texture_creator();
+    let mut texture_cache =
+        SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
 
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
     let mut gameplay_input_source = WupInputSource::open()?;
@@ -447,7 +462,12 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Re
                     .to_json_line()
             );
         }
-        draw_sdl_scene(&mut canvas, &scene, Some(&overlay))?;
+        draw_sdl_scene(
+            &mut canvas,
+            &scene,
+            Some(&overlay),
+            Some(&mut texture_cache),
+        )?;
 
         if sdl_shell_input.quit_requested() {
             break;
@@ -487,14 +507,39 @@ fn draw_sdl_scene(
     canvas: &mut WindowCanvas,
     scene: &RenderScene,
     overlay: Option<&DebugOverlay>,
+    mut texture_cache: Option<&mut SdlTextureCache<'_>>,
 ) -> Result<(), String> {
     canvas.set_draw_color(sdl_color(scene.background));
     canvas.clear();
+    if let Some(cache) = texture_cache.as_mut() {
+        draw_sdl_image(
+            canvas,
+            cache,
+            scene.background_image.relative_path,
+            scene.background_image.rect,
+            false,
+        )?;
+    }
     for surface in &scene.stage_surfaces {
         draw_sdl_rect(canvas, *surface)?;
     }
-    for player in scene.players {
-        draw_sdl_rect(canvas, player)?;
+    let mut drew_player_textures = false;
+    if let Some(cache) = texture_cache.as_mut() {
+        for (index, player) in scene.players.iter().copied().enumerate() {
+            draw_sdl_image(
+                canvas,
+                cache,
+                &scene.player_sprites[index].relative_path(),
+                player,
+                scene.player_sprites[index].flip_x,
+            )?;
+        }
+        drew_player_textures = true;
+    }
+    if !drew_player_textures {
+        for player in scene.players {
+            draw_sdl_rect(canvas, player)?;
+        }
     }
     for ecb in scene.player_ecbs {
         draw_sdl_polygon(canvas, ecb)?;
@@ -506,6 +551,83 @@ fn draw_sdl_scene(
         return Err("SDL present failed".to_string());
     }
     Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+struct SdlTextureCache<'a> {
+    asset_root: PathBuf,
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: HashMap<String, Texture<'a>>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+impl<'a> SdlTextureCache<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>, asset_root: PathBuf) -> Self {
+        Self {
+            asset_root,
+            texture_creator,
+            textures: HashMap::new(),
+        }
+    }
+
+    fn texture(&mut self, relative_path: &str) -> Result<&Texture<'a>, String> {
+        if !self.textures.contains_key(relative_path) {
+            let texture = self.load_texture(relative_path)?;
+            self.textures.insert(relative_path.to_string(), texture);
+        }
+
+        self.textures
+            .get(relative_path)
+            .ok_or_else(|| format!("texture cache missed {relative_path}"))
+    }
+
+    fn load_texture(&self, relative_path: &str) -> Result<Texture<'a>, String> {
+        let path = self.asset_root.join(relative_path);
+        let image = image::ImageReader::open(&path)
+            .map_err(|error| format!("failed to open {}: {error}", path.display()))?
+            .decode()
+            .map_err(|error| format!("failed to decode {}: {error}", path.display()))?
+            .to_rgba8();
+        let (width, height) = image.dimensions();
+        let mut texture = self
+            .texture_creator
+            .create_texture_static(PixelFormat::RGBA32, width, height)
+            .map_err(|error| error.to_string())?;
+
+        texture
+            .update(None, image.as_raw(), width as usize * 4)
+            .map_err(|error| error.to_string())?;
+        texture.set_blend_mode(BlendMode::Blend);
+
+        Ok(texture)
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_sdl_image(
+    canvas: &mut WindowCanvas,
+    texture_cache: &mut SdlTextureCache<'_>,
+    relative_path: &str,
+    rect: RenderRect,
+    flip_x: bool,
+) -> Result<(), String> {
+    let texture = texture_cache.texture(relative_path)?;
+    let dst = FRect::new(
+        rect.x as f32,
+        rect.y as f32,
+        rect.width as f32,
+        rect.height as f32,
+    );
+
+    if flip_x {
+        canvas
+            .copy_ex(texture, None, Some(dst), 0.0, None, true, false)
+            .map_err(|error| error.to_string())
+    } else {
+        canvas
+            .copy(texture, None, Some(dst))
+            .map_err(|error| error.to_string())
+    }
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -774,15 +896,14 @@ fn has_flag(args: &[String], flag: &str) -> bool {
     args.iter().any(|arg| arg == flag)
 }
 
-fn parse_frames(mut args: impl Iterator<Item = String>) -> u32 {
-    while let Some(arg) = args.next() {
-        if arg == "--frames" {
-            return args
-                .next()
-                .and_then(|value| value.parse::<u32>().ok())
-                .unwrap_or(120);
-        }
+fn parse_frames(args: &[String]) -> u32 {
+    if let Some(value) = value_after(args, "--frames") {
+        return value.parse::<u32>().unwrap_or(120);
     }
+    if has_flag(args, "--play") {
+        return u32::MAX;
+    }
+
     120
 }
 
@@ -798,4 +919,31 @@ fn value_after(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag)
         .map(|pair| pair[1].clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_frames;
+
+    #[test]
+    fn parse_frames_defaults_to_smoke_length() {
+        assert_eq!(parse_frames(&[]), 120);
+    }
+
+    #[test]
+    fn parse_frames_supports_play_until_quit_mode() {
+        assert_eq!(parse_frames(&["--play".to_string()]), u32::MAX);
+    }
+
+    #[test]
+    fn parse_frames_keeps_explicit_frame_counts_for_smoke_tests() {
+        assert_eq!(
+            parse_frames(&[
+                "--play".to_string(),
+                "--frames".to_string(),
+                "2".to_string()
+            ]),
+            2
+        );
+    }
 }

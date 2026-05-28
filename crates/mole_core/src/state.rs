@@ -4,6 +4,8 @@ use crate::{
 
 pub const PLAYER_COUNT: usize = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
+const PLAYER_ONE_DEFAULT_SPAWN_X: i32 = -20_000;
+const PLAYER_TWO_DEFAULT_SPAWN_X: i32 = 20_000;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Vec2 {
@@ -236,8 +238,8 @@ impl World {
         Self {
             frame: Frame(0),
             players: [
-                PlayerState::new_with_profile(-1_000, 0, 1, profiles[0]),
-                PlayerState::new_with_profile(1_000, 0, -1, profiles[1]),
+                PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
+                PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
             ],
             previous_inputs: [PlayerInput::neutral(), PlayerInput::neutral()],
             input_timers: [MeleeInputTimers::expired(); PLAYER_COUNT],

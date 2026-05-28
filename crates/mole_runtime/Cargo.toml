@@ -6,12 +6,13 @@ license.workspace = true
 
 [features]
 default = []
-sdl = ["dep:sdl3"]
+sdl = ["dep:image", "dep:sdl3"]
 wup = ["dep:rusb"]
 
 [dependencies]
 mole_core = { path = "../mole_core" }
 mole_replay = { path = "../mole_replay" }
 mole_transport = { path = "../mole_transport" }
+image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
 rusb = { version = "0.9.4", optional = true, features = ["vendored"] }
 sdl3 = { version = "0.18.4", optional = true, features = ["hidapi"] }

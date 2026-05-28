@@ -342,6 +342,12 @@ pub struct RenderRect {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderImage {
+    pub relative_path: &'static str,
+    pub rect: RenderRect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderPolygon {
     pub points: [RenderPoint; 4],
     pub color: RenderColor,
@@ -350,6 +356,7 @@ pub struct RenderPolygon {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RenderScene {
     pub background: RenderColor,
+    pub background_image: RenderImage,
     pub transform: RenderTransform,
     pub stage: RenderRect,
     pub stage_surfaces: Vec<RenderRect>,
@@ -380,6 +387,16 @@ impl RenderScene {
 
         Self {
             background: RenderColor::BACKGROUND,
+            background_image: RenderImage {
+                relative_path: "background.png",
+                rect: RenderRect {
+                    x: 0,
+                    y: 0,
+                    width: viewport_width,
+                    height: viewport_height,
+                    color: RenderColor::BACKGROUND,
+                },
+            },
             transform,
             stage: stage_surfaces[0],
             stage_surfaces,
@@ -408,6 +425,10 @@ impl RenderScene {
             player_sprites,
         }
     }
+}
+
+pub fn project_asset_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

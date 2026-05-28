@@ -6,10 +6,11 @@ use mole_core::{
 };
 use mole_runtime::{
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, parse_wup_report, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock,
-    FrameDebugLog, InputReadout, InputSource, LegacyAnimationKey, LegacySpriteCue, PhysicalInput,
-    RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform, ReplayCapture,
-    UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    native_replay_path, parse_wup_report, project_asset_root, DebugOverlay,
+    DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout, InputSource,
+    LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor, RenderFrame, RenderRect,
+    RenderScene, RenderTransform, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper,
+    WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -142,7 +143,7 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[0],
         RenderRect {
-            x: 448,
+            x: 348,
             y: 286,
             width: 54,
             height: 119,
@@ -157,7 +158,7 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[1],
         RenderRect {
-            x: 458,
+            x: 558,
             y: 286,
             width: 54,
             height: 119,
@@ -192,6 +193,47 @@ fn render_scene_contains_battlefield_surfaces_and_diamond_ecb() {
         scene.player_ecbs[0].points[0].x,
         scene.player_ecbs[0].points[2].x
     );
+}
+
+#[test]
+fn runtime_asset_root_contains_background_and_sprite_files() {
+    let asset_root = project_asset_root();
+
+    assert!(asset_root.join("background.png").is_file());
+    assert!(asset_root
+        .join("DolphinMole")
+        .join("standing")
+        .join("Standing1.png")
+        .is_file());
+}
+
+#[test]
+fn render_scene_references_background_and_sprite_asset_paths() {
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.background_image.relative_path, "background.png");
+    assert_eq!(scene.background_image.rect.width, 960);
+    assert_eq!(scene.background_image.rect.height, 540);
+    assert_eq!(
+        scene.player_sprites[0].relative_path(),
+        "DolphinMole/standing/Standing1.png"
+    );
+}
+
+#[test]
+fn sdl_runtime_launcher_uses_native_play_mode() {
+    let launcher = project_asset_root()
+        .join("execs")
+        .join("Run SDL3 Runtime.cmd");
+    let text =
+        std::fs::read_to_string(&launcher).expect("SDL3 runtime launcher should be readable");
+
+    assert!(text.contains(".local\\SDL3"));
+    assert!(text.contains("--features \"sdl wup\""));
+    assert!(text.contains("-- --sdl --play"));
+    assert!(!text.contains("--frames 600"));
 }
 
 #[test]

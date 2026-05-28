@@ -9,7 +9,7 @@ launchers remain available as legacy prototype and temporary QA harness tools.
 - `Check WUP Native.cmd`: checks the WUP-028 adapter directly through WinUSB/libusb.
 - `Monitor WUP Native.cmd`: opens the native WUP input display with main stick, C-stick, D-pad, split L/R analog triggers, and split L/R digital trigger clicks.
 - `Run Rust Runtime.cmd`: runs the deterministic Rust core smoke test.
-- `Run SDL3 Runtime.cmd`: runs the SDL3 runtime smoke loop.
+- `Run SDL3 Runtime.cmd`: opens the native SDL3/WUP game window and runs until the window is closed.
 - `Run WUP Native Runtime.cmd`: runs the native WUP runtime smoke loop.
 - `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.
 - `Setup SDL3.cmd`: helper used by the SDL3 launchers.

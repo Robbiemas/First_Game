@@ -167,6 +167,10 @@ impl LegacySpriteCue {
     pub fn source_size_px(self) -> SpriteSourceSize {
         legacy_sprite_source_size(self)
     }
+
+    pub fn relative_path(self) -> String {
+        format!("{}/{}", self.directory, self.frame)
+    }
 }
 
 pub fn legacy_sprite_source_size(cue: LegacySpriteCue) -> SpriteSourceSize {

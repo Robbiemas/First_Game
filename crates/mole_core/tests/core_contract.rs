@@ -56,6 +56,30 @@ fn default_stage_is_battlefield_sized_in_core_units() {
 }
 
 #[test]
+fn default_two_player_spawns_are_separated_in_battlefield_units() {
+    let world = World::for_two_players();
+
+    assert_eq!(
+        world.players()[0].position,
+        Vec2 {
+            x: melee_units_f32(-20.0),
+            y: 0
+        }
+    );
+    assert_eq!(
+        world.players()[1].position,
+        Vec2 {
+            x: melee_units_f32(20.0),
+            y: 0
+        }
+    );
+    assert!(
+        (world.players()[1].position.x - world.players()[0].position.x)
+            > FighterProfile::falcon_like().standing_height_units
+    );
+}
+
+#[test]
 fn ecb_diamond_uses_four_midpoint_vertices() {
     let ecb = EcbDiamond::from_bottom_center_and_size(Vec2 { x: 100, y: 0 }, 62_000, 136_000);
 

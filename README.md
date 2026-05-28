@@ -85,13 +85,15 @@ For visual state reference:
 .\execs\Open State Graphs.cmd
 ```
 
-The SDL runtime currently uses deterministic rectangle fallback rendering plus
-Rust-owned sprite cues. The checked-in DolphinMole assets are preserved and
-mapped in Rust for the next renderer pass.
+The SDL runtime now draws the checked-in `background.png` and DolphinMole PNG
+frames from Rust-owned sprite cues, with deterministic rectangle fallback data
+kept for tests and diagnostics.
 
 You can also double-click `execs\Run Rust Runtime.cmd` for the current Rust smoke run. It advances a deterministic 120-frame simulation and prints the final frame plus checksum.
 
-For SDL3 keyboard/gamepad polling, double-click `execs\Run SDL3 Runtime.cmd`. The first launch downloads the free SDL3 development package into `.local/SDL3`, which is ignored by git.
+For the native SDL3/WUP game window, double-click `execs\Run SDL3 Runtime.cmd`.
+The first launch downloads the free SDL3 development package into `.local/SDL3`,
+which is ignored by git.
 
 For the native WUP-028 GameCube adapter path, double-click `execs\Check WUP Native.cmd` to verify ports, then `execs\Run WUP Native Runtime.cmd` to run the 60 Hz smoke loop using WinUSB/libusb directly. This path does not require a controller remapper.
 
