@@ -340,11 +340,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_transport/tests/webrtc_contract.rs`
 - Update: `docs/architecture/native-rust-rollback-architecture.md`
 
-- [ ] Add WebRTC DataChannel as an optional transport backend.
-- [ ] Exchange setup data through the signaling boundary.
-- [ ] Run the same rollback transport tests through WebRTC where practical.
+- [x] Add WebRTC DataChannel as an optional transport backend.
+- [x] Exchange setup data through the signaling boundary.
+- [x] Run the same rollback transport tests through WebRTC where practical.
 - [ ] Compare latency/jitter against direct UDP.
-- [ ] Keep UDP as the baseline path.
+- [x] Keep UDP as the baseline path.
 
 ## Phase 9: Pygame Retirement
 

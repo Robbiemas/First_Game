@@ -185,6 +185,56 @@ impl Transport for UdpTransport {
     }
 }
 
+#[cfg(feature = "webrtc")]
+pub trait DataChannelPort {
+    fn send_bytes(&mut self, bytes: &[u8]) -> io::Result<()>;
+    fn try_recv_bytes(&mut self) -> io::Result<Option<Vec<u8>>>;
+}
+
+#[cfg(feature = "webrtc")]
+#[derive(Debug)]
+pub struct WebRtcDataChannelTransport<P> {
+    port: P,
+}
+
+#[cfg(feature = "webrtc")]
+impl<P> WebRtcDataChannelTransport<P>
+where
+    P: DataChannelPort,
+{
+    pub const fn new(port: P) -> Self {
+        Self { port }
+    }
+
+    pub fn send_packet(&mut self, packet: InputPacket) -> io::Result<()> {
+        self.port.send_bytes(&packet.to_wire_bytes())
+    }
+
+    pub fn try_recv_packet(&mut self) -> io::Result<Option<InputPacket>> {
+        let Some(bytes) = self.port.try_recv_bytes()? else {
+            return Ok(None);
+        };
+
+        InputPacket::from_wire_bytes(&bytes)
+            .map(Some)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}")))
+    }
+}
+
+#[cfg(feature = "webrtc")]
+impl<P> Transport for WebRtcDataChannelTransport<P>
+where
+    P: DataChannelPort,
+{
+    fn send(&mut self, packet: InputPacket) {
+        let _ = self.send_packet(packet);
+    }
+
+    fn try_recv(&mut self) -> Option<InputPacket> {
+        self.try_recv_packet().ok().flatten()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PacketAcceptResult {
     Accepted,

@@ -6,3 +6,10 @@ license.workspace = true
 
 [dependencies]
 mole_core = { path = "../mole_core" }
+
+[features]
+default = []
+webrtc = []
+
+[dev-dependencies]
+mole_signaling = { path = "../mole_signaling" }

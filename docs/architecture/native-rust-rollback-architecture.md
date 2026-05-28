@@ -720,7 +720,11 @@ Weakness:
 - TURN relay may cost money
 
 Implementation rule: WebRTC is a transport backend under `mole_transport`.
-It must not change rollback or core APIs.
+It must not change rollback or core APIs. The first Rust spike uses an
+optional `webrtc` feature and a DataChannel-shaped adapter over the existing
+`InputPacket` wire format, while SDP/ICE setup data remains in
+`mole_signaling`. Direct UDP remains the baseline path until a concrete
+WebRTC runtime binding is connected and measured against UDP.
 
 ### Layer 4: Optional Relay/TURN
 

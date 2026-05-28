@@ -103,6 +103,7 @@ name = "mole_transport"
 version = "0.1.0"
 dependencies = [
  "mole_core",
+ "mole_signaling",
 ]
 
 [[package]]
