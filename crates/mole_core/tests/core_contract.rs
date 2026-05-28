@@ -1,10 +1,11 @@
 use mole_core::{
-    input_common_data_field_sources, step_world, CommonDataExtractError, CommonDataProvenance,
-    FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
-    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
-    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, Vec2, WalkSpeedBucket, World,
-    TICK_RATE_HZ, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA,
-    UCF_TILT_INTENT_DELTA, UCF_VERSION,
+    input_common_data_field_sources, melee_units, melee_units_f32, step_world,
+    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterProfile, Frame,
+    GameCubeButtonState, GameCubePadStatus, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor,
+    MeleeInputSnapshot, MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState,
+    PlayerInput, StageProfile, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
+    UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA,
+    UCF_VERSION,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -32,6 +33,49 @@ fn advance_player_to_run(world: &mut World) {
 #[test]
 fn simulation_rate_is_sixty_hertz() {
     assert_eq!(TICK_RATE_HZ, 60);
+}
+
+#[test]
+fn melee_units_use_milli_units_for_public_falcon_values() {
+    assert_eq!(melee_units(2.3), 2_300);
+    assert_eq!(melee_units(0.13), 130);
+}
+
+#[test]
+fn default_stage_is_battlefield_sized_in_core_units() {
+    let stage = StageProfile::battlefield_test();
+
+    assert_eq!(stage.name, "battlefield_test");
+    assert_eq!(stage.main_floor.left_x, melee_units_f32(-68.4000015259));
+    assert_eq!(stage.main_floor.right_x, melee_units_f32(68.4000015259));
+    assert_eq!(stage.soft_platforms.len(), 3);
+    assert!(stage
+        .soft_platforms
+        .iter()
+        .all(|surface| surface.kind == StageSurfaceKind::Soft));
+}
+
+#[test]
+fn ecb_diamond_uses_four_midpoint_vertices() {
+    let ecb = EcbDiamond::from_bottom_center_and_size(Vec2 { x: 100, y: 0 }, 62_000, 136_000);
+
+    assert_eq!(ecb.top, Vec2 { x: 100, y: 136_000 });
+    assert_eq!(
+        ecb.right,
+        Vec2 {
+            x: 31_100,
+            y: 68_000
+        }
+    );
+    assert_eq!(ecb.bottom, Vec2 { x: 100, y: 0 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -30_900,
+            y: 68_000
+        }
+    );
+    assert_eq!(ecb.points(), [ecb.top, ecb.right, ecb.bottom, ecb.left]);
 }
 
 #[test]
