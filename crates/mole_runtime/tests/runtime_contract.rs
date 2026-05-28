@@ -4,7 +4,8 @@ use mole_core::{
 };
 use mole_runtime::{
     map_gamecube_pad_to_player_input, map_physical_input, parse_wup_report, FixedStepClock,
-    InputReadout, InputSource, PhysicalInput, RenderFrame, WupInputMapper, WupPort,
+    InputReadout, InputSource, PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene,
+    WupInputMapper, WupPort,
 };
 
 #[test]
@@ -86,6 +87,69 @@ fn render_frame_consumes_core_snapshot_boundary() {
     assert_ne!(
         render_frame.player_positions[0],
         world.players()[0].position
+    );
+}
+
+#[test]
+fn render_scene_places_players_deterministically_from_render_frame() {
+    let world = World::for_two_players();
+    let render_frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+
+    assert_eq!(
+        scene.background,
+        RenderColor {
+            r: 17,
+            g: 19,
+            b: 24,
+            a: 255
+        }
+    );
+    assert_eq!(
+        scene.stage,
+        RenderRect {
+            x: 120,
+            y: 405,
+            width: 720,
+            height: 8,
+            color: RenderColor {
+                r: 180,
+                g: 187,
+                b: 196,
+                a: 255
+            }
+        }
+    );
+    assert_eq!(
+        scene.players[0],
+        RenderRect {
+            x: 356,
+            y: 333,
+            width: 48,
+            height: 72,
+            color: RenderColor {
+                r: 74,
+                g: 138,
+                b: 255,
+                a: 255
+            }
+        }
+    );
+    assert_eq!(
+        scene.players[1],
+        RenderRect {
+            x: 556,
+            y: 333,
+            width: 48,
+            height: 72,
+            color: RenderColor {
+                r: 255,
+                g: 198,
+                b: 87,
+                a: 255
+            }
+        }
     );
 }
 

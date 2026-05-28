@@ -207,14 +207,14 @@ letting input preprocessing sprawl through runtime or core code.
 - Create or modify: `execs/Run Native Rust Game.cmd`
 - Update: `execs/README.md`
 
-- [ ] Add SDL3 dependency behind a runtime feature if not already present.
-- [ ] Open an SDL3 window.
-- [ ] Run a fixed 60 Hz simulation loop.
-- [ ] Draw a simple deterministic test character from the Rust snapshot.
-- [ ] Poll keyboard and generic SDL gamepad as fallback input.
-- [ ] Keep WUP native input path separate and first-class.
+- [x] Add SDL3 dependency behind a runtime feature if not already present.
+- [x] Open an SDL3 window.
+- [x] Run a fixed 60 Hz simulation loop.
+- [x] Draw a simple deterministic test character from the Rust snapshot.
+- [x] Poll keyboard and generic SDL gamepad as fallback input.
+- [x] Keep WUP native input path separate and first-class.
 - [ ] Confirm closing the window exits the process.
-- [ ] Run `cargo run -p mole_runtime`.
+- [x] Run `cargo run -p mole_runtime`.
 
 ## Phase 4: Replay And Checksum
 

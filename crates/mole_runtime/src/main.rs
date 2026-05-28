@@ -4,7 +4,15 @@ use mole_core::{step_world, Frame, PlayerInput, World};
 use mole_core::TICK_NANOS;
 
 #[cfg(feature = "sdl")]
-use mole_runtime::{configure_sdl_controller_hints, SdlInputSource};
+use mole_runtime::{
+    configure_sdl_controller_hints, RenderColor, RenderRect, RenderScene, SdlInputSource,
+};
+
+#[cfg(feature = "sdl")]
+use sdl3::{
+    pixels::Color,
+    render::{FRect, WindowCanvas},
+};
 
 #[cfg(feature = "wup")]
 use mole_runtime::WupInputSource;
@@ -147,11 +155,12 @@ fn run_sdl_smoke(frames: u32) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
-    let _window = video
+    let window = video
         .window("Mole Rust SDL3 Runtime", 960, 540)
         .position_centered()
         .build()
         .map_err(|error| error.to_string())?;
+    let mut canvas = window.into_canvas();
 
     let mut input_source = SdlInputSource::new(&sdl)?;
     let mut world = World::for_two_players();
@@ -159,6 +168,12 @@ fn run_sdl_smoke(frames: u32) -> Result<(), String> {
     for frame in 0..frames {
         let inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, Frame(frame));
         step_world(&mut world, Frame(frame), &inputs);
+        let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
+        draw_sdl_scene(
+            &mut canvas,
+            &RenderScene::from_frame(&render_frame, width, height),
+        )?;
 
         if input_source.quit_requested() {
             break;
@@ -174,6 +189,38 @@ fn run_sdl_smoke(frames: u32) -> Result<(), String> {
         input_source.gamepad_count()
     );
     Ok(())
+}
+
+#[cfg(feature = "sdl")]
+fn draw_sdl_scene(canvas: &mut WindowCanvas, scene: &RenderScene) -> Result<(), String> {
+    canvas.set_draw_color(sdl_color(scene.background));
+    canvas.clear();
+    draw_sdl_rect(canvas, scene.stage)?;
+    for player in scene.players {
+        draw_sdl_rect(canvas, player)?;
+    }
+    if !canvas.present() {
+        return Err("SDL present failed".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(feature = "sdl")]
+fn draw_sdl_rect(canvas: &mut WindowCanvas, rect: RenderRect) -> Result<(), String> {
+    canvas.set_draw_color(sdl_color(rect.color));
+    canvas
+        .fill_rect(FRect::new(
+            rect.x as f32,
+            rect.y as f32,
+            rect.width as f32,
+            rect.height as f32,
+        ))
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "sdl")]
+fn sdl_color(color: RenderColor) -> Color {
+    Color::RGBA(color.r, color.g, color.b, color.a)
 }
 
 #[cfg(feature = "sdl")]

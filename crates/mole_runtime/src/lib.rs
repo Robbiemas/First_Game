@@ -20,6 +20,9 @@ pub use wup_input::WupInputSource;
 
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
+const PLAYER_RENDER_WIDTH: u32 = 48;
+const PLAYER_RENDER_HEIGHT: u32 = 72;
+const WORLD_TO_SCREEN_SCALE: i32 = 10;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedStepClock {
@@ -200,5 +203,97 @@ impl RenderFrame {
             ],
             checksum: snapshot.checksum,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+impl RenderColor {
+    pub const BACKGROUND: Self = Self {
+        r: 17,
+        g: 19,
+        b: 24,
+        a: 255,
+    };
+    pub const STAGE: Self = Self {
+        r: 180,
+        g: 187,
+        b: 196,
+        a: 255,
+    };
+    pub const PLAYER_ONE: Self = Self {
+        r: 74,
+        g: 138,
+        b: 255,
+        a: 255,
+    };
+    pub const PLAYER_TWO: Self = Self {
+        r: 255,
+        g: 198,
+        b: 87,
+        a: 255,
+    };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub color: RenderColor,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderScene {
+    pub background: RenderColor,
+    pub stage: RenderRect,
+    pub players: [RenderRect; 2],
+}
+
+impl RenderScene {
+    pub fn from_frame(frame: &RenderFrame, viewport_width: u32, viewport_height: u32) -> Self {
+        let center_x = viewport_width as i32 / 2;
+        let ground_y = viewport_height as i32 * 3 / 4;
+        let player_colors = [RenderColor::PLAYER_ONE, RenderColor::PLAYER_TWO];
+
+        Self {
+            background: RenderColor::BACKGROUND,
+            stage: RenderRect {
+                x: viewport_width as i32 / 8,
+                y: ground_y,
+                width: viewport_width * 3 / 4,
+                height: 8,
+                color: RenderColor::STAGE,
+            },
+            players: [
+                player_rect(frame, 0, center_x, ground_y, player_colors[0]),
+                player_rect(frame, 1, center_x, ground_y, player_colors[1]),
+            ],
+        }
+    }
+}
+
+fn player_rect(
+    frame: &RenderFrame,
+    index: usize,
+    center_x: i32,
+    ground_y: i32,
+    color: RenderColor,
+) -> RenderRect {
+    let position = frame.player_positions[index];
+
+    RenderRect {
+        x: center_x + position.x / WORLD_TO_SCREEN_SCALE - PLAYER_RENDER_WIDTH as i32 / 2,
+        y: ground_y - position.y / WORLD_TO_SCREEN_SCALE - PLAYER_RENDER_HEIGHT as i32,
+        width: PLAYER_RENDER_WIDTH,
+        height: PLAYER_RENDER_HEIGHT,
+        color,
     }
 }
