@@ -73,6 +73,7 @@ version = "0.1.0"
 dependencies = [
  "mole_core",
  "mole_replay",
+ "mole_transport",
  "rusb",
  "sdl3",
 ]

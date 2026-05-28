@@ -42,6 +42,26 @@ fn udp_transport_returns_none_when_empty_without_blocking() {
 }
 
 #[test]
+fn udp_transport_treats_absent_peer_as_no_packet() {
+    let peer_addr = reserve_local_addr();
+    let transport =
+        UdpTransport::bind("127.0.0.1:0".parse().unwrap(), peer_addr).expect("bind should work");
+    let packet = InputPacket::new(Frame(1), 0, PlayerInput::neutral(), 0xfeed);
+
+    transport.send_packet(packet).expect("send should work");
+
+    for _ in 0..20 {
+        assert_eq!(
+            transport
+                .try_recv_packet()
+                .expect("absent UDP peer should not be fatal"),
+            None
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
+#[test]
 fn udp_transport_exchanges_input_packets_between_local_sockets() {
     let socket_a = reserve_local_addr();
     let socket_b = reserve_local_addr();

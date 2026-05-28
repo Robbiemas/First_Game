@@ -294,10 +294,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_runtime/src/main.rs`
 
 - [x] Implement nonblocking UDP send/receive.
-- [ ] Add direct IP/port configuration for development.
+- [x] Add direct IP/port configuration for development.
 - [x] Exchange input frames and checksums.
-- [ ] Show ping/packet stats in debug overlay.
-- [ ] Run two local instances on different ports and confirm input exchange.
+- [x] Print UDP packet stats in headless runtime debug output.
+- [ ] Show ping/packet stats in SDL/debug overlay.
+- [x] Run two local instances on different ports and confirm input exchange.
 
 ## Phase 7: Supabase Signaling
 

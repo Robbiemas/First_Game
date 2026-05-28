@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
@@ -6,6 +7,7 @@ use mole_core::{
     WorldSnapshot, TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
+use mole_transport::{InputPacket, PacketAcceptResult};
 
 #[cfg(feature = "sdl")]
 pub mod sdl_input;
@@ -492,4 +494,87 @@ fn parse_u64(
         line: line_number,
         message,
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UdpRuntimeConfig {
+    pub local_addr: SocketAddr,
+    pub peer_addr: SocketAddr,
+    pub player_index: u8,
+}
+
+impl UdpRuntimeConfig {
+    pub fn from_args(args: &[String]) -> Result<Self, String> {
+        let local_addr = required_arg(args, "--local-addr")?
+            .parse()
+            .map_err(|error| format!("invalid --local-addr: {error}"))?;
+        let peer_addr = required_arg(args, "--peer-addr")?
+            .parse()
+            .map_err(|error| format!("invalid --peer-addr: {error}"))?;
+        let player_index = optional_arg(args, "--player-index")
+            .map(|value| {
+                value
+                    .parse::<u8>()
+                    .map_err(|error| format!("invalid --player-index: {error}"))
+            })
+            .transpose()?
+            .unwrap_or(0);
+
+        if player_index > 1 {
+            return Err("--player-index must be 0 or 1".to_string());
+        }
+
+        Ok(Self {
+            local_addr,
+            peer_addr,
+            player_index,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct UdpRuntimeStats {
+    pub sent_packets: u32,
+    pub received_packets: u32,
+    pub duplicate_packets: u32,
+    pub unsupported_packets: u32,
+    pub missing_remote_frames: u32,
+    pub last_remote_frame: Option<Frame>,
+    pub last_remote_checksum: Option<u64>,
+}
+
+impl UdpRuntimeStats {
+    pub fn record_sent(&mut self) {
+        self.sent_packets = self.sent_packets.saturating_add(1);
+    }
+
+    pub fn record_accept(&mut self, result: PacketAcceptResult, packet: InputPacket) {
+        match result {
+            PacketAcceptResult::Accepted => {
+                self.received_packets = self.received_packets.saturating_add(1);
+                self.last_remote_frame = Some(packet.frame);
+                self.last_remote_checksum = Some(packet.checksum);
+            }
+            PacketAcceptResult::Duplicate => {
+                self.duplicate_packets = self.duplicate_packets.saturating_add(1);
+            }
+            PacketAcceptResult::UnsupportedVersion => {
+                self.unsupported_packets = self.unsupported_packets.saturating_add(1);
+            }
+        }
+    }
+
+    pub fn record_missing_remote_frame(&mut self) {
+        self.missing_remote_frames = self.missing_remote_frames.saturating_add(1);
+    }
+}
+
+fn required_arg(args: &[String], flag: &'static str) -> Result<String, String> {
+    optional_arg(args, flag).ok_or_else(|| format!("{flag} is required"))
+}
+
+fn optional_arg(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2)
+        .find(|pair| pair[0] == flag)
+        .map(|pair| pair[1].clone())
 }

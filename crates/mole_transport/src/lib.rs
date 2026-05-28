@@ -138,7 +138,14 @@ impl UdpTransport {
                         io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}"))
                     })
             }
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(None),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::ConnectionReset
+                ) =>
+            {
+                Ok(None)
+            }
             Err(error) => Err(error),
         }
     }

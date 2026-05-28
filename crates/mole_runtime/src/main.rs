@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use mole_core::{step_world, Frame, PlayerInput, World};
+use mole_transport::{InputPacket, InputPacketInbox, UdpTransport};
 
 #[cfg(any(feature = "sdl", feature = "wup"))]
 use mole_core::TICK_NANOS;
@@ -26,6 +27,19 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let frames = parse_frames(args.iter().cloned());
     let replay_path = parse_replay_path(&args, frames);
+
+    if has_flag(&args, "--udp") {
+        match mole_runtime::UdpRuntimeConfig::from_args(&args)
+            .and_then(|config| run_udp_headless(frames, config, replay_path.as_deref()))
+        {
+            Ok(()) => {}
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
 
     #[cfg(feature = "sdl")]
     if has_flag(&args, "--list-inputs") {
@@ -164,6 +178,84 @@ fn run_headless(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
         world.frame().0,
         world.checksum()
     );
+    Ok(())
+}
+
+fn run_udp_headless(
+    frames: u32,
+    config: mole_runtime::UdpRuntimeConfig,
+    replay_path: Option<&Path>,
+) -> Result<(), String> {
+    let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
+        .map_err(|error| error.to_string())?;
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
+    let mut inbox = InputPacketInbox::default();
+    let mut stats = mole_runtime::UdpRuntimeStats::default();
+    let remote_player = 1 - config.player_index;
+
+    for frame_number in 0..frames {
+        let frame = Frame(frame_number);
+        drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+        let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
+        if let Some(remote_input) = inbox.input(frame, remote_player) {
+            inputs[remote_player as usize] = remote_input;
+        } else {
+            stats.record_missing_remote_frame();
+        }
+
+        step_world(&mut world, frame, &inputs);
+
+        let local_packet = InputPacket::new(
+            frame,
+            config.player_index,
+            inputs[config.player_index as usize],
+            world.checksum(),
+        );
+        transport
+            .send_packet(local_packet)
+            .map_err(|error| error.to_string())?;
+        stats.record_sent();
+
+        if let Some(capture) = replay_capture.as_mut() {
+            capture.record_frame(frame, inputs, world.checksum());
+        }
+    }
+    drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+
+    if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
+        mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
+        println!("replay_path={}", path.display());
+    }
+
+    println!(
+        "final_frame={} checksum={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?}",
+        world.frame().0,
+        world.checksum(),
+        stats.sent_packets,
+        stats.received_packets,
+        stats.duplicate_packets,
+        stats.unsupported_packets,
+        stats.missing_remote_frames,
+        stats.last_remote_frame.map(|frame| frame.0),
+        stats.last_remote_checksum
+    );
+    Ok(())
+}
+
+fn drain_udp_packets(
+    transport: &UdpTransport,
+    inbox: &mut InputPacketInbox,
+    stats: &mut mole_runtime::UdpRuntimeStats,
+) -> Result<(), String> {
+    while let Some(packet) = transport
+        .try_recv_packet()
+        .map_err(|error| error.to_string())?
+    {
+        let result = inbox.accept(packet);
+        stats.record_accept(result, packet);
+    }
     Ok(())
 }
 

@@ -5,8 +5,9 @@ use mole_core::{
 use mole_runtime::{
     map_gamecube_pad_to_player_input, map_physical_input, native_replay_path, parse_wup_report,
     FixedStepClock, InputReadout, InputSource, PhysicalInput, RenderColor, RenderFrame, RenderRect,
-    RenderScene, ReplayCapture, WupInputMapper, WupPort,
+    RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort,
 };
+use mole_transport::{InputPacket, PacketAcceptResult};
 
 #[test]
 fn fixed_step_clock_emits_one_tick_for_one_sixtieth_second() {
@@ -185,6 +186,59 @@ fn native_replay_path_uses_project_local_debug_replay_directory() {
         path.file_name().and_then(|name| name.to_str()),
         Some("native-replay-120-frames.mrep")
     );
+}
+
+#[test]
+fn udp_runtime_config_parses_direct_local_peer_addresses() {
+    let config = UdpRuntimeConfig::from_args(&[
+        "--udp".to_string(),
+        "--local-addr".to_string(),
+        "127.0.0.1:41001".to_string(),
+        "--peer-addr".to_string(),
+        "127.0.0.1:41002".to_string(),
+        "--player-index".to_string(),
+        "1".to_string(),
+    ])
+    .expect("direct UDP args should parse");
+
+    assert_eq!(config.local_addr.to_string(), "127.0.0.1:41001");
+    assert_eq!(config.peer_addr.to_string(), "127.0.0.1:41002");
+    assert_eq!(config.player_index, 1);
+}
+
+#[test]
+fn udp_runtime_config_rejects_missing_peer_address() {
+    let error = UdpRuntimeConfig::from_args(&[
+        "--udp".to_string(),
+        "--local-addr".to_string(),
+        "127.0.0.1:41001".to_string(),
+    ])
+    .expect_err("peer addr is required");
+
+    assert!(error.contains("--peer-addr"));
+}
+
+#[test]
+fn udp_runtime_stats_track_sent_received_duplicate_and_missing_packets() {
+    let mut stats = UdpRuntimeStats::default();
+    let packet = InputPacket::new(
+        Frame(3),
+        1,
+        PlayerInput::neutral().with_left_stick(-64, 0),
+        333,
+    );
+
+    stats.record_sent();
+    stats.record_accept(PacketAcceptResult::Accepted, packet);
+    stats.record_accept(PacketAcceptResult::Duplicate, packet);
+    stats.record_missing_remote_frame();
+
+    assert_eq!(stats.sent_packets, 1);
+    assert_eq!(stats.received_packets, 1);
+    assert_eq!(stats.duplicate_packets, 1);
+    assert_eq!(stats.missing_remote_frames, 1);
+    assert_eq!(stats.last_remote_frame, Some(Frame(3)));
+    assert_eq!(stats.last_remote_checksum, Some(333));
 }
 
 #[test]
