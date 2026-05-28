@@ -77,6 +77,15 @@ def test_sdl3_runtime_launcher_builds_with_native_wup_feature():
     assert "--features sdl -- --sdl" not in text
 
 
+def test_sdl3_runtime_launcher_opens_state_graph_viewer():
+    launcher = ROOT / "execs" / "Run SDL3 Runtime.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert "Open State Graphs.cmd" in text
+    assert 'start "Mole State Graphs"' in text
+
+
 def test_main_menu_is_skipped_by_default(monkeypatch):
     module = fresh_main_module(monkeypatch)
 

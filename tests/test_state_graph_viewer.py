@@ -51,6 +51,40 @@ def test_mole_graph_statuses_are_color_coded_for_parity_review():
     assert STATUS_STYLES["missing"].fill != STATUS_STYLES["aligned"].fill
 
 
+def test_current_mole_graph_reflects_rust_core_instead_of_pygame_layer():
+    _reference, mole = load_graphs(GRAPH_DIR)
+    node_ids = {node["id"] for node in mole["nodes"]}
+    source_paths = {source.get("path") for source in mole["sources"]}
+
+    assert mole["title"] == "Mole Current: Rust Core"
+    assert "deterministic Rust core" in mole["description"]
+    assert {
+        "crates/mole_core/src/state.rs",
+        "crates/mole_core/src/sim.rs",
+        "crates/mole_core/tests/core_contract.rs",
+    } <= source_paths
+    assert "ChooseAction.py" not in source_paths
+    assert "Characters.py" not in source_paths
+    assert {
+        "Wait",
+        "WalkSlow",
+        "WalkMiddle",
+        "WalkFast",
+        "Dash",
+        "Run",
+        "RunBrake",
+        "TurnRun",
+        "KneeBend",
+        "JumpF",
+        "JumpB",
+        "Air",
+        "EscapeAir",
+        "FallSpecial",
+        "Landing",
+    } <= node_ids
+    assert "Walk" not in node_ids
+
+
 def test_transition_edges_include_frame_and_input_requirements():
     graphs = load_graphs(GRAPH_DIR)
 
@@ -113,8 +147,24 @@ def test_mole_layout_equivalents_only_map_exact_one_to_one_states():
     assert equivalent_layout_targets("mole_current", "Dash") == [
         ("melee_reference", "Dash")
     ]
-    assert equivalent_layout_targets("mole_current", "Walk") == []
-    assert equivalent_layout_targets("mole_current", "Squat") == []
+    assert equivalent_layout_targets("mole_current", "WalkSlow") == [
+        ("melee_reference", "WalkSlow")
+    ]
+    assert equivalent_layout_targets("mole_current", "WalkMiddle") == [
+        ("melee_reference", "WalkMiddle")
+    ]
+    assert equivalent_layout_targets("mole_current", "WalkFast") == [
+        ("melee_reference", "WalkFast")
+    ]
+    assert equivalent_layout_targets("mole_current", "RunBrake") == [
+        ("melee_reference", "RunBrake")
+    ]
+    assert equivalent_layout_targets("mole_current", "JumpF") == [
+        ("melee_reference", "JumpF")
+    ]
+    assert equivalent_layout_targets("mole_current", "Squat") == [
+        ("melee_reference", "Squat")
+    ]
     assert equivalent_layout_targets("mole_current", "Air") == []
     assert equivalent_layout_targets("mole_current", "ShieldTurn") == []
 
@@ -131,7 +181,8 @@ def test_linked_node_delta_moves_only_exact_reference_equivalents():
     dash_before = list(dash["pos"])
 
     moved = apply_linked_node_delta(graphs, "mole_current", "Dash", 2, -1)
-    ignored = apply_linked_node_delta(graphs, "mole_current", "Walk", 2, -1)
+    walk_moved = apply_linked_node_delta(graphs, "mole_current", "WalkSlow", 2, -1)
+    ignored = apply_linked_node_delta(graphs, "mole_current", "Air", 2, -1)
 
     walks_after = {
         node["id"]: list(node["pos"])
@@ -139,9 +190,15 @@ def test_linked_node_delta_moves_only_exact_reference_equivalents():
         if node["id"] in walks
     }
     assert moved == 1
+    assert walk_moved == 1
     assert ignored == 0
     assert dash["pos"] == [dash_before[0] + 2, dash_before[1] - 1]
-    assert walks_after == walks
+    assert walks_after["WalkSlow"] == [
+        walks["WalkSlow"][0] + 2,
+        walks["WalkSlow"][1] - 1,
+    ]
+    assert walks_after["WalkMiddle"] == walks["WalkMiddle"]
+    assert walks_after["WalkFast"] == walks["WalkFast"]
 
 
 def test_zoom_helpers_change_scale_and_clamp_to_readable_bounds():
@@ -215,16 +272,18 @@ def test_edge_equivalents_only_match_exact_one_to_one_edges():
         for index, edge in enumerate(mole["edges"])
         if edge["from"] == "Dash" and edge["to"] == "Run"
     )
-    wait_to_walk = next(
+    wait_to_walk_slow = next(
         index
         for index, edge in enumerate(mole["edges"])
-        if edge["from"] == "Wait" and edge["to"] == "Walk"
+        if edge["from"] == "Wait" and edge["to"] == "WalkSlow"
     )
 
     assert equivalent_edge_targets(graphs, "mole_current", dash_to_run) == [
         ("melee_reference", 13)
     ]
-    assert equivalent_edge_targets(graphs, "mole_current", wait_to_walk) == []
+    assert equivalent_edge_targets(graphs, "mole_current", wait_to_walk_slow) == [
+        ("melee_reference", 0)
+    ]
 
 
 def test_pinned_edge_labels_survive_show_all_on_but_clear_when_show_all_turns_off():

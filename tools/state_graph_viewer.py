@@ -20,16 +20,30 @@ ZOOM_STEP = 1.12
 SCROLL_REGION_MARGIN = 2400
 ONE_TO_ONE_LAYOUT_EQUIVALENTS = {
     "Wait",
+    "WalkSlow",
+    "WalkMiddle",
+    "WalkFast",
     "Turn",
     "Dash",
+    "Squat",
+    "GuardOn",
     "KneeBend",
     "Run",
+    "RunBrake",
     "TurnRun",
     "Guard",
     "GuardOff",
+    "EscapeN",
+    "EscapeF",
+    "EscapeB",
+    "JumpF",
+    "JumpB",
+    "JumpAerialF",
+    "JumpAerialB",
     "EscapeAir",
     "FallSpecial",
     "LandingFallSpecial",
+    "Landing",
 }
 
 
