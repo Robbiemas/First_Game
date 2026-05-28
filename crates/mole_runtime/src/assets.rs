@@ -1,4 +1,4 @@
-use mole_core::MotionState;
+use mole_core::{FighterProfile, MotionState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LegacyAnimationKey {
@@ -30,6 +30,56 @@ pub struct LegacySpriteCue {
     pub directory: &'static str,
     pub frame: &'static str,
     pub flip_x: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpriteSourceSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpriteSizeUnits {
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DolphinMoleVisualProfile {
+    pub standing_source_height_px: u32,
+    pub standing_target_height_units: i32,
+}
+
+impl Default for DolphinMoleVisualProfile {
+    fn default() -> Self {
+        Self {
+            standing_source_height_px: 136,
+            standing_target_height_units: FighterProfile::falcon_like().standing_height_units,
+        }
+    }
+}
+
+impl DolphinMoleVisualProfile {
+    pub fn scale_milli_for_source_height(self, source_height_px: u32) -> i32 {
+        rounded_div(
+            self.standing_target_height_units as i64,
+            source_height_px as i64,
+        )
+    }
+
+    pub fn scaled_size_units(self, source_width_px: u32, source_height_px: u32) -> SpriteSizeUnits {
+        SpriteSizeUnits {
+            width: self.scale_dimension_units(source_width_px),
+            height: self.scale_dimension_units(source_height_px),
+        }
+    }
+
+    fn scale_dimension_units(self, source_px: u32) -> i32 {
+        rounded_div(
+            source_px as i64 * self.standing_target_height_units as i64,
+            self.standing_source_height_px as i64,
+        )
+    }
 }
 
 pub const LEGACY_DOLPHIN_MOLE_ANIMATIONS: &[LegacyAnimationSpec] = &[
@@ -113,6 +163,38 @@ impl LegacySpriteCue {
             flip_x: facing < 0,
         }
     }
+
+    pub fn source_size_px(self) -> SpriteSourceSize {
+        legacy_sprite_source_size(self)
+    }
+}
+
+pub fn legacy_sprite_source_size(cue: LegacySpriteCue) -> SpriteSourceSize {
+    match (cue.directory, cue.frame) {
+        ("DolphinMole/air", "Air1 - Copy.png" | "Air1.png") => SpriteSourceSize {
+            width: 56,
+            height: 166,
+        },
+        (
+            "DolphinMole/running"
+            | "DolphinMole/dashing"
+            | "DolphinMole/landingLag"
+            | "DolphinMole/airDodge"
+            | "DolphinMole/freeFall",
+            "running1 - Copy.png" | "running1.png",
+        ) => SpriteSourceSize {
+            width: 171,
+            height: 49,
+        },
+        ("DolphinMole/shield", "shield.png") => SpriteSourceSize {
+            width: 28,
+            height: 113,
+        },
+        _ => SpriteSourceSize {
+            width: 62,
+            height: 136,
+        },
+    }
 }
 
 pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAnimationKey {
@@ -173,4 +255,9 @@ pub fn legacy_animation_spec(key: LegacyAnimationKey) -> &'static LegacyAnimatio
         .iter()
         .find(|spec| spec.key == key)
         .expect("legacy animation key is covered by manifest")
+}
+
+fn rounded_div(numerator: i64, denominator: i64) -> i32 {
+    debug_assert!(denominator > 0);
+    ((numerator + denominator / 2) / denominator) as i32
 }

@@ -1,15 +1,15 @@
 use std::path::Path;
 
 use mole_core::{
-    step_world, Frame, GameCubeButtonState, GameCubePadStatus, MotionState, PlayerInput,
-    WalkSpeedBucket, World,
+    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MotionState,
+    PlayerInput, Vec2, WalkSpeedBucket, World,
 };
 use mole_runtime::{
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, parse_wup_report, DebugOverlay, FixedStepClock, InputReadout, InputSource,
-    LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor, RenderFrame, RenderRect,
-    RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort,
-    LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    native_replay_path, parse_wup_report, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock,
+    InputReadout, InputSource, LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor,
+    RenderFrame, RenderRect, RenderScene, RenderTransform, ReplayCapture, UdpRuntimeConfig,
+    UdpRuntimeStats, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -142,10 +142,10 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[0],
         RenderRect {
-            x: 356,
-            y: 333,
-            width: 48,
-            height: 72,
+            x: 448,
+            y: 286,
+            width: 54,
+            height: 119,
             color: RenderColor {
                 r: 74,
                 g: 138,
@@ -157,10 +157,10 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[1],
         RenderRect {
-            x: 556,
-            y: 333,
-            width: 48,
-            height: 72,
+            x: 458,
+            y: 286,
+            width: 54,
+            height: 119,
             color: RenderColor {
                 r: 255,
                 g: 198,
@@ -169,6 +169,42 @@ fn render_scene_places_players_deterministically_from_render_frame() {
             }
         }
     );
+}
+
+#[test]
+fn render_transform_maps_core_units_to_screen_without_hidden_gameplay_scale() {
+    let transform = RenderTransform::battlefield_camera(960, 540);
+    let origin = transform.world_to_screen(Vec2 { x: 0, y: 0 });
+
+    assert_eq!(origin.y, transform.ground_y);
+    assert!(transform.pixels_per_core_unit_milli > 0);
+}
+
+#[test]
+fn render_scene_contains_battlefield_surfaces_and_diamond_ecb() {
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.stage_surfaces.len(), 4);
+    assert_eq!(scene.player_ecbs[0].points.len(), 4);
+    assert_eq!(
+        scene.player_ecbs[0].points[0].x,
+        scene.player_ecbs[0].points[2].x
+    );
+}
+
+#[test]
+fn dolphin_mole_sprite_scale_uses_standing_height_reference() {
+    let visual = DolphinMoleVisualProfile::default();
+
+    assert_eq!(visual.standing_source_height_px, 136);
+    assert_eq!(
+        visual.standing_target_height_units,
+        FighterProfile::falcon_like().standing_height_units
+    );
+    assert_eq!(visual.scale_milli_for_source_height(136), 167);
+    assert_eq!(visual.scaled_size_units(171, 49).height, 8_167);
 }
 
 #[test]
@@ -197,8 +233,8 @@ fn render_scene_exposes_legacy_sprite_cues_without_replacing_rect_fallback() {
         LegacyAnimationKey::Standing
     );
     assert!(scene.player_sprites[1].flip_x);
-    assert_eq!(scene.players[0].width, 48);
-    assert_eq!(scene.players[0].height, 72);
+    assert_eq!(scene.players[0].width, 54);
+    assert_eq!(scene.players[0].height, 119);
 }
 
 #[test]

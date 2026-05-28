@@ -3,16 +3,17 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use mole_core::{
-    step_world, Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput, Vec2, World,
-    WorldSnapshot, TICK_NANOS,
+    step_world, EcbDiamond, Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput,
+    StageProfile, StageSurface, StageSurfaceKind, Vec2, World, WorldSnapshot, TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
 use mole_transport::{InputPacket, PacketAcceptResult};
 
 pub mod assets;
 pub use assets::{
-    legacy_animation_for_motion_state, legacy_animation_spec, LegacyAnimationKey,
-    LegacyAnimationSpec, LegacySpriteCue, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    legacy_animation_for_motion_state, legacy_animation_spec, legacy_sprite_source_size,
+    DolphinMoleVisualProfile, LegacyAnimationKey, LegacyAnimationSpec, LegacySpriteCue,
+    SpriteSizeUnits, SpriteSourceSize, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 
 #[cfg(feature = "sdl")]
@@ -32,9 +33,7 @@ pub use wup_input::WupInputSource;
 
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
-const PLAYER_RENDER_WIDTH: u32 = 48;
-const PLAYER_RENDER_HEIGHT: u32 = 72;
-const WORLD_TO_SCREEN_SCALE: i32 = 10;
+const CORE_TO_SCREEN_SCALE_DENOMINATOR: i64 = 1_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedStepClock {
@@ -228,6 +227,62 @@ impl RenderFrame {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RenderPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderTransform {
+    pub viewport_width: u32,
+    pub viewport_height: u32,
+    pub center_x: i32,
+    pub ground_y: i32,
+    pub pixels_per_core_unit_milli: i32,
+}
+
+impl RenderTransform {
+    pub fn battlefield_camera(viewport_width: u32, viewport_height: u32) -> Self {
+        let stage = StageProfile::battlefield_test();
+        let stage_width_units = stage.main_floor.right_x - stage.main_floor.left_x;
+        let target_stage_width = viewport_width as i32 * 3 / 4;
+        let pixels_per_core_unit_milli = (target_stage_width as i64
+            * CORE_TO_SCREEN_SCALE_DENOMINATOR
+            / stage_width_units as i64) as i32;
+
+        Self {
+            viewport_width,
+            viewport_height,
+            center_x: viewport_width as i32 / 2,
+            ground_y: viewport_height as i32 * 3 / 4,
+            pixels_per_core_unit_milli,
+        }
+    }
+
+    pub fn world_to_screen(self, point: Vec2) -> RenderPoint {
+        RenderPoint {
+            x: self.center_x + self.scale_core_delta(point.x),
+            y: self.ground_y - self.scale_core_delta(point.y),
+        }
+    }
+
+    pub fn core_length_to_screen(self, length: i32) -> u32 {
+        self.scale_core_delta(length).unsigned_abs().max(1)
+    }
+
+    fn scale_core_delta(self, value: i32) -> i32 {
+        let numerator = value as i64 * self.pixels_per_core_unit_milli as i64;
+        if numerator >= 0 {
+            ((numerator + CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
+                as i32
+        } else {
+            ((numerator - CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
+                as i32
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderColor {
     pub r: u8,
@@ -247,6 +302,18 @@ impl RenderColor {
         r: 180,
         g: 187,
         b: 196,
+        a: 255,
+    };
+    pub const SOFT_PLATFORM: Self = Self {
+        r: 134,
+        g: 203,
+        b: 190,
+        a: 255,
+    };
+    pub const ECB: Self = Self {
+        r: 87,
+        g: 237,
+        b: 133,
         a: 255,
     };
     pub const PLAYER_ONE: Self = Self {
@@ -273,44 +340,70 @@ pub struct RenderRect {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderPolygon {
+    pub points: [RenderPoint; 4],
+    pub color: RenderColor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RenderScene {
     pub background: RenderColor,
+    pub transform: RenderTransform,
     pub stage: RenderRect,
+    pub stage_surfaces: Vec<RenderRect>,
     pub players: [RenderRect; 2],
+    pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
 }
 
 impl RenderScene {
     pub fn from_frame(frame: &RenderFrame, viewport_width: u32, viewport_height: u32) -> Self {
-        let center_x = viewport_width as i32 / 2;
-        let ground_y = viewport_height as i32 * 3 / 4;
+        let transform = RenderTransform::battlefield_camera(viewport_width, viewport_height);
         let player_colors = [RenderColor::PLAYER_ONE, RenderColor::PLAYER_TWO];
+        let stage_profile = StageProfile::battlefield_test();
+        let stage_surfaces = render_stage_surfaces(&stage_profile, transform);
+        let player_sprites = [
+            LegacySpriteCue::for_player(
+                frame.player_motion_states[0],
+                frame.player_state_frames[0],
+                frame.player_facings[0],
+            ),
+            LegacySpriteCue::for_player(
+                frame.player_motion_states[1],
+                frame.player_state_frames[1],
+                frame.player_facings[1],
+            ),
+        ];
+        let visual = DolphinMoleVisualProfile::default();
 
         Self {
             background: RenderColor::BACKGROUND,
-            stage: RenderRect {
-                x: viewport_width as i32 / 8,
-                y: ground_y,
-                width: viewport_width * 3 / 4,
-                height: 8,
-                color: RenderColor::STAGE,
-            },
+            transform,
+            stage: stage_surfaces[0],
+            stage_surfaces,
             players: [
-                player_rect(frame, 0, center_x, ground_y, player_colors[0]),
-                player_rect(frame, 1, center_x, ground_y, player_colors[1]),
-            ],
-            player_sprites: [
-                LegacySpriteCue::for_player(
-                    frame.player_motion_states[0],
-                    frame.player_state_frames[0],
-                    frame.player_facings[0],
+                player_rect(
+                    frame,
+                    0,
+                    transform,
+                    player_sprites[0],
+                    visual,
+                    player_colors[0],
                 ),
-                LegacySpriteCue::for_player(
-                    frame.player_motion_states[1],
-                    frame.player_state_frames[1],
-                    frame.player_facings[1],
+                player_rect(
+                    frame,
+                    1,
+                    transform,
+                    player_sprites[1],
+                    visual,
+                    player_colors[1],
                 ),
             ],
+            player_ecbs: [
+                player_ecb(frame, 0, transform, player_sprites[0], visual),
+                player_ecb(frame, 1, transform, player_sprites[1], visual),
+            ],
+            player_sprites,
         }
     }
 }
@@ -364,18 +457,85 @@ impl DebugOverlay {
 fn player_rect(
     frame: &RenderFrame,
     index: usize,
-    center_x: i32,
-    ground_y: i32,
+    transform: RenderTransform,
+    sprite: LegacySpriteCue,
+    visual: DolphinMoleVisualProfile,
     color: RenderColor,
 ) -> RenderRect {
     let position = frame.player_positions[index];
+    let source_size = sprite.source_size_px();
+    let size = visual.scaled_size_units(source_size.width, source_size.height);
+    let bottom_center = transform.world_to_screen(position);
+    let width = transform.core_length_to_screen(size.width);
+    let height = transform.core_length_to_screen(size.height);
 
     RenderRect {
-        x: center_x + position.x / WORLD_TO_SCREEN_SCALE - PLAYER_RENDER_WIDTH as i32 / 2,
-        y: ground_y - position.y / WORLD_TO_SCREEN_SCALE - PLAYER_RENDER_HEIGHT as i32,
-        width: PLAYER_RENDER_WIDTH,
-        height: PLAYER_RENDER_HEIGHT,
+        x: bottom_center.x - width as i32 / 2,
+        y: bottom_center.y - height as i32,
+        width,
+        height,
         color,
+    }
+}
+
+fn render_stage_surfaces(
+    stage_profile: &StageProfile,
+    transform: RenderTransform,
+) -> Vec<RenderRect> {
+    let mut surfaces = Vec::with_capacity(1 + stage_profile.soft_platforms.len());
+    surfaces.push(render_stage_surface(&stage_profile.main_floor, transform));
+    surfaces.extend(
+        stage_profile
+            .soft_platforms
+            .iter()
+            .map(|surface| render_stage_surface(surface, transform)),
+    );
+    surfaces
+}
+
+fn render_stage_surface(surface: &StageSurface, transform: RenderTransform) -> RenderRect {
+    let left = transform.world_to_screen(Vec2 {
+        x: surface.left_x,
+        y: surface.y,
+    });
+    let right = transform.world_to_screen(Vec2 {
+        x: surface.right_x,
+        y: surface.y,
+    });
+
+    RenderRect {
+        x: left.x.min(right.x),
+        y: left.y,
+        width: (right.x - left.x).unsigned_abs().max(1),
+        height: match surface.kind {
+            StageSurfaceKind::Solid => 8,
+            StageSurfaceKind::Soft => 6,
+        },
+        color: match surface.kind {
+            StageSurfaceKind::Solid => RenderColor::STAGE,
+            StageSurfaceKind::Soft => RenderColor::SOFT_PLATFORM,
+        },
+    }
+}
+
+fn player_ecb(
+    frame: &RenderFrame,
+    index: usize,
+    transform: RenderTransform,
+    sprite: LegacySpriteCue,
+    visual: DolphinMoleVisualProfile,
+) -> RenderPolygon {
+    let source_size = sprite.source_size_px();
+    let size = visual.scaled_size_units(source_size.width, source_size.height);
+    let ecb = EcbDiamond::from_bottom_center_and_size(
+        frame.player_positions[index],
+        size.width,
+        size.height,
+    );
+
+    RenderPolygon {
+        points: ecb.points().map(|point| transform.world_to_screen(point)),
+        color: RenderColor::ECB,
     }
 }
 
