@@ -145,6 +145,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.full_hop_height, 38_520);
     assert_eq!(profile.short_hop_height, 14_850);
     assert_eq!(profile.double_jump_height, 28_560);
+    assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
 }
@@ -239,8 +240,8 @@ fn dolphin_mole_sprite_scale_uses_standing_height_reference() {
     let visual = DolphinMoleVisualProfile::default();
     assert_eq!(visual.standing_source_height_px, 136);
     assert_eq!(visual.standing_target_height_units, FighterProfile::falcon_like().standing_height_units);
-    assert_eq!(visual.scale_milli_for_source_height(136), 1_000);
-    assert_eq!(visual.scaled_size_units(171, 49).height, 49_000);
+    assert_eq!(visual.scale_milli_for_source_height(136), 167);
+    assert_eq!(visual.scaled_size_units(171, 49).height, 8_167);
 }
 ```
 

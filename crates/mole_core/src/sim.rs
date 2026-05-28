@@ -18,25 +18,18 @@ const AIR_DRIFT_ACCEL_PER_TICK: i32 = 18;
 const AIR_FRICTION_PER_TICK: i32 = 12;
 const AIR_DRIFT_MAX_SPEED_PER_TICK: i32 = 1_000;
 const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.smash_y;
-const GRAVITY_PER_TICK: i32 = 80;
 const FAST_FALL_EXTRA_GRAVITY: i32 = 40;
 const FAST_FALL_STICK_THRESHOLD: i8 = -80;
 const FAST_FALL_TAP_WINDOW: u8 = 2;
 const ATTACK_ACTIVE_TICKS: u8 = 12;
-const FALCON_JUMPSQUAT_TICKS: u8 = 4;
-const FALCON_DASH_TICKS: u8 = 15;
 const FALCON_TURN_FRAMES: u8 = 11;
 const FALCON_STANDING_TURN_FACING_FLIP_FRAME: u8 = 5;
 const SHIELD_TURN_FRAMES: u8 = 5;
 const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
 const DASH_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_x as i32;
-const DASH_SPEED_PER_TICK: i32 = 900;
-const DASH_ACCEL_PER_STICK: i32 = 8;
-const DASH_MAX_SPEED_PER_TICK: i32 = 1_200;
 const DASH_TAP_WINDOW: u8 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_tap_window;
 const RUN_STICK_THRESHOLD: i32 = 64;
-const GROUND_TRACTION_PERCENT: i32 = 92;
 const ESCAPE_AIR_DEADZONE_X: i8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_deadzone_x;
 const ESCAPE_AIR_DEADZONE_Y: i8 =
@@ -199,7 +192,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     } else {
                         apply_dash_velocity(player, stick_x);
                     }
-                    if player.motion_frame >= FALCON_DASH_TICKS {
+                    if player.motion_frame >= player.profile.dash_frames {
                         exit_dash(player, stick_x, input_facts.walk_speed_bucket);
                     }
                 }
@@ -426,7 +419,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             MotionState::KneeBend => {
                 apply_ground_traction(player);
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                if player.motion_frame >= FALCON_JUMPSQUAT_TICKS {
+                if player.motion_frame >= player.profile.jumpsquat_frames {
                     apply_jump_takeoff_velocity(player, stick_x);
                     player.velocity.y = if player.short_hop {
                         SHORT_HOP_VELOCITY
@@ -541,15 +534,20 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 && input_timers[player_index].y_tap < FAST_FALL_TAP_WINDOW;
             let starts_fast_fall = !player.fast_falling && player.velocity.y < 0 && fast_fall_tap;
             let gravity = if starts_fast_fall {
-                GRAVITY_PER_TICK + FAST_FALL_EXTRA_GRAVITY
+                player.profile.gravity_per_tick + FAST_FALL_EXTRA_GRAVITY
             } else {
-                GRAVITY_PER_TICK
+                player.profile.gravity_per_tick
             };
             if starts_fast_fall {
                 player.fast_falling = true;
                 input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
             }
-            player.velocity.y -= gravity;
+            let terminal_velocity = if player.fast_falling {
+                player.profile.fast_fall_speed_per_tick
+            } else {
+                player.profile.fall_speed_per_tick
+            };
+            player.velocity.y = (player.velocity.y - gravity).max(-terminal_velocity);
             player.position.y += player.velocity.y;
 
             if player.position.y <= GROUND_Y {
@@ -619,7 +617,7 @@ fn enter_dash(player: &mut PlayerState, direction: i8) {
     player.motion_state = MotionState::Dash;
     player.motion_frame = 0;
     player.facing = direction;
-    player.velocity.x = direction as i32 * DASH_SPEED_PER_TICK;
+    player.velocity.x = direction as i32 * player.profile.initial_dash_speed_per_tick;
 }
 
 fn enter_run(player: &mut PlayerState) {
@@ -758,10 +756,12 @@ fn arm_turn_dash_after_if_fresh(
 }
 
 fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32) {
-    let accel = stick_x * DASH_ACCEL_PER_STICK;
+    let accel = stick_x * player.profile.dash_accel_per_stick;
     if accel != 0 && player.turn_run_accel_mul as i32 * accel < 0 {
-        player.velocity.x =
-            (player.velocity.x + accel).clamp(-DASH_MAX_SPEED_PER_TICK, DASH_MAX_SPEED_PER_TICK);
+        player.velocity.x = (player.velocity.x + accel).clamp(
+            -player.profile.run_speed_per_tick,
+            player.profile.run_speed_per_tick,
+        );
     } else {
         apply_ground_traction(player);
     }
@@ -1075,6 +1075,7 @@ fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32) {
         accel,
         target_velocity,
         profile.walk_friction_per_tick,
+        profile.walk_speed_per_tick,
     );
 }
 
@@ -1096,8 +1097,11 @@ fn apply_air_drift(player: &mut PlayerState, stick_x: i32) {
 }
 
 fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
-    let velocity = player.velocity.x + stick_x * DASH_ACCEL_PER_STICK;
-    player.velocity.x = velocity.clamp(-DASH_MAX_SPEED_PER_TICK, DASH_MAX_SPEED_PER_TICK);
+    let velocity = player.velocity.x + stick_x * player.profile.dash_accel_per_stick;
+    player.velocity.x = velocity.clamp(
+        -player.profile.run_speed_per_tick,
+        player.profile.run_speed_per_tick,
+    );
 }
 
 fn exit_dash(player: &mut PlayerState, stick_x: i32, walk_bucket: WalkSpeedBucket) {
@@ -1137,7 +1141,7 @@ fn is_opposite_run_turn(stick_x: i32, facing: i8) -> bool {
 }
 
 fn apply_ground_traction(player: &mut PlayerState) {
-    player.velocity.x = player.velocity.x * GROUND_TRACTION_PERCENT / 100;
+    player.velocity.x = player.velocity.x * (1_000 - player.profile.traction_per_tick) / 1_000;
     if player.velocity.x.abs() < 5 {
         player.velocity.x = 0;
     }
@@ -1209,6 +1213,7 @@ fn apply_ground_accel_toward_target(
     mut accel: i32,
     target_velocity: i32,
     friction_per_tick: i32,
+    max_velocity: i32,
 ) -> i32 {
     let friction_per_tick = friction_per_tick.abs();
     if target_velocity == 0 {
@@ -1229,7 +1234,7 @@ fn apply_ground_accel_toward_target(
         }
     }
 
-    (current_velocity + accel).clamp(-DASH_MAX_SPEED_PER_TICK, DASH_MAX_SPEED_PER_TICK)
+    (current_velocity + accel).clamp(-max_velocity, max_velocity)
 }
 
 fn apply_friction_to_zero(current_velocity: i32, friction: i32) -> i32 {

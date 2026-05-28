@@ -13,18 +13,49 @@ pub struct Vec2 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FighterProfile {
+    pub reference_character: &'static str,
     pub walk_target_speed_per_stick: i32,
     pub walk_initial_accel_per_stick: i32,
     pub walk_accel_per_tick: i32,
     pub walk_friction_per_tick: i32,
+    pub walk_speed_per_tick: i32,
+    pub run_speed_per_tick: i32,
+    pub initial_dash_speed_per_tick: i32,
+    pub dash_accel_per_stick: i32,
+    pub traction_per_tick: i32,
+    pub gravity_per_tick: i32,
+    pub fall_speed_per_tick: i32,
+    pub fast_fall_speed_per_tick: i32,
+    pub full_hop_height: i32,
+    pub short_hop_height: i32,
+    pub double_jump_height: i32,
+    pub standing_height_units: i32,
+    pub jumpsquat_frames: u8,
+    pub dash_frames: u8,
 }
 
 impl FighterProfile {
     pub const FALCON_LIKE: Self = Self {
+        reference_character: "captain_falcon",
         walk_target_speed_per_stick: 6,
         walk_initial_accel_per_stick: 1,
         walk_accel_per_tick: 20,
         walk_friction_per_tick: 72,
+        walk_speed_per_tick: 850,
+        run_speed_per_tick: 2_300,
+        initial_dash_speed_per_tick: 2_000,
+        dash_accel_per_stick: 8,
+        traction_per_tick: 80,
+        gravity_per_tick: 130,
+        fall_speed_per_tick: 2_900,
+        fast_fall_speed_per_tick: 3_500,
+        full_hop_height: 38_520,
+        short_hop_height: 14_850,
+        double_jump_height: 28_560,
+        // Provisional visual scale: current 136 px standing sprite at the old 6 px/unit art calibration.
+        standing_height_units: 22_667,
+        jumpsquat_frames: 4,
+        dash_frames: 15,
     };
 
     pub const fn falcon_like() -> Self {
@@ -402,6 +433,20 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.walk_initial_accel_per_stick);
     mix_i32(hash, profile.walk_accel_per_tick);
     mix_i32(hash, profile.walk_friction_per_tick);
+    mix_i32(hash, profile.walk_speed_per_tick);
+    mix_i32(hash, profile.run_speed_per_tick);
+    mix_i32(hash, profile.initial_dash_speed_per_tick);
+    mix_i32(hash, profile.dash_accel_per_stick);
+    mix_i32(hash, profile.traction_per_tick);
+    mix_i32(hash, profile.gravity_per_tick);
+    mix_i32(hash, profile.fall_speed_per_tick);
+    mix_i32(hash, profile.fast_fall_speed_per_tick);
+    mix_i32(hash, profile.full_hop_height);
+    mix_i32(hash, profile.short_hop_height);
+    mix_i32(hash, profile.double_jump_height);
+    mix_i32(hash, profile.standing_height_units);
+    mix_u8(hash, profile.jumpsquat_frames);
+    mix_u8(hash, profile.dash_frames);
 }
 
 fn mix_i32(hash: &mut u64, value: i32) {

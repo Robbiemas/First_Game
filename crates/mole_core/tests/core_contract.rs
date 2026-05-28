@@ -79,6 +79,54 @@ fn ecb_diamond_uses_four_midpoint_vertices() {
 }
 
 #[test]
+fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
+    let profile = FighterProfile::falcon_like();
+
+    assert_eq!(profile.reference_character, "captain_falcon");
+    assert_eq!(profile.run_speed_per_tick, 2_300);
+    assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
+    assert_eq!(profile.walk_speed_per_tick, 850);
+    assert_eq!(profile.traction_per_tick, 80);
+    assert_eq!(profile.gravity_per_tick, 130);
+    assert_eq!(profile.fall_speed_per_tick, 2_900);
+    assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
+    assert_eq!(profile.full_hop_height, 38_520);
+    assert_eq!(profile.short_hop_height, 14_850);
+    assert_eq!(profile.double_jump_height, 28_560);
+    assert_eq!(profile.standing_height_units, 22_667);
+    assert_eq!(profile.jumpsquat_frames, 4);
+    assert_eq!(profile.dash_frames, 15);
+}
+
+#[test]
+fn airborne_falcon_profile_uses_profile_gravity_and_fall_speed() {
+    let mut world = World::for_two_players();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &jump);
+
+    for frame in 1..20 {
+        step_world(&mut world, Frame(frame), &neutral);
+        if !world.players()[0].grounded {
+            let before = world.players()[0].velocity.y;
+            step_world(&mut world, Frame(frame + 1), &neutral);
+            let profile = FighterProfile::falcon_like();
+            assert_eq!(
+                world.players()[0].velocity.y,
+                (before - profile.gravity_per_tick).max(-profile.fall_speed_per_tick)
+            );
+            return;
+        }
+    }
+
+    panic!("expected Falcon profile jump to leave the ground");
+}
+
+#[test]
 fn input_threshold_defaults_come_from_provisional_common_data() {
     let common = MeleeCommonData::provisional_mole();
     let thresholds = common.input_thresholds();
@@ -4038,12 +4086,14 @@ fn walk_velocity_uses_player_profile_attributes() {
         walk_initial_accel_per_stick: 1,
         walk_accel_per_tick: 12,
         walk_friction_per_tick: 30,
+        ..FighterProfile::falcon_like()
     };
     let quick_profile = FighterProfile {
         walk_target_speed_per_stick: 8,
         walk_initial_accel_per_stick: 2,
         walk_accel_per_tick: 24,
         walk_friction_per_tick: 60,
+        ..FighterProfile::falcon_like()
     };
     let mut steady = World::for_two_players_with_profiles([steady_profile, steady_profile]);
     let mut quick = World::for_two_players_with_profiles([quick_profile, quick_profile]);
@@ -5117,13 +5167,22 @@ fn run_entered_from_turn_run_keeps_source_no_interrupt_window() {
         step_world(&mut world, Frame(frame), &dash_right);
     }
     step_world(&mut world, Frame(16), &dash_left);
-    step_world(&mut world, Frame(17), &dash_left);
-    step_world(&mut world, Frame(18), &dash_left);
+    let profile = FighterProfile::falcon_like();
+    let per_frame_turn_run_accel = 90 * profile.dash_accel_per_stick;
+    let turn_run_entry_velocity =
+        profile.run_speed_per_tick * (1_000 - profile.traction_per_tick) / 1_000;
+    let turn_run_frames_to_cross_zero =
+        (turn_run_entry_velocity + per_frame_turn_run_accel - 1) / per_frame_turn_run_accel;
+    let run_entry_frame = 16 + turn_run_frames_to_cross_zero as u32;
+
+    for frame in 17..=run_entry_frame {
+        step_world(&mut world, Frame(frame), &dash_left);
+    }
 
     assert_eq!(world.players()[0].motion_state, MotionState::Run);
     assert_eq!(world.players()[0].facing, -1);
 
-    step_world(&mut world, Frame(19), &neutral);
+    step_world(&mut world, Frame(run_entry_frame + 1), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Run);
     assert!(world.players()[0].velocity.x < 0);
