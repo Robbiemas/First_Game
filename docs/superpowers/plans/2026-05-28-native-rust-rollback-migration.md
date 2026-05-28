@@ -280,10 +280,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_transport/src/lib.rs`
 - Test: `crates/mole_transport/tests/transport_contract.rs`
 
-- [ ] Define a transport boundary that can send and receive versioned packets.
-- [ ] Implement loopback transport for deterministic tests.
-- [ ] Add tests for packet ordering, duplicate input frames, and dropped packets.
-- [ ] Run `cargo test -p mole_transport`.
+- [x] Define a transport boundary that can send and receive versioned packets.
+- [x] Implement loopback transport for deterministic tests.
+- [x] Add tests for packet ordering, duplicate input frames, and dropped packets.
+- [x] Run `cargo test -p mole_transport`.
 
 ### Task 6.2: UDP Backend
 
