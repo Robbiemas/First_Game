@@ -1,6 +1,102 @@
 import pygame
 import math
 
+X_TAP_START_THRESHOLD = 0.28
+Y_TAP_START_THRESHOLD = 0.28
+DASH_INPUT_THRESHOLD = 0.80
+FAST_FALL_INPUT_THRESHOLD = 0.80
+DASH_TAP_WINDOW = 2
+FAST_FALL_TAP_WINDOW = 2
+EXPIRED_TAP_TIMER = 0xFE
+ESCAPE_AIR_SOURCE_DEADZONE = 20 / 127
+ESCAPE_AIR_SOURCE_ACTION_FRAMES = 15
+ESCAPE_AIR_SOURCE_DECAY = 0.90
+
+CAPTAIN_FALCON_STATS = {
+    "weight": 104,
+    "initial_dash": 2.0,
+    "run_speed": 2.3,
+    "dash_frames": 15,
+    "dash_accel_base": 0.01,
+    "dash_accel_add": 0.15,
+    "walk_speed": 0.85,
+    "traction": 0.08,
+    "air_friction": 0.01,
+    "air_speed": 1.12,
+    "air_accel_base": 0.02,
+    "air_accel_add": 0.04,
+    "gravity": 0.13,
+    "fall_speed": 2.9,
+    "fast_fall_speed": 3.5,
+    "jumpsquat_frames": 4,
+    "full_hop_height": 38.52,
+    "short_hop_height": 14.85,
+    "double_jump_height": 28.56,
+    "empty_landing_lag": 4,
+}
+
+CAPTAIN_FALCON_FRAME_DATA = {
+    "nair": {"first_active": 7, "last_active": 29, "total": 44, "landing_lag": 15},
+    "uair": {"first_active": 6, "last_active": 13, "total": 33, "iasa": 30, "landing_lag": 15},
+    "bair": {"first_active": 10, "last_active": 17, "total": 35, "iasa": 29, "landing_lag": 18},
+    "fair": {"first_active": 14, "last_active": 30, "total": 39, "iasa": 36, "landing_lag": 19},
+    "dair": {"first_active": 16, "last_active": 20, "total": 44, "iasa": 38, "landing_lag": 24},
+    "jab1": {"first_active": 3, "last_active": 5, "total": 21, "iasa": 16},
+    "jab2": {"first_active": 4, "last_active": 6, "total": 19, "iasa": 18},
+    "jab3": {"first_active": 6, "last_active": 12, "total": 31, "iasa": 23},
+    "dash_attack": {"first_active": 7, "last_active": 16, "total": 39, "iasa": 38},
+    "fsmash": {"first_active": 18, "last_active": 21, "total": 64, "iasa": 60},
+    "usmash": {"first_active": 21, "last_active": 28, "total": 54, "iasa": 40},
+    "dsmash": {"first_active": 19, "last_active": 32, "total": 49, "iasa": 45},
+    "ftilt": {"first_active": 9, "last_active": 11, "total": 29},
+    "utilt": {"first_active": 17, "last_active": 21, "total": 39, "iasa": 38},
+    "dtilt": {"first_active": 10, "last_active": 15, "total": 35, "iasa": 35},
+    "falcon_punch": {"first_active": 52, "last_active": 56, "total": 99, "iasa": 65},
+    "raptor_boost": {"first_active": 15, "last_active": 34, "total": 79},
+    "falcon_kick": {"first_active": 14, "last_active": 32, "total": 64},
+    "falcon_dive": {"first_active": 13, "last_active": 33, "total": 64},
+    "grab": {"first_active": 7, "last_active": 8, "total": 30},
+    "dash_grab": {"first_active": 11, "last_active": 12, "total": 40},
+    "spotdodge": {"first_active": 3, "last_active": 20, "total": 32},
+    "airdodge": {"total": 49},
+    "roll_backward": {"first_active": 4, "last_active": 19, "total": 31},
+    "roll_forward": {"first_active": 4, "last_active": 19, "total": 31},
+}
+
+
+def _simulated_jump_height(initial_velocity, gravity_step):
+    y = 0
+    velocity = initial_velocity
+    highest_point = 0
+
+    for _ in range(240):
+        velocity += gravity_step
+        y += velocity
+        highest_point = min(highest_point, y)
+        if velocity >= 0:
+            break
+
+    return -highest_point
+
+
+def vertical_velocity_for_jump_height(height, gravity, scale):
+    target_height = height * scale
+    gravity_step = gravity * scale
+    low = -max(1.0, target_height + gravity_step)
+    high = 0.0
+
+    while _simulated_jump_height(low, gravity_step) < target_height:
+        low *= 2
+
+    for _ in range(48):
+        mid = (low + high) / 2
+        if _simulated_jump_height(mid, gravity_step) < target_height:
+            high = mid
+        else:
+            low = mid
+
+    return (low + high) / 2
+
 
 class Character(object):
 
@@ -64,6 +160,7 @@ class Character(object):
         self.crouchStart = False
         self.crouching = False
         self.landingLag = False
+        self.landingFallSpecial = False
         self.landing = False
         self.endDash = False
         self.endLag = False
@@ -72,12 +169,16 @@ class Character(object):
         self.attacking = False
         self.sliding = False
         self.freeFall = False
+        self.fallSpecial = False
 
         self.airDodge = False
         self.blocking = False
+        self.guardOff = False
         self.canBlock = True
         self.shielding = False
         self.shieldTurn = False
+        self.guardOffFrames = 15
+        self.guardOffCount = 0
         self.dodge = False
         self.roll = False
 
@@ -98,11 +199,21 @@ class Character(object):
         #  Keys
         self.jumpkey = 0
         self.canJump = 0
+        self.jump_released_during_squat = False
         self.jumpWait = 0
         self.akey = 0
         self.grabkey = 0
         self.specialkey = 0
         self.blockkey = 0
+        self.block_pressed = 0
+        self.l_shieldkey = 0
+        self.r_shieldkey = 0
+        self.l_shield_pressed = 0
+        self.r_shield_pressed = 0
+        self.l_trigger_digital = 0
+        self.r_trigger_digital = 0
+        self.l_trigger_digital_pressed = 0
+        self.r_trigger_digital_pressed = 0
         self.menukey = 0
         self.upkey = 0
         self.downkey = 0
@@ -122,6 +233,13 @@ class Character(object):
         self.jsCount = 0            # jump squat counter
         self.walkCount = 0
         self.xCount = 0
+        self.xTapDirection = 0
+        self.xTapTimer = EXPIRED_TAP_TIMER
+        self.yTapDirection = 0
+        self.yTapTimer = EXPIRED_TAP_TIMER
+        self.melee_x_tap_timer = None
+        self.melee_y_tap_timer = None
+        self.melee_dash_direction = None
         self.gCount = 1
         self.dodgeCount = 0
         self.landLagCount = 0
@@ -146,11 +264,14 @@ class Character(object):
         'crouchStart': 'crouchStart',
         'crouching': 'crouching',
         'landingLag': 'landingLag',
+        'landingFallSpecial': 'landingFallSpecial',
         'endDash': 'endDash',
         'hitstun': 'hitstun',
         'freeFall': 'freefall',
+        'fallSpecial': 'fallSpecial',
         'airDodge': 'airDodge',
         'blocking': 'blocking',
+        'guardOff': 'guardOff',
         'shieldstun': 'shieldstun',
         'dodge': 'dodge',
         'roll': 'roll',
@@ -187,25 +308,25 @@ class Character(object):
                 #if self.d[ref]:
                 #    self.d[ref] = False  # else set self.(reference state) = False
         self.aniCount = 0
-        print(self.state)
 
     def set_hit_boxes(self, attack, scroll):
         if self.isRight:
             o = 1
         else:
             o = -1
-        if self.choosechar == "DolphinMole":
+        if getattr(self, "character", None) == "DolphinMole":
             if attack == "jab":
+                jab1 = self.frameData["jab1"]
                 self.attackCount += 1
 
                 # on frame 3 append jab 1 hitbox to self.hitboxes
-                if self.attackCount == 3:     #(pos, radius, type, damage, angle, baseKnockback, knockbackScaling, fixed)
+                if self.attackCount == jab1["first_active"]:     #(pos, radius, type, damage, angle, baseKnockback, knockbackScaling, fixed)
                     self.hitBoxes.append(Hitbox(((self.x - scroll) + 40*o, (self.y - scroll) - 80), 10, type, 3, 90, 20, 100, False))
                 # after 2 frames clear self.hitboxes
-                if self.attackCount == 5:
+                if self.attackCount > jab1["last_active"]:
                     self.hitBoxes = []
                 # after 19 frames end jab 1
-                if self.attackCount == 19:
+                if self.attackCount == jab1["total"]:
                     # stop jab
                     self.attackCount = 0
 
@@ -214,15 +335,22 @@ class Character(object):
             result = self.mask.overlap(hitbox, )
 
     def block(self):
-        release = False
         self.shieldHP += self.shieldDepletionRate
         self.shielding = True
         self.actionable = False
         self.apply_traction(self.xVelocity)
 
-        if self.canBlock:
-            release = True
-            self.dodgeCount += 1
+        if not self.blockkey:
+            self.set_state("guardOff")
+            self.shielding = False
+            self.actionable = False
+            self.canDash = False
+            self.canJump = False
+            self.canBlock = True
+            self.guardOffCount = 0
+            self.dodgeCount = 0
+            self.shieldTurn = False
+            return
 
         if self.isRight and self.main_stick[0] <= -0.23:
             self.shieldTurn = True
@@ -234,19 +362,28 @@ class Character(object):
 
         if self.shieldTurn:
             # activate powershield availability
-            release = False
             self.dodgeCount += 1
             if self.dodgeCount == 5:
                 self.dodgeCount = 0
                 self.turnAround()
                 self.shieldTurn = False
 
-        if release and self.dodgeCount > 15:
+    def guard_off(self):
+        self.shielding = False
+        self.actionable = False
+        self.canDash = False
+        self.canBlock = True
+        self.canJump = True
+        self.apply_traction(self.xVelocity)
+        self.guardOffCount += 1
+
+        if self.guardOffCount >= self.guardOffFrames:
             self.set_state("standing")
-            self.shielding = False
             self.actionable = True
-            self.dodgeCount = 0
             self.canDash = True
+            self.canBlock = True
+            self.guardOffCount = 0
+            self.dodgeCount = 0
 
     def turnAround(self):
         if self.isRight:
@@ -254,7 +391,66 @@ class Character(object):
         else:
             self.isRight = True
 
+    def update_x_tap_timer(self, stick):
+        if stick >= X_TAP_START_THRESHOLD:
+            direction = 1
+        elif stick <= -X_TAP_START_THRESHOLD:
+            direction = -1
+        else:
+            direction = 0
+
+        if direction == 0:
+            self.xTapDirection = 0
+            self.xTapTimer = EXPIRED_TAP_TIMER
+        elif direction != self.xTapDirection:
+            self.xTapDirection = direction
+            self.xTapTimer = 0
+        else:
+            self.xTapTimer = min(self.xTapTimer + 1, EXPIRED_TAP_TIMER)
+
+    def has_fresh_x_tap(self, stick):
+        if stick >= DASH_INPUT_THRESHOLD:
+            direction = 1
+        elif stick <= -DASH_INPUT_THRESHOLD:
+            direction = -1
+        else:
+            return False
+
+        if self.melee_x_tap_timer is not None:
+            return self.melee_dash_direction == direction
+
+        return self.xTapDirection == direction and self.xTapTimer < DASH_TAP_WINDOW
+
+    def update_y_tap_timer(self, stick):
+        if stick >= Y_TAP_START_THRESHOLD:
+            direction = 1
+        elif stick <= -Y_TAP_START_THRESHOLD:
+            direction = -1
+        else:
+            direction = 0
+
+        if direction == 0:
+            self.yTapDirection = 0
+            self.yTapTimer = EXPIRED_TAP_TIMER
+        elif direction != self.yTapDirection:
+            self.yTapDirection = direction
+            self.yTapTimer = 0
+        else:
+            self.yTapTimer = min(self.yTapTimer + 1, EXPIRED_TAP_TIMER)
+
+    def has_fresh_down_tap(self, stick):
+        return (
+            stick >= FAST_FALL_INPUT_THRESHOLD
+            and self.yTapDirection == 1
+            and self.yTapTimer < FAST_FALL_TAP_WINDOW
+        )
+
+    def consume_y_tap(self):
+        self.yTapTimer = EXPIRED_TAP_TIMER
+
     def turn(self, stick):
+        fresh_x_tap = self.has_fresh_x_tap(stick)
+
         if self.turnCount < 2:              # if on frame 1 or 2
 
             if self.turnCount == 0:
@@ -264,7 +460,7 @@ class Character(object):
                     self.smashTurn = True
                     self.turnAround()
 
-                if 0.28 <= abs(stick) < -0.80:                 # tilt turn
+                if 0.28 <= abs(stick) < 0.80:                 # tilt turn
                     self.tiltTurn = True
                     self.canDash = False
 
@@ -275,7 +471,6 @@ class Character(object):
                     else:
                         self.xVelocity = -self.initialDash * 6
                     self.set_state("dashing")  # DASH
-                    print("smash")
                     self.smashFlag = False
                     self.smashTurn = False
                     self.tiltTurn = False
@@ -294,13 +489,12 @@ class Character(object):
                     self.tiltTurn = True
                     self.canDash = False
 
-            if self.smashTurn and self.turnCount == 1: # and self.smashFlag:    # if turn 2 and still in smashturn with flag
+            if self.smashTurn and self.turnCount == 1 and fresh_x_tap: # and self.smashFlag:    # if turn 2 and still in smashturn with flag
                 if self.isRight:
                     self.xVelocity = self.initialDash * 6
                 else:
                     self.xVelocity = -self.initialDash * 6
                 self.set_state("dashing")                               # DASH
-                print("smash")
                 self.smashFlag = False
                 self.smashTurn = False
                 self.tiltTurn = False
@@ -322,7 +516,7 @@ class Character(object):
                 self.turnAround()
 
             if self.tiltFrames < self.turnCount <= self.turnFrames:
-                if abs(stick) >= 0.8 and self.smashFlag:  # smash turn
+                if abs(stick) >= 0.8 and self.smashFlag and fresh_x_tap:  # smash turn
                     # self.canDash = True
                     if self.isRight:
 
@@ -373,9 +567,10 @@ class Character(object):
         self.grounded = 0
 
     def gravity(self, gWeight):
-        if self.yVelocity <= self.fallSpeed:
-            self.gCount *= 1 + gWeight
-            self.change_velocity(self.yVelocity + self.gCount)
+        gravity = gWeight * self.multiplier
+        self.gCount = gravity
+        if self.yVelocity < self.fallSpeed:
+            self.yVelocity = min(self.yVelocity + gravity, self.fallSpeed)
 
 
     def move_x(self):
@@ -458,92 +653,92 @@ class Character(object):
             self.xVelocity += 10*(self.airAccelAdd * xjoyvalue)         # add accel based on x value
 
 
+    def max_run_velocity(self):
+        return self.runSpeed * self.multiplier
+
+    def max_walk_velocity(self):
+        return self.walkSpeed * self.multiplier
+
+    def ground_friction(self):
+        return getattr(self, "groundFriction", self.traction * self.multiplier)
+
+    def ground_accel_and_target(self, stick, max_velocity):
+        if abs(stick) < 0.1:
+            return 0, 0
+
+        accel = (stick * self.dashAccelBase) + math.copysign(self.dashAccelAdd, stick)
+        target_velocity = stick * max_velocity
+        return accel * self.multiplier, target_velocity
+
+    def approach_ground_velocity(self, accel, target_velocity, friction=None, max_velocity=None):
+        if friction is None:
+            friction = self.ground_friction()
+
+        if target_velocity == 0:
+            self.apply_traction(self.xVelocity)
+            return
+
+        if not (self.xVelocity * accel < 0):
+            if accel > 0 and self.xVelocity + accel > target_velocity:
+                accel = -friction
+                if self.xVelocity + accel < target_velocity:
+                    accel = target_velocity - self.xVelocity
+            elif accel < 0 and self.xVelocity + accel < target_velocity:
+                accel = friction
+                if self.xVelocity + accel > target_velocity:
+                    accel = target_velocity - self.xVelocity
+
+        self.xVelocity += accel
+        if max_velocity is not None:
+            self.xVelocity = max(-max_velocity, min(self.xVelocity, max_velocity))
+
     def walk(self, xjoyvalue):
-        m = self.multiplier
-        if -0.1 >= xjoyvalue >= -1.0:  # left
-            if 0 > xjoyvalue >= -0.32 and (self.xVelocity > (-self.walkSpeed/3) * m):
-                self.walkSlow = True
-                self.walkMiddle = False
-                self.walkFast = False
-                self.xVelocity += -self.walkSpeed
-            if -0.33 >= xjoyvalue >= -0.53 and (self.xVelocity > (-self.walkSpeed * 2/3) * m):
-                self.walkMiddle = True
-                self.walkSlow = False
-                self.walkFast = False
-                self.xVelocity += -self.walkSpeed
-            if xjoyvalue < -0.53 and (self.xVelocity > (-self.walkSpeed) * m):
-                self.walkFast = True
-                self.walkSlow = False
-                self.walkMiddle = False
-                self.xVelocity += self.walkSpeed * xjoyvalue
-            self.isRight = False
-        if 0.1 <= xjoyvalue <= 1.0:  # right
-            if 0 < xjoyvalue <= 0.32 and (self.xVelocity < (self.walkSpeed/3) * m):
-                self.walkSlow = True
-                self.walkMiddle = False
-                self.walkFast = False
-                self.xVelocity += self.walkSpeed
-            if 0.33 <= xjoyvalue <= 0.53 and (self.xVelocity < (self.walkSpeed * 2/3) * m):
-                self.walkMiddle = True
-                self.walkSlow = False
-                self.walkFast = False
-                self.xVelocity += self.walkSpeed
-            if xjoyvalue > 0.53 and (self.xVelocity < (self.walkSpeed) * m):
-                self.walkFast = True
-                self.walkSlow = False
-                self.walkMiddle = False
-                self.xVelocity += self.walkSpeed * xjoyvalue
-            self.isRight = True
+        stick = xjoyvalue
+        if abs(stick) < 0.1:
+            self.apply_traction(self.xVelocity)
+            return
+
+        max_walk_velocity = self.max_walk_velocity()
+        target_velocity = stick * max_walk_velocity
+        walk_init_velocity = getattr(self, "walkInitVelocity", max_walk_velocity * 0.10)
+        walk_accel = getattr(self, "walkAccel", max_walk_velocity * 0.05)
+        accel = (stick * walk_init_velocity) + (math.copysign(walk_accel, stick))
+
+        self.approach_ground_velocity(
+            accel,
+            target_velocity,
+            self.ground_friction(),
+            max_walk_velocity,
+        )
+
+        self.isRight = stick > 0
+        walk_ratio = abs(self.xVelocity) / max_walk_velocity if max_walk_velocity else 0
+        self.walkSlow = walk_ratio < (1 / 3)
+        self.walkMiddle = (1 / 3) <= walk_ratio < (2 / 3)
+        self.walkFast = walk_ratio >= (2 / 3)
           #  else:
            #     self.xVelocity -= 0.20
 
     def dash(self, xjoyvalue):
         stick = xjoyvalue
+        opposite_stick = (self.isRight and stick < 0) or (not self.isRight and stick > 0)
+        opposite_smash_turn = opposite_stick and self.has_fresh_x_tap(stick)
 
-        if abs(stick) > 0.64:
-            if self.xVelocity > 0:           
-                if stick > 0 and (abs(self.xVelocity) < self.runSpeed * 6):
-                    self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                    self.xVelocity *= 1 + (self.dashAccelAdd * stick)  # add accel based on x value
-                elif abs(self.xVelocity) < self.runSpeed * 6:
-                    self.xVelocity *= 1 - self.dashAccelBase
-                    self.xVelocity *= 1 + (self.dashAccelAdd * stick)  # add accel based on x value
-            elif self.xVelocity < 0:
-                if stick < 0 and (abs(self.xVelocity) < self.runSpeed * 6):
-                    self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                    self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
-                elif abs(self.xVelocity) < self.runSpeed * 6:
-                    self.xVelocity *= 1 - self.dashAccelBase
-                    self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
-
-        """
-        if -0.1 >= xjoyvalue >= -1.0 and (self.xVelocity > -self.runSpeed * 8) and not self.isRight:
-
-            if -0.64 >= xjoyvalue >= -0.76 and (self.xVelocity * 0.85 > 8 * -self.runSpeed):
-                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
-            if xjoyvalue < -0.76 and (self.xVelocity > 8 * (-self.runSpeed)):
-                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                self.xVelocity *= 1 + (self.dashAccelAdd * -stick)  # add accel based on x value
-
-            #self.isRight = False
-
-        if 0.1 <= xjoyvalue <= 1.0 and (self.xVelocity < self.runSpeed * 8) and self.isRight:  # right, velocity isn't at max airspeed
-
-            if 0.64 <= xjoyvalue <= 0.76 and (self.xVelocity * 0.85 < 8 * self.runSpeed):
-                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                self.xVelocity *= 1 + (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
-            if xjoyvalue > 0.76 and (self.xVelocity < 8 * self.runSpeed):
-                self.xVelocity *= 1 + self.dashAccelBase  # accel at base speed first
-                self.xVelocity *= 1 + (self.dashAccelAdd * xjoyvalue)  # add accel based on x value
-        """
-
+        if not opposite_smash_turn:
+            accel, target_velocity = self.ground_accel_and_target(stick, self.max_run_velocity())
+            self.approach_ground_velocity(
+                accel,
+                target_velocity,
+                self.ground_friction(),
+                self.max_run_velocity(),
+            )
 
         if self.dashCount >= self.dashFrames:  # if dashFrames elapsed
             if (self.isRight and stick >= 0.64) or (not self.isRight and stick <= -0.64):   # if dash is over, run
                 self.set_state("running")
                 self.dashCount = 0
-            elif 0 < abs(stick) < 0.64:
+            elif abs(stick) >= 0.1:
+                self.isRight = stick > 0
                 self.set_state("walking")
                 self.actionable = True
                 self.dashCount = 0
@@ -554,11 +749,12 @@ class Character(object):
                 self.dashCount = 0
                 #self.turnCount = 2
                 self.actionable = True
-        elif ((self.isRight and stick <= -0.80) or (not self.isRight and stick >= 0.80)) and ((self.canDash and self.xCount < self.dashFrames) or self.dashCount == 1):
+        elif opposite_smash_turn and self.dashCount < self.dashFrames:
             self.set_state("standing")
             self.xVelocity = 0
             self.dashCount = 0
             self.actionable = True
+            self.canDash = True
             self.dashTurn = True
             self.smashTurn = True
             #self.turnCount += 1
@@ -569,23 +765,24 @@ class Character(object):
 
 
     def run(self, xjoyvalue):
-        speed = self.xVelocity
-        if -0.1 >= xjoyvalue >= -1.0 and not self.isRight:  # left
-            if -0.64 >= xjoyvalue >= -0.76 and (self.xVelocity > 6 * (-self.runSpeed * 0.90)):
-                self.xVelocity += -self.runSpeed * xjoyvalue * 0.85
-            if xjoyvalue < -0.76 and (self.xVelocity > 6 * (-self.runSpeed)):
-                self.xVelocity += self.runSpeed * xjoyvalue
-            #self.isRight = False
-        if 0.1 <= xjoyvalue <= 1.0 and self.isRight:  # right
-            if 0.64 <= xjoyvalue <= 0.76 and (self.xVelocity < 6 * (self.runSpeed * 0.90)):
-                self.xVelocity += self.runSpeed * xjoyvalue * 0.85
-            if xjoyvalue > 0.76 and (self.xVelocity < 6 * self.runSpeed):
-                self.xVelocity += self.runSpeed * xjoyvalue
-            #self.isRight = True
-        if not self.runTurn and (self.runSpeed == self.initialDash):
-            self.xVelocity = speed
+        stick = xjoyvalue
+        same_direction = (stick > 0 and self.isRight) or (stick < 0 and not self.isRight)
+        if not same_direction:
+            self.apply_traction(self.xVelocity)
+            return
 
+        accel, target_velocity = self.ground_accel_and_target(stick, self.max_run_velocity())
+        if target_velocity:
+            velocity_fraction = self.xVelocity / target_velocity
+            if 0 < velocity_fraction < 1:
+                accel *= 1 - velocity_fraction
 
+        self.approach_ground_velocity(
+            accel,
+            target_velocity,
+            self.ground_friction(),
+            self.max_run_velocity(),
+        )
 
     def apply_traction(self, vel):
         vel *= 1 - self.traction
@@ -594,34 +791,37 @@ class Character(object):
         self.xVelocity = vel
 
     def fast_fall(self, yjoyvalue):
-        if (0 <= self.yVelocity < self.fastFallSpeed) and yjoyvalue >= 0.8:
+        if (0 <= self.yVelocity < self.fastFallSpeed) and self.has_fresh_down_tap(yjoyvalue):
             self.yVelocity = self.fastFallSpeed
+            self.consume_y_tap()
 
     def air_dodge(self):
         self.dodgeCount += 1
 
         if self.dodgeCount == 1:
-            if self.main_stick == [0, 0]:
+            stick_x = self.main_stick[0]
+            stick_y = self.main_stick[1]
+            deadzone = getattr(self, "airDodgeDeadzone", ESCAPE_AIR_SOURCE_DEADZONE)
+            if abs(stick_x) < deadzone and abs(stick_y) < deadzone:
                 self.xVelocity = 0
                 self.yVelocity = 0
             else:
-                self.xVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[0] * self.airDodgeLength
-                self.yVelocity = self.angle_to_trajectory(self.trajectory_to_Angle())[1] * self.airDodgeLength
+                magnitude = math.hypot(stick_x, stick_y)
+                force = getattr(self, "airDodgeForce", self.airDodgeLength)
+                self.xVelocity = force * stick_x / magnitude
+                self.yVelocity = force * stick_y / magnitude
             self.actionable = False
+        elif self.dodgeCount < getattr(self, "airDodgeActionFrames", ESCAPE_AIR_SOURCE_ACTION_FRAMES):
+            decay = getattr(self, "airDodgeDecay", ESCAPE_AIR_SOURCE_DECAY)
+            self.xVelocity *= decay
+            self.yVelocity *= decay
         else:
-            if self.xVelocity < 0:
-                self.xVelocity = -((math.sqrt(abs(self.xVelocity)) - 0.2) ** 2)
-            else:
-                self.xVelocity = (math.sqrt(self.xVelocity) - 0.2) ** 2
-            if self.yVelocity < 0:
-                self.yVelocity = -((math.sqrt(abs(self.yVelocity)) - 0.2) ** 2)
-            else:
-                self.yVelocity = (math.sqrt(self.yVelocity) - 0.2) ** 2
-
-        if self.dodgeCount >= 40:
-            self.set_state("freeFall")
-            self.dodgeCount = 0
             self.xVelocity = 0
+            self.yVelocity = 0
+
+        if self.dodgeCount >= getattr(self, "airDodgeFrames", getattr(self, "airDodgeActionFrames", ESCAPE_AIR_SOURCE_ACTION_FRAMES)):
+            self.set_state("fallSpecial")
+            self.dodgeCount = 0
 
     def angle_to_trajectory(self, angle):
         yValue = -(math.sin(math.radians(angle)))
@@ -654,32 +854,65 @@ class Character(object):
 
     def dolphinmole(self):
         self.character = 'DolphinMole'
+        stats = CAPTAIN_FALCON_STATS
+        self.frameData = {
+            name: values.copy()
+            for name, values in CAPTAIN_FALCON_FRAME_DATA.items()
+        }
         self.width = 56
         self.height = 142
-        self.weight = 30
-        self.runSpeed = 2.3
-        self.walkSpeed = 0.85
-        self.airSpeed = 8
-        self.airAccelBase = 0.02
-        self.airAccelAdd = 0.06
-        self.airFriction = 0.06
-        self.traction = 0.08
+        self.weight = stats["weight"]
+        self.runSpeed = stats["run_speed"]
+        self.walkSpeed = stats["walk_speed"]
+        self.airSpeed = stats["air_speed"] * self.multiplier
+        self.airAccelBase = stats["air_accel_base"]
+        self.airAccelAdd = stats["air_accel_add"]
+        self.airFriction = stats["air_friction"]
+        self.traction = stats["traction"]
+        self.walkInitVelocity = self.walkSpeed * self.multiplier * 0.10
+        self.walkAccel = self.walkSpeed * self.multiplier * 0.05
+        self.groundFriction = self.traction * self.multiplier
         self.jumps = 2
         self.jumpCount = 2
-        self.js = 5                         # jump squat frames
-        self.fallSpeed = 16
-        self.fastFallSpeed = 18
-        self.dashFrames = 15
-        self.initialDash = 2
-        self.dashAccelBase = 0.10
-        self.dashAccelAdd = 0.15
+        self.js = stats["jumpsquat_frames"]
+        self.landingLagFrames = stats["empty_landing_lag"]
+        self.landingFallSpecialFrames = 10
+        self.fallSpeed = stats["fall_speed"] * self.multiplier
+        self.fastFallSpeed = stats["fast_fall_speed"] * self.multiplier
+        self.dashFrames = stats["dash_frames"]
+        self.initialDash = stats["initial_dash"]
+        self.dashAccelBase = stats["dash_accel_base"]
+        self.dashAccelAdd = stats["dash_accel_add"]
         self.rollLength = 200
+        self.airDodgeFrames = self.frameData["airdodge"]["total"]
         self.airDodgeLength = 26
+        self.airDodgeForce = self.airDodgeLength
+        self.airDodgeDeadzone = ESCAPE_AIR_SOURCE_DEADZONE
+        self.airDodgeActionFrames = ESCAPE_AIR_SOURCE_ACTION_FRAMES
+        self.airDodgeDecay = ESCAPE_AIR_SOURCE_DECAY
         self.airDodgeResistance = 0.80
-        self.jumpHeight = -28
-        self.shortHop = -18
-        self.airJumpHeight = -28
-        self.gWeight = 0.02
+        self.fullHopHeight = stats["full_hop_height"]
+        self.shortHopHeight = stats["short_hop_height"]
+        self.doubleJumpHeight = stats["double_jump_height"]
+        self.gWeight = stats["gravity"]
+        self.fullHopVelocity = vertical_velocity_for_jump_height(
+            self.fullHopHeight,
+            self.gWeight,
+            self.multiplier,
+        )
+        self.shortHopVelocity = vertical_velocity_for_jump_height(
+            self.shortHopHeight,
+            self.gWeight,
+            self.multiplier,
+        )
+        self.doubleJumpVelocity = vertical_velocity_for_jump_height(
+            self.doubleJumpHeight,
+            self.gWeight,
+            self.multiplier,
+        )
+        self.jumpHeight = self.fullHopVelocity
+        self.shortHop = self.shortHopVelocity
+        self.airJumpHeight = self.doubleJumpVelocity
         self.turnFrames = 11
         self.tiltFrames = 5
 

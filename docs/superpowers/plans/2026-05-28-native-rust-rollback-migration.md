@@ -1,0 +1,397 @@
+# Native Rust Rollback Migration Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Move Mole from a Pygame-authoritative prototype to a native Rust deterministic rollback architecture with SDL3 runtime and peer-to-peer networking.
+
+**Architecture:** Rust owns authoritative simulation, input interpretation, rollback, replay, and transport contracts. SDL3 owns the native shell. Pygame remains only a temporary reference/harness until the Rust runtime is playable.
+
+**Tech Stack:** Rust, Cargo workspace, SDL3, native WUP-028/WinUSB input, fixed 60 Hz deterministic simulation, custom GGRS-shaped rollback, direct UDP, later Supabase signaling and WebRTC DataChannel.
+
+---
+
+## Reference Docs
+
+Read these before implementing:
+
+- `docs/architecture/native-rust-rollback-architecture.md`
+- `docs/research/melee-input-state-reference.md`
+- `docs/research/melee-common-state-inventory.md`
+- `docs/research/mole-state-coverage-comparison.md`
+- `docs/research/pygame-movement-logic-pass.md`
+- `docs/superpowers/specs/2026-05-27-rust-rollback-core-design.md`
+
+## Working Rules
+
+- Do not revert unrelated user changes.
+- Do not delete or clean generated directories unless the user explicitly asks.
+- Work against `https://github.com/Robbiemas/First_Game` on branch `handoff/rust-rollback-architecture`.
+- Use `gh` and normal `git` CLI commands for repository operations.
+- Do not use the Codex GitHub plugin/connector tools unless the user explicitly says they are working again.
+- Prefer Rust core changes over Pygame hotfixes.
+- Keep `mole_core` free from SDL, sockets, filesystem, wall-clock time, and IO.
+- Use tests to lock mechanics before tuning feel.
+- Keep each milestone independently runnable and testable.
+
+## Baseline Commands
+
+Run from `D:\Mole Game\First_Game`.
+
+```powershell
+cargo test --workspace
+python -m pytest
+```
+
+Expected for a healthy baseline: Rust and Python tests pass. If either command
+fails before new work begins, record the failure in the task notes and avoid
+mixing baseline repair with feature implementation unless the failure blocks the
+task.
+
+## File Structure Target
+
+Existing or target crates:
+
+- `crates/mole_core`: deterministic simulation and motion states.
+- `crates/mole_input`: native GameCube input and UCF-native preprocessing.
+- `crates/mole_rollback`: snapshots, prediction, and resimulation.
+- `crates/mole_replay`: replay serialization and checksum validation.
+- `crates/mole_transport`: loopback, UDP, later WebRTC.
+- `crates/mole_runtime`: SDL3 native runtime shell.
+- `tools`: state graph viewer and temporary Python tools.
+- `execs`: human-facing launchers.
+
+If `mole_input` does not exist yet, create it as a focused crate instead of
+letting input preprocessing sprawl through runtime or core code.
+
+## Phase 0: Handoff And Baseline
+
+### Task 0.1: Verify Workspace Status
+
+**Files:**
+
+- Read: all docs listed above.
+- Read: `Cargo.toml`
+- Read: `crates/*/Cargo.toml`
+
+- [ ] Run `git status --short`.
+- [ ] Record which files are already modified.
+- [ ] Do not revert existing changes.
+- [ ] Run `cargo test --workspace`.
+- [ ] Run `python -m pytest`.
+- [ ] If live game processes are running and block builds, close only project-local processes whose command line includes `D:\Mole Game\First_Game`.
+
+### Task 0.2: Confirm Launch Surface
+
+**Files:**
+
+- Read: `execs/README.md`
+- Read: `execs/Live Test Session.cmd`
+- Read: `tools/live_test_session.py`
+
+- [ ] Confirm how the user launches the current test session.
+- [ ] Confirm the current launcher does not leave background helpers alive after window close.
+- [ ] Keep launcher changes separate from mechanics changes.
+
+## Phase 1: Rust Core Movement Authority
+
+### Task 1.1: Split Walk State Identity
+
+**Files:**
+
+- Modify: `crates/mole_core/src/state.rs`
+- Modify: `crates/mole_core/src/sim.rs`
+- Test: `crates/mole_core/tests/core_contract.rs`
+- Update: `docs/research/mole-state-coverage-comparison.md`
+
+- [ ] Add failing tests for `Wait -> WalkSlow`, `Wait -> WalkMiddle`, and `Wait -> WalkFast`.
+- [ ] Tests should assert motion state, facing, state frame, and velocity target behavior.
+- [ ] Implement explicit `WalkSlow`, `WalkMiddle`, and `WalkFast` states or explicit state metadata if the codebase has already moved that way.
+- [ ] Keep walk acceleration/target-speed logic data-driven by character attributes.
+- [ ] Run `cargo test -p mole_core`.
+- [ ] Update the state coverage doc to mark the walk split as Rust-covered.
+
+### Task 1.2: Keep State-Local Transition Order
+
+**Files:**
+
+- Modify: `crates/mole_core/src/sim.rs`
+- Test: `crates/mole_core/tests/core_contract.rs`
+
+- [ ] Add tests proving a walk frame checks higher-priority transitions before continuing walk.
+- [ ] Cover dash-from-walk only when the rollback-owned dash fact is fresh.
+- [ ] Cover soft opposite stick exiting walk without flipping facing.
+- [ ] Ensure no generic action resolver can overwrite the state later in the same frame.
+- [ ] Run `cargo test -p mole_core`.
+
+### Task 1.3: General Landing State
+
+**Files:**
+
+- Modify: `crates/mole_core/src/state.rs`
+- Modify: `crates/mole_core/src/sim.rs`
+- Test: `crates/mole_core/tests/core_contract.rs`
+- Update: `docs/research/mole-state-coverage-comparison.md`
+
+- [ ] Add `Landing` as a general landing state distinct from `LandingFallSpecial`.
+- [ ] Add tests for ordinary airborne landing entering `Landing`.
+- [ ] Add tests for `FallSpecial` collision entering `LandingFallSpecial`.
+- [ ] Ensure held shield does not automatically enter guard during landing lag unless the state rules allow it.
+- [ ] Run `cargo test -p mole_core`.
+
+## Phase 2: GameCube-First Input Crate
+
+### Task 2.1: Establish `mole_input`
+
+**Files:**
+
+- Create or modify: `crates/mole_input/Cargo.toml`
+- Create or modify: `crates/mole_input/src/lib.rs`
+- Modify: root `Cargo.toml`
+- Test: `crates/mole_input/tests/input_contract.rs`
+
+- [ ] Add `mole_input` to the Cargo workspace if it does not exist.
+- [ ] Define `GameCubePadStatus` with raw main stick, C-stick, L/R analog bytes, and button bits.
+- [ ] Define a deterministic `InputOrigin` captured from stable initial samples.
+- [ ] Define a packed `PlayerInput` output compatible with rollback.
+- [ ] Add tests for neutral, max left/right/up/down, C-stick, D-pad, L/R analog, and L/R digital bottom-out.
+- [ ] Run `cargo test -p mole_input`.
+
+### Task 2.2: Implement Trigger Deadzone As Input Mapping
+
+**Files:**
+
+- Modify: `crates/mole_input/src/lib.rs`
+- Test: `crates/mole_input/tests/input_contract.rs`
+
+- [ ] Add tests for analog trigger values below the default deadzone mapping to zero pressure.
+- [ ] Add tests for values above deadzone remapping continuously to the full range.
+- [ ] Add tests proving L and R remain independent.
+- [ ] Add tests proving digital bottom-out remains separate from analog pressure.
+- [ ] Run `cargo test -p mole_input`.
+
+### Task 2.3: Implement UCF-Native Facts
+
+**Files:**
+
+- Modify: `crates/mole_input/src/lib.rs`
+- Test: `crates/mole_input/tests/ucf_contract.rs`
+- Update: `docs/research/melee-input-state-reference.md`
+
+- [ ] Add tests for dashback correction facts.
+- [ ] Add tests for shield-drop relevant stick facts without turning them into game-state decisions.
+- [ ] Add tests for snapback-resilient directional facts if current UCF research supports them locally.
+- [ ] Ensure outputs are facts consumed by the core, not direct state commands.
+- [ ] Run `cargo test -p mole_input`.
+
+## Phase 3: Runtime Consumes Rust Snapshots
+
+### Task 3.1: Define Runtime Snapshot Boundary
+
+**Files:**
+
+- Modify: `crates/mole_core/src/state.rs`
+- Modify: `crates/mole_runtime/src/main.rs`
+- Test: `crates/mole_core/tests/core_contract.rs`
+
+- [ ] Add or stabilize a read-only world snapshot type for rendering.
+- [ ] Ensure snapshot contains position, facing, motion state, state frame, animation frame, and debug input facts.
+- [ ] Ensure snapshot cannot mutate core state.
+- [ ] Run `cargo test -p mole_core`.
+
+### Task 3.2: SDL3 Local Harness
+
+**Files:**
+
+- Modify: `crates/mole_runtime/Cargo.toml`
+- Modify: `crates/mole_runtime/src/main.rs`
+- Create or modify: `execs/Run Native Rust Game.cmd`
+- Update: `execs/README.md`
+
+- [ ] Add SDL3 dependency behind a runtime feature if not already present.
+- [ ] Open an SDL3 window.
+- [ ] Run a fixed 60 Hz simulation loop.
+- [ ] Draw a simple deterministic test character from the Rust snapshot.
+- [ ] Poll keyboard and generic SDL gamepad as fallback input.
+- [ ] Keep WUP native input path separate and first-class.
+- [ ] Confirm closing the window exits the process.
+- [ ] Run `cargo run -p mole_runtime`.
+
+## Phase 4: Replay And Checksum
+
+### Task 4.1: Replay Contract
+
+**Files:**
+
+- Modify: `crates/mole_replay/src/lib.rs`
+- Test: `crates/mole_replay/tests/replay_contract.rs`
+- Modify: `crates/mole_core/src/state.rs`
+
+- [ ] Add tests that record initial state, input frames, and checksums.
+- [ ] Add tests that replay the recorded inputs and produce the same final checksum.
+- [ ] Add tests that a changed input produces a checksum mismatch.
+- [ ] Run `cargo test -p mole_replay`.
+
+### Task 4.2: Human QA Replay Capture
+
+**Files:**
+
+- Modify: `crates/mole_runtime/src/main.rs`
+- Create or modify: `execs/Record Native Replay.cmd`
+- Update: `execs/README.md`
+
+- [ ] Add a debug mode that records local input frames and periodic checksums.
+- [ ] Save replay files under a clear project-local debug/replay directory.
+- [ ] Never make replay capture required for normal play.
+- [ ] Confirm a captured replay can be played back by tests or a tool.
+
+## Phase 5: Offline Rollback
+
+### Task 5.1: Snapshot Ring
+
+**Files:**
+
+- Modify: `crates/mole_rollback/src/lib.rs`
+- Test: `crates/mole_rollback/tests/rollback_contract.rs`
+
+- [ ] Add tests for storing snapshots by frame.
+- [ ] Add tests for restoring an old snapshot.
+- [ ] Add tests for ring wraparound.
+- [ ] Run `cargo test -p mole_rollback`.
+
+### Task 5.2: Prediction And Resimulation
+
+**Files:**
+
+- Modify: `crates/mole_rollback/src/lib.rs`
+- Test: `crates/mole_rollback/tests/rollback_contract.rs`
+
+- [ ] Add tests where remote input for frame N is missing and predicted.
+- [ ] Add tests where the confirmed frame N input matches prediction.
+- [ ] Add tests where confirmed frame N differs, causing restore and resimulation.
+- [ ] Assert final checksum matches the no-delay authoritative path.
+- [ ] Run `cargo test -p mole_rollback`.
+
+## Phase 6: Direct UDP Transport
+
+### Task 6.1: Transport Trait
+
+**Files:**
+
+- Modify: `crates/mole_transport/src/lib.rs`
+- Test: `crates/mole_transport/tests/transport_contract.rs`
+
+- [ ] Define a transport boundary that can send and receive versioned packets.
+- [ ] Implement loopback transport for deterministic tests.
+- [ ] Add tests for packet ordering, duplicate input frames, and dropped packets.
+- [ ] Run `cargo test -p mole_transport`.
+
+### Task 6.2: UDP Backend
+
+**Files:**
+
+- Modify: `crates/mole_transport/src/lib.rs`
+- Test: `crates/mole_transport/tests/udp_contract.rs`
+- Modify: `crates/mole_runtime/src/main.rs`
+
+- [ ] Implement nonblocking UDP send/receive.
+- [ ] Add direct IP/port configuration for development.
+- [ ] Exchange input frames and checksums.
+- [ ] Show ping/packet stats in debug overlay.
+- [ ] Run two local instances on different ports and confirm input exchange.
+
+## Phase 7: Supabase Signaling
+
+### Task 7.1: Signaling Boundary
+
+**Files:**
+
+- Create: `crates/mole_signaling/Cargo.toml`
+- Create: `crates/mole_signaling/src/lib.rs`
+- Modify: root `Cargo.toml`
+- Test: `crates/mole_signaling/tests/signaling_contract.rs`
+
+- [ ] Define signaling messages for room create, room join, offer, answer, ICE candidate, and direct endpoint exchange.
+- [ ] Keep signaling messages separate from gameplay packets.
+- [ ] Add tests that serialize and validate signaling messages.
+- [ ] Run `cargo test -p mole_signaling`.
+
+### Task 7.2: Supabase Prototype
+
+**Files:**
+
+- Modify: `crates/mole_signaling/src/lib.rs`
+- Create: `docs/architecture/supabase-signaling-notes.md`
+
+- [ ] Use Supabase only for presence, matchmaking, room codes, and setup message exchange.
+- [ ] Document free-tier constraints and failure modes.
+- [ ] Keep direct IP/UDP available without Supabase.
+- [ ] Do not send 60 Hz gameplay input through Supabase.
+
+## Phase 8: WebRTC Transport
+
+### Task 8.1: WebRTC Backend Spike
+
+**Files:**
+
+- Modify: `crates/mole_transport/Cargo.toml`
+- Modify: `crates/mole_transport/src/lib.rs`
+- Test: `crates/mole_transport/tests/webrtc_contract.rs`
+- Update: `docs/architecture/native-rust-rollback-architecture.md`
+
+- [ ] Add WebRTC DataChannel as an optional transport backend.
+- [ ] Exchange setup data through the signaling boundary.
+- [ ] Run the same rollback transport tests through WebRTC where practical.
+- [ ] Compare latency/jitter against direct UDP.
+- [ ] Keep UDP as the baseline path.
+
+## Phase 9: Pygame Retirement
+
+### Task 9.1: Mark Pygame As Legacy
+
+**Files:**
+
+- Update: `README.md`
+- Update: `execs/README.md`
+- Update: `docs/research/pygame-movement-logic-pass.md`
+
+- [ ] Document Pygame as historical prototype and temporary QA harness.
+- [ ] Point normal development to the Rust runtime.
+- [ ] Keep old launchers available until native Rust reaches feature parity.
+
+### Task 9.2: Remove Duplicate Mechanics From Live Testing
+
+**Files:**
+
+- Modify only after Rust runtime is playable:
+  - `Characters.py`
+  - `ChooseAction.py`
+  - `RealMainFile.py`
+
+- [ ] Stop adding new movement mechanics to Pygame.
+- [ ] If Pygame remains open for QA, make it render Rust snapshots or clearly mark it as legacy.
+- [ ] Do not allow Pygame movement behavior to override Rust core state.
+
+## Completion Definition
+
+The migration is successful when:
+
+- The native Rust runtime launches and closes cleanly.
+- Native WUP GameCube input works without an external gamepad mapper.
+- Movement state transitions are Rust-owned.
+- Replays reproduce checksums.
+- Offline rollback corrects mispredictions.
+- Direct UDP 1v1 can exchange input and run rollback.
+- Supabase, if present, is used only for setup/signaling.
+- Pygame is no longer the mechanics authority.
+
+## Recommended First Execution Chunk
+
+Start with Phase 1 and Phase 2 only:
+
+1. Walk state split in Rust.
+2. State-local transition tests.
+3. `mole_input` crate boundary if not already present.
+4. Trigger and UCF-native input contracts.
+
+Do not begin SDL3 runtime or networking until the Rust core can drive the first
+movement slice deterministically.

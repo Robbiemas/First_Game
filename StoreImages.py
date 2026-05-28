@@ -1,17 +1,14 @@
 import pygame
 import glob
-import json
 
 DolphinMoleAnimations = []
 
 def gather_images(character, state):        # gather images
     converted_images = []                   # array for converted images
 
-    for filename in glob.glob(character + '/' + state + '/*.png'):      # for all png's of character state
+    for filename in sorted(glob.glob(character + '/' + state + '/*.png')):      # for all png's of character state
         im = pygame.image.load(filename).convert_alpha()                # path converted image as im
-        im_mask = pygame.mask.from_surface(im)
         converted_images.append(im)                                     # append im onto converted images array
-        print(converted_images, character, state)
     return converted_images                                             # return array of converted images
 
 
@@ -30,6 +27,7 @@ characters = ["DolphinMole", "NewBadGuy"]
 
 
 def run_image_store():
+    DolphinMoleAnimations.clear()
     for character in characters:        # per character store an array of state animations
         for animation in animations:
             store_images(character, animation)

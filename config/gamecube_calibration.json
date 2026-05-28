@@ -1,0 +1,22 @@
+{
+  "main_x": {
+    "min": 20,
+    "center": 128,
+    "max": 232
+  },
+  "main_y": {
+    "min": 20,
+    "center": 128,
+    "max": 232
+  },
+  "c_x": {
+    "min": 20,
+    "center": 128,
+    "max": 232
+  },
+  "c_y": {
+    "min": 20,
+    "center": 128,
+    "max": 232
+  }
+}

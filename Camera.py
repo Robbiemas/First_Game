@@ -2,6 +2,8 @@ import pygame
 import math
 from StoreImages import DolphinMoleAnimations, run_image_store
 
+background = None
+
 d = {
     'standing': 0,
     'running': 1,
@@ -15,8 +17,23 @@ d = {
     'turning': 9,
     'runTurn': 10,
     'blocking': 11,
+    'guardOff': 11,
     'shield': 12
 }
+
+DEFAULT_ANIMATION_STATE = 'standing'
+MIN_VISIBLE_SHIELD_HP = 1
+
+
+def animation_frames_for_state(state):
+    default_index = d[DEFAULT_ANIMATION_STATE]
+    state_index = d.get(state, default_index)
+
+    if state_index >= len(DMAni) or not DMAni[state_index]:
+        state_index = default_index
+
+    return DMAni[state_index]
+
 
 def grab_images():
     global DMAni
@@ -26,7 +43,7 @@ def grab_images():
 
 def find_zoom(player1, player2):
     xDist = player2.x - player1.x
-    yDist = player2.y - player2.y
+    yDist = player2.y - player1.y
     dist = int(math.hypot(xDist, yDist))
     if dist <= 200:
         return 3
@@ -38,7 +55,7 @@ def find_zoom(player1, player2):
 
 def camera_adjust(player1, player2, monitor_size, true_scroll):
     xDist = player2.x - player1.x
-    yDist = player2.y - player2.y
+    yDist = player2.y - player1.y
     dist = int(math.hypot(xDist, yDist))
 
     xCenter = (abs(player2.x - player1.x) / 2) + min(player1.x, player2.x)
@@ -51,8 +68,10 @@ def camera_adjust(player1, player2, monitor_size, true_scroll):
 
 
 def draw_bg(win, scroll):
-    bg = pygame.image.load('background.png')
-    win.blit(bg, (0 - scroll[0], 0 - scroll[1]))
+    global background
+    if background is None:
+        background = pygame.image.load('background.png').convert()
+    win.blit(background, (0 - scroll[0], 0 - scroll[1]))
 
 
 def get_x(play, scroll):
@@ -70,6 +89,8 @@ def draw_shield(win, play, scroll):
     if play.shieldHP < 0:
         play.shieldHP = 0
     size = int(play.shieldHP)
+    if play.shielding and size <= 0:
+        size = MIN_VISIBLE_SHIELD_HP
     #circle = pygame.draw.circle(win, (255, 0, 0), (play.widgth/2 - scroll[0], play.height/2 - scroll[1]), size)
     if size > 0:
         #pygame.draw.circle(win, (255, 0, 0), (int(play.x - scroll[0]), int(play.y - (play.height/2) - scroll[1])), size)
@@ -82,17 +103,17 @@ def draw_shield(win, play, scroll):
 def get_mask(play):
     state = play.state
     if play.character == 'DolphinMole':
-        if play.aniCount + 1 > len(DMAni[d[state]]):
+        frames = animation_frames_for_state(state)
+        if play.aniCount + 1 > len(frames):
             play.aniCount = 0
 
-        play.height = DMAni[d[state]][play.aniCount].get_height()
-        play.width = DMAni[d[state]][play.aniCount].get_width()
+        play.height = frames[play.aniCount].get_height()
+        play.width = frames[play.aniCount].get_width()
 
         if play.isRight:
-            play.mask = pygame.mask.from_surface(DMAni[d[state]][play.aniCount])
-            print(play.mask)
+            play.mask = pygame.mask.from_surface(frames[play.aniCount])
         else:
-            play.mask = pygame.mask.from_surface(pygame.transform.flip(DMAni[d[state]][play.aniCount], True, False))
+            play.mask = pygame.mask.from_surface(pygame.transform.flip(frames[play.aniCount], True, False))
 
 
 def draw_char(win, play, xpos, scroll):
@@ -102,17 +123,18 @@ def draw_char(win, play, xpos, scroll):
     y = (play.y - play.height) - scroll[1]
 
     if play.character == 'DolphinMole':
-        if play.aniCount + 1 > len(DMAni[d[state]]):
+        frames = animation_frames_for_state(state)
+        if play.aniCount + 1 > len(frames):
             play.aniCount = 0
 
         #play.height = DMAni[d[state]][play.aniCount].get_height()
         #play.width = DMAni[d[state]][play.aniCount].get_width()
 
         if play.isRight:
-            win.blit(DMAni[d[state]][play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
+            win.blit(frames[play.aniCount], (get_x(play, scroll), get_y(play, scroll)))
             play.aniCount += 1
         else:
-            win.blit(pygame.transform.flip(DMAni[d[state]][play.aniCount], True, False),
+            win.blit(pygame.transform.flip(frames[play.aniCount], True, False),
                      (get_x(play, scroll), get_y(play, scroll)))
             play.aniCount += 1
 

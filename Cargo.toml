@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "crates/mole_core",
+    "crates/mole_rollback",
+    "crates/mole_replay",
+    "crates/mole_transport",
+    "crates/mole_runtime",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"

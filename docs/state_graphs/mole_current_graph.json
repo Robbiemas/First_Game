@@ -1,0 +1,396 @@
+{
+  "id": "mole_current",
+  "title": "Mole Current: Playable Pygame Layer",
+  "root": "Wait",
+  "description": "Current playable test surface mapped onto the Melee movement spine. Colors show parity against the Melee reference and the local coverage comparison notes.",
+  "sources": [
+    {
+      "label": "Pygame movement resolver",
+      "path": "ChooseAction.py"
+    },
+    {
+      "label": "Character state flags and physics helpers",
+      "path": "Characters.py"
+    },
+    {
+      "label": "Local state coverage comparison",
+      "path": "docs/research/mole-state-coverage-comparison.md"
+    },
+    {
+      "label": "Local Pygame movement logic pass",
+      "path": "docs/research/pygame-movement-logic-pass.md"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Wait",
+      "label": "standing",
+      "pos": [0, 0],
+      "status": "aligned",
+      "notes": "Conceptually maps to Melee Wait."
+    },
+    {
+      "id": "Walk",
+      "label": "walking + walkSlow/Middle/Fast flags",
+      "pos": [-2, 1],
+      "status": "partial",
+      "notes": "Analog walk velocity exists, but Melee walk buckets are not explicit states."
+    },
+    {
+      "id": "Turn",
+      "label": "turning",
+      "pos": [-1, 1],
+      "status": "partial",
+      "notes": "Covered conceptually, but dash-out logic still lives inside legacy turn handling."
+    },
+    {
+      "id": "Dash",
+      "label": "dashing",
+      "pos": [0, 1],
+      "status": "partial",
+      "notes": "Uses canonical Rust/UCF dash facts for native input, but transition handling remains Pygame-local."
+    },
+    {
+      "id": "Squat",
+      "label": "crouchStart / crouching",
+      "pos": [1, 1],
+      "status": "partial",
+      "notes": "No explicit SquatWait or SquatRv yet."
+    },
+    {
+      "id": "GuardOn",
+      "label": "GuardOn missing",
+      "pos": [2, 1],
+      "status": "missing",
+      "notes": "Pygame enters blocking directly instead of separating GuardOn startup."
+    },
+    {
+      "id": "KneeBend",
+      "label": "jumpSquat",
+      "pos": [3, 1],
+      "status": "aligned",
+      "notes": "Conceptually maps to KneeBend and supports short-hop release timing."
+    },
+    {
+      "id": "Run",
+      "label": "running",
+      "pos": [0, 2],
+      "status": "partial",
+      "notes": "Sustained run exists, but some run exit behavior still relies on legacy flags."
+    },
+    {
+      "id": "RunBrake",
+      "label": "RunBrake missing; running + endLag",
+      "pos": [-1, 3],
+      "status": "missing",
+      "notes": "Current Pygame uses the generic endLag flag while running."
+    },
+    {
+      "id": "TurnRun",
+      "label": "runTurn",
+      "pos": [1, 3],
+      "status": "partial",
+      "notes": "Recently moved closer to old-facing behavior and jump interrupt parity."
+    },
+    {
+      "id": "Guard",
+      "label": "blocking",
+      "pos": [2, 2],
+      "status": "partial",
+      "notes": "Steady shield exists, but it is merged with GuardOn-like behavior."
+    },
+    {
+      "id": "ShieldTurn",
+      "label": "directional shield turn",
+      "pos": [3, 2],
+      "status": "intentional",
+      "notes": "Intentional design deviation from Melee: shield can turn for directional defense."
+    },
+    {
+      "id": "GuardOff",
+      "label": "guardOff",
+      "pos": [2, 3],
+      "status": "partial",
+      "notes": "Release state exists, but needs continued parity checks against Melee GuardOff timing/options."
+    },
+    {
+      "id": "JumpF",
+      "label": "JumpF/JumpB collapsed into air",
+      "pos": [3, 3],
+      "status": "missing",
+      "notes": "Pygame leaves jumpSquat into umbrella air state."
+    },
+    {
+      "id": "Air",
+      "label": "air",
+      "pos": [4, 3],
+      "status": "partial",
+      "notes": "Covers jump/fall/aerial drift umbrella behavior."
+    },
+    {
+      "id": "EscapeAir",
+      "label": "airDodge",
+      "pos": [3, 4],
+      "status": "partial",
+      "notes": "Airdodge state exists, but exact EscapeAir -> FallSpecial transition line is still under parity review."
+    },
+    {
+      "id": "FallSpecial",
+      "label": "fallSpecial",
+      "pos": [3, 5],
+      "status": "partial",
+      "notes": "Base special fall exists; forward/back variants are not explicit."
+    },
+    {
+      "id": "LandingFallSpecial",
+      "label": "landingFallSpecial",
+      "pos": [3, 6],
+      "status": "aligned",
+      "notes": "State exists and applies landing-fall-special lockout."
+    },
+    {
+      "id": "Landing",
+      "label": "landingLag",
+      "pos": [4, 6],
+      "status": "partial",
+      "notes": "Pygame has temporary landingLag; Rust still needs general Landing."
+    }
+  ],
+  "edges": [
+    {
+      "from": "Wait",
+      "to": "Walk",
+      "input": "hold stick in walk zone",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Analog velocity is present; buckets are flags, not states."
+    },
+    {
+      "from": "Wait",
+      "to": "Dash",
+      "input": "canonical dash_direction from Rust/UCF or fallback X tap",
+      "frames": "fresh tap frame",
+      "status": "aligned",
+      "notes": "Native path now consumes canonical dash fact after UCF wrapping."
+    },
+    {
+      "from": "Wait",
+      "to": "Turn",
+      "input": "opposite stick from standstill without dash fact",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Covered, but shares resolver frame with other checks."
+    },
+    {
+      "from": "Wait",
+      "to": "Squat",
+      "input": "down input through crouch code path",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Crouch family is collapsed."
+    },
+    {
+      "from": "Wait",
+      "to": "Guard",
+      "input": "blockkey from L/R trigger deadzoned shield input",
+      "frames": "current frame",
+      "status": "mismatch",
+      "notes": "Skips explicit GuardOn startup."
+    },
+    {
+      "from": "Wait",
+      "to": "KneeBend",
+      "input": "jumpkey while canJump",
+      "frames": "current frame",
+      "status": "aligned"
+    },
+    {
+      "from": "Walk",
+      "to": "Dash",
+      "input": "canonical dash_direction while walking",
+      "frames": "fresh tap frame",
+      "status": "aligned",
+      "notes": "Native UCF dashback is folded before Pygame sees it."
+    },
+    {
+      "from": "Walk",
+      "to": "Turn",
+      "input": "opposite stick during walk",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Soft opposite exits to Wait now; hard opposite paths still need contract review."
+    },
+    {
+      "from": "Walk",
+      "to": "Wait",
+      "input": "release stick or soft opposite walk exit",
+      "frames": "current frame",
+      "status": "aligned",
+      "notes": "Recent fix preserves facing on soft opposite walk exit."
+    },
+    {
+      "from": "Dash",
+      "to": "Run",
+      "input": "dash finishes with run-zone stick held",
+      "frames": "after dashFrames; Falcon reference 15f",
+      "status": "partial",
+      "notes": "State exists, but dash/run transition still lives in legacy Character.dash()."
+    },
+    {
+      "from": "Dash",
+      "to": "Walk",
+      "input": "dash finishes with walk-zone stick held",
+      "frames": "after dashFrames",
+      "status": "partial",
+      "notes": "A test now guards against same-frame dash-to-walk physics double application."
+    },
+    {
+      "from": "Dash",
+      "to": "Wait",
+      "input": "dash finishes without movement stick",
+      "frames": "after dashFrames",
+      "status": "partial"
+    },
+    {
+      "from": "Dash",
+      "to": "Turn",
+      "input": "opposite canonical dash fact during initial dash",
+      "frames": "during Dash before run transition",
+      "status": "partial",
+      "notes": "Dash dance works better, but this remains a high-priority parity checkpoint."
+    },
+    {
+      "from": "Run",
+      "to": "TurnRun",
+      "input": "hard opposite stick",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Facing now stays old-facing until velocity crosses zero."
+    },
+    {
+      "from": "Run",
+      "to": "RunBrake",
+      "input": "stick neutral / xCount zero",
+      "frames": "current frame",
+      "status": "mismatch",
+      "notes": "Uses running + endLag instead of an explicit RunBrake state."
+    },
+    {
+      "from": "Run",
+      "to": "Guard",
+      "input": "blockkey while running",
+      "frames": "current frame",
+      "status": "mismatch",
+      "notes": "Skips GuardOn and guard-from-run catch-dash timing."
+    },
+    {
+      "from": "RunBrake",
+      "to": "Wait",
+      "input": "generic endLag counter expires",
+      "frames": "legacy lagCount path",
+      "status": "mismatch",
+      "notes": "Should become traction-driven explicit RunBrake."
+    },
+    {
+      "from": "TurnRun",
+      "to": "Run",
+      "input": "velocity crosses zero and run-zone stick held",
+      "frames": "physics-dependent",
+      "status": "partial",
+      "notes": "Closer now; still needs direct parity fixtures."
+    },
+    {
+      "from": "TurnRun",
+      "to": "Wait",
+      "input": "stick neutral and X velocity reaches zero",
+      "frames": "physics-dependent",
+      "status": "partial"
+    },
+    {
+      "from": "GuardOn",
+      "to": "Guard",
+      "input": "continue holding shield",
+      "frames": "missing GuardOn startup",
+      "status": "mismatch",
+      "notes": "Graph shows desired state that Pygame does not currently represent."
+    },
+    {
+      "from": "Guard",
+      "to": "ShieldTurn",
+      "input": "horizontal stick while shield is held",
+      "frames": "directional shield turn window",
+      "status": "intentional",
+      "notes": "Intentional non-Melee mechanic."
+    },
+    {
+      "from": "Guard",
+      "to": "GuardOff",
+      "input": "release shield below trigger deadzone",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Needs exact GuardOff release timing review."
+    },
+    {
+      "from": "GuardOff",
+      "to": "Wait",
+      "input": "guardOffCount reaches guardOffFrames",
+      "frames": "15f local value",
+      "status": "partial"
+    },
+    {
+      "from": "Guard",
+      "to": "KneeBend",
+      "input": "jumpkey while shield held",
+      "frames": "current frame",
+      "status": "aligned",
+      "notes": "Full hop and short hop are allowed out of shield."
+    },
+    {
+      "from": "KneeBend",
+      "to": "Air",
+      "input": "jumpsquat completes; short-hop flag from release timing",
+      "frames": "js frames; Falcon reference 4f",
+      "status": "partial",
+      "notes": "Jumpsquat exists, but JumpF/JumpB are collapsed into air."
+    },
+    {
+      "from": "Air",
+      "to": "EscapeAir",
+      "input": "fresh digital trigger / air dodge press after airborne",
+      "frames": "first airborne frame or later",
+      "status": "partial",
+      "notes": "Correctly blocked during jumpSquat; still reviewing full EscapeAir line."
+    },
+    {
+      "from": "EscapeAir",
+      "to": "FallSpecial",
+      "input": "air_dodge animation path completes",
+      "frames": "dodgeCount / local action duration",
+      "status": "partial",
+      "notes": "Recently identified as an important missing/fragile line."
+    },
+    {
+      "from": "EscapeAir",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during airDodge",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Waveland/wavedash should emerge through this path plus traction."
+    },
+    {
+      "from": "FallSpecial",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during fallSpecial",
+      "frames": "collision frame",
+      "status": "partial"
+    },
+    {
+      "from": "Air",
+      "to": "Landing",
+      "input": "ground/platform collision from umbrella air",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Needs explicit Landing state parity long term."
+    }
+  ]
+}
