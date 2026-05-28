@@ -293,9 +293,9 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_transport/tests/udp_contract.rs`
 - Modify: `crates/mole_runtime/src/main.rs`
 
-- [ ] Implement nonblocking UDP send/receive.
+- [x] Implement nonblocking UDP send/receive.
 - [ ] Add direct IP/port configuration for development.
-- [ ] Exchange input frames and checksums.
+- [x] Exchange input frames and checksums.
 - [ ] Show ping/packet stats in debug overlay.
 - [ ] Run two local instances on different ports and confirm input exchange.
 
