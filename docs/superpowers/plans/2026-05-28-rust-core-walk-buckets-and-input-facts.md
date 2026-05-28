@@ -38,7 +38,7 @@ Baseline at plan creation:
 - [x] Export `WalkSpeedBucket` from `crates/mole_core/src/lib.rs`.
 - [x] Add a failing contract test named `melee_input_facts_classify_walk_speed_bucket_from_current_stick`.
 - [x] Verify RED with `cargo test -p mole_core melee_input_facts_classify_walk_speed_bucket_from_current_stick`.
-- [ ] Implement the minimal helper:
+- [x] Implement the minimal helper:
 
 ```rust
 fn walk_speed_bucket(stick_x: i8, walk_threshold: i8) -> WalkSpeedBucket {
