@@ -188,6 +188,7 @@ fn axis_to_i8(value: i16) -> i8 {
 pub struct RenderFrame {
     pub frame: Frame,
     pub player_positions: [Vec2; 2],
+    pub player_velocities: [Vec2; 2],
     pub player_facings: [i8; 2],
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
@@ -205,6 +206,7 @@ impl RenderFrame {
         Self {
             frame: snapshot.frame,
             player_positions: [snapshot.players[0].position, snapshot.players[1].position],
+            player_velocities: [snapshot.players[0].velocity, snapshot.players[1].velocity],
             player_facings: [snapshot.players[0].facing, snapshot.players[1].facing],
             player_motion_states: [
                 snapshot.players[0].motion_state,
@@ -452,6 +454,70 @@ impl DebugOverlay {
         ));
         overlay
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrameDebugLog {
+    json_line: String,
+}
+
+impl FrameDebugLog {
+    pub fn from_frame_and_scene(
+        frame: &RenderFrame,
+        scene: &RenderScene,
+        inputs: [PlayerInput; 2],
+    ) -> Self {
+        let player_logs = [
+            player_debug_json(frame, scene, inputs[0], 0),
+            player_debug_json(frame, scene, inputs[1], 1),
+        ];
+
+        Self {
+            json_line: format!(
+                "{{\"frame\":{},\"checksum\":{},\"p1_bits\":{},\"p2_bits\":{},\"players\":[{},{}],\"render_transform\":{{\"center_x\":{},\"ground_y\":{},\"pixels_per_core_unit_milli\":{}}}}}",
+                frame.frame.0,
+                frame.checksum,
+                inputs[0].bits(),
+                inputs[1].bits(),
+                player_logs[0],
+                player_logs[1],
+                scene.transform.center_x,
+                scene.transform.ground_y,
+                scene.transform.pixels_per_core_unit_milli
+            ),
+        }
+    }
+
+    pub fn to_json_line(&self) -> String {
+        self.json_line.clone()
+    }
+}
+
+fn player_debug_json(
+    frame: &RenderFrame,
+    scene: &RenderScene,
+    input: PlayerInput,
+    index: usize,
+) -> String {
+    let ecb = scene.player_ecbs[index]
+        .points
+        .iter()
+        .map(|point| format!("{{\"x\":{},\"y\":{}}}", point.x, point.y))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "{{\"index\":{},\"bits\":{},\"motion_state\":\"{:?}\",\"state_frame\":{},\"position_x\":{},\"position_y\":{},\"velocity_x\":{},\"velocity_y\":{},\"ecb\":[{}]}}",
+        index,
+        input.bits(),
+        frame.player_motion_states[index],
+        frame.player_state_frames[index],
+        frame.player_positions[index].x,
+        frame.player_positions[index].y,
+        frame.player_velocities[index].x,
+        frame.player_velocities[index].y,
+        ecb
+    )
 }
 
 fn player_rect(

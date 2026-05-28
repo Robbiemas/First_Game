@@ -7,9 +7,9 @@ use mole_core::{
 use mole_runtime::{
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
     native_replay_path, parse_wup_report, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock,
-    InputReadout, InputSource, LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor,
-    RenderFrame, RenderRect, RenderScene, RenderTransform, ReplayCapture, UdpRuntimeConfig,
-    UdpRuntimeStats, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    FrameDebugLog, InputReadout, InputSource, LegacyAnimationKey, LegacySpriteCue, PhysicalInput,
+    RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform, ReplayCapture,
+    UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -311,6 +311,27 @@ fn debug_overlay_reports_core_frame_and_checksum() {
             format!("CHECKSUM {}", render_frame.checksum),
         ]
     );
+}
+
+#[test]
+fn frame_debug_log_reports_input_state_physics_ecb_and_render_transform() {
+    let mut world = World::for_two_players();
+    let inputs = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &inputs);
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let line = FrameDebugLog::from_frame_and_scene(&frame, &scene, inputs).to_json_line();
+
+    assert!(line.contains("\"frame\":1"));
+    assert!(line.contains("\"p1_bits\":"));
+    assert!(line.contains("\"motion_state\":\"WalkMiddle\""));
+    assert!(line.contains("\"velocity_x\":"));
+    assert!(line.contains("\"ecb\":["));
+    assert!(line.contains("\"render_transform\":"));
 }
 
 #[test]

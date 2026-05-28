@@ -189,6 +189,7 @@ impl PlayerState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlayerRenderSnapshot {
     pub position: Vec2,
+    pub velocity: Vec2,
     pub facing: i8,
     pub motion_state: MotionState,
     pub state_frame: u8,
@@ -200,6 +201,7 @@ impl PlayerRenderSnapshot {
     fn from_player(player: PlayerState, debug_input_facts: MeleeInputFacts) -> Self {
         Self {
             position: player.position,
+            velocity: player.velocity,
             facing: player.facing,
             motion_state: player.motion_state,
             state_frame: player.motion_frame,

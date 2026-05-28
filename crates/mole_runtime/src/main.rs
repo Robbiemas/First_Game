@@ -10,11 +10,14 @@ use mole_core::TICK_NANOS;
 use mole_runtime::configure_sdl_controller_hints;
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
-use mole_runtime::{DebugOverlay, RenderColor, RenderRect, RenderScene, SdlInputSource};
+use mole_runtime::{
+    DebugOverlay, RenderColor, RenderPolygon, RenderRect, RenderScene, SdlInputSource,
+};
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use sdl3::{
     pixels::Color,
+    rect::Point,
     render::{FRect, WindowCanvas},
 };
 
@@ -28,12 +31,14 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let frames = parse_frames(args.iter().cloned());
     let replay_path = parse_replay_path(&args, frames);
+    #[cfg(feature = "sdl")]
+    let frame_log = has_flag(&args, "--frame-log");
 
     if has_flag(&args, "--udp") {
         #[cfg(feature = "sdl")]
         if has_flag(&args, "--sdl") {
             match mole_runtime::UdpRuntimeConfig::from_args(&args)
-                .and_then(|config| run_udp_sdl(frames, config, replay_path.as_deref()))
+                .and_then(|config| run_udp_sdl(frames, config, replay_path.as_deref(), frame_log))
             {
                 Ok(()) => {}
                 Err(error) => {
@@ -159,7 +164,7 @@ fn main() {
 
     #[cfg(feature = "sdl")]
     if has_flag(&args, "--sdl") {
-        if let Err(error) = run_sdl_smoke(frames, replay_path.as_deref()) {
+        if let Err(error) = run_sdl_smoke(frames, replay_path.as_deref(), frame_log) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -292,6 +297,7 @@ fn run_udp_sdl(
     frames: u32,
     config: mole_runtime::UdpRuntimeConfig,
     replay_path: Option<&Path>,
+    frame_log: bool,
 ) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
@@ -348,11 +354,15 @@ fn run_udp_sdl(
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
         let overlay = DebugOverlay::from_frame_with_udp_stats(&render_frame, &stats);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
-        draw_sdl_scene(
-            &mut canvas,
-            &RenderScene::from_frame(&render_frame, width, height),
-            Some(&overlay),
-        )?;
+        let scene = RenderScene::from_frame(&render_frame, width, height);
+        if frame_log {
+            println!(
+                "{}",
+                mole_runtime::FrameDebugLog::from_frame_and_scene(&render_frame, &scene, inputs)
+                    .to_json_line()
+            );
+        }
+        draw_sdl_scene(&mut canvas, &scene, Some(&overlay))?;
 
         if sdl_shell_input.quit_requested() {
             break;
@@ -389,6 +399,7 @@ fn run_udp_sdl(
     _frames: u32,
     _config: mole_runtime::UdpRuntimeConfig,
     _replay_path: Option<&Path>,
+    _frame_log: bool,
 ) -> Result<(), String> {
     Err(
         "UDP SDL runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
@@ -397,7 +408,7 @@ fn run_udp_sdl(
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
-fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
+fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -428,11 +439,15 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
         let overlay = DebugOverlay::from_frame(&render_frame);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
-        draw_sdl_scene(
-            &mut canvas,
-            &RenderScene::from_frame(&render_frame, width, height),
-            Some(&overlay),
-        )?;
+        let scene = RenderScene::from_frame(&render_frame, width, height);
+        if frame_log {
+            println!(
+                "{}",
+                mole_runtime::FrameDebugLog::from_frame_and_scene(&render_frame, &scene, inputs)
+                    .to_json_line()
+            );
+        }
+        draw_sdl_scene(&mut canvas, &scene, Some(&overlay))?;
 
         if sdl_shell_input.quit_requested() {
             break;
@@ -456,7 +471,11 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
 }
 
 #[cfg(all(feature = "sdl", not(feature = "wup")))]
-fn run_sdl_smoke(_frames: u32, _replay_path: Option<&Path>) -> Result<(), String> {
+fn run_sdl_smoke(
+    _frames: u32,
+    _replay_path: Option<&Path>,
+    _frame_log: bool,
+) -> Result<(), String> {
     Err(
         "SDL3 runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --sdl"
             .to_string(),
@@ -471,9 +490,14 @@ fn draw_sdl_scene(
 ) -> Result<(), String> {
     canvas.set_draw_color(sdl_color(scene.background));
     canvas.clear();
-    draw_sdl_rect(canvas, scene.stage)?;
+    for surface in &scene.stage_surfaces {
+        draw_sdl_rect(canvas, *surface)?;
+    }
     for player in scene.players {
         draw_sdl_rect(canvas, player)?;
+    }
+    for ecb in scene.player_ecbs {
+        draw_sdl_polygon(canvas, ecb)?;
     }
     if let Some(overlay) = overlay {
         draw_debug_overlay(canvas, overlay)?;
@@ -482,6 +506,32 @@ fn draw_sdl_scene(
         return Err("SDL present failed".to_string());
     }
     Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_sdl_polygon(canvas: &mut WindowCanvas, polygon: RenderPolygon) -> Result<(), String> {
+    let points = polygon.points;
+    for index in 0..points.len() {
+        let start = points[index];
+        let end = points[(index + 1) % points.len()];
+        draw_sdl_line(canvas, start.x, start.y, end.x, end.y, polygon.color)?;
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_sdl_line(
+    canvas: &mut WindowCanvas,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: RenderColor,
+) -> Result<(), String> {
+    canvas.set_draw_color(sdl_color(color));
+    canvas
+        .draw_line(Point::new(x1, y1), Point::new(x2, y2))
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
