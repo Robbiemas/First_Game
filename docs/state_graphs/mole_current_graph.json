@@ -87,7 +87,7 @@
       "label": "KneeBend",
       "pos": [7, 1],
       "status": "partial",
-      "notes": "Rust has Falcon 4f jumpsquat and short-hop release tracking; takeoff and aerial physics are the next tuning target."
+      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, and profile-owned full/short hop takeoff forces; broader aerial physics remains partial."
     },
     {
       "id": "Run",
@@ -199,14 +199,14 @@
       "label": "JumpAerialF",
       "pos": [8, 4],
       "status": "partial",
-      "notes": "Rust double-jump forward state exists; aerial physics still needs the Falcon parity pass."
+      "notes": "Rust double-jump forward state exists and uses a profile-owned air-jump force; broader aerial physics still needs Falcon parity work."
     },
     {
       "id": "JumpAerialB",
       "label": "JumpAerialB",
       "pos": [9, 4],
       "status": "partial",
-      "notes": "Rust double-jump backward state exists; aerial physics still needs the Falcon parity pass."
+      "notes": "Rust double-jump backward state exists and uses a profile-owned air-jump force; broader aerial physics still needs Falcon parity work."
     },
     {
       "id": "Air",
@@ -346,7 +346,7 @@
       "input": "jump button or jump stick input pressed",
       "frames": "current frame",
       "status": "partial",
-      "notes": "Jumpsquat state exists; takeoff values need the next Falcon physics pass."
+      "notes": "Jumpsquat state exists; Falcon full/short hop takeoff forces are now profile-owned in Rust core."
     },
     {
       "from": "WalkSlow",

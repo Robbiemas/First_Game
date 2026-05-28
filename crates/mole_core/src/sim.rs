@@ -5,8 +5,6 @@ use crate::{
 };
 
 const GROUND_Y: i32 = 0;
-const JUMP_VELOCITY: i32 = 920;
-const SHORT_HOP_VELOCITY: i32 = 560;
 const JUMP_H_INITIAL_VELOCITY_PER_STICK: i32 = 4;
 const AIR_JUMP_H_INITIAL_VELOCITY_PER_STICK: i32 = 4;
 const AIR_JUMP_BACKWARD_X: i32 =
@@ -421,11 +419,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 if player.motion_frame >= player.profile.jumpsquat_frames {
                     apply_jump_takeoff_velocity(player, stick_x);
-                    player.velocity.y = if player.short_hop {
-                        SHORT_HOP_VELOCITY
-                    } else {
-                        JUMP_VELOCITY
-                    };
+                    player.velocity.y = ground_jump_vertical_velocity(player);
                     player.grounded = false;
                     player.motion_state = ground_jump_motion_state(player, stick_x);
                     player.motion_frame = 0;
@@ -542,13 +536,13 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.fast_falling = true;
                 input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
             }
+            player.position.y += player.velocity.y;
             let terminal_velocity = if player.fast_falling {
                 player.profile.fast_fall_speed_per_tick
             } else {
                 player.profile.fall_speed_per_tick
             };
             player.velocity.y = (player.velocity.y - gravity).max(-terminal_velocity);
-            player.position.y += player.velocity.y;
 
             if player.position.y <= GROUND_Y {
                 let landing_state = player.motion_state;
@@ -592,6 +586,14 @@ fn apply_jump_takeoff_velocity(player: &mut PlayerState, stick_x: i32) {
     let stick_velocity = stick_x * JUMP_H_INITIAL_VELOCITY_PER_STICK;
     player.velocity.x =
         (carried_velocity + stick_velocity).clamp(-JUMP_H_MAX_VELOCITY, JUMP_H_MAX_VELOCITY);
+}
+
+fn ground_jump_vertical_velocity(player: &PlayerState) -> i32 {
+    if player.short_hop {
+        player.profile.short_hop_jump_force_per_tick
+    } else {
+        player.profile.full_hop_jump_force_per_tick
+    }
 }
 
 fn enter_walk(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
@@ -1037,7 +1039,7 @@ fn enter_air_jump(player: &mut PlayerState, stick_x: i32) {
     };
     player.motion_frame = 0;
     player.velocity.x = stick_x * AIR_JUMP_H_INITIAL_VELOCITY_PER_STICK;
-    player.velocity.y = JUMP_VELOCITY;
+    player.velocity.y = player.profile.air_jump_force_per_tick;
     player.fast_falling = false;
     player.jumps_remaining -= 1;
 }

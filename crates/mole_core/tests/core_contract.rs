@@ -114,6 +114,9 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
+    assert_eq!(profile.full_hop_jump_force_per_tick, 3_100);
+    assert_eq!(profile.short_hop_jump_force_per_tick, 1_900);
+    assert_eq!(profile.air_jump_force_per_tick, 2_790);
     assert_eq!(profile.full_hop_height, 38_520);
     assert_eq!(profile.short_hop_height, 14_850);
     assert_eq!(profile.double_jump_height, 28_560);
@@ -2022,6 +2025,107 @@ fn releasing_jump_during_jumpsquat_selects_short_hop_velocity() {
 }
 
 #[test]
+fn ground_jump_first_airborne_tick_uses_falcon_jump_force_before_gravity() {
+    let mut full_hop = World::for_two_players();
+    let mut short_hop = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
+    let start_y = full_hop.players()[0].position.y;
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut full_hop, Frame(0), &jump);
+    step_world(&mut short_hop, Frame(0), &jump);
+    for frame in 1..4 {
+        step_world(&mut full_hop, Frame(frame), &jump);
+        step_world(&mut short_hop, Frame(frame), &neutral);
+    }
+
+    assert_eq!(
+        full_hop.players()[0].position.y - start_y,
+        profile.full_hop_jump_force_per_tick
+    );
+    assert_eq!(
+        full_hop.players()[0].velocity.y,
+        profile.full_hop_jump_force_per_tick - profile.gravity_per_tick
+    );
+    assert_eq!(
+        short_hop.players()[0].position.y - start_y,
+        profile.short_hop_jump_force_per_tick
+    );
+    assert_eq!(
+        short_hop.players()[0].velocity.y,
+        profile.short_hop_jump_force_per_tick - profile.gravity_per_tick
+    );
+}
+
+#[test]
+fn full_hop_apex_uses_falcon_profile_height() {
+    let mut world = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
+    let start_y = world.players()[0].position.y;
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let mut max_y = start_y;
+
+    for frame in 0..120 {
+        step_world(&mut world, Frame(frame), &jump);
+        max_y = max_y.max(world.players()[0].position.y);
+        if !world.players()[0].grounded && world.players()[0].velocity.y <= 0 {
+            break;
+        }
+    }
+
+    assert!(
+        close_to(
+            max_y - start_y,
+            profile.full_hop_height,
+            profile.gravity_per_tick
+        ),
+        "full hop apex should be near Falcon profile height; got {}, expected {}",
+        max_y - start_y,
+        profile.full_hop_height
+    );
+}
+
+#[test]
+fn short_hop_apex_uses_falcon_profile_height() {
+    let mut world = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
+    let start_y = world.players()[0].position.y;
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let mut max_y = start_y;
+
+    step_world(&mut world, Frame(0), &jump);
+    for frame in 1..120 {
+        step_world(&mut world, Frame(frame), &neutral);
+        max_y = max_y.max(world.players()[0].position.y);
+        if !world.players()[0].grounded && world.players()[0].velocity.y <= 0 {
+            break;
+        }
+    }
+
+    assert!(
+        close_to(
+            max_y - start_y,
+            profile.short_hop_height,
+            profile.gravity_per_tick
+        ),
+        "short hop apex should be near Falcon profile height; got {}, expected {}",
+        max_y - start_y,
+        profile.short_hop_height
+    );
+}
+
+#[test]
 fn jump_takeoff_adds_horizontal_velocity_from_stick_and_ground_speed() {
     let mut standing_jump = World::for_two_players();
     let mut dash_jump = World::for_two_players();
@@ -3241,6 +3345,40 @@ fn aerial_jump_enters_jump_aerial_forward_state() {
     assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
     assert_eq!(world.players()[0].jumps_remaining, 0);
     assert!(world.players()[0].velocity.y > 0);
+}
+
+#[test]
+fn aerial_jump_first_tick_uses_falcon_air_jump_force_before_gravity() {
+    let mut world = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let double_jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jump);
+    step_world(&mut world, Frame(1), &jump);
+    step_world(&mut world, Frame(2), &jump);
+    step_world(&mut world, Frame(3), &jump);
+    step_world(&mut world, Frame(4), &neutral);
+
+    let before_y = world.players()[0].position.y;
+    step_world(&mut world, Frame(5), &double_jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
+    assert_eq!(
+        world.players()[0].position.y - before_y,
+        profile.air_jump_force_per_tick
+    );
+    assert_eq!(
+        world.players()[0].velocity.y,
+        profile.air_jump_force_per_tick - profile.gravity_per_tick
+    );
 }
 
 #[test]

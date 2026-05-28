@@ -846,7 +846,7 @@ Primary stat sources:
 
 Applied movement/stat values:
 
-| Field | Falcon value | Python bridge use |
+| Field | Falcon value | Current use |
 | --- | ---: | --- |
 | Weight | 104 | `weight` |
 | Initial dash | 2.0 | `initialDash` |
@@ -861,6 +861,8 @@ Applied movement/stat values:
 | Gravity | 0.13 | `gWeight` |
 | Fall / fast fall | 2.9 / 3.5 | scaled into Python bridge velocity units |
 | Jumpsquat | 4 frames | `js` |
+| Full hop jump force | 3.1 | `FighterProfile::full_hop_jump_force_per_tick` |
+| Short hop jump force | 1.9 | `FighterProfile::short_hop_jump_force_per_tick` |
 | Full hop height | 38.52 | `fullHopHeight`, converted to `jumpHeight` velocity |
 | Short hop height | 14.85 | `shortHopHeight`, converted to `shortHop` velocity |
 | Double jump height | 28.56 | `doubleJumpHeight`, converted to `airJumpHeight` velocity |
@@ -880,6 +882,13 @@ values from the character DAT. To keep the current bridge aligned with the
 reference profile, it derives initial vertical velocities from those stored
 heights under the bridge's gravity step. Once exact DAT attributes are extracted,
 those raw velocity attributes should replace the derived bridge values.
+
+Current Rust core status: ground jump takeoff now follows the local decomp shape
+from `ftCo_Jump.c`: the profile-owned full-hop or short-hop force is applied as
+vertical velocity, the first airborne tick advances by that force, and the common
+fall step reduces stored velocity by profile gravity for the next tick. Air jump
+state entry follows `ftCo_JumpAerial.c` by using a profile-owned air-jump force;
+extracting the exact DAT `air_jump_v_multiplier` remains a data task.
 
 ## Fast Fall
 
