@@ -135,6 +135,8 @@ The Rust simulation now has the first rollback-owned motion-state slice: `Wait`,
 
 Jump takeoff now keeps the source-shaped horizontal velocity path: jumpsquat preserves grounded X velocity under traction, then takeoff combines carried ground speed with held main-stick X and clamps to the Falcon-profile jump horizontal max. Normal `Air` drift now consumes profile-owned `air_drift_stick_mul`, `aerial_drift_base`, `air_drift_max`, and `aerial_friction` fields instead of hard-coded simulator constants, so jump momentum persists through Melee-shaped physics and exact DAT-backed Falcon values can land through the profile extractor. Airborne grab/AirCatch is deliberately not a generic Falcon state: `ftCo_80095328` is held-item aerial throw/drop routing, while true `AirCatch` is Link/Young Link/Samus tether behavior.
 
+Dash and run acceleration now use the same profile-owned `dash_run_acceleration_a`, `dash_run_acceleration_b`, and `dash_run_terminal_velocity` shape as the Melee helper `getAccelAndTarget`, instead of the old single Rust acceleration constant.
+
 `Walk` now consumes a source-shaped IASA action ladder instead of only shield/jump/continued walk: catch/grab first, then B-specials in walk source order, then smashes, tilts, and jab. This prevents held walk input from swallowing fresh action inputs.
 
 `KneeBend` now has the source-shaped jump-cancel IASA slice we can model without items: up special, catch/grab, then up smash, before short-hop release/takeoff. That keeps jump-cancel grab and jump-cancel up smash as first-class state transitions rather than special-case feel fixes.

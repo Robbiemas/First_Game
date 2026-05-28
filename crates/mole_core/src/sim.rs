@@ -749,11 +749,14 @@ fn arm_turn_dash_after_if_fresh(
 }
 
 fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32) {
-    let accel = stick_x * player.profile.dash_accel_per_stick;
+    let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     if accel != 0 && player.turn_run_accel_mul as i32 * accel < 0 {
-        player.velocity.x = (player.velocity.x + accel).clamp(
-            -player.profile.run_speed_per_tick,
-            player.profile.run_speed_per_tick,
+        player.velocity.x = apply_ground_accel_toward_target(
+            player.velocity.x,
+            accel,
+            target_velocity,
+            player.profile.traction_per_tick,
+            player.profile.ground_max_horizontal_velocity_per_tick,
         );
     } else {
         apply_ground_traction(player);
@@ -1097,10 +1100,13 @@ fn apply_air_drift(player: &mut PlayerState, stick_x: i32) {
 }
 
 fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
-    let velocity = player.velocity.x + stick_x * player.profile.dash_accel_per_stick;
-    player.velocity.x = velocity.clamp(
-        -player.profile.run_speed_per_tick,
-        player.profile.run_speed_per_tick,
+    let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
+    player.velocity.x = apply_ground_accel_toward_target(
+        player.velocity.x,
+        accel,
+        target_velocity,
+        player.profile.traction_per_tick,
+        player.profile.ground_max_horizontal_velocity_per_tick,
     );
 }
 
@@ -1149,6 +1155,14 @@ fn apply_ground_traction(player: &mut PlayerState) {
 
 fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {
     stick_x * full_stick_velocity / 100
+}
+
+fn dash_run_accel_and_target(profile: crate::FighterProfile, stick_x: i32) -> (i32, i32) {
+    let stick_accel = stick_scaled_velocity(stick_x, profile.dash_run_accel_stick_per_tick);
+    let base_accel = stick_x.signum() * profile.dash_run_accel_base_per_tick;
+    let target_velocity = stick_scaled_velocity(stick_x, profile.run_speed_per_tick);
+
+    (stick_accel + base_accel, target_velocity)
 }
 
 fn air_accel_for_velocity(

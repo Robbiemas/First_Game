@@ -109,6 +109,8 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.reference_character, "captain_falcon");
     assert_eq!(profile.run_speed_per_tick, 2_300);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
+    assert_eq!(profile.dash_run_accel_stick_per_tick, 10);
+    assert_eq!(profile.dash_run_accel_base_per_tick, 150);
     assert_eq!(profile.walk_speed_per_tick, 850);
     assert_eq!(profile.traction_per_tick, 80);
     assert_eq!(profile.ground_to_air_jump_momentum_milli, 800);
@@ -143,7 +145,10 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x08, 0.85);
     put_f32_be(&mut bytes, 0x18, 0.08);
     put_f32_be(&mut bytes, 0x1c, 2.0);
+    put_f32_be(&mut bytes, 0x20, 0.011);
+    put_f32_be(&mut bytes, 0x24, 0.151);
     put_f32_be(&mut bytes, 0x28, 2.3);
+    put_f32_be(&mut bytes, 0x34, 2.35);
     put_f32_be(&mut bytes, 0x38, 4.0);
     put_f32_be(&mut bytes, 0x3c, 0.44);
     put_f32_be(&mut bytes, 0x40, 3.1);
@@ -170,7 +175,10 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.walk_speed_per_tick, 850);
     assert_eq!(profile.traction_per_tick, 80);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
+    assert_eq!(profile.dash_run_accel_stick_per_tick, 11);
+    assert_eq!(profile.dash_run_accel_base_per_tick, 151);
     assert_eq!(profile.run_speed_per_tick, 2_300);
+    assert_eq!(profile.ground_max_horizontal_velocity_per_tick, 2_350);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 440);
     assert_eq!(profile.ground_to_air_jump_momentum_milli, 810);
@@ -4935,8 +4943,15 @@ fn dash_uses_current_stick_for_moonwalk_like_acceleration_after_opposite_tap_age
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert_eq!(world.players()[0].facing, 1);
-    assert!(world.players()[0].velocity.x < 0);
+    assert!(world.players()[0].velocity.x > 0);
     assert_eq!(world.input_timers()[0].x_tap, 3);
+
+    for frame in 5..=13 {
+        step_world(&mut world, Frame(frame), &full_left);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert!(world.players()[0].velocity.x < 0);
 }
 
 #[test]
@@ -4955,6 +4970,30 @@ fn dash_neutral_stick_applies_dash_friction_before_dash_ends() {
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert!(world.players()[0].velocity.x > 0);
     assert!(world.players()[0].velocity.x < dash_velocity);
+}
+
+#[test]
+fn dash_acceleration_uses_profile_source_accel_and_stick_scaled_target() {
+    let profile = FighterProfile {
+        initial_dash_speed_per_tick: 0,
+        dash_run_accel_stick_per_tick: 20,
+        dash_run_accel_base_per_tick: 50,
+        run_speed_per_tick: 1_000,
+        ground_max_horizontal_velocity_per_tick: 1_200,
+        traction_per_tick: 30,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    step_world(&mut world, Frame(1), &dash_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].velocity.x, 68);
 }
 
 #[test]
@@ -5377,8 +5416,12 @@ fn walk_after_moonwalk_carry_speed_decays_toward_walk_target_instead_of_snapping
     step_world(&mut world, Frame(16), &full_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    assert!(world.players()[0].velocity.x > carried_velocity);
-    assert!(world.players()[0].velocity.x < -90 * 6);
+    let walk_target = -90 * FighterProfile::falcon_like().walk_target_speed_per_stick;
+    assert!(
+        (world.players()[0].velocity.x - walk_target).abs()
+            < (carried_velocity - walk_target).abs()
+    );
+    assert_ne!(world.players()[0].velocity.x, walk_target);
 }
 
 #[test]
@@ -5501,17 +5544,16 @@ fn run_entered_from_turn_run_keeps_source_no_interrupt_window() {
         step_world(&mut world, Frame(frame), &dash_right);
     }
     step_world(&mut world, Frame(16), &dash_left);
-    let profile = FighterProfile::falcon_like();
-    let per_frame_turn_run_accel = 90 * profile.dash_accel_per_stick;
-    let turn_run_entry_velocity =
-        profile.run_speed_per_tick * (1_000 - profile.traction_per_tick) / 1_000;
-    let turn_run_frames_to_cross_zero =
-        (turn_run_entry_velocity + per_frame_turn_run_accel - 1) / per_frame_turn_run_accel;
-    let run_entry_frame = 16 + turn_run_frames_to_cross_zero as u32;
 
-    for frame in 17..=run_entry_frame {
+    let mut run_entry_frame = None;
+    for frame in 17..=40 {
         step_world(&mut world, Frame(frame), &dash_left);
+        if world.players()[0].motion_state == MotionState::Run {
+            run_entry_frame = Some(frame);
+            break;
+        }
     }
+    let run_entry_frame = run_entry_frame.expect("turn-run should enter run after crossing zero");
 
     assert_eq!(world.players()[0].motion_state, MotionState::Run);
     assert_eq!(world.players()[0].facing, -1);
@@ -5519,7 +5561,7 @@ fn run_entered_from_turn_run_keeps_source_no_interrupt_window() {
     step_world(&mut world, Frame(run_entry_frame + 1), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Run);
-    assert!(world.players()[0].velocity.x < 0);
+    assert!(world.players()[0].velocity.x <= 0);
 }
 
 #[test]

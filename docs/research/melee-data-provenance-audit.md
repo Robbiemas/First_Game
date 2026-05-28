@@ -36,7 +36,9 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
 - `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
   `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,
-  `dash_run_terminal_velocity`, `jump_startup_time`,
+  `dash_run_acceleration_a`, `dash_run_acceleration_b`,
+  `dash_run_terminal_velocity`, `ground_max_horizontal_velocity`,
+  `jump_startup_time`,
   `jump_h_initial_velocity`, `jump_v_initial_velocity`,
   `ground_to_air_jump_momentum_multiplier`, `jump_h_max_velocity`,
   `hop_v_initial_velocity`, `air_jump_v_multiplier`,
@@ -47,6 +49,10 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
 - Normal air drift follows `ftcommon.c`'s source-shaped `air_drift_stick_mul +
   aerial_drift_base` acceleration toward `air_drift_max`, with
   `aerial_friction` used when the target is zero or would be overshot.
+- Dash/run acceleration follows the `getAccelAndTarget` helper:
+  main-stick X scales `dash_run_acceleration_a`, same-side input adds
+  `dash_run_acceleration_b`, and the target velocity scales
+  `dash_run_terminal_velocity`.
 
 ## Active Data Gaps
 

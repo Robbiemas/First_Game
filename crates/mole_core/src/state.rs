@@ -79,8 +79,10 @@ pub struct FighterProfile {
     pub walk_speed_per_tick: i32,
     pub run_speed_per_tick: i32,
     pub initial_dash_speed_per_tick: i32,
-    pub dash_accel_per_stick: i32,
+    pub dash_run_accel_stick_per_tick: i32,
+    pub dash_run_accel_base_per_tick: i32,
     pub traction_per_tick: i32,
+    pub ground_max_horizontal_velocity_per_tick: i32,
     pub ground_to_air_jump_momentum_milli: i32,
     pub jump_horizontal_initial_velocity_per_tick: i32,
     pub jump_horizontal_max_velocity_per_tick: i32,
@@ -115,8 +117,10 @@ impl FighterProfile {
         walk_speed_per_tick: 850,
         run_speed_per_tick: 2_300,
         initial_dash_speed_per_tick: 2_000,
-        dash_accel_per_stick: 8,
+        dash_run_accel_stick_per_tick: 10,
+        dash_run_accel_base_per_tick: 150,
         traction_per_tick: 80,
+        ground_max_horizontal_velocity_per_tick: 2_300,
         ground_to_air_jump_momentum_milli: 800,
         jump_horizontal_initial_velocity_per_tick: 400,
         jump_horizontal_max_velocity_per_tick: 1_000,
@@ -161,8 +165,14 @@ impl FighterProfile {
         profile.traction_per_tick = read_profile_milli_i32(bytes, 0x18, "gr_friction")?;
         profile.initial_dash_speed_per_tick =
             read_profile_milli_i32(bytes, 0x1c, "dash_initial_velocity")?;
+        profile.dash_run_accel_stick_per_tick =
+            read_profile_milli_i32(bytes, 0x20, "dash_run_acceleration_a")?;
+        profile.dash_run_accel_base_per_tick =
+            read_profile_milli_i32(bytes, 0x24, "dash_run_acceleration_b")?;
         profile.run_speed_per_tick =
             read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.ground_max_horizontal_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x34, "ground_max_horizontal_velocity")?;
         profile.jumpsquat_frames = read_profile_u8_from_f32(bytes, 0x38, "jump_startup_time")?;
         profile.jump_horizontal_initial_velocity_per_tick =
             read_profile_milli_i32(bytes, 0x3c, "jump_h_initial_velocity")?;
@@ -686,8 +696,10 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.walk_speed_per_tick);
     mix_i32(hash, profile.run_speed_per_tick);
     mix_i32(hash, profile.initial_dash_speed_per_tick);
-    mix_i32(hash, profile.dash_accel_per_stick);
+    mix_i32(hash, profile.dash_run_accel_stick_per_tick);
+    mix_i32(hash, profile.dash_run_accel_base_per_tick);
     mix_i32(hash, profile.traction_per_tick);
+    mix_i32(hash, profile.ground_max_horizontal_velocity_per_tick);
     mix_i32(hash, profile.ground_to_air_jump_momentum_milli);
     mix_i32(hash, profile.jump_horizontal_initial_velocity_per_tick);
     mix_i32(hash, profile.jump_horizontal_max_velocity_per_tick);

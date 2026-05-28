@@ -855,7 +855,7 @@ Applied movement/stat values:
 | Initial dash | 2.0 | `initialDash` |
 | Run speed | 2.3 | `runSpeed` |
 | Dash frames | 15 | `dashFrames` |
-| Dash acceleration | 0.01 base, 0.15 add | `dashAccelBase`, `dashAccelAdd` |
+| Dash acceleration | 0.01 stick-scaled, 0.15 base | `FighterProfile::dash_run_accel_stick_per_tick`, `FighterProfile::dash_run_accel_base_per_tick` |
 | Walk speed | 0.85 | `walkSpeed` |
 | Traction | 0.08 | `traction` |
 | Air speed | 1.12 | `FighterProfile::air_drift_max_velocity_per_tick` |
@@ -900,6 +900,10 @@ input adds `aerial_drift_base`, target velocity scales `air_drift_max`, and
 `aerial_friction` is used for neutral input or target overshoot. The
 `FighterProfile::from_ftco_dat_attrs_bytes` byte-level path can read those
 fields once a local `PlCa.dat`/`ftDataCaptain` attribute block is available.
+Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
+`inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
+`dash_run_acceleration_b` is added by input side, and the run target scales from
+`dash_run_terminal_velocity` rather than always clamping to full run speed.
 
 ## Fast Fall
 
