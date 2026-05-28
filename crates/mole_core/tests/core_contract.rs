@@ -46,8 +46,8 @@ fn default_stage_is_battlefield_sized_in_core_units() {
     let stage = StageProfile::battlefield_test();
 
     assert_eq!(stage.name, "battlefield_test");
-    assert_eq!(stage.main_floor.left_x, melee_units_f32(-68.4000015259));
-    assert_eq!(stage.main_floor.right_x, melee_units_f32(68.4000015259));
+    assert_eq!(stage.main_floor.left_x, melee_units_f32(-68.4));
+    assert_eq!(stage.main_floor.right_x, melee_units_f32(68.4));
     assert_eq!(stage.soft_platforms.len(), 3);
     assert!(stage
         .soft_platforms
