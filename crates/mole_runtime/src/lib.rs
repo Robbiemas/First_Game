@@ -286,6 +286,45 @@ impl RenderScene {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DebugOverlay {
+    pub lines: Vec<String>,
+}
+
+impl DebugOverlay {
+    pub fn from_frame(frame: &RenderFrame) -> Self {
+        Self {
+            lines: vec![
+                format!("FRAME {}", frame.frame.0),
+                format!("CHECKSUM {}", frame.checksum),
+            ],
+        }
+    }
+
+    pub fn from_frame_with_udp_stats(frame: &RenderFrame, stats: &UdpRuntimeStats) -> Self {
+        let mut overlay = Self::from_frame(frame);
+        overlay.lines.push(format!(
+            "UDP TX {} RX {} DUP {} MISS {}",
+            stats.sent_packets,
+            stats.received_packets,
+            stats.duplicate_packets,
+            stats.missing_remote_frames
+        ));
+        overlay.lines.push(format!(
+            "REMOTE FRAME {} CHECKSUM {}",
+            stats
+                .last_remote_frame
+                .map(|frame| frame.0.to_string())
+                .unwrap_or_else(|| "NONE".to_string()),
+            stats
+                .last_remote_checksum
+                .map(|checksum| checksum.to_string())
+                .unwrap_or_else(|| "NONE".to_string())
+        ));
+        overlay
+    }
+}
+
 fn player_rect(
     frame: &RenderFrame,
     index: usize,

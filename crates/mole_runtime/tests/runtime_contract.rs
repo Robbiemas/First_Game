@@ -4,8 +4,9 @@ use mole_core::{
 };
 use mole_runtime::{
     map_gamecube_pad_to_player_input, map_physical_input, native_replay_path, parse_wup_report,
-    FixedStepClock, InputReadout, InputSource, PhysicalInput, RenderColor, RenderFrame, RenderRect,
-    RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort,
+    DebugOverlay, FixedStepClock, InputReadout, InputSource, PhysicalInput, RenderColor,
+    RenderFrame, RenderRect, RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats,
+    WupInputMapper, WupPort,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -152,6 +153,43 @@ fn render_scene_places_players_deterministically_from_render_frame() {
             }
         }
     );
+}
+
+#[test]
+fn debug_overlay_reports_core_frame_and_checksum() {
+    let world = World::for_two_players();
+    let render_frame = RenderFrame::from_world(&world);
+
+    let overlay = DebugOverlay::from_frame(&render_frame);
+
+    assert_eq!(
+        overlay.lines,
+        vec![
+            format!("FRAME {}", render_frame.frame.0),
+            format!("CHECKSUM {}", render_frame.checksum),
+        ]
+    );
+}
+
+#[test]
+fn debug_overlay_reports_udp_packet_stats_when_available() {
+    let world = World::for_two_players();
+    let render_frame = RenderFrame::from_world(&world);
+    let mut stats = UdpRuntimeStats::default();
+    let packet = InputPacket::new(Frame(7), 1, PlayerInput::neutral(), 0x1234);
+    stats.record_sent();
+    stats.record_accept(PacketAcceptResult::Accepted, packet);
+    stats.record_accept(PacketAcceptResult::Duplicate, packet);
+    stats.record_missing_remote_frame();
+
+    let overlay = DebugOverlay::from_frame_with_udp_stats(&render_frame, &stats);
+
+    assert!(overlay
+        .lines
+        .contains(&"UDP TX 1 RX 1 DUP 1 MISS 1".to_string()));
+    assert!(overlay
+        .lines
+        .contains(&"REMOTE FRAME 7 CHECKSUM 4660".to_string()));
 }
 
 #[test]

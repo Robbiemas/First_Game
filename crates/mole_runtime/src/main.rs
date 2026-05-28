@@ -8,7 +8,8 @@ use mole_core::TICK_NANOS;
 
 #[cfg(feature = "sdl")]
 use mole_runtime::{
-    configure_sdl_controller_hints, RenderColor, RenderRect, RenderScene, SdlInputSource,
+    configure_sdl_controller_hints, DebugOverlay, RenderColor, RenderRect, RenderScene,
+    SdlInputSource,
 };
 
 #[cfg(feature = "sdl")]
@@ -29,6 +30,28 @@ fn main() {
     let replay_path = parse_replay_path(&args, frames);
 
     if has_flag(&args, "--udp") {
+        #[cfg(feature = "sdl")]
+        if has_flag(&args, "--sdl") {
+            match mole_runtime::UdpRuntimeConfig::from_args(&args)
+                .and_then(|config| run_udp_sdl(frames, config, replay_path.as_deref()))
+            {
+                Ok(()) => {}
+                Err(error) => {
+                    eprintln!("{error}");
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
+
+        #[cfg(not(feature = "sdl"))]
+        if has_flag(&args, "--sdl") {
+            eprintln!(
+                "UDP SDL runtime needs: cargo run -p mole_runtime --features sdl -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
+            );
+            std::process::exit(2);
+        }
+
         match mole_runtime::UdpRuntimeConfig::from_args(&args)
             .and_then(|config| run_udp_headless(frames, config, replay_path.as_deref()))
         {
@@ -260,6 +283,99 @@ fn drain_udp_packets(
 }
 
 #[cfg(feature = "sdl")]
+fn run_udp_sdl(
+    frames: u32,
+    config: mole_runtime::UdpRuntimeConfig,
+    replay_path: Option<&Path>,
+) -> Result<(), String> {
+    configure_sdl_controller_hints();
+    let sdl = sdl3::init().map_err(|error| error.to_string())?;
+    let video = sdl.video().map_err(|error| error.to_string())?;
+    let window = video
+        .window("Mole Rust UDP SDL Runtime", 960, 540)
+        .position_centered()
+        .build()
+        .map_err(|error| error.to_string())?;
+    let mut canvas = window.into_canvas();
+    let mut input_source = SdlInputSource::new(&sdl)?;
+    let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
+        .map_err(|error| error.to_string())?;
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
+    let mut inbox = InputPacketInbox::default();
+    let mut stats = mole_runtime::UdpRuntimeStats::default();
+    let remote_player = 1 - config.player_index;
+
+    for frame_number in 0..frames {
+        let frame = Frame(frame_number);
+        let polled_inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, frame);
+        drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+
+        let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
+        inputs[config.player_index as usize] = polled_inputs[config.player_index as usize];
+        if let Some(remote_input) = inbox.input(frame, remote_player) {
+            inputs[remote_player as usize] = remote_input;
+        } else {
+            stats.record_missing_remote_frame();
+        }
+
+        step_world(&mut world, frame, &inputs);
+
+        let local_packet = InputPacket::new(
+            frame,
+            config.player_index,
+            inputs[config.player_index as usize],
+            world.checksum(),
+        );
+        transport
+            .send_packet(local_packet)
+            .map_err(|error| error.to_string())?;
+        stats.record_sent();
+
+        if let Some(capture) = replay_capture.as_mut() {
+            capture.record_frame(frame, inputs, world.checksum());
+        }
+
+        let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        let overlay = DebugOverlay::from_frame_with_udp_stats(&render_frame, &stats);
+        let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
+        draw_sdl_scene(
+            &mut canvas,
+            &RenderScene::from_frame(&render_frame, width, height),
+            Some(&overlay),
+        )?;
+
+        if input_source.quit_requested() {
+            break;
+        }
+
+        std::thread::sleep(std::time::Duration::from_nanos(TICK_NANOS));
+    }
+    drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+
+    if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
+        mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
+        println!("replay_path={}", path.display());
+    }
+
+    println!(
+        "final_frame={} checksum={} gamepads={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?}",
+        world.frame().0,
+        world.checksum(),
+        input_source.gamepad_count(),
+        stats.sent_packets,
+        stats.received_packets,
+        stats.duplicate_packets,
+        stats.unsupported_packets,
+        stats.missing_remote_frames,
+        stats.last_remote_frame.map(|frame| frame.0),
+        stats.last_remote_checksum
+    );
+    Ok(())
+}
+
+#[cfg(feature = "sdl")]
 fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
@@ -283,10 +399,12 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
             capture.record_frame(Frame(frame), inputs, world.checksum());
         }
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        let overlay = DebugOverlay::from_frame(&render_frame);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         draw_sdl_scene(
             &mut canvas,
             &RenderScene::from_frame(&render_frame, width, height),
+            Some(&overlay),
         )?;
 
         if input_source.quit_requested() {
@@ -311,12 +429,19 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
 }
 
 #[cfg(feature = "sdl")]
-fn draw_sdl_scene(canvas: &mut WindowCanvas, scene: &RenderScene) -> Result<(), String> {
+fn draw_sdl_scene(
+    canvas: &mut WindowCanvas,
+    scene: &RenderScene,
+    overlay: Option<&DebugOverlay>,
+) -> Result<(), String> {
     canvas.set_draw_color(sdl_color(scene.background));
     canvas.clear();
     draw_sdl_rect(canvas, scene.stage)?;
     for player in scene.players {
         draw_sdl_rect(canvas, player)?;
+    }
+    if let Some(overlay) = overlay {
+        draw_debug_overlay(canvas, overlay)?;
     }
     if !canvas.present() {
         return Err("SDL present failed".to_string());
@@ -335,6 +460,95 @@ fn draw_sdl_rect(canvas: &mut WindowCanvas, rect: RenderRect) -> Result<(), Stri
             rect.height as f32,
         ))
         .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "sdl")]
+fn draw_debug_overlay(canvas: &mut WindowCanvas, overlay: &DebugOverlay) -> Result<(), String> {
+    let color = Color::RGBA(235, 240, 248, 255);
+    for (index, line) in overlay.lines.iter().enumerate() {
+        draw_sdl_label(canvas, line, 12, 12 + index as i32 * 18, 3, color)?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "sdl")]
+fn draw_sdl_label(
+    canvas: &mut WindowCanvas,
+    text: &str,
+    x: i32,
+    y: i32,
+    scale: i32,
+    color: Color,
+) -> Result<(), String> {
+    canvas.set_draw_color(color);
+    let mut cursor_x = x;
+    for character in text.chars() {
+        if character == ' ' {
+            cursor_x += scale * 4;
+            continue;
+        }
+
+        for (row, pattern) in debug_glyph(character).iter().enumerate() {
+            for (column, pixel) in pattern.chars().enumerate() {
+                if pixel == '1' {
+                    canvas
+                        .fill_rect(FRect::new(
+                            (cursor_x + column as i32 * scale) as f32,
+                            (y + row as i32 * scale) as f32,
+                            scale as f32,
+                            scale as f32,
+                        ))
+                        .map_err(|error| error.to_string())?;
+                }
+            }
+        }
+        cursor_x += scale * 4;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "sdl")]
+fn debug_glyph(character: char) -> [&'static str; 5] {
+    match character {
+        '0' => ["111", "101", "101", "101", "111"],
+        '1' => ["010", "110", "010", "010", "111"],
+        '2' => ["111", "001", "111", "100", "111"],
+        '3' => ["111", "001", "111", "001", "111"],
+        '4' => ["101", "101", "111", "001", "001"],
+        '5' => ["111", "100", "111", "001", "111"],
+        '6' => ["111", "100", "111", "101", "111"],
+        '7' => ["111", "001", "010", "010", "010"],
+        '8' => ["111", "101", "111", "101", "111"],
+        '9' => ["111", "101", "111", "001", "111"],
+        'A' => ["010", "101", "111", "101", "101"],
+        'B' => ["110", "101", "110", "101", "110"],
+        'C' => ["111", "100", "100", "100", "111"],
+        'D' => ["110", "101", "101", "101", "110"],
+        'E' => ["111", "100", "110", "100", "111"],
+        'F' => ["111", "100", "110", "100", "100"],
+        'G' => ["111", "100", "101", "101", "111"],
+        'H' => ["101", "101", "111", "101", "101"],
+        'I' => ["111", "010", "010", "010", "111"],
+        'J' => ["001", "001", "001", "101", "111"],
+        'K' => ["101", "101", "110", "101", "101"],
+        'L' => ["100", "100", "100", "100", "111"],
+        'M' => ["101", "111", "111", "101", "101"],
+        'N' => ["101", "111", "111", "111", "101"],
+        'O' => ["111", "101", "101", "101", "111"],
+        'P' => ["110", "101", "110", "100", "100"],
+        'Q' => ["111", "101", "101", "111", "001"],
+        'R' => ["110", "101", "110", "101", "101"],
+        'S' => ["111", "100", "111", "001", "111"],
+        'T' => ["111", "010", "010", "010", "010"],
+        'U' => ["101", "101", "101", "101", "111"],
+        'V' => ["101", "101", "101", "101", "010"],
+        'W' => ["101", "101", "111", "111", "101"],
+        'X' => ["101", "101", "010", "101", "101"],
+        'Y' => ["101", "101", "010", "010", "010"],
+        'Z' => ["111", "001", "010", "100", "111"],
+        '-' => ["000", "000", "111", "000", "000"],
+        _ => ["111", "001", "011", "000", "010"],
+    }
 }
 
 #[cfg(feature = "sdl")]
