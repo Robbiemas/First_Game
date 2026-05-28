@@ -1,7 +1,7 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
     state::EXPIRED_INPUT_TIMER, Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput,
-    MotionState, PlayerInput, PlayerState, World,
+    MotionState, PlayerInput, PlayerState, WalkSpeedBucket, World,
 };
 
 const GROUND_Y: i32 = 0;
@@ -138,14 +138,18 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     } else if standing_turn != 0 {
                         enter_standing_turn(player, standing_turn);
                     } else if input_facts.walk_direction != 0 {
-                        enter_walk(player, stick_x);
+                        enter_walk(
+                            player,
+                            walk_motion_state(input_facts.walk_speed_bucket),
+                            stick_x,
+                        );
                     } else {
                         player.velocity.x = 0;
                         player.motion_frame = 0;
                     }
                 }
             }
-            MotionState::Walk => {
+            MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
                 let walk_forward_dash =
                     fresh_walk_forward_dash_direction(input_facts, x_tap_timer, player.facing);
                 let walk_smash_turn =
@@ -169,6 +173,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_squat(player);
                 } else if input_facts.walk_direction == player.facing {
                     player.motion_frame = player.motion_frame.saturating_add(1);
+                    player.motion_state = walk_motion_state(input_facts.walk_speed_bucket);
                     apply_walk_velocity(player, stick_x);
                 } else {
                     enter_wait_from_walk(player);
@@ -196,7 +201,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         apply_dash_velocity(player, stick_x);
                     }
                     if player.motion_frame >= FALCON_DASH_TICKS {
-                        exit_dash(player, stick_x);
+                        exit_dash(player, stick_x, input_facts.walk_speed_bucket);
                     }
                 }
             }
@@ -288,12 +293,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     } else if input_facts.normal_jump_pressed {
                         enter_knee_bend(player, input_facts.normal_jump_input);
                     } else {
-                        arm_turn_dash_after_if_fresh(
-                            player,
-                            stick_x,
-                            x_tap_timer,
-                            input_facts,
-                        );
+                        arm_turn_dash_after_if_fresh(player, stick_x, x_tap_timer, input_facts);
                         if player.turn_just_turned
                             && player.turn_dash_after_direction != 0
                             && stick_x * player.turn_facing_after as i32 >= DASH_STICK_THRESHOLD
@@ -588,12 +588,21 @@ fn apply_jump_takeoff_velocity(player: &mut PlayerState, stick_x: i32) {
         (carried_velocity + stick_velocity).clamp(-JUMP_H_MAX_VELOCITY, JUMP_H_MAX_VELOCITY);
 }
 
-fn enter_walk(player: &mut PlayerState, stick_x: i32) {
+fn enter_walk(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
     clear_shield_turn(player);
     clear_turn_state(player);
-    player.motion_state = MotionState::Walk;
+    player.motion_state = motion_state;
     player.motion_frame = 0;
     apply_walk_velocity(player, stick_x);
+}
+
+fn walk_motion_state(bucket: WalkSpeedBucket) -> MotionState {
+    match bucket {
+        WalkSpeedBucket::Slow => MotionState::WalkSlow,
+        WalkSpeedBucket::Middle => MotionState::WalkMiddle,
+        WalkSpeedBucket::Fast => MotionState::WalkFast,
+        WalkSpeedBucket::None => MotionState::WalkSlow,
+    }
 }
 
 fn enter_dash(player: &mut PlayerState, direction: i8) {
@@ -912,7 +921,10 @@ fn grounded_action_iasa_state(
         .or_else(|| {
             (input_facts.standing_turn_direction(player.facing) != 0).then_some(MotionState::Turn)
         })
-        .or_else(|| (input_facts.walk_direction != 0).then_some(MotionState::Walk))
+        .or_else(|| {
+            (input_facts.walk_direction != 0)
+                .then_some(walk_motion_state(input_facts.walk_speed_bucket))
+        })
 }
 
 fn grounded_action_iasa_frame(motion_state: MotionState) -> Option<u8> {
@@ -944,7 +956,9 @@ fn enter_iasa_state(
         MotionState::Dash => enter_dash(player, player.facing),
         MotionState::Squat => enter_squat(player),
         MotionState::Turn => enter_smash_turn(player, -player.facing),
-        MotionState::Walk => enter_walk(player, stick_x),
+        MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
+            enter_walk(player, motion_state, stick_x);
+        }
         MotionState::EscapeN | MotionState::EscapeF | MotionState::EscapeB => {
             enter_ground_escape(player, motion_state);
         }
@@ -1062,11 +1076,11 @@ fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
     player.velocity.x = velocity.clamp(-DASH_MAX_SPEED_PER_TICK, DASH_MAX_SPEED_PER_TICK);
 }
 
-fn exit_dash(player: &mut PlayerState, stick_x: i32) {
+fn exit_dash(player: &mut PlayerState, stick_x: i32, walk_bucket: WalkSpeedBucket) {
     if is_same_direction_run(stick_x, player.facing) {
         enter_run(player);
     } else if stick_x != 0 {
-        enter_walk_after_dash(player, stick_x);
+        enter_walk_after_dash(player, stick_x, walk_bucket);
     } else {
         player.motion_state = MotionState::Wait;
         player.motion_frame = 0;
@@ -1074,8 +1088,8 @@ fn exit_dash(player: &mut PlayerState, stick_x: i32) {
     }
 }
 
-fn enter_walk_after_dash(player: &mut PlayerState, stick_x: i32) {
-    player.motion_state = MotionState::Walk;
+fn enter_walk_after_dash(player: &mut PlayerState, stick_x: i32, walk_bucket: WalkSpeedBucket) {
+    player.motion_state = walk_motion_state(walk_bucket);
     player.motion_frame = 0;
     if stick_x > 0 {
         player.facing = 1;

@@ -520,8 +520,18 @@ pub enum MeleeJumpInput {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum WalkSpeedBucket {
+    #[default]
+    None,
+    Slow,
+    Middle,
+    Fast,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MeleeInputFacts {
     pub walk_direction: i8,
+    pub walk_speed_bucket: WalkSpeedBucket,
     pub turn_direction: i8,
     pub tilt_direction: (i8, i8),
     pub horizontal_smash_direction: i8,
@@ -580,6 +590,7 @@ pub struct MeleeInputFacts {
 impl MeleeInputSnapshot {
     pub fn facts(self, thresholds: MeleeInputThresholds) -> MeleeInputFacts {
         let walk_direction = axis_direction(self.lstick.0, thresholds.walk_x);
+        let walk_speed_bucket = walk_speed_bucket(self.lstick.0, thresholds.walk_x);
         let turn_direction = axis_direction(self.lstick.0, thresholds.turn_x);
         let horizontal_smash_direction = if self.x_tap_timer < thresholds.dash_tap_window {
             axis_direction(self.lstick.0, thresholds.dash_x)
@@ -695,6 +706,7 @@ impl MeleeInputSnapshot {
 
         MeleeInputFacts {
             walk_direction,
+            walk_speed_bucket,
             turn_direction,
             tilt_direction,
             horizontal_smash_direction,
@@ -1360,6 +1372,19 @@ fn axis_direction(value: i8, threshold: i8) -> i8 {
         -1
     } else {
         0
+    }
+}
+
+fn walk_speed_bucket(stick_x: i8, walk_threshold: i8) -> WalkSpeedBucket {
+    let magnitude = stick_x.saturating_abs();
+    if magnitude < walk_threshold {
+        WalkSpeedBucket::None
+    } else if magnitude < 50 {
+        WalkSpeedBucket::Slow
+    } else if magnitude < 90 {
+        WalkSpeedBucket::Middle
+    } else {
+        WalkSpeedBucket::Fast
     }
 }
 

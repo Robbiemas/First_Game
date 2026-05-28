@@ -12,8 +12,8 @@ pub use input::{
     gamecube_axis_to_i16, gamecube_axis_to_i8, GameCubeButtonState, GameCubePadStatus,
     MeleeInputConfig, MeleeInputFacts, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MeleeSourceButtonState, PlayerInput,
-    UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA,
-    UCF_VERSION,
+    WalkSpeedBucket, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA,
+    UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 pub use sim::step_world;
 pub use state::{MotionState, PlayerState, Vec2, World, PLAYER_COUNT};

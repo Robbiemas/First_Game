@@ -37,7 +37,8 @@ explicit shield-exit state.
 
 Defined by `MotionState` in `crates/mole_core/src/state.rs`:
 
-- Movement: `Wait`, `Walk`, `Dash`, `Run`, `RunBrake`, `TurnRun`, `Turn`
+- Movement: `Wait`, `WalkSlow`, `WalkMiddle`, `WalkFast`, `Dash`, `Run`,
+  `RunBrake`, `TurnRun`, `Turn`
 - Crouch: `Squat`
 - Jump/air/landing: `KneeBend`, `JumpF`, `JumpB`, `Air`, `JumpAerialF`,
   `JumpAerialB`, `EscapeAir`, `FallSpecial`, `LandingFallSpecial`
@@ -54,7 +55,7 @@ Defined by `MotionState` in `crates/mole_core/src/state.rs`:
 Important note: Rust has fewer states than Melee, but its state boundaries are
 closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 `GuardOff`, `EscapeAir`, `FallSpecial`, `LandingFallSpecial`, `RunBrake`,
-`TurnRun`, and ground-vs-air specials.
+`TurnRun`, explicit walk buckets, and ground-vs-air specials.
 
 ## Coverage Matrix
 
@@ -62,7 +63,7 @@ closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 | --- | --- | --- | --- |
 | Death/rebirth/entry | Missing | Missing | Not needed for movement feel yet, but required for full match flow. |
 | `Wait` | `standing` | `Wait` | Covered conceptually. Rust name should be canonical. |
-| `WalkSlow/Middle/Fast` | One `walking` state plus `walkSlow`, `walkMiddle`, `walkFast` flags | One `Walk` state | Needs explicit walk buckets or table metadata. This matters for animation and possibly state-local callbacks. |
+| `WalkSlow/Middle/Fast` | One `walking` state plus `walkSlow`, `walkMiddle`, `walkFast` flags | `WalkSlow`, `WalkMiddle`, `WalkFast` | Rust now owns explicit walk state identity from rollback-owned input facts. Bucket thresholds are provisional until exact Melee `x28`, `x2C`, and `x30` data is extracted. |
 | `Turn` | `turning` | `Turn` | Covered conceptually. Pygame mixes dash-out logic inside `turn()`. Rust is the cleaner model. |
 | `TurnRun` | `runTurn` | `TurnRun` | Covered conceptually. Needs continued parity checks for old-facing acceleration and no-interrupt windows. |
 | `Dash` | `dashing` | `Dash` | Covered. Current playable Pygame still recomputes dash taps from floats instead of consuming Rust's input facts. |
@@ -134,13 +135,11 @@ current bottom-up Pygame movement audit notes.
 These are the next missing or collapsed states most likely to affect immediate
 movement feel:
 
-1. Split `Walk` into `WalkSlow`, `WalkMiddle`, `WalkFast` or make the walk bucket
-   explicit state metadata.
-2. Add `Landing` as a separate general landing state.
-3. Add `SquatWait` and `SquatRv`.
-4. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
+1. Add `Landing` as a separate general landing state.
+2. Add `SquatWait` and `SquatRv`.
+3. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
    `FallAerialB`.
-5. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
+4. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
    `LandingAirLw`.
-6. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
-7. Add tech/knockdown/passive states before building full combat.
+5. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
+6. Add tech/knockdown/passive states before building full combat.
