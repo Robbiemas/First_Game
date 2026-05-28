@@ -16,6 +16,9 @@ decompilation of Melee 1.02 `GALE01`, but for the files below it is the best
 available public reference for how the engine actually evaluates input and
 motion states.
 
+See `docs/research/melee-data-provenance-audit.md` for the current split between
+decomp-backed logic, extracted-data paths, and remaining DAT data gaps.
+
 Secondary sources:
 
 - [SSBM Decomp repository](https://github.com/doldecomp/melee)
