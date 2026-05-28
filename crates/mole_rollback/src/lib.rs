@@ -64,6 +64,42 @@ impl RollbackSession {
         step_world(&mut self.world, frame, &inputs);
     }
 
+    pub fn advance_with_prediction(
+        &mut self,
+        frame: Frame,
+        inputs: [Option<PlayerInput>; 2],
+    ) -> [PlayerInput; 2] {
+        let resolved = [
+            inputs[0].unwrap_or_else(|| self.predict_input(frame, 0)),
+            inputs[1].unwrap_or_else(|| self.predict_input(frame, 1)),
+        ];
+        self.advance(frame, resolved);
+        resolved
+    }
+
+    pub fn confirm_input(
+        &mut self,
+        frame: Frame,
+        player_index: usize,
+        input: PlayerInput,
+        current_frame: Frame,
+    ) -> bool {
+        assert!(player_index < 2, "player index out of range");
+        let mut corrected_inputs = self
+            .inputs
+            .get(&frame)
+            .copied()
+            .unwrap_or([PlayerInput::neutral(), PlayerInput::neutral()]);
+
+        if corrected_inputs[player_index] == input {
+            return false;
+        }
+
+        corrected_inputs[player_index] = input;
+        self.correct_and_resimulate(frame, corrected_inputs, current_frame);
+        true
+    }
+
     pub fn correct_and_resimulate(
         &mut self,
         corrected_frame: Frame,
@@ -83,7 +119,19 @@ impl RollbackSession {
                 .get(&frame)
                 .copied()
                 .unwrap_or([PlayerInput::neutral(), PlayerInput::neutral()]);
+            self.snapshots.save(frame, &self.world);
             step_world(&mut self.world, frame, &inputs);
         }
+    }
+
+    fn predict_input(&self, frame: Frame, player_index: usize) -> PlayerInput {
+        if frame.0 == 0 {
+            return PlayerInput::neutral();
+        }
+
+        self.inputs
+            .get(&Frame(frame.0 - 1))
+            .map(|inputs| inputs[player_index])
+            .unwrap_or(PlayerInput::neutral())
     }
 }

@@ -226,10 +226,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_replay/tests/replay_contract.rs`
 - Modify: `crates/mole_core/src/state.rs`
 
-- [ ] Add tests that record initial state, input frames, and checksums.
-- [ ] Add tests that replay the recorded inputs and produce the same final checksum.
-- [ ] Add tests that a changed input produces a checksum mismatch.
-- [ ] Run `cargo test -p mole_replay`.
+- [x] Add tests that record initial state, input frames, and checksums.
+- [x] Add tests that replay the recorded inputs and produce the same final checksum.
+- [x] Add tests that a changed input produces a checksum mismatch.
+- [x] Run `cargo test -p mole_replay`.
 
 ### Task 4.2: Human QA Replay Capture
 
@@ -253,10 +253,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_rollback/src/lib.rs`
 - Test: `crates/mole_rollback/tests/rollback_contract.rs`
 
-- [ ] Add tests for storing snapshots by frame.
-- [ ] Add tests for restoring an old snapshot.
-- [ ] Add tests for ring wraparound.
-- [ ] Run `cargo test -p mole_rollback`.
+- [x] Add tests for storing snapshots by frame.
+- [x] Add tests for restoring an old snapshot.
+- [x] Add tests for ring wraparound.
+- [x] Run `cargo test -p mole_rollback`.
 
 ### Task 5.2: Prediction And Resimulation
 
@@ -265,11 +265,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_rollback/src/lib.rs`
 - Test: `crates/mole_rollback/tests/rollback_contract.rs`
 
-- [ ] Add tests where remote input for frame N is missing and predicted.
-- [ ] Add tests where the confirmed frame N input matches prediction.
-- [ ] Add tests where confirmed frame N differs, causing restore and resimulation.
-- [ ] Assert final checksum matches the no-delay authoritative path.
-- [ ] Run `cargo test -p mole_rollback`.
+- [x] Add tests where remote input for frame N is missing and predicted.
+- [x] Add tests where the confirmed frame N input matches prediction.
+- [x] Add tests where confirmed frame N differs, causing restore and resimulation.
+- [x] Assert final checksum matches the no-delay authoritative path.
+- [x] Run `cargo test -p mole_rollback`.
 
 ## Phase 6: Direct UDP Transport
 

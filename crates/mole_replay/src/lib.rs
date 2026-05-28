@@ -38,7 +38,11 @@ impl ReplayLog {
         &self.frames
     }
 
-    pub fn validate(&self) -> Result<(), ReplayError> {
+    pub const fn initial(&self) -> &World {
+        &self.initial
+    }
+
+    pub fn replay(&self) -> Result<World, ReplayError> {
         let mut world = self.initial.clone();
         for frame in &self.frames {
             step_world(&mut world, frame.frame, &frame.inputs);
@@ -51,6 +55,10 @@ impl ReplayLog {
                 });
             }
         }
-        Ok(())
+        Ok(world)
+    }
+
+    pub fn validate(&self) -> Result<(), ReplayError> {
+        self.replay().map(|_| ())
     }
 }
