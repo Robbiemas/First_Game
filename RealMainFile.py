@@ -33,6 +33,7 @@ from states import MainMenu, Pause, START_GAME
 
 DEFAULT_WINDOW_SIZE = [1280, 720]
 FPS = 60
+LEGACY_HARNESS_CAPTION = "Mole Game - Legacy Pygame QA Harness (Rust runtime authoritative)"
 
 
 def env_flag(name, default=False):
@@ -107,6 +108,7 @@ def init_joysticks(pygame_module=pygame):
 
 
 def create_window():
+    pygame.display.set_caption(LEGACY_HARNESS_CAPTION)
     fullscreen = env_flag("MOLE_FULLSCREEN")
     if fullscreen:
         monitor_size = [

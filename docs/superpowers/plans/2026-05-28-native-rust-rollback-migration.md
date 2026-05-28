@@ -63,6 +63,15 @@ Existing or target crates:
 If `mole_input` does not exist yet, create it as a focused crate instead of
 letting input preprocessing sprawl through runtime or core code.
 
+The Pygame prototype is no longer allowed to define authoritative mechanics,
+but its art and visual data remain valuable migration inputs. Preserve the
+dolphin mole sprites, state animation frames, visual primitives, map/background
+assets, and related reference timing for later Rust runtime rendering work.
+Preserve and repurpose the side-by-side Melee/Mole state graph viewer as a
+visual tuning/reference tool for Rust-owned state transitions. Also preserve the
+native WUP-028 input path and UCF-style preprocessing as first-class Rust input
+infrastructure, not as legacy Pygame mechanics.
+
 ## Phase 0: Handoff And Baseline
 
 ### Task 0.1: Verify Workspace Status
@@ -73,12 +82,12 @@ letting input preprocessing sprawl through runtime or core code.
 - Read: `Cargo.toml`
 - Read: `crates/*/Cargo.toml`
 
-- [ ] Run `git status --short`.
-- [ ] Record which files are already modified.
-- [ ] Do not revert existing changes.
-- [ ] Run `cargo test --workspace`.
-- [ ] Run `python -m pytest`.
-- [ ] If live game processes are running and block builds, close only project-local processes whose command line includes `D:\Mole Game\First_Game`.
+- [x] Run `git status --short`.
+- [x] Record which files are already modified: none before Phase 0 plan updates.
+- [x] Do not revert existing changes.
+- [x] Run `cargo test --workspace`.
+- [x] Run `python -m pytest` through the project `.venv` after global Python reported missing project dependencies.
+- [x] If live game processes are running and block builds, close only project-local processes whose command line includes `D:\Mole Game\First_Game`; no blocking project-local game processes were running.
 
 ### Task 0.2: Confirm Launch Surface
 
@@ -88,9 +97,9 @@ letting input preprocessing sprawl through runtime or core code.
 - Read: `execs/Live Test Session.cmd`
 - Read: `tools/live_test_session.py`
 
-- [ ] Confirm how the user launches the current test session.
-- [ ] Confirm the current launcher does not leave background helpers alive after window close.
-- [ ] Keep launcher changes separate from mechanics changes.
+- [x] Confirm how the user launches the current test session: `execs/Live Test Session.cmd` uses the project `.venv` and `tools/live_test_session.py`.
+- [x] Confirm the current launcher does not leave background helpers alive after window close: `tools/live_test_session.py` uses an instance lock and stops the game and state graph helper process tree on exit.
+- [x] Keep launcher changes separate from mechanics changes.
 
 ## Phase 1: Rust Core Movement Authority
 
@@ -213,7 +222,7 @@ letting input preprocessing sprawl through runtime or core code.
 - [x] Draw a simple deterministic test character from the Rust snapshot.
 - [x] Poll keyboard and generic SDL gamepad as fallback input.
 - [x] Keep WUP native input path separate and first-class.
-- [ ] Confirm closing the window exits the process.
+- [x] Confirm closing the window exits the process.
 - [x] Run `cargo run -p mole_runtime`.
 
 ## Phase 4: Replay And Checksum
@@ -343,7 +352,7 @@ letting input preprocessing sprawl through runtime or core code.
 - [x] Add WebRTC DataChannel as an optional transport backend.
 - [x] Exchange setup data through the signaling boundary.
 - [x] Run the same rollback transport tests through WebRTC where practical.
-- [ ] Compare latency/jitter against direct UDP.
+- [x] Compare latency/jitter against direct UDP: `TransportTimingComparison` keeps UDP preferred while the WebRTC DataChannel backend has no real runtime timing samples yet.
 - [x] Keep UDP as the baseline path.
 
 ## Phase 9: Pygame Retirement
@@ -369,9 +378,9 @@ letting input preprocessing sprawl through runtime or core code.
   - `ChooseAction.py`
   - `RealMainFile.py`
 
-- [ ] Stop adding new movement mechanics to Pygame.
-- [ ] If Pygame remains open for QA, make it render Rust snapshots or clearly mark it as legacy.
-- [ ] Do not allow Pygame movement behavior to override Rust core state.
+- [x] Stop adding new movement mechanics to Pygame; Phase 9.2 only labels the remaining harness.
+- [x] If Pygame remains open for QA, make it render Rust snapshots or clearly mark it as legacy: the legacy window caption marks Rust runtime authority.
+- [x] Do not allow Pygame movement behavior to override Rust core state; Pygame remains a standalone legacy harness and does not feed authoritative Rust snapshots.
 
 ## Completion Definition
 

@@ -1,6 +1,7 @@
 use mole_core::{Frame, PlayerInput};
 use mole_transport::{
     InputPacket, InputPacketInbox, LoopbackTransport, PacketAcceptResult, Transport,
+    TransportTimingComparison, TransportTimingProfile, TransportTimingVerdict,
     INPUT_PACKET_VERSION,
 };
 
@@ -81,4 +82,46 @@ fn packet_inbox_exposes_dropped_frames_as_missing() {
 
     assert_eq!(inbox.input(Frame(4), 0), Some(PlayerInput::neutral()));
     assert_eq!(inbox.input(Frame(5), 0), None);
+}
+
+#[test]
+fn transport_timing_summary_reports_latency_and_jitter_in_milliframes() {
+    let profile = TransportTimingProfile::measured("direct_udp", [2, 4, 3]);
+    let summary = profile
+        .summary
+        .expect("measured profile should expose a timing summary");
+
+    assert_eq!(summary.sample_count, 3);
+    assert_eq!(summary.min_rtt_frames, 2);
+    assert_eq!(summary.max_rtt_frames, 4);
+    assert_eq!(summary.average_rtt_milliframes, 3_000);
+    assert_eq!(summary.average_jitter_milliframes, 1_500);
+}
+
+#[test]
+fn transport_timing_comparison_keeps_udp_baseline_when_candidate_is_unmeasured() {
+    let direct_udp = TransportTimingProfile::measured("direct_udp", [2, 3, 2, 3]);
+    let webrtc = TransportTimingProfile::unmeasured("webrtc_datachannel");
+
+    let comparison = TransportTimingComparison::new(direct_udp, webrtc);
+
+    assert_eq!(
+        comparison.verdict(),
+        TransportTimingVerdict::CandidateUnmeasured
+    );
+    assert_eq!(comparison.preferred_transport_name(), "direct_udp");
+}
+
+#[test]
+fn transport_timing_comparison_uses_jitter_after_latency_tie() {
+    let direct_udp = TransportTimingProfile::measured("direct_udp", [3, 3, 3, 3]);
+    let webrtc = TransportTimingProfile::measured("webrtc_datachannel", [2, 4, 2, 4]);
+
+    let comparison = TransportTimingComparison::new(direct_udp, webrtc);
+
+    assert_eq!(
+        comparison.verdict(),
+        TransportTimingVerdict::BaselinePreferred
+    );
+    assert_eq!(comparison.preferred_transport_name(), "direct_udp");
 }

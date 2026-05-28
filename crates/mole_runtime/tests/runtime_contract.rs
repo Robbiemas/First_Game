@@ -389,7 +389,6 @@ fn gamecube_pad_maps_directly_to_compact_player_input_without_float_normalizatio
         buttons: GameCubeButtonState::from_bits(
             (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 7) | (1 << 9) | (1 << 11),
         ),
-        ..GameCubePadStatus::neutral()
     };
 
     let input = map_gamecube_pad_to_player_input(pad);

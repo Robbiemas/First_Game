@@ -66,6 +66,30 @@ def test_frame_limited_smoke_runs_skip_interactive_main_menu(monkeypatch):
     assert module.should_show_main_menu(2) is False
 
 
+def test_legacy_pygame_window_caption_marks_harness_status(monkeypatch):
+    module = fresh_main_module(monkeypatch)
+    monkeypatch.setenv("MOLE_WIDTH", "320")
+    monkeypatch.setenv("MOLE_HEIGHT", "180")
+    captions = []
+
+    monkeypatch.setattr(
+        module.pygame.display,
+        "set_caption",
+        lambda caption: captions.append(caption),
+    )
+    monkeypatch.setattr(
+        module.pygame.display,
+        "set_mode",
+        lambda size, _flags=0: pygame.Surface(size),
+    )
+
+    module.create_window()
+
+    assert captions == [module.LEGACY_HARNESS_CAPTION]
+    assert "Legacy Pygame QA Harness" in captions[0]
+    assert "Rust runtime authoritative" in captions[0]
+
+
 def test_write_crash_log_records_traceback(monkeypatch, tmp_path):
     module = fresh_main_module(monkeypatch)
 

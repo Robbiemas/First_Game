@@ -108,6 +108,149 @@ pub trait Transport {
     fn try_recv(&mut self) -> Option<InputPacket>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TransportTimingSummary {
+    pub sample_count: usize,
+    pub min_rtt_frames: u32,
+    pub max_rtt_frames: u32,
+    pub average_rtt_milliframes: u32,
+    pub average_jitter_milliframes: u32,
+}
+
+impl TransportTimingSummary {
+    pub fn from_rtt_frames(samples: impl IntoIterator<Item = u32>) -> Option<Self> {
+        let samples: Vec<u32> = samples.into_iter().collect();
+        let sample_count = samples.len();
+        if sample_count == 0 {
+            return None;
+        }
+
+        let min_rtt_frames = samples
+            .iter()
+            .copied()
+            .min()
+            .expect("sample list is nonempty");
+        let max_rtt_frames = samples
+            .iter()
+            .copied()
+            .max()
+            .expect("sample list is nonempty");
+        let rtt_sum: u64 = samples.iter().map(|sample| u64::from(*sample)).sum();
+        let average_rtt_milliframes = milliframe_average(rtt_sum, sample_count);
+
+        let jitter_sum: u64 = samples
+            .windows(2)
+            .map(|pair| pair[0].abs_diff(pair[1]) as u64)
+            .sum();
+        let jitter_count = sample_count.saturating_sub(1);
+        let average_jitter_milliframes = if jitter_count == 0 {
+            0
+        } else {
+            milliframe_average(jitter_sum, jitter_count)
+        };
+
+        Some(Self {
+            sample_count,
+            min_rtt_frames,
+            max_rtt_frames,
+            average_rtt_milliframes,
+            average_jitter_milliframes,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransportTimingProfile {
+    pub name: String,
+    pub summary: Option<TransportTimingSummary>,
+}
+
+impl TransportTimingProfile {
+    pub fn measured(name: impl Into<String>, rtt_frames: impl IntoIterator<Item = u32>) -> Self {
+        Self {
+            name: name.into(),
+            summary: TransportTimingSummary::from_rtt_frames(rtt_frames),
+        }
+    }
+
+    pub fn unmeasured(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            summary: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportTimingVerdict {
+    BaselinePreferred,
+    CandidatePreferred,
+    Tie,
+    CandidateUnmeasured,
+    BaselineUnmeasured,
+    BothUnmeasured,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransportTimingComparison {
+    pub baseline: TransportTimingProfile,
+    pub candidate: TransportTimingProfile,
+}
+
+impl TransportTimingComparison {
+    pub const fn new(baseline: TransportTimingProfile, candidate: TransportTimingProfile) -> Self {
+        Self {
+            baseline,
+            candidate,
+        }
+    }
+
+    pub fn verdict(&self) -> TransportTimingVerdict {
+        match (self.baseline.summary, self.candidate.summary) {
+            (None, None) => TransportTimingVerdict::BothUnmeasured,
+            (None, Some(_)) => TransportTimingVerdict::BaselineUnmeasured,
+            (Some(_), None) => TransportTimingVerdict::CandidateUnmeasured,
+            (Some(baseline), Some(candidate)) => {
+                match (
+                    candidate
+                        .average_rtt_milliframes
+                        .cmp(&baseline.average_rtt_milliframes),
+                    candidate
+                        .average_jitter_milliframes
+                        .cmp(&baseline.average_jitter_milliframes),
+                ) {
+                    (std::cmp::Ordering::Less, _) => TransportTimingVerdict::CandidatePreferred,
+                    (std::cmp::Ordering::Greater, _) => TransportTimingVerdict::BaselinePreferred,
+                    (std::cmp::Ordering::Equal, std::cmp::Ordering::Less) => {
+                        TransportTimingVerdict::CandidatePreferred
+                    }
+                    (std::cmp::Ordering::Equal, std::cmp::Ordering::Greater) => {
+                        TransportTimingVerdict::BaselinePreferred
+                    }
+                    (std::cmp::Ordering::Equal, std::cmp::Ordering::Equal) => {
+                        TransportTimingVerdict::Tie
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn preferred_transport_name(&self) -> &str {
+        match self.verdict() {
+            TransportTimingVerdict::CandidatePreferred
+            | TransportTimingVerdict::BaselineUnmeasured => self.candidate.name.as_str(),
+            TransportTimingVerdict::BaselinePreferred
+            | TransportTimingVerdict::Tie
+            | TransportTimingVerdict::CandidateUnmeasured
+            | TransportTimingVerdict::BothUnmeasured => self.baseline.name.as_str(),
+        }
+    }
+}
+
+fn milliframe_average(sum_frames: u64, sample_count: usize) -> u32 {
+    ((sum_frames * 1_000) / sample_count as u64) as u32
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct LoopbackTransport {
     packets: VecDeque<InputPacket>,

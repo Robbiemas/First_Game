@@ -1300,7 +1300,7 @@ fn dash_action_state(facts: MeleeInputFacts, motion_frame: u8, facing: i8) -> Op
         return Some(MotionState::EscapeF);
     }
     let in_late_dash_attack_window =
-        motion_frame >= DASH_EARLY_ACTION_WINDOW && motion_frame < DASH_LATE_ACTION_WINDOW;
+        (DASH_EARLY_ACTION_WINDOW..DASH_LATE_ACTION_WINDOW).contains(&motion_frame);
     (in_late_dash_attack_window && facts.attack_pressed).then_some(MotionState::AttackDash)
 }
 

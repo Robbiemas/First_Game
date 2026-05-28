@@ -2849,8 +2849,7 @@ fn escape_air_self_velocity_decays_during_action_phase() {
     assert!(world.players()[0].velocity.x < first_escape_velocity);
     assert_eq!(
         world.players()[0].velocity.x,
-        first_escape_velocity * MeleeCommonData::provisional_mole().escapeair_decay_percent as i32
-            / 100
+        first_escape_velocity * MeleeCommonData::provisional_mole().escapeair_decay_percent / 100
     );
 }
 

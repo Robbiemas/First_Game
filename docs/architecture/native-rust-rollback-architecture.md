@@ -726,6 +726,13 @@ optional `webrtc` feature and a DataChannel-shaped adapter over the existing
 `mole_signaling`. Direct UDP remains the baseline path until a concrete
 WebRTC runtime binding is connected and measured against UDP.
 
+Current comparison status: `mole_transport::TransportTimingComparison` records
+latency and jitter summaries in simulation frames. Direct UDP has the runtime
+timing probe path; the WebRTC DataChannel adapter currently has only in-memory
+transport contract tests and no real runtime timing samples. Until that changes,
+the comparison verdict treats WebRTC as unmeasured and keeps direct UDP as the
+preferred gameplay transport.
+
 ### Layer 4: Optional Relay/TURN
 
 Purpose: connection fallback for restrictive networks.

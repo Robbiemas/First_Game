@@ -4,17 +4,9 @@ pub use mole_core::{GameCubeButtonState, GameCubePadStatus, PlayerInput};
 
 const GAMECUBE_STICK_CENTER: i16 = 128;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct InputMappingConfig {
     pub trigger_deadzone: u8,
-}
-
-impl Default for InputMappingConfig {
-    fn default() -> Self {
-        Self {
-            trigger_deadzone: 0,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
