@@ -33,8 +33,9 @@ The repository currently has two gameplay surfaces:
 
 - The legacy playable Pygame prototype: `RealMainFile.py`, `Characters.py`,
   `ChooseAction.py`, `GatherInputs.py`, `NativeWupInput.py`, and related files.
-- The newer Rust workspace: `crates/mole_core`, `crates/mole_rollback`,
-  `crates/mole_replay`, `crates/mole_transport`, and `crates/mole_runtime`.
+- The newer Rust workspace: `crates/mole_core`, `crates/mole_input`,
+  `crates/mole_rollback`, `crates/mole_replay`, `crates/mole_transport`,
+  `crates/mole_signaling`, and `crates/mole_runtime`.
 
 Important existing docs:
 
@@ -277,6 +278,26 @@ Must not own:
 - State transitions.
 - Controller normalization.
 - Rendering.
+
+### `mole_signaling`
+
+Purpose: exchange setup data for lobbies, room joins, direct endpoints, and
+future WebRTC negotiation.
+
+Owns:
+
+- Room create and join messages.
+- WebRTC offer, answer, and ICE candidate messages.
+- Direct UDP endpoint exchange.
+- JSON serialization for setup messages.
+- Validation of required setup fields.
+
+Must not own:
+
+- Frame-indexed gameplay input.
+- Simulation checksums.
+- Rollback prediction or resimulation.
+- Any 60 Hz gameplay transport.
 
 ### `mole_replay`
 

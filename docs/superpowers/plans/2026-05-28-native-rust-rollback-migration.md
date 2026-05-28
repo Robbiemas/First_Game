@@ -311,10 +311,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: root `Cargo.toml`
 - Test: `crates/mole_signaling/tests/signaling_contract.rs`
 
-- [ ] Define signaling messages for room create, room join, offer, answer, ICE candidate, and direct endpoint exchange.
-- [ ] Keep signaling messages separate from gameplay packets.
-- [ ] Add tests that serialize and validate signaling messages.
-- [ ] Run `cargo test -p mole_signaling`.
+- [x] Define signaling messages for room create, room join, offer, answer, ICE candidate, and direct endpoint exchange.
+- [x] Keep signaling messages separate from gameplay packets.
+- [x] Add tests that serialize and validate signaling messages.
+- [x] Run `cargo test -p mole_signaling`.
 
 ### Task 7.2: Supabase Prototype
 
