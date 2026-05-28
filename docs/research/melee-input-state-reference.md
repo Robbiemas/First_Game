@@ -912,12 +912,11 @@ Current Rust bridge status: the deterministic `World` stores per-player
 fast-fall tap timers, and each player stores whether they are already
 fast-falling. The Rust core now rejects held-down ascent, rejects down held
 before falling as a buffered fast fall, and consumes a fresh down tap once while
-the player is airborne and descending. The simplified Rust physics still applies
-an extra fast-fall impulse rather than an exact character DAT fast-fall velocity;
-that should be replaced when the Rust movement core starts consuming
-character-specific physics data directly.
+the player is airborne and descending. When fast fall is active, Rust now mirrors
+`ftCommon_FallFast` by setting vertical velocity to
+`-profile.fast_fall_speed_per_tick` instead of applying an extra gravity impulse.
 
-Normal fall physics also needs to stay additive. The current bridge applies
+Normal fall physics also needs to stay additive. The Rust bridge applies
 `gravity * multiplier` each frame and clamps normal fall to the character's fall
 speed. Fast-fall velocity is only applied by the fast-fall path, then preserved
 as the terminal fast-fall speed.

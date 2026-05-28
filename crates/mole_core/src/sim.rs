@@ -16,7 +16,6 @@ const AIR_DRIFT_ACCEL_PER_TICK: i32 = 18;
 const AIR_FRICTION_PER_TICK: i32 = 12;
 const AIR_DRIFT_MAX_SPEED_PER_TICK: i32 = 1_000;
 const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.smash_y;
-const FAST_FALL_EXTRA_GRAVITY: i32 = 40;
 const FAST_FALL_STICK_THRESHOLD: i8 = -80;
 const FAST_FALL_TAP_WINDOW: u8 = 2;
 const ATTACK_ACTIVE_TICKS: u8 = 12;
@@ -527,22 +526,18 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             let fast_fall_tap = stick_y <= FAST_FALL_STICK_THRESHOLD
                 && input_timers[player_index].y_tap < FAST_FALL_TAP_WINDOW;
             let starts_fast_fall = !player.fast_falling && player.velocity.y < 0 && fast_fall_tap;
-            let gravity = if starts_fast_fall {
-                player.profile.gravity_per_tick + FAST_FALL_EXTRA_GRAVITY
-            } else {
-                player.profile.gravity_per_tick
-            };
             if starts_fast_fall {
                 player.fast_falling = true;
                 input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
             }
+            if player.fast_falling {
+                player.velocity.y = -player.profile.fast_fall_speed_per_tick;
+            }
             player.position.y += player.velocity.y;
-            let terminal_velocity = if player.fast_falling {
-                player.profile.fast_fall_speed_per_tick
-            } else {
-                player.profile.fall_speed_per_tick
-            };
-            player.velocity.y = (player.velocity.y - gravity).max(-terminal_velocity);
+            if !player.fast_falling {
+                player.velocity.y = (player.velocity.y - player.profile.gravity_per_tick)
+                    .max(-player.profile.fall_speed_per_tick);
+            }
 
             if player.position.y <= GROUND_Y {
                 let landing_state = player.motion_state;

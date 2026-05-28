@@ -6077,6 +6077,7 @@ fn down_held_before_falling_does_not_buffer_fast_fall() {
 fn fresh_down_tap_while_falling_fast_falls_once() {
     let mut neutral = World::for_two_players();
     let mut fast_fall = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
     let jump = [
         PlayerInput::neutral().with_jump(true),
         PlayerInput::neutral(),
@@ -6104,19 +6105,31 @@ fn fresh_down_tap_while_falling_fast_falls_once() {
         );
     }
 
-    let velocity_before_tap = neutral.players()[0].velocity.y;
+    let position_before_tap = fast_fall.players()[0].position.y;
 
     step_world(&mut neutral, Frame(frame), &neutral_input);
     step_world(&mut fast_fall, Frame(frame), &down_input);
 
-    assert!(fast_fall.players()[0].velocity.y < neutral.players()[0].velocity.y);
+    assert!(fast_fall.players()[0].fast_falling);
+    assert_eq!(
+        fast_fall.players()[0].velocity.y,
+        -profile.fast_fall_speed_per_tick
+    );
+    assert_eq!(
+        fast_fall.players()[0].position.y - position_before_tap,
+        -profile.fast_fall_speed_per_tick
+    );
 
-    let fast_fall_velocity = fast_fall.players()[0].velocity.y;
     frame += 1;
+    let position_before_held_down = fast_fall.players()[0].position.y;
     step_world(&mut fast_fall, Frame(frame), &down_input);
 
     assert_eq!(
         fast_fall.players()[0].velocity.y,
-        fast_fall_velocity - (velocity_before_tap - neutral.players()[0].velocity.y)
+        -profile.fast_fall_speed_per_tick
+    );
+    assert_eq!(
+        fast_fall.players()[0].position.y - position_before_held_down,
+        -profile.fast_fall_speed_per_tick
     );
 }

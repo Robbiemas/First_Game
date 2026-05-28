@@ -213,7 +213,7 @@
       "label": "Air umbrella",
       "pos": [7, 5],
       "status": "mismatch",
-      "notes": "Rust still uses Air as an umbrella fall/drift state instead of explicit Fall, FallF, and FallB."
+      "notes": "Rust still uses Air as an umbrella fall/drift state instead of explicit Fall, FallF, and FallB; fast-fall velocity now follows the profile-owned Melee path."
     },
     {
       "id": "Fall",
