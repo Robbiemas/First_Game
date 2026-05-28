@@ -37,9 +37,16 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
   `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,
   `dash_run_terminal_velocity`, `jump_startup_time`,
-  `jump_v_initial_velocity`, `hop_v_initial_velocity`,
-  `air_jump_v_multiplier`, `grav`, `terminal_vel`, and
-  `fast_fall_velocity`.
+  `jump_h_initial_velocity`, `jump_v_initial_velocity`,
+  `ground_to_air_jump_momentum_multiplier`, `jump_h_max_velocity`,
+  `hop_v_initial_velocity`, `air_jump_v_multiplier`,
+  `air_jump_h_multiplier`, `max_jumps`, `grav`, `terminal_vel`,
+  `air_drift_stick_mul`, `aerial_drift_base`, `air_drift_max`,
+  `aerial_friction`, `fast_fall_velocity`, and
+  `air_max_horizontal_velocity`.
+- Normal air drift follows `ftcommon.c`'s source-shaped `air_drift_stick_mul +
+  aerial_drift_base` acceleration toward `air_drift_max`, with
+  `aerial_friction` used when the target is zero or would be overshot.
 
 ## Active Data Gaps
 
@@ -54,9 +61,10 @@ These should not be hand-tuned:
   replace with extracted action/animation data.
 - Escape-air force, decay, deadzones, landing lag, and related common-data
   values: replace through `PlCo.dat` extraction.
-- Air drift, jump horizontal velocity, ground-to-air momentum, and jump horizontal
-  clamp values: route through extracted fighter attributes rather than local
-  constants.
+- The default public `FighterProfile::FALCON_LIKE` values are still a fallback
+  until extracted Captain Falcon bytes are available; the profile shape now has
+  extraction slots for horizontal jump, air jump, max jumps, and air drift
+  attributes instead of leaving those values as mechanics constants.
 
 ## Working Rule
 

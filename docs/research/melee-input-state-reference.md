@@ -858,9 +858,9 @@ Applied movement/stat values:
 | Dash acceleration | 0.01 base, 0.15 add | `dashAccelBase`, `dashAccelAdd` |
 | Walk speed | 0.85 | `walkSpeed` |
 | Traction | 0.08 | `traction` |
-| Air speed | 1.12 | scaled into Python bridge velocity units |
-| Air acceleration | 0.02 base, 0.04 add | `airAccelBase`, `airAccelAdd` |
-| Air friction | 0.01 | `airFriction` |
+| Air speed | 1.12 | `FighterProfile::air_drift_max_velocity_per_tick` |
+| Air acceleration | 0.02 base, 0.04 add | `FighterProfile::air_drift_base_accel_per_tick`, `FighterProfile::air_drift_stick_accel_per_tick` |
+| Air friction | 0.01 | `FighterProfile::air_friction_per_tick` |
 | Gravity | 0.13 | `gWeight` |
 | Fall / fast fall | 2.9 / 3.5 | scaled into Python bridge velocity units |
 | Jumpsquat | 4 frames | `js` |
@@ -888,13 +888,18 @@ those raw velocity attributes should replace the derived bridge values.
 
 Current Rust core status: ground jump takeoff now follows the local decomp shape
 from `ftCo_Jump.c`: the profile-owned full-hop or short-hop force is applied as
-vertical velocity, the first airborne tick advances by that force, and the common
-fall step reduces stored velocity by profile gravity for the next tick. Air jump
-state entry follows `ftCo_JumpAerial.c` by using a profile-owned air-jump force;
-`FighterProfile::from_ftco_dat_attrs_bytes` now has a byte-level extraction path
-for `jump_v_initial_velocity`, `hop_v_initial_velocity`, and
-`air_jump_v_multiplier` once a local `PlCa.dat`/`ftDataCaptain` attribute block
-is available.
+vertical velocity, horizontal velocity combines carried ground speed with
+`jump_h_initial_velocity`, and the result clamps against
+`jump_h_max_velocity`. The first airborne tick advances by that force, and the
+common fall step reduces stored velocity by profile gravity for the next tick.
+Air jump state entry follows `ftCo_JumpAerial.c` by using profile-owned
+`air_jump_h_multiplier` and `jump_v_initial_velocity * air_jump_v_multiplier`
+attributes. Ordinary airborne drift now follows the `ftCommon_8007D28C` /
+`ftCommon_8007D174` shape: main-stick X scales `air_drift_stick_mul`, same-side
+input adds `aerial_drift_base`, target velocity scales `air_drift_max`, and
+`aerial_friction` is used for neutral input or target overshoot. The
+`FighterProfile::from_ftco_dat_attrs_bytes` byte-level path can read those
+fields once a local `PlCa.dat`/`ftDataCaptain` attribute block is available.
 
 ## Fast Fall
 

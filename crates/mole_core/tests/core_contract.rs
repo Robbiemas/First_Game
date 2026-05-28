@@ -111,6 +111,16 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.walk_speed_per_tick, 850);
     assert_eq!(profile.traction_per_tick, 80);
+    assert_eq!(profile.ground_to_air_jump_momentum_milli, 800);
+    assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 400);
+    assert_eq!(profile.jump_horizontal_max_velocity_per_tick, 1_000);
+    assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 400);
+    assert_eq!(profile.max_jumps, 1);
+    assert_eq!(profile.air_drift_stick_accel_per_tick, 40);
+    assert_eq!(profile.air_drift_base_accel_per_tick, 20);
+    assert_eq!(profile.air_drift_max_velocity_per_tick, 1_120);
+    assert_eq!(profile.air_friction_per_tick, 10);
+    assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_120);
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
@@ -135,12 +145,22 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x1c, 2.0);
     put_f32_be(&mut bytes, 0x28, 2.3);
     put_f32_be(&mut bytes, 0x38, 4.0);
+    put_f32_be(&mut bytes, 0x3c, 0.44);
     put_f32_be(&mut bytes, 0x40, 3.1);
+    put_f32_be(&mut bytes, 0x44, 0.81);
+    put_f32_be(&mut bytes, 0x48, 1.05);
     put_f32_be(&mut bytes, 0x4c, 1.9);
     put_f32_be(&mut bytes, 0x50, 0.9);
+    put_f32_be(&mut bytes, 0x54, 0.46);
+    put_i32_be(&mut bytes, 0x58, 2);
     put_f32_be(&mut bytes, 0x5c, 0.13);
     put_f32_be(&mut bytes, 0x60, 2.9);
+    put_f32_be(&mut bytes, 0x64, 0.047);
+    put_f32_be(&mut bytes, 0x68, 0.023);
+    put_f32_be(&mut bytes, 0x6c, 1.17);
+    put_f32_be(&mut bytes, 0x70, 0.011);
     put_f32_be(&mut bytes, 0x74, 3.5);
+    put_f32_be(&mut bytes, 0x78, 1.26);
 
     let profile = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
         .expect("synthetic ftCo_DatAttrs slice should extract");
@@ -152,12 +172,22 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.run_speed_per_tick, 2_300);
     assert_eq!(profile.jumpsquat_frames, 4);
+    assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 440);
+    assert_eq!(profile.ground_to_air_jump_momentum_milli, 810);
+    assert_eq!(profile.jump_horizontal_max_velocity_per_tick, 1_050);
     assert_eq!(profile.full_hop_jump_force_per_tick, 3_100);
     assert_eq!(profile.short_hop_jump_force_per_tick, 1_900);
     assert_eq!(profile.air_jump_force_per_tick, 2_790);
+    assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 460);
+    assert_eq!(profile.max_jumps, 2);
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
+    assert_eq!(profile.air_drift_stick_accel_per_tick, 47);
+    assert_eq!(profile.air_drift_base_accel_per_tick, 23);
+    assert_eq!(profile.air_drift_max_velocity_per_tick, 1_170);
+    assert_eq!(profile.air_friction_per_tick, 11);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
+    assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_260);
 }
 
 #[test]
@@ -2238,6 +2268,95 @@ fn air_drift_preserves_jump_horizontal_velocity_without_snapping_to_neutral() {
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert!(world.players()[0].velocity.x > 0);
     assert!(world.players()[0].velocity.x < takeoff_velocity);
+}
+
+#[test]
+fn ground_jump_horizontal_velocity_uses_profile_source_fields() {
+    let profile = FighterProfile {
+        jump_horizontal_initial_velocity_per_tick: 700,
+        ground_to_air_jump_momentum_milli: 800,
+        jump_horizontal_max_velocity_per_tick: 550,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump_right = [
+        PlayerInput::neutral()
+            .with_jump(true)
+            .with_left_stick(100, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump_right);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(world.players()[0].velocity.x, 550);
+}
+
+#[test]
+fn air_drift_uses_profile_source_accel_base_target_and_friction() {
+    let profile = FighterProfile {
+        jump_horizontal_initial_velocity_per_tick: 0,
+        air_drift_stick_accel_per_tick: 40,
+        air_drift_base_accel_per_tick: 20,
+        air_drift_max_velocity_per_tick: 1_120,
+        air_friction_per_tick: 10,
+        air_max_horizontal_velocity_per_tick: 1_120,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let drift_right = [
+        PlayerInput::neutral().with_left_stick(100, 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &drift_right);
+
+    assert_eq!(world.players()[0].velocity.x, 60);
+
+    step_world(&mut world, Frame(5), &neutral);
+
+    assert_eq!(world.players()[0].velocity.x, 50);
+}
+
+#[test]
+fn aerial_jump_horizontal_velocity_uses_profile_source_field() {
+    let profile = FighterProfile {
+        air_jump_horizontal_velocity_per_tick: 730,
+        max_jumps: 1,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let double_jump_right = [
+        PlayerInput::neutral()
+            .with_jump(true)
+            .with_left_stick(100, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &neutral);
+    step_world(&mut world, Frame(5), &double_jump_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
+    assert_eq!(world.players()[0].velocity.x, 730);
+    assert_eq!(world.players()[0].jumps_remaining, 0);
 }
 
 #[test]

@@ -81,6 +81,16 @@ pub struct FighterProfile {
     pub initial_dash_speed_per_tick: i32,
     pub dash_accel_per_stick: i32,
     pub traction_per_tick: i32,
+    pub ground_to_air_jump_momentum_milli: i32,
+    pub jump_horizontal_initial_velocity_per_tick: i32,
+    pub jump_horizontal_max_velocity_per_tick: i32,
+    pub air_jump_horizontal_velocity_per_tick: i32,
+    pub max_jumps: u8,
+    pub air_drift_stick_accel_per_tick: i32,
+    pub air_drift_base_accel_per_tick: i32,
+    pub air_drift_max_velocity_per_tick: i32,
+    pub air_friction_per_tick: i32,
+    pub air_max_horizontal_velocity_per_tick: i32,
     pub gravity_per_tick: i32,
     pub fall_speed_per_tick: i32,
     pub fast_fall_speed_per_tick: i32,
@@ -107,6 +117,16 @@ impl FighterProfile {
         initial_dash_speed_per_tick: 2_000,
         dash_accel_per_stick: 8,
         traction_per_tick: 80,
+        ground_to_air_jump_momentum_milli: 800,
+        jump_horizontal_initial_velocity_per_tick: 400,
+        jump_horizontal_max_velocity_per_tick: 1_000,
+        air_jump_horizontal_velocity_per_tick: 400,
+        max_jumps: 1,
+        air_drift_stick_accel_per_tick: 40,
+        air_drift_base_accel_per_tick: 20,
+        air_drift_max_velocity_per_tick: 1_120,
+        air_friction_per_tick: 10,
+        air_max_horizontal_velocity_per_tick: 1_120,
         gravity_per_tick: 130,
         fall_speed_per_tick: 2_900,
         fast_fall_speed_per_tick: 3_500,
@@ -144,11 +164,17 @@ impl FighterProfile {
         profile.run_speed_per_tick =
             read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
         profile.jumpsquat_frames = read_profile_u8_from_f32(bytes, 0x38, "jump_startup_time")?;
+        profile.jump_horizontal_initial_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x3c, "jump_h_initial_velocity")?;
         profile.full_hop_jump_force_per_tick = round_profile_f32_to_i32(
             jump_v_initial_velocity * 1000.0,
             "jump_v_initial_velocity",
             0x40,
         )?;
+        profile.ground_to_air_jump_momentum_milli =
+            read_profile_milli_i32(bytes, 0x44, "ground_to_air_jump_momentum_multiplier")?;
+        profile.jump_horizontal_max_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x48, "jump_h_max_velocity")?;
         profile.short_hop_jump_force_per_tick =
             read_profile_milli_i32(bytes, 0x4c, "hop_v_initial_velocity")?;
         profile.air_jump_force_per_tick = round_profile_f32_to_i32(
@@ -156,10 +182,22 @@ impl FighterProfile {
             "jump_v_initial_velocity*air_jump_v_multiplier",
             0x50,
         )?;
+        profile.air_jump_horizontal_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x54, "air_jump_h_multiplier")?;
+        profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?;
         profile.gravity_per_tick = read_profile_milli_i32(bytes, 0x5c, "grav")?;
         profile.fall_speed_per_tick = read_profile_milli_i32(bytes, 0x60, "terminal_vel")?;
+        profile.air_drift_stick_accel_per_tick =
+            read_profile_milli_i32(bytes, 0x64, "air_drift_stick_mul")?;
+        profile.air_drift_base_accel_per_tick =
+            read_profile_milli_i32(bytes, 0x68, "aerial_drift_base")?;
+        profile.air_drift_max_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x6c, "air_drift_max")?;
+        profile.air_friction_per_tick = read_profile_milli_i32(bytes, 0x70, "aerial_friction")?;
         profile.fast_fall_speed_per_tick =
             read_profile_milli_i32(bytes, 0x74, "fast_fall_velocity")?;
+        profile.air_max_horizontal_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x78, "air_max_horizontal_velocity")?;
 
         Ok(profile)
     }
@@ -215,6 +253,15 @@ fn read_profile_u8_from_f32(
     field: &'static str,
 ) -> Result<u8, FighterProfileExtractError> {
     let value = round_profile_f32_to_i32(read_profile_f32(bytes, offset, field)?, field, offset)?;
+    range_profile_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
+}
+
+fn read_profile_u8_from_i32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<u8, FighterProfileExtractError> {
+    let value = i32::from_be_bytes(read_profile_bytes(bytes, offset, field)?);
     range_profile_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
 }
 
@@ -362,7 +409,7 @@ impl PlayerState {
             profile,
             position: Vec2 { x, y },
             velocity: Vec2 { x: 0, y: 0 },
-            jumps_remaining: 1,
+            jumps_remaining: profile.max_jumps,
             grounded: true,
             fast_falling: false,
             facing,
@@ -641,9 +688,22 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.initial_dash_speed_per_tick);
     mix_i32(hash, profile.dash_accel_per_stick);
     mix_i32(hash, profile.traction_per_tick);
+    mix_i32(hash, profile.ground_to_air_jump_momentum_milli);
+    mix_i32(hash, profile.jump_horizontal_initial_velocity_per_tick);
+    mix_i32(hash, profile.jump_horizontal_max_velocity_per_tick);
+    mix_i32(hash, profile.air_jump_horizontal_velocity_per_tick);
+    mix_u8(hash, profile.max_jumps);
+    mix_i32(hash, profile.air_drift_stick_accel_per_tick);
+    mix_i32(hash, profile.air_drift_base_accel_per_tick);
+    mix_i32(hash, profile.air_drift_max_velocity_per_tick);
+    mix_i32(hash, profile.air_friction_per_tick);
+    mix_i32(hash, profile.air_max_horizontal_velocity_per_tick);
     mix_i32(hash, profile.gravity_per_tick);
     mix_i32(hash, profile.fall_speed_per_tick);
     mix_i32(hash, profile.fast_fall_speed_per_tick);
+    mix_i32(hash, profile.full_hop_jump_force_per_tick);
+    mix_i32(hash, profile.short_hop_jump_force_per_tick);
+    mix_i32(hash, profile.air_jump_force_per_tick);
     mix_i32(hash, profile.full_hop_height);
     mix_i32(hash, profile.short_hop_height);
     mix_i32(hash, profile.double_jump_height);

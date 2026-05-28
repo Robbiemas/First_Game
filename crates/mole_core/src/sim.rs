@@ -5,16 +5,8 @@ use crate::{
 };
 
 const GROUND_Y: i32 = 0;
-const JUMP_H_INITIAL_VELOCITY_PER_STICK: i32 = 4;
-const AIR_JUMP_H_INITIAL_VELOCITY_PER_STICK: i32 = 4;
 const AIR_JUMP_BACKWARD_X: i32 =
     crate::common_data::MeleeCommonData::PROVISIONAL.air_jump_backward_x as i32;
-const JUMP_H_MAX_VELOCITY: i32 = 1_000;
-const GROUND_TO_AIR_JUMP_MOMENTUM_PERCENT: i32 = 80;
-const AIR_DRIFT_TARGET_SPEED_PER_STICK: i32 = 6;
-const AIR_DRIFT_ACCEL_PER_TICK: i32 = 18;
-const AIR_FRICTION_PER_TICK: i32 = 12;
-const AIR_DRIFT_MAX_SPEED_PER_TICK: i32 = 1_000;
 const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.smash_y;
 const FAST_FALL_STICK_THRESHOLD: i8 = -80;
 const FAST_FALL_TAP_WINDOW: u8 = 2;
@@ -423,7 +415,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_state = ground_jump_motion_state(player, stick_x);
                     player.motion_frame = 0;
                     player.fast_falling = false;
-                    player.jumps_remaining = 1;
+                    player.jumps_remaining = player.profile.max_jumps;
                 } else if let Some(action_state) = knee_bend_action_state(input_facts, stick_y) {
                     enter_action_state(player, action_state, stick_x);
                 } else {
@@ -517,7 +509,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.velocity.y = 0;
                 player.grounded = true;
                 player.fast_falling = false;
-                player.jumps_remaining = 1;
+                player.jumps_remaining = player.profile.max_jumps;
                 player.jump_input = Default::default();
                 player.short_hop = false;
                 enter_landing_fall_special(player);
@@ -545,7 +537,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.velocity.y = 0;
                 player.grounded = true;
                 player.fast_falling = false;
-                player.jumps_remaining = 1;
+                player.jumps_remaining = player.profile.max_jumps;
                 player.jump_input = Default::default();
                 player.short_hop = false;
                 if matches!(
@@ -577,10 +569,14 @@ fn enter_knee_bend(player: &mut PlayerState, jump_input: MeleeJumpInput) {
 }
 
 fn apply_jump_takeoff_velocity(player: &mut PlayerState, stick_x: i32) {
-    let carried_velocity = player.velocity.x * GROUND_TO_AIR_JUMP_MOMENTUM_PERCENT / 100;
-    let stick_velocity = stick_x * JUMP_H_INITIAL_VELOCITY_PER_STICK;
-    player.velocity.x =
-        (carried_velocity + stick_velocity).clamp(-JUMP_H_MAX_VELOCITY, JUMP_H_MAX_VELOCITY);
+    let profile = player.profile;
+    let carried_velocity = player.velocity.x * profile.ground_to_air_jump_momentum_milli / 1_000;
+    let stick_velocity =
+        stick_scaled_velocity(stick_x, profile.jump_horizontal_initial_velocity_per_tick);
+    player.velocity.x = (carried_velocity + stick_velocity).clamp(
+        -profile.jump_horizontal_max_velocity_per_tick,
+        profile.jump_horizontal_max_velocity_per_tick,
+    );
 }
 
 fn ground_jump_vertical_velocity(player: &PlayerState) -> i32 {
@@ -1033,7 +1029,10 @@ fn enter_air_jump(player: &mut PlayerState, stick_x: i32) {
         MotionState::JumpAerialB
     };
     player.motion_frame = 0;
-    player.velocity.x = stick_x * AIR_JUMP_H_INITIAL_VELOCITY_PER_STICK;
+    player.velocity.x = stick_scaled_velocity(
+        stick_x,
+        player.profile.air_jump_horizontal_velocity_per_tick,
+    );
     player.velocity.y = player.profile.air_jump_force_per_tick;
     player.fast_falling = false;
     player.jumps_remaining -= 1;
@@ -1077,20 +1076,24 @@ fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32) {
 }
 
 fn apply_air_drift(player: &mut PlayerState, stick_x: i32) {
-    let target_velocity = stick_x * AIR_DRIFT_TARGET_SPEED_PER_STICK;
+    let profile = player.profile;
+    let target_velocity = stick_scaled_velocity(stick_x, profile.air_drift_max_velocity_per_tick);
     if target_velocity == 0 {
-        player.velocity.x = apply_friction_to_zero(player.velocity.x, AIR_FRICTION_PER_TICK);
+        player.velocity.x =
+            apply_friction_to_zero(player.velocity.x, profile.air_friction_per_tick);
         return;
     }
 
-    let difference = target_velocity - player.velocity.x;
-    let accel = difference.signum().saturating_mul(AIR_DRIFT_ACCEL_PER_TICK);
-    player.velocity.x = if difference.abs() <= AIR_DRIFT_ACCEL_PER_TICK {
-        target_velocity
-    } else {
-        player.velocity.x + accel
-    }
-    .clamp(-AIR_DRIFT_MAX_SPEED_PER_TICK, AIR_DRIFT_MAX_SPEED_PER_TICK);
+    let stick_accel = stick_scaled_velocity(stick_x, profile.air_drift_stick_accel_per_tick);
+    let base_accel = stick_x.signum() * profile.air_drift_base_accel_per_tick;
+    let accel = air_accel_for_velocity(
+        player.velocity.x,
+        stick_accel + base_accel,
+        target_velocity,
+        profile.air_friction_per_tick,
+        profile.air_max_horizontal_velocity_per_tick,
+    );
+    player.velocity.x += accel;
 }
 
 fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
@@ -1142,6 +1145,42 @@ fn apply_ground_traction(player: &mut PlayerState) {
     if player.velocity.x.abs() < 5 {
         player.velocity.x = 0;
     }
+}
+
+fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {
+    stick_x * full_stick_velocity / 100
+}
+
+fn air_accel_for_velocity(
+    current_velocity: i32,
+    mut accel: i32,
+    target_velocity: i32,
+    friction: i32,
+    max_horizontal_velocity: i32,
+) -> i32 {
+    if current_velocity * accel < 0 {
+        return accel;
+    }
+
+    if accel > 0 && current_velocity + accel > target_velocity {
+        accel = -friction;
+        if current_velocity + accel < target_velocity {
+            accel = target_velocity - current_velocity;
+        }
+        if current_velocity + accel > max_horizontal_velocity {
+            accel = max_horizontal_velocity - current_velocity;
+        }
+    } else if accel < 0 && current_velocity + accel < target_velocity {
+        accel = friction;
+        if current_velocity + accel > target_velocity {
+            accel = target_velocity - current_velocity;
+        }
+        if current_velocity + accel < -max_horizontal_velocity {
+            accel = -max_horizontal_velocity - current_velocity;
+        }
+    }
+
+    accel
 }
 
 fn apply_escape_air_decay(player: &mut PlayerState) {
