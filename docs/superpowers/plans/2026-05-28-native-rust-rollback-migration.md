@@ -298,7 +298,7 @@ letting input preprocessing sprawl through runtime or core code.
 - [x] Exchange input frames and checksums.
 - [x] Print UDP packet stats in headless runtime debug output.
 - [x] Show UDP packet stats in SDL/debug overlay.
-- [ ] Add ping/latency probes once transport packets carry timing data.
+- [x] Add frame-based RTT/latency probes in transport packet timing metadata.
 - [x] Run two local instances on different ports and confirm input exchange.
 
 ## Phase 7: Supabase Signaling

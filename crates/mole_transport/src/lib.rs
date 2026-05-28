@@ -4,8 +4,8 @@ use std::net::{SocketAddr, UdpSocket};
 
 use mole_core::{Frame, PlayerInput};
 
-pub const INPUT_PACKET_VERSION: u8 = 1;
-pub const INPUT_PACKET_WIRE_LEN: usize = 22;
+pub const INPUT_PACKET_VERSION: u8 = 2;
+pub const INPUT_PACKET_WIRE_LEN: usize = 30;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InputPacket {
@@ -14,6 +14,8 @@ pub struct InputPacket {
     pub player_index: u8,
     pub input: PlayerInput,
     pub checksum: u64,
+    pub sequence: u32,
+    pub ack_sequence: u32,
 }
 
 impl InputPacket {
@@ -24,7 +26,15 @@ impl InputPacket {
             player_index,
             input,
             checksum,
+            sequence: frame.0,
+            ack_sequence: 0,
         }
+    }
+
+    pub const fn with_timing_probe(mut self, sequence: u32, ack_sequence: u32) -> Self {
+        self.sequence = sequence;
+        self.ack_sequence = ack_sequence;
+        self
     }
 
     pub fn to_wire_bytes(self) -> [u8; INPUT_PACKET_WIRE_LEN] {
@@ -34,6 +44,8 @@ impl InputPacket {
         bytes[5] = self.player_index;
         bytes[6..14].copy_from_slice(&self.input.bits().to_be_bytes());
         bytes[14..22].copy_from_slice(&self.checksum.to_be_bytes());
+        bytes[22..26].copy_from_slice(&self.sequence.to_be_bytes());
+        bytes[26..30].copy_from_slice(&self.ack_sequence.to_be_bytes());
         bytes
     }
 
@@ -62,6 +74,16 @@ impl InputPacket {
                 .try_into()
                 .expect("checksum slice has fixed width"),
         );
+        let sequence = u32::from_be_bytes(
+            bytes[22..26]
+                .try_into()
+                .expect("sequence slice has fixed width"),
+        );
+        let ack_sequence = u32::from_be_bytes(
+            bytes[26..30]
+                .try_into()
+                .expect("ack sequence slice has fixed width"),
+        );
 
         Ok(Self {
             version: bytes[0],
@@ -69,6 +91,8 @@ impl InputPacket {
             player_index,
             input,
             checksum,
+            sequence,
+            ack_sequence,
         })
     }
 }

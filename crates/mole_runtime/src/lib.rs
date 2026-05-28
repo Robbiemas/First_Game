@@ -321,6 +321,13 @@ impl DebugOverlay {
                 .map(|checksum| checksum.to_string())
                 .unwrap_or_else(|| "NONE".to_string())
         ));
+        overlay.lines.push(format!(
+            "UDP RTT {}",
+            stats
+                .last_rtt_frames
+                .map(|frames| format!("{frames}F"))
+                .unwrap_or_else(|| "NONE".to_string())
+        ));
         overlay
     }
 }
@@ -580,6 +587,9 @@ pub struct UdpRuntimeStats {
     pub missing_remote_frames: u32,
     pub last_remote_frame: Option<Frame>,
     pub last_remote_checksum: Option<u64>,
+    pub last_remote_sequence: Option<u32>,
+    pub last_acked_sequence: Option<u32>,
+    pub last_rtt_frames: Option<u32>,
 }
 
 impl UdpRuntimeStats {
@@ -588,11 +598,23 @@ impl UdpRuntimeStats {
     }
 
     pub fn record_accept(&mut self, result: PacketAcceptResult, packet: InputPacket) {
+        self.record_accept_at(packet.frame, result, packet);
+    }
+
+    pub fn record_accept_at(
+        &mut self,
+        local_frame: Frame,
+        result: PacketAcceptResult,
+        packet: InputPacket,
+    ) {
         match result {
             PacketAcceptResult::Accepted => {
                 self.received_packets = self.received_packets.saturating_add(1);
                 self.last_remote_frame = Some(packet.frame);
                 self.last_remote_checksum = Some(packet.checksum);
+                self.last_remote_sequence = Some(packet.sequence);
+                self.last_acked_sequence = Some(packet.ack_sequence);
+                self.last_rtt_frames = Some(local_frame.0.saturating_sub(packet.ack_sequence));
             }
             PacketAcceptResult::Duplicate => {
                 self.duplicate_packets = self.duplicate_packets.saturating_add(1);

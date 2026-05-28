@@ -21,6 +21,19 @@ fn input_packet_round_trips_through_wire_bytes() {
 }
 
 #[test]
+fn input_packet_round_trips_timing_probe_fields_through_wire_bytes() {
+    let packet =
+        InputPacket::new(Frame(42), 1, PlayerInput::neutral(), 0xfeed).with_timing_probe(123, 97);
+
+    let bytes = packet.to_wire_bytes();
+    let decoded = InputPacket::from_wire_bytes(&bytes).expect("packet should decode");
+
+    assert_eq!(decoded.sequence, 123);
+    assert_eq!(decoded.ack_sequence, 97);
+    assert_eq!(decoded, packet);
+}
+
+#[test]
 fn input_packet_rejects_wrong_wire_version() {
     let packet = InputPacket::new(Frame(1), 0, PlayerInput::neutral(), 0);
     let mut bytes = packet.to_wire_bytes();

@@ -38,6 +38,17 @@ fn input_packets_are_versioned_and_carry_checksums() {
 }
 
 #[test]
+fn input_packets_carry_timing_probes_separate_from_gameplay_input() {
+    let packet = InputPacket::new(Frame(12), 1, PlayerInput::neutral(), 0xfeed_beef)
+        .with_timing_probe(99, 88);
+
+    assert_eq!(packet.sequence, 99);
+    assert_eq!(packet.ack_sequence, 88);
+    assert_eq!(packet.input, PlayerInput::neutral());
+    assert_eq!(packet.checksum, 0xfeed_beef);
+}
+
+#[test]
 fn loopback_transport_preserves_packet_order() {
     let mut transport = LoopbackTransport::default();
     let first = InputPacket::new(Frame(1), 0, PlayerInput::neutral(), 11);

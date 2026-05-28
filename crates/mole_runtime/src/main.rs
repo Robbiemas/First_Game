@@ -220,7 +220,7 @@ fn run_udp_headless(
 
     for frame_number in 0..frames {
         let frame = Frame(frame_number);
-        drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+        drain_udp_packets(&transport, &mut inbox, &mut stats, frame)?;
         let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
         if let Some(remote_input) = inbox.input(frame, remote_player) {
             inputs[remote_player as usize] = remote_input;
@@ -235,7 +235,8 @@ fn run_udp_headless(
             config.player_index,
             inputs[config.player_index as usize],
             world.checksum(),
-        );
+        )
+        .with_timing_probe(frame.0, stats.last_remote_sequence.unwrap_or(0));
         transport
             .send_packet(local_packet)
             .map_err(|error| error.to_string())?;
@@ -245,7 +246,7 @@ fn run_udp_headless(
             capture.record_frame(frame, inputs, world.checksum());
         }
     }
-    drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+    drain_udp_packets(&transport, &mut inbox, &mut stats, world.frame())?;
 
     if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
         mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
@@ -253,7 +254,7 @@ fn run_udp_headless(
     }
 
     println!(
-        "final_frame={} checksum={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?}",
+        "final_frame={} checksum={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?} udp_rtt_frames={:?}",
         world.frame().0,
         world.checksum(),
         stats.sent_packets,
@@ -262,7 +263,8 @@ fn run_udp_headless(
         stats.unsupported_packets,
         stats.missing_remote_frames,
         stats.last_remote_frame.map(|frame| frame.0),
-        stats.last_remote_checksum
+        stats.last_remote_checksum,
+        stats.last_rtt_frames
     );
     Ok(())
 }
@@ -271,13 +273,14 @@ fn drain_udp_packets(
     transport: &UdpTransport,
     inbox: &mut InputPacketInbox,
     stats: &mut mole_runtime::UdpRuntimeStats,
+    local_frame: Frame,
 ) -> Result<(), String> {
     while let Some(packet) = transport
         .try_recv_packet()
         .map_err(|error| error.to_string())?
     {
         let result = inbox.accept(packet);
-        stats.record_accept(result, packet);
+        stats.record_accept_at(local_frame, result, packet);
     }
     Ok(())
 }
@@ -310,7 +313,7 @@ fn run_udp_sdl(
     for frame_number in 0..frames {
         let frame = Frame(frame_number);
         let polled_inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, frame);
-        drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+        drain_udp_packets(&transport, &mut inbox, &mut stats, frame)?;
 
         let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
         inputs[config.player_index as usize] = polled_inputs[config.player_index as usize];
@@ -327,7 +330,8 @@ fn run_udp_sdl(
             config.player_index,
             inputs[config.player_index as usize],
             world.checksum(),
-        );
+        )
+        .with_timing_probe(frame.0, stats.last_remote_sequence.unwrap_or(0));
         transport
             .send_packet(local_packet)
             .map_err(|error| error.to_string())?;
@@ -352,7 +356,7 @@ fn run_udp_sdl(
 
         std::thread::sleep(std::time::Duration::from_nanos(TICK_NANOS));
     }
-    drain_udp_packets(&transport, &mut inbox, &mut stats)?;
+    drain_udp_packets(&transport, &mut inbox, &mut stats, world.frame())?;
 
     if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
         mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
@@ -360,7 +364,7 @@ fn run_udp_sdl(
     }
 
     println!(
-        "final_frame={} checksum={} gamepads={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?}",
+        "final_frame={} checksum={} gamepads={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?} udp_rtt_frames={:?}",
         world.frame().0,
         world.checksum(),
         input_source.gamepad_count(),
@@ -370,7 +374,8 @@ fn run_udp_sdl(
         stats.unsupported_packets,
         stats.missing_remote_frames,
         stats.last_remote_frame.map(|frame| frame.0),
-        stats.last_remote_checksum
+        stats.last_remote_checksum,
+        stats.last_rtt_frames
     );
     Ok(())
 }

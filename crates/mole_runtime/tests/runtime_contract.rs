@@ -190,6 +190,7 @@ fn debug_overlay_reports_udp_packet_stats_when_available() {
     assert!(overlay
         .lines
         .contains(&"REMOTE FRAME 7 CHECKSUM 4660".to_string()));
+    assert!(overlay.lines.contains(&"UDP RTT 7F".to_string()));
 }
 
 #[test]
@@ -277,6 +278,19 @@ fn udp_runtime_stats_track_sent_received_duplicate_and_missing_packets() {
     assert_eq!(stats.missing_remote_frames, 1);
     assert_eq!(stats.last_remote_frame, Some(Frame(3)));
     assert_eq!(stats.last_remote_checksum, Some(333));
+}
+
+#[test]
+fn udp_runtime_stats_estimate_rtt_from_acknowledged_timing_probe() {
+    let mut stats = UdpRuntimeStats::default();
+    let packet =
+        InputPacket::new(Frame(10), 1, PlayerInput::neutral(), 777).with_timing_probe(21, 6);
+
+    stats.record_accept_at(Frame(14), PacketAcceptResult::Accepted, packet);
+
+    assert_eq!(stats.last_remote_sequence, Some(21));
+    assert_eq!(stats.last_acked_sequence, Some(6));
+    assert_eq!(stats.last_rtt_frames, Some(8));
 }
 
 #[test]
