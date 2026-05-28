@@ -1,6 +1,7 @@
 use crate::{
     time::Frame, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput,
 };
+use std::fmt;
 
 pub const PLAYER_COUNT: usize = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
@@ -12,6 +13,61 @@ pub struct Vec2 {
     pub x: i32,
     pub y: i32,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FighterProfileExtractError {
+    TooShort {
+        field: &'static str,
+        offset: usize,
+        required_len: usize,
+        actual_len: usize,
+    },
+    NonFiniteFloat {
+        field: &'static str,
+        offset: usize,
+    },
+    OutOfRange {
+        field: &'static str,
+        offset: usize,
+        value: i32,
+        min: i32,
+        max: i32,
+    },
+}
+
+impl fmt::Display for FighterProfileExtractError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FighterProfileExtractError::TooShort {
+                field,
+                offset,
+                required_len,
+                actual_len,
+            } => write!(
+                f,
+                "ftCo_DatAttrs is too short for {field} at 0x{offset:x}: \
+                 need {required_len} bytes, got {actual_len}"
+            ),
+            FighterProfileExtractError::NonFiniteFloat { field, offset } => write!(
+                f,
+                "ftCo_DatAttrs field {field} at 0x{offset:x} is not finite"
+            ),
+            FighterProfileExtractError::OutOfRange {
+                field,
+                offset,
+                value,
+                min,
+                max,
+            } => write!(
+                f,
+                "ftCo_DatAttrs field {field} at 0x{offset:x} produced {value}, \
+                 outside {min}..={max}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for FighterProfileExtractError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FighterProfile {
@@ -69,6 +125,143 @@ impl FighterProfile {
     pub const fn falcon_like() -> Self {
         Self::FALCON_LIKE
     }
+
+    pub fn from_ftco_dat_attrs_bytes(
+        reference_character: &'static str,
+        bytes: &[u8],
+    ) -> Result<Self, FighterProfileExtractError> {
+        let mut profile = Self::FALCON_LIKE;
+        profile.reference_character = reference_character;
+
+        let jump_v_initial_velocity = read_profile_f32(bytes, 0x40, "jump_v_initial_velocity")?;
+        let air_jump_v_multiplier = read_profile_f32(bytes, 0x50, "air_jump_v_multiplier")?;
+
+        profile.walk_accel_per_tick = read_profile_milli_i32(bytes, 0x04, "walk_accel")?;
+        profile.walk_speed_per_tick = read_profile_milli_i32(bytes, 0x08, "walk_max_vel")?;
+        profile.traction_per_tick = read_profile_milli_i32(bytes, 0x18, "gr_friction")?;
+        profile.initial_dash_speed_per_tick =
+            read_profile_milli_i32(bytes, 0x1c, "dash_initial_velocity")?;
+        profile.run_speed_per_tick =
+            read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.jumpsquat_frames = read_profile_u8_from_f32(bytes, 0x38, "jump_startup_time")?;
+        profile.full_hop_jump_force_per_tick = round_profile_f32_to_i32(
+            jump_v_initial_velocity * 1000.0,
+            "jump_v_initial_velocity",
+            0x40,
+        )?;
+        profile.short_hop_jump_force_per_tick =
+            read_profile_milli_i32(bytes, 0x4c, "hop_v_initial_velocity")?;
+        profile.air_jump_force_per_tick = round_profile_f32_to_i32(
+            jump_v_initial_velocity * air_jump_v_multiplier * 1000.0,
+            "jump_v_initial_velocity*air_jump_v_multiplier",
+            0x50,
+        )?;
+        profile.gravity_per_tick = read_profile_milli_i32(bytes, 0x5c, "grav")?;
+        profile.fall_speed_per_tick = read_profile_milli_i32(bytes, 0x60, "terminal_vel")?;
+        profile.fast_fall_speed_per_tick =
+            read_profile_milli_i32(bytes, 0x74, "fast_fall_velocity")?;
+
+        Ok(profile)
+    }
+}
+
+fn read_profile_bytes<const LEN: usize>(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<[u8; LEN], FighterProfileExtractError> {
+    let required_len = offset + LEN;
+    let Some(slice) = bytes.get(offset..required_len) else {
+        return Err(FighterProfileExtractError::TooShort {
+            field,
+            offset,
+            required_len,
+            actual_len: bytes.len(),
+        });
+    };
+
+    let mut result = [0_u8; LEN];
+    result.copy_from_slice(slice);
+    Ok(result)
+}
+
+fn read_profile_f32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<f32, FighterProfileExtractError> {
+    let value = f32::from_be_bytes(read_profile_bytes(bytes, offset, field)?);
+    if !value.is_finite() {
+        return Err(FighterProfileExtractError::NonFiniteFloat { field, offset });
+    }
+    Ok(value)
+}
+
+fn read_profile_milli_i32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<i32, FighterProfileExtractError> {
+    round_profile_f32_to_i32(
+        read_profile_f32(bytes, offset, field)? * 1000.0,
+        field,
+        offset,
+    )
+}
+
+fn read_profile_u8_from_f32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<u8, FighterProfileExtractError> {
+    let value = round_profile_f32_to_i32(read_profile_f32(bytes, offset, field)?, field, offset)?;
+    range_profile_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
+}
+
+fn round_profile_f32_to_i32(
+    value: f32,
+    field: &'static str,
+    offset: usize,
+) -> Result<i32, FighterProfileExtractError> {
+    if !value.is_finite() {
+        return Err(FighterProfileExtractError::NonFiniteFloat { field, offset });
+    }
+
+    let rounded = value.round();
+    if rounded < i32::MIN as f32 || rounded > i32::MAX as f32 {
+        return Err(FighterProfileExtractError::OutOfRange {
+            field,
+            offset,
+            value: if rounded.is_sign_negative() {
+                i32::MIN
+            } else {
+                i32::MAX
+            },
+            min: i32::MIN,
+            max: i32::MAX,
+        });
+    }
+
+    Ok(rounded as i32)
+}
+
+fn range_profile_i32(
+    value: i32,
+    min: i32,
+    max: i32,
+    field: &'static str,
+    offset: usize,
+) -> Result<i32, FighterProfileExtractError> {
+    if value < min || value > max {
+        return Err(FighterProfileExtractError::OutOfRange {
+            field,
+            offset,
+            value,
+            min,
+            max,
+        });
+    }
+    Ok(value)
 }
 
 impl Default for FighterProfile {

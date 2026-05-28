@@ -1,11 +1,11 @@
 use mole_core::{
     input_common_data_field_sources, melee_units, melee_units_f32, step_world,
-    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterProfile, Frame,
-    GameCubeButtonState, GameCubePadStatus, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor,
-    MeleeInputSnapshot, MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState,
-    PlayerInput, StageProfile, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
-    UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA,
-    UCF_VERSION,
+    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterProfile,
+    FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
+    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
+    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile, StageSurfaceKind,
+    Vec2, WalkSpeedBucket, World, TICK_RATE_HZ, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE,
+    UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -123,6 +123,59 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
+}
+
+#[test]
+fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
+    let mut bytes = vec![0_u8; 0x188];
+
+    put_f32_be(&mut bytes, 0x04, 0.02);
+    put_f32_be(&mut bytes, 0x08, 0.85);
+    put_f32_be(&mut bytes, 0x18, 0.08);
+    put_f32_be(&mut bytes, 0x1c, 2.0);
+    put_f32_be(&mut bytes, 0x28, 2.3);
+    put_f32_be(&mut bytes, 0x38, 4.0);
+    put_f32_be(&mut bytes, 0x40, 3.1);
+    put_f32_be(&mut bytes, 0x4c, 1.9);
+    put_f32_be(&mut bytes, 0x50, 0.9);
+    put_f32_be(&mut bytes, 0x5c, 0.13);
+    put_f32_be(&mut bytes, 0x60, 2.9);
+    put_f32_be(&mut bytes, 0x74, 3.5);
+
+    let profile = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
+        .expect("synthetic ftCo_DatAttrs slice should extract");
+
+    assert_eq!(profile.reference_character, "captain_falcon");
+    assert_eq!(profile.walk_accel_per_tick, 20);
+    assert_eq!(profile.walk_speed_per_tick, 850);
+    assert_eq!(profile.traction_per_tick, 80);
+    assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
+    assert_eq!(profile.run_speed_per_tick, 2_300);
+    assert_eq!(profile.jumpsquat_frames, 4);
+    assert_eq!(profile.full_hop_jump_force_per_tick, 3_100);
+    assert_eq!(profile.short_hop_jump_force_per_tick, 1_900);
+    assert_eq!(profile.air_jump_force_per_tick, 2_790);
+    assert_eq!(profile.gravity_per_tick, 130);
+    assert_eq!(profile.fall_speed_per_tick, 2_900);
+    assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
+}
+
+#[test]
+fn extracted_ftco_dat_attrs_reports_missing_source_field() {
+    let bytes = vec![0_u8; 0x74];
+
+    let err = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
+        .expect_err("slice ending before fast_fall_velocity should be rejected");
+
+    assert_eq!(
+        err,
+        FighterProfileExtractError::TooShort {
+            field: "fast_fall_velocity",
+            offset: 0x74,
+            required_len: 0x78,
+            actual_len: 0x74,
+        }
+    );
 }
 
 #[test]

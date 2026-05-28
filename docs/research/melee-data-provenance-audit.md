@@ -33,6 +33,13 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `-fast_fall_velocity`.
 - Current/previous input snapshots, tap timers, and checksums are rollback-owned
   inside Rust core state.
+- `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
+  `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
+  `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,
+  `dash_run_terminal_velocity`, `jump_startup_time`,
+  `jump_v_initial_velocity`, `hop_v_initial_velocity`,
+  `air_jump_v_multiplier`, `grav`, `terminal_vel`, and
+  `fast_fall_velocity`.
 
 ## Active Data Gaps
 
@@ -40,9 +47,9 @@ These should not be hand-tuned:
 
 - `MeleeCommonData::PROVISIONAL` values: replace with `PlCo.dat` extraction via
   `MeleeCommonData::from_plco_bytes`.
-- `FighterProfile::FALCON_LIKE` character attributes: replace with extracted
-  Captain Falcon `ftCo_DatAttrs`/`ftDataCaptain` values once `PlCa.dat` data is
-  available.
+- `FighterProfile::FALCON_LIKE` character attributes: replace by feeding
+  extracted Captain Falcon `ftCo_DatAttrs` bytes into
+  `FighterProfile::from_ftco_dat_attrs_bytes` once `PlCa.dat` data is available.
 - Animation durations and IASA frames currently stored as `FALCON_*` constants:
   replace with extracted action/animation data.
 - Escape-air force, decay, deadzones, landing lag, and related common-data

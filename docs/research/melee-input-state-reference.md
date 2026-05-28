@@ -891,7 +891,10 @@ from `ftCo_Jump.c`: the profile-owned full-hop or short-hop force is applied as
 vertical velocity, the first airborne tick advances by that force, and the common
 fall step reduces stored velocity by profile gravity for the next tick. Air jump
 state entry follows `ftCo_JumpAerial.c` by using a profile-owned air-jump force;
-extracting the exact DAT `air_jump_v_multiplier` remains a data task.
+`FighterProfile::from_ftco_dat_attrs_bytes` now has a byte-level extraction path
+for `jump_v_initial_velocity`, `hop_v_initial_velocity`, and
+`air_jump_v_multiplier` once a local `PlCa.dat`/`ftDataCaptain` attribute block
+is available.
 
 ## Fast Fall
 
