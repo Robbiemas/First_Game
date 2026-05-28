@@ -239,10 +239,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Create or modify: `execs/Record Native Replay.cmd`
 - Update: `execs/README.md`
 
-- [ ] Add a debug mode that records local input frames and periodic checksums.
-- [ ] Save replay files under a clear project-local debug/replay directory.
-- [ ] Never make replay capture required for normal play.
-- [ ] Confirm a captured replay can be played back by tests or a tool.
+- [x] Add a debug mode that records local input frames and periodic checksums.
+- [x] Save replay files under a clear project-local debug/replay directory.
+- [x] Never make replay capture required for normal play.
+- [x] Confirm a captured replay can be played back by tests or a tool.
 
 ## Phase 5: Offline Rollback
 

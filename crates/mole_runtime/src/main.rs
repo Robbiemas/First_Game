@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use mole_core::{step_world, Frame, PlayerInput, World};
 
 #[cfg(any(feature = "sdl", feature = "wup"))]
@@ -23,6 +25,7 @@ mod wup_monitor;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let frames = parse_frames(args.iter().cloned());
+    let replay_path = parse_replay_path(&args, frames);
 
     #[cfg(feature = "sdl")]
     if has_flag(&args, "--list-inputs") {
@@ -104,7 +107,7 @@ fn main() {
 
     #[cfg(feature = "wup")]
     if has_flag(&args, "--wup") {
-        if let Err(error) = run_wup_smoke(frames) {
+        if let Err(error) = run_wup_smoke(frames, replay_path.as_deref()) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -119,7 +122,7 @@ fn main() {
 
     #[cfg(feature = "sdl")]
     if has_flag(&args, "--sdl") {
-        if let Err(error) = run_sdl_smoke(frames) {
+        if let Err(error) = run_sdl_smoke(frames, replay_path.as_deref()) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -132,15 +135,28 @@ fn main() {
         std::process::exit(2);
     }
 
-    run_headless(frames);
+    if let Err(error) = run_headless(frames, replay_path.as_deref()) {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
 }
 
-fn run_headless(frames: u32) {
-    let mut world = World::for_two_players();
+fn run_headless(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
     let inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
 
     for frame in 0..frames {
         step_world(&mut world, Frame(frame), &inputs);
+        if let Some(capture) = replay_capture.as_mut() {
+            capture.record_frame(Frame(frame), inputs, world.checksum());
+        }
+    }
+
+    if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
+        mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
+        println!("replay_path={}", path.display());
     }
 
     println!(
@@ -148,10 +164,11 @@ fn run_headless(frames: u32) {
         world.frame().0,
         world.checksum()
     );
+    Ok(())
 }
 
 #[cfg(feature = "sdl")]
-fn run_sdl_smoke(frames: u32) -> Result<(), String> {
+fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -163,11 +180,16 @@ fn run_sdl_smoke(frames: u32) -> Result<(), String> {
     let mut canvas = window.into_canvas();
 
     let mut input_source = SdlInputSource::new(&sdl)?;
-    let mut world = World::for_two_players();
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 
     for frame in 0..frames {
         let inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, Frame(frame));
         step_world(&mut world, Frame(frame), &inputs);
+        if let Some(capture) = replay_capture.as_mut() {
+            capture.record_frame(Frame(frame), inputs, world.checksum());
+        }
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         draw_sdl_scene(
@@ -180,6 +202,11 @@ fn run_sdl_smoke(frames: u32) -> Result<(), String> {
         }
 
         std::thread::sleep(std::time::Duration::from_nanos(TICK_NANOS));
+    }
+
+    if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
+        mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
+        println!("replay_path={}", path.display());
     }
 
     println!(
@@ -323,14 +350,24 @@ fn stream_wup_native(frames: u32) -> Result<(), String> {
 }
 
 #[cfg(feature = "wup")]
-fn run_wup_smoke(frames: u32) -> Result<(), String> {
+fn run_wup_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
     let mut input_source = WupInputSource::open()?;
-    let mut world = World::for_two_players();
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 
     for frame in 0..frames {
         let inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, Frame(frame));
         step_world(&mut world, Frame(frame), &inputs);
+        if let Some(capture) = replay_capture.as_mut() {
+            capture.record_frame(Frame(frame), inputs, world.checksum());
+        }
         std::thread::sleep(std::time::Duration::from_nanos(TICK_NANOS));
+    }
+
+    if let (Some(path), Some(capture)) = (replay_path, replay_capture.as_ref()) {
+        mole_runtime::write_replay_capture(path, capture).map_err(|error| error.to_string())?;
+        println!("replay_path={}", path.display());
     }
 
     println!(
@@ -355,4 +392,18 @@ fn parse_frames(mut args: impl Iterator<Item = String>) -> u32 {
         }
     }
     120
+}
+
+fn parse_replay_path(args: &[String], frames: u32) -> Option<PathBuf> {
+    value_after(args, "--replay-path")
+        .map(PathBuf::from)
+        .or_else(|| {
+            has_flag(args, "--record-replay").then(|| mole_runtime::native_replay_path(frames))
+        })
+}
+
+fn value_after(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2)
+        .find(|pair| pair[0] == flag)
+        .map(|pair| pair[1].clone())
 }

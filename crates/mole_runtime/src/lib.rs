@@ -1,7 +1,11 @@
+use std::path::{Path, PathBuf};
+use std::{fs, io};
+
 use mole_core::{
     Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput, Vec2, World,
     WorldSnapshot, TICK_NANOS,
 };
+use mole_replay::{ReplayFrame, ReplayLog};
 
 #[cfg(feature = "sdl")]
 pub mod sdl_input;
@@ -296,4 +300,196 @@ fn player_rect(
         height: PLAYER_RENDER_HEIGHT,
         color,
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ReplayCapture {
+    log: ReplayLog,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplayCaptureParseError {
+    pub line: usize,
+    pub message: &'static str,
+}
+
+impl ReplayCapture {
+    pub fn new(initial: World) -> Self {
+        Self {
+            log: ReplayLog::new(initial),
+        }
+    }
+
+    pub fn record_frame(&mut self, frame: Frame, inputs: [PlayerInput; 2], checksum: u64) {
+        self.log.push(ReplayFrame {
+            frame,
+            inputs,
+            checksum,
+        });
+    }
+
+    pub const fn log(&self) -> &ReplayLog {
+        &self.log
+    }
+
+    pub fn to_text(&self) -> String {
+        let mut text = format!(
+            "mole_replay_v1\ninitial_checksum={}\n",
+            self.log.initial().checksum()
+        );
+        for frame in self.log.frames() {
+            text.push_str(&format!(
+                "frame={} p1_bits={} p2_bits={} checksum={}\n",
+                frame.frame.0,
+                frame.inputs[0].bits(),
+                frame.inputs[1].bits(),
+                frame.checksum
+            ));
+        }
+        text
+    }
+
+    pub fn from_text(initial: World, text: &str) -> Result<ReplayLog, ReplayCaptureParseError> {
+        let mut lines = text.lines().enumerate();
+        match lines.next() {
+            Some((_, "mole_replay_v1")) => {}
+            _ => {
+                return Err(ReplayCaptureParseError {
+                    line: 1,
+                    message: "missing replay header",
+                });
+            }
+        }
+
+        let Some((line_index, initial_line)) = lines.next() else {
+            return Err(ReplayCaptureParseError {
+                line: 2,
+                message: "missing initial checksum",
+            });
+        };
+        let initial_checksum = parse_prefixed_u64(
+            line_index + 1,
+            initial_line,
+            "initial_checksum=",
+            "invalid initial checksum",
+        )?;
+        if initial_checksum != initial.checksum() {
+            return Err(ReplayCaptureParseError {
+                line: line_index + 1,
+                message: "initial checksum mismatch",
+            });
+        }
+
+        let mut log = ReplayLog::new(initial);
+        for (line_index, line) in lines {
+            if line.trim().is_empty() {
+                continue;
+            }
+            log.push(parse_replay_frame(line_index + 1, line)?);
+        }
+        Ok(log)
+    }
+}
+
+pub fn native_replay_path(frames: u32) -> PathBuf {
+    PathBuf::from("debug")
+        .join("replays")
+        .join(format!("native-replay-{frames}-frames.mrep"))
+}
+
+pub fn write_replay_capture(path: impl AsRef<Path>, capture: &ReplayCapture) -> io::Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, capture.to_text())
+}
+
+fn parse_replay_frame(
+    line_number: usize,
+    line: &str,
+) -> Result<ReplayFrame, ReplayCaptureParseError> {
+    let mut frame = None;
+    let mut p1_bits = None;
+    let mut p2_bits = None;
+    let mut checksum = None;
+
+    for token in line.split_whitespace() {
+        let Some((key, value)) = token.split_once('=') else {
+            return Err(ReplayCaptureParseError {
+                line: line_number,
+                message: "invalid replay token",
+            });
+        };
+        match key {
+            "frame" => frame = Some(parse_u32(line_number, value, "invalid frame")?),
+            "p1_bits" => p1_bits = Some(parse_u64(line_number, value, "invalid p1 bits")?),
+            "p2_bits" => p2_bits = Some(parse_u64(line_number, value, "invalid p2 bits")?),
+            "checksum" => checksum = Some(parse_u64(line_number, value, "invalid checksum")?),
+            _ => {
+                return Err(ReplayCaptureParseError {
+                    line: line_number,
+                    message: "unknown replay field",
+                });
+            }
+        }
+    }
+
+    Ok(ReplayFrame {
+        frame: Frame(frame.ok_or(ReplayCaptureParseError {
+            line: line_number,
+            message: "missing frame",
+        })?),
+        inputs: [
+            PlayerInput::from_bits(p1_bits.ok_or(ReplayCaptureParseError {
+                line: line_number,
+                message: "missing p1 bits",
+            })?),
+            PlayerInput::from_bits(p2_bits.ok_or(ReplayCaptureParseError {
+                line: line_number,
+                message: "missing p2 bits",
+            })?),
+        ],
+        checksum: checksum.ok_or(ReplayCaptureParseError {
+            line: line_number,
+            message: "missing checksum",
+        })?,
+    })
+}
+
+fn parse_prefixed_u64(
+    line_number: usize,
+    line: &str,
+    prefix: &'static str,
+    message: &'static str,
+) -> Result<u64, ReplayCaptureParseError> {
+    let Some(value) = line.strip_prefix(prefix) else {
+        return Err(ReplayCaptureParseError {
+            line: line_number,
+            message,
+        });
+    };
+    parse_u64(line_number, value, message)
+}
+
+fn parse_u32(
+    line_number: usize,
+    value: &str,
+    message: &'static str,
+) -> Result<u32, ReplayCaptureParseError> {
+    value.parse().map_err(|_| ReplayCaptureParseError {
+        line: line_number,
+        message,
+    })
+}
+
+fn parse_u64(
+    line_number: usize,
+    value: &str,
+    message: &'static str,
+) -> Result<u64, ReplayCaptureParseError> {
+    value.parse().map_err(|_| ReplayCaptureParseError {
+        line: line_number,
+        message,
+    })
 }

@@ -72,6 +72,7 @@ name = "mole_runtime"
 version = "0.1.0"
 dependencies = [
  "mole_core",
+ "mole_replay",
  "rusb",
  "sdl3",
 ]

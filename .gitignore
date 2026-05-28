@@ -142,6 +142,7 @@ cython_debug/
 
 # Runtime diagnostics
 logs/
+debug/replays/
 
 # Idea files
 .idea/

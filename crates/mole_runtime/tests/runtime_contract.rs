@@ -3,9 +3,9 @@ use mole_core::{
     WalkSpeedBucket, World,
 };
 use mole_runtime::{
-    map_gamecube_pad_to_player_input, map_physical_input, parse_wup_report, FixedStepClock,
-    InputReadout, InputSource, PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene,
-    WupInputMapper, WupPort,
+    map_gamecube_pad_to_player_input, map_physical_input, native_replay_path, parse_wup_report,
+    FixedStepClock, InputReadout, InputSource, PhysicalInput, RenderColor, RenderFrame, RenderRect,
+    RenderScene, ReplayCapture, WupInputMapper, WupPort,
 };
 
 #[test]
@@ -150,6 +150,40 @@ fn render_scene_places_players_deterministically_from_render_frame() {
                 a: 255
             }
         }
+    );
+}
+
+#[test]
+fn replay_capture_serializes_runtime_frames_that_replay_to_the_same_checksum() {
+    let initial = World::for_two_players();
+    let mut world = initial.clone();
+    let inputs = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral().with_attack(true),
+    ];
+    let mut capture = ReplayCapture::new(initial.clone());
+
+    step_world(&mut world, Frame(0), &inputs);
+    capture.record_frame(Frame(0), inputs, world.checksum());
+
+    let text = capture.to_text();
+    let parsed = ReplayCapture::from_text(initial, &text).expect("capture text should parse");
+    let replayed = parsed.replay().expect("capture should replay");
+
+    assert!(text.starts_with("mole_replay_v1\n"));
+    assert!(text.contains(&format!("p1_bits={}", inputs[0].bits())));
+    assert!(text.contains(&format!("checksum={}", world.checksum())));
+    assert_eq!(replayed.checksum(), world.checksum());
+}
+
+#[test]
+fn native_replay_path_uses_project_local_debug_replay_directory() {
+    let path = native_replay_path(120);
+
+    assert!(path.starts_with("debug/replays"));
+    assert_eq!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("native-replay-120-frames.mrep")
     );
 }
 

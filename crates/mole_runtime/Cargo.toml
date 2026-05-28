@@ -11,5 +11,6 @@ wup = ["dep:rusb"]
 
 [dependencies]
 mole_core = { path = "../mole_core" }
+mole_replay = { path = "../mole_replay" }
 rusb = { version = "0.9.4", optional = true, features = ["vendored"] }
 sdl3 = { version = "0.18.4", optional = true, features = ["hidapi"] }

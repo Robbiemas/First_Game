@@ -14,4 +14,5 @@ Double-click these Windows launchers from this folder.
 - `Run Rust Runtime.cmd`: runs the deterministic Rust core smoke test.
 - `Run SDL3 Runtime.cmd`: runs the SDL3 runtime smoke loop.
 - `Run WUP Native Runtime.cmd`: runs the native WUP runtime smoke loop.
+- `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.
 - `Setup SDL3.cmd`: helper used by the SDL3 launchers.
