@@ -44,6 +44,7 @@ Important existing docs:
 - `docs/research/melee-common-state-inventory.md`
 - `docs/research/mole-state-coverage-comparison.md`
 - `docs/research/pygame-movement-logic-pass.md`
+- `docs/architecture/visual-asset-and-state-graph-migration.md`
 
 The current docs already agree on the strategic direction:
 
@@ -52,6 +53,13 @@ The current docs already agree on the strategic direction:
 - GameCube controller state should be preserved in native packet shape first.
 - UCF-style handling should happen before the engine consumes input.
 - Motion-state parity matters more than ad hoc behavior patches.
+- Environmental collision parity belongs in Rust as well: stage geometry,
+  platform collision, floor/ceiling/wall contact, ledge/cliff behavior, and
+  ECB-style contact rules should migrate from the Pygame prototype into
+  deterministic core/runtime boundaries shaped by Melee decomp behavior.
+
+See [Visual Asset And State Graph Migration](./visual-asset-and-state-graph-migration.md)
+for the current preserved asset and state graph inventory.
 
 ## Non-Negotiables
 
@@ -1000,6 +1008,7 @@ Goal: expand from movement parity to game completeness.
 
 Deliverables:
 
+- Melee-shaped environmental collision and stage contact rules
 - attack states
 - hit detection
 - hitstun/damage

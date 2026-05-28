@@ -59,6 +59,36 @@ cargo test -p mole_transport --features webrtc
 cargo test --workspace
 ```
 
+## Native Rust Playtest Checklist
+
+From `D:\Mole Game\First_Game`:
+
+```powershell
+cargo test --workspace
+cargo run -p mole_runtime -- --frames 120
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup_sdl3.ps1
+cargo run -p mole_runtime --features sdl -- --sdl --frames 600
+cargo run -p mole_runtime -- --record-replay --frames 600
+```
+
+For GameCube/WUP checks:
+
+```powershell
+.\execs\Check WUP Native.cmd
+.\execs\Monitor WUP Native.cmd
+.\execs\Run WUP Native Runtime.cmd
+```
+
+For visual state reference:
+
+```powershell
+.\execs\Open State Graphs.cmd
+```
+
+The SDL runtime currently uses deterministic rectangle fallback rendering plus
+Rust-owned sprite cues. The checked-in DolphinMole assets are preserved and
+mapped in Rust for the next renderer pass.
+
 You can also double-click `execs\Run Rust Runtime.cmd` for the current Rust smoke run. It advances a deterministic 120-frame simulation and prints the final frame plus checksum.
 
 For SDL3 keyboard/gamepad polling, double-click `execs\Run SDL3 Runtime.cmd`. The first launch downloads the free SDL3 development package into `.local/SDL3`, which is ignored by git.

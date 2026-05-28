@@ -9,6 +9,12 @@ use mole_core::{
 use mole_replay::{ReplayFrame, ReplayLog};
 use mole_transport::{InputPacket, PacketAcceptResult};
 
+pub mod assets;
+pub use assets::{
+    legacy_animation_for_motion_state, legacy_animation_spec, LegacyAnimationKey,
+    LegacyAnimationSpec, LegacySpriteCue, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+};
+
 #[cfg(feature = "sdl")]
 pub mod sdl_input;
 
@@ -261,6 +267,7 @@ pub struct RenderScene {
     pub background: RenderColor,
     pub stage: RenderRect,
     pub players: [RenderRect; 2],
+    pub player_sprites: [LegacySpriteCue; 2],
 }
 
 impl RenderScene {
@@ -281,6 +288,18 @@ impl RenderScene {
             players: [
                 player_rect(frame, 0, center_x, ground_y, player_colors[0]),
                 player_rect(frame, 1, center_x, ground_y, player_colors[1]),
+            ],
+            player_sprites: [
+                LegacySpriteCue::for_player(
+                    frame.player_motion_states[0],
+                    frame.player_state_frames[0],
+                    frame.player_facings[0],
+                ),
+                LegacySpriteCue::for_player(
+                    frame.player_motion_states[1],
+                    frame.player_state_frames[1],
+                    frame.player_facings[1],
+                ),
             ],
         }
     }

@@ -1,12 +1,15 @@
+use std::path::Path;
+
 use mole_core::{
     step_world, Frame, GameCubeButtonState, GameCubePadStatus, MotionState, PlayerInput,
     WalkSpeedBucket, World,
 };
 use mole_runtime::{
-    map_gamecube_pad_to_player_input, map_physical_input, native_replay_path, parse_wup_report,
-    DebugOverlay, FixedStepClock, InputReadout, InputSource, PhysicalInput, RenderColor,
-    RenderFrame, RenderRect, RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats,
-    WupInputMapper, WupPort,
+    legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
+    native_replay_path, parse_wup_report, DebugOverlay, FixedStepClock, InputReadout, InputSource,
+    LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor, RenderFrame, RenderRect,
+    RenderScene, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper, WupPort,
+    LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -153,6 +156,96 @@ fn render_scene_places_players_deterministically_from_render_frame() {
             }
         }
     );
+}
+
+#[test]
+fn render_scene_exposes_legacy_sprite_cues_without_replacing_rect_fallback() {
+    let mut world = World::for_two_players();
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(64, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+    let render_frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+
+    assert_eq!(
+        scene.player_sprites[0].animation,
+        LegacyAnimationKey::Walking
+    );
+    assert_eq!(scene.player_sprites[0].directory, "DolphinMole/walking");
+    assert!(!scene.player_sprites[0].flip_x);
+    assert_eq!(
+        scene.player_sprites[1].animation,
+        LegacyAnimationKey::Standing
+    );
+    assert!(scene.player_sprites[1].flip_x);
+    assert_eq!(scene.players[0].width, 48);
+    assert_eq!(scene.players[0].height, 72);
+}
+
+#[test]
+fn legacy_dolphin_mole_asset_manifest_points_to_existing_files() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+
+    for animation in LEGACY_DOLPHIN_MOLE_ANIMATIONS {
+        assert!(
+            repo_root.join(animation.directory).is_dir(),
+            "missing animation directory {}",
+            animation.directory
+        );
+
+        for frame in animation.frames {
+            let path = repo_root.join(animation.directory).join(frame);
+            assert!(path.is_file(), "missing animation frame {}", path.display());
+        }
+    }
+}
+
+#[test]
+fn render_asset_mapping_uses_legacy_animation_identity_without_mechanics() {
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::Wait),
+        LegacyAnimationKey::Standing
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::WalkSlow),
+        LegacyAnimationKey::Walking
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::WalkMiddle),
+        LegacyAnimationKey::Walking
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::WalkFast),
+        LegacyAnimationKey::Walking
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::Dash),
+        LegacyAnimationKey::Dashing
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::Guard),
+        LegacyAnimationKey::Blocking
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::EscapeAir),
+        LegacyAnimationKey::AirDodge
+    );
+}
+
+#[test]
+fn legacy_sprite_cue_uses_state_frame_and_facing_deterministically() {
+    let cue = LegacySpriteCue::for_player(MotionState::Wait, 3, -1);
+
+    assert_eq!(cue.animation, LegacyAnimationKey::Standing);
+    assert_eq!(cue.directory, "DolphinMole/standing");
+    assert_eq!(cue.frame, "Standing2.png");
+    assert!(cue.flip_x);
 }
 
 #[test]
