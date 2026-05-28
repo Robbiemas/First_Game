@@ -356,9 +356,9 @@ letting input preprocessing sprawl through runtime or core code.
 - Update: `execs/README.md`
 - Update: `docs/research/pygame-movement-logic-pass.md`
 
-- [ ] Document Pygame as historical prototype and temporary QA harness.
-- [ ] Point normal development to the Rust runtime.
-- [ ] Keep old launchers available until native Rust reaches feature parity.
+- [x] Document Pygame as historical prototype and temporary QA harness.
+- [x] Point normal development to the Rust runtime.
+- [x] Keep old launchers available until native Rust reaches feature parity.
 
 ### Task 9.2: Remove Duplicate Mechanics From Live Testing
 

@@ -1,11 +1,16 @@
 # First Game
 
-Small Pygame platform-fighter prototype.
+Native Rust rollback platform-fighter work-in-progress, descended from a small
+Pygame prototype.
 
-This repo now has two tracks:
+This repo has two tracks:
 
-- `RealMainFile.py`: the original Pygame prototype, kept runnable as a mechanics reference.
-- `crates/`: the new Rust rollback architecture that will become the forward path.
+- `crates/`: the Rust rollback architecture and normal development path.
+- `RealMainFile.py`: the original Pygame prototype, kept runnable as a
+  historical reference and temporary visual/QA harness.
+
+Authoritative gameplay work should happen in Rust. Pygame should not receive
+new movement mechanics except when a small launcher or harness fix is needed.
 
 ## Setup
 
@@ -16,7 +21,7 @@ py -3.10 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-## Run
+## Run The Legacy Pygame Prototype
 
 All double-click launchers and checkers live in `execs/`.
 
@@ -26,7 +31,7 @@ Double-click `execs\Launch Mole Game.cmd`, or run:
 .\.venv\Scripts\python RealMainFile.py
 ```
 
-The game opens in a window by default. Set `MOLE_FULLSCREEN=1` for fullscreen.
+The legacy prototype opens in a window by default. Set `MOLE_FULLSCREEN=1` for fullscreen.
 With a WUP-028 adapter on WinUSB, the launcher also starts the native Rust WUP input bridge so the old Pygame prototype can read the GameCube controller without a remapper. Set `MOLE_DISABLE_NATIVE_WUP=1` to force the legacy Pygame/keyboard path only.
 The old prototype menu is skipped by default during mechanics QA so native input starts immediately; set `MOLE_SHOW_MENU=1` if you want to open that menu again.
 
@@ -36,13 +41,22 @@ For live QA while iterating, double-click `execs\Live Test Session.cmd`. It laun
 
 ## Rust Rollback Path
 
-The new engine direction is Rust with a deterministic 60 Hz core, rollback snapshots, replay validation, no-cost transport primitives, and an SDL3 runtime shell.
+The forward engine direction is Rust with a deterministic 60 Hz core, rollback snapshots, replay validation, no-cost transport primitives, and an SDL3 runtime shell.
 
 Install Rust for free through Rustup, then run:
 
 ```powershell
 cargo test --workspace
 cargo run -p mole_runtime -- --frames 120
+```
+
+Useful Rust checks while developing:
+
+```powershell
+cargo fmt --check
+cargo test -p mole_core
+cargo test -p mole_transport --features webrtc
+cargo test --workspace
 ```
 
 You can also double-click `execs\Run Rust Runtime.cmd` for the current Rust smoke run. It advances a deterministic 120-frame simulation and prints the final frame plus checksum.
@@ -66,7 +80,8 @@ The legacy Pygame input bridge now applies a `0.20` trigger dead zone before exp
 Architecture docs:
 
 - `docs/superpowers/specs/2026-05-27-rust-rollback-core-design.md`
-- `docs/superpowers/plans/2026-05-27-rust-rollback-core.md`
+- `docs/superpowers/plans/2026-05-28-native-rust-rollback-migration.md`
+- `docs/architecture/native-rust-rollback-architecture.md`
 
 The Rust core rules are intentionally strict: 60 Hz fixed tick, no gameplay input buffer, no rendering or IO in simulation, compact per-frame input, snapshot-based rollback, and replay checksums for desync detection.
 
@@ -121,7 +136,7 @@ Player 1 can use keyboard input even while a controller is connected:
 - Pause: `P` or enter
 - Quit: escape
 
-## Smoke Test
+## Legacy Pygame Smoke Test
 
 This runs a short headless launch without opening a window:
 

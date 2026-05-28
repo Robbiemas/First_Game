@@ -1,8 +1,13 @@
 # Pygame Movement Logic Pass
 
-This note tracks the bottom-up Pygame movement audit. The long-term direction is
-still to make the Rust core authoritative, but the Pygame layer is the current
-playable test surface.
+This note tracks an older bottom-up Pygame movement audit. The project has now
+re-anchored on a Rust-authoritative architecture: Rust owns deterministic 60 Hz
+simulation, input facts, motion states, replay, transport packets, and rollback.
+
+Pygame remains a historical prototype and temporary visual/QA harness. It should
+not receive new authoritative movement mechanics. Future movement work should be
+implemented and tested in `crates/mole_core`, with Pygame touched only when a
+launcher, bridge, or reference harness needs to stay runnable.
 
 ## Reference Used
 
