@@ -81,6 +81,9 @@ pub struct MeleeCommonData {
     pub trigger_deadzone: u8,
     pub z_shield_analog: u8,
     pub walk_x: i8,
+    pub walk_slow_x: i8,
+    pub walk_middle_x: i8,
+    pub walk_fast_x: i8,
     pub dash_x: i8,
     pub dash_tap_window: u8,
     pub turn_x: i8,
@@ -129,6 +132,9 @@ impl MeleeCommonData {
         trigger_deadzone: 0,
         z_shield_analog: 49,
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 3,
         turn_x: 24,
@@ -181,6 +187,9 @@ impl MeleeCommonData {
         data.aerial_vertical_angle_tan_milli =
             read_radian_tangent_milli(bytes, 0x20, "x20_radians")?;
         data.walk_x = read_stick_i8(bytes, 0x24, "x24")?;
+        data.walk_slow_x = read_stick_i8(bytes, 0x28, "x28")?;
+        data.walk_middle_x = read_stick_i8(bytes, 0x2c, "x2C")?;
+        data.walk_fast_x = read_stick_i8(bytes, 0x30, "x30")?;
         data.turn_x = read_stick_i8(bytes, 0x34, "x34")?;
         data.dash_x = read_stick_i8(bytes, 0x3c, "x3C")?;
         data.dash_tap_window = read_u8_from_i32(bytes, 0x40, "x40")?;
@@ -231,6 +240,9 @@ impl MeleeCommonData {
     pub const fn input_thresholds(self) -> MeleeInputThresholds {
         MeleeInputThresholds {
             walk_x: self.walk_x,
+            walk_slow_x: self.walk_slow_x,
+            walk_middle_x: self.walk_middle_x,
+            walk_fast_x: self.walk_fast_x,
             dash_x: self.dash_x,
             dash_tap_window: self.dash_tap_window,
             turn_x: self.turn_x,
@@ -449,6 +461,24 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "walk_x",
         source_name: "x24",
         offset: 0x24,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "walk_slow_x",
+        source_name: "x28",
+        offset: 0x28,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "walk_middle_x",
+        source_name: "x2C",
+        offset: 0x2c,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "walk_fast_x",
+        source_name: "x30",
+        offset: 0x30,
         provenance: CommonDataProvenance::ProvisionalMole,
     },
     CommonDataFieldSource {

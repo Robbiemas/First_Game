@@ -205,15 +205,18 @@ Current Rust core status: `World::melee_input_snapshot(player, input)` can deriv
 a `MeleeInputSnapshot` from rollback-owned previous input, current compact input,
 and x/y/trigger timers. This means future core motion-state code can consume the
 same facts as the runtime readout without depending on WUP-only host state.
-The first Rust motion-state slice is now rollback-owned as `Wait`, `Walk`,
-`Dash`, `Run`, `RunBrake`, `TurnRun`, `Turn`, `Squat`, `SpecialN`, `SpecialS`,
-`SpecialHi`, `SpecialLw`, `SpecialAirN`, `SpecialAirS`, `SpecialAirHi`,
-`SpecialAirLw`, `AttackAirN`, `AttackAirF`, `AttackAirB`, `AttackAirHi`,
-`AttackAirLw`, `Catch`, `Attack1`, `AttackS3`, `AttackHi3`, `AttackLw3`,
-`AttackS4`, `AttackHi4`, `AttackLw4`, `Guard`, `GuardOff`, `EscapeN`,
-`EscapeF`, `EscapeB`, `KneeBend`, `Air`, `EscapeAir`, `FallSpecial`, and
-`LandingFallSpecial`; state id, state frame, stored turn target facing, stored
-jump source, and short-hop flag are all included in the replay checksum.
+The first Rust motion-state slice is now rollback-owned as `Wait`, `WalkSlow`,
+`WalkMiddle`, `WalkFast`, `Dash`, `Run`, `RunBrake`, `TurnRun`, `Turn`,
+`Squat`, `SpecialN`, `SpecialS`, `SpecialHi`, `SpecialLw`, `SpecialAirN`,
+`SpecialAirS`, `SpecialAirHi`, `SpecialAirLw`, `AttackAirN`, `AttackAirF`,
+`AttackAirB`, `AttackAirHi`, `AttackAirLw`, `Catch`, `Attack1`,
+`AttackDash`, `AttackS3`, `AttackHi3`, `AttackLw3`, `AttackS4`,
+`AttackHi4`, `AttackLw4`, `GuardOn`, `Guard`, `GuardOff`, `EscapeN`,
+`EscapeF`, `EscapeB`, `KneeBend`, `JumpF`, `JumpB`, `Air`, `JumpAerialF`,
+`JumpAerialB`, `EscapeAir`, `FallSpecial`, `Landing`, and
+`LandingFallSpecial`; state id, state frame, profile walk data, stored turn
+target facing, stored jump source, and short-hop flag are all included in the
+replay checksum.
 The native WUP JSON stream carries that snapshot in its `melee` object, including
 cleaned signed sticks, cleaned per-side trigger bytes, timers, and derived
 facts. The Python bridge prefers those canonical fields when present and falls
@@ -284,8 +287,9 @@ with the source offset and extracted data source.
 
 Implementation status: `crates/mole_core/src/common_data.rs` now owns the
 current provisional threshold values through `MeleeCommonData::provisional_mole`,
-exposes source-offset metadata through `input_common_data_field_sources`, and
-has a tested `MeleeCommonData::from_plco_bytes` extractor for the known
+including the walk bucket fields `x28`, `x2C`, and `x30`, exposes source-offset
+metadata through `input_common_data_field_sources`, and has a tested
+`MeleeCommonData::from_plco_bytes` extractor for the known
 big-endian common-data offsets. The extractor reads real source field types
 (`float`, `int`, and `Vec2`) and converts them into the current Rust core units:
 normalized stick thresholds use the signed-byte stick scale (`-128..127`),
@@ -408,10 +412,14 @@ crouch input enters `MotionState::Squat`, fresh opposite x tap enters the
 smash-turn path, and soft opposite stick now enters `MotionState::Turn` through
 a separate standing-turn fact modeled after `ftCommonData::x34` instead of
 falling through to `Walk`. Same-direction soft stick still enters analog
-`MotionState::Walk`, and once walking has started a later high stick value does
-not retroactively become dash if the x tap timer has aged out. Fresh forward
-dash and fresh opposite smash-turn share the Melee dash check and have priority
-over crouch; crouch still has priority over the softer standing-turn check.
+`MotionState::WalkSlow`, `MotionState::WalkMiddle`, or
+`MotionState::WalkFast` from rollback-owned input facts, and once walking has
+started a later high stick value does not retroactively become dash if the x tap
+timer has aged out. The walk speed bucket cutoffs are centralized in
+`MeleeCommonData` with tested `x28`, `x2C`, and `x30` provenance instead of
+living as ad hoc movement constants. Fresh forward dash and fresh opposite
+smash-turn share the Melee dash check and have priority over crouch; crouch
+still has priority over the softer standing-turn check.
 The compact Turn IASA slice now accepts grounded side/down/up special, catch,
 and attack inputs before shield or jump, matching the decomp's state-local
 callback shape. Neutral B is intentionally not accepted during `Turn`: the
@@ -441,8 +449,9 @@ ground traction instead of preserving speed unchanged, matching the source shape
 where `Dash_IASA` falls through to friction and `Dash_Phys` applies
 accel/target/friction. After Falcon's 15-frame dash window, same-direction stick
 exits to `MotionState::Run`, neutral exits to `MotionState::Wait`, and an aged
-opposite-side hold exits to `MotionState::Walk` instead of becoming a new dash
-or run. Current Rust `Run` state status: neutral stick enters
+opposite-side hold exits to the appropriate `WalkSlow`/`WalkMiddle`/`WalkFast`
+state instead of becoming a new dash or run. Current Rust `Run` state status:
+neutral stick enters
 `MotionState::RunBrake`, and full opposite stick enters `MotionState::TurnRun`
 while applying traction instead of opposite run acceleration on the entry tick.
 `TurnRun` now keeps Melee-shaped rollback state for the old-facing
@@ -461,7 +470,7 @@ extraction from `PlCo.dat`; the current one-frame value is a lower-bound
 contract for source ordering, not a final data value.
 `RunBrake` now mirrors the source IASA shape more closely: jump and crouch are
 available, but forward or soft stick does not immediately cancel back to Run or
-Walk. The simplified Rust dash/run/turn physics still needs the full Melee
+walk. The simplified Rust dash/run/turn physics still needs the full Melee
 acceleration model, exact common-data thresholds, exact TurnRun animation-script
 timing, exact Turn facing-flip and animation-duration data extraction, and the
 rest of dash/run/turn IASA transitions.
@@ -536,21 +545,27 @@ but drive velocity from continuous stick X. Nearby values such as `0.20` and
 `0.30` should settle to nearby but distinct velocities, and left/right should
 mirror.
 
-Current Rust core status: `Walk` now follows this source-shaped target/approach
-model instead of assigning velocity directly from stick X. The constants are
-still provisional fixed-point stand-ins for Falcon's extracted walk attributes,
-but the important engine behavior is in place: first-frame walk velocity starts
-below the final analog target, later walk frames continue approaching that
-target, and leftover dash/moonwalk speed decays toward the held walk target
-instead of being snapped away. This keeps moonwalk follow-through emergent from
-velocity plus state transition timing, not from a moonwalk-specific patch.
-`Walk` now also consumes the source-shaped action slice before shield, jump, or
-continued walk: catch/grab wins first, then B-specials in walk source order
-(side, up, neutral, down), then smashes, tilts, and jab. After shield and jump,
-`Walk_IASA` calls `ftCo_Dash_CheckInput`, so the Rust core now lets a fresh
-forward dash-strength stick rise enter `Dash` from `Walk`, and a fresh opposite
-dash tap enter `Turn`; slow stick travel that misses the dash tap window keeps
-walking. There is no Walk-only narrower tap window in the decomp: with the
+Current Rust core status: `WalkSlow`, `WalkMiddle`, and `WalkFast` now share
+this source-shaped target/approach model instead of assigning velocity directly
+from stick X. The walk response values live on deterministic
+`FighterProfile` data, with the default Falcon-like profile still using
+provisional fixed-point stand-ins until exact character DAT attributes are
+extracted. The important engine behavior is in place: first-frame walk velocity
+starts below the final analog target, later walk frames continue approaching
+that target, and leftover dash/moonwalk speed decays toward the held walk target
+instead of being snapped away. Walk buckets are derived from rollback-owned
+`MeleeInputSnapshot` facts through `MeleeCommonData` thresholds, and identical
+input snapshots plus profile data produce identical walk states and checksums.
+This keeps moonwalk follow-through emergent from velocity plus state transition
+timing, not from a moonwalk-specific patch.
+The walk states now also consume the source-shaped action slice before shield,
+jump, or continued walk: catch/grab wins first, then B-specials in walk source
+order (side, up, neutral, down), then smashes, tilts, and jab. After shield and
+jump, `Walk_IASA` calls `ftCo_Dash_CheckInput`, so the Rust core now lets a
+fresh forward dash-strength stick rise enter `Dash` from a walk state, and a
+fresh opposite dash tap enter `Turn`; slow stick travel that misses the dash tap
+window keeps walking. There is no Walk-only narrower tap window in the decomp:
+with the
 provisional `x40 = 3` tap window, `Walk` accepts timer frames `0`, `1`, and `2`,
 and rejects timer `3` and later. The Rust core now uses that same exclusive
 `x_tap < x40` gate and consumes the x tap timer when Walk successfully enters
@@ -802,6 +817,14 @@ gravity begins on the following airborne tick to match the source order where
 landing physics runs before landing collision. The Python constants are still
 provisional scale matches; exact values should be replaced by parsed `PlCo.dat`
 common attributes once that data path exists.
+
+Current Rust core status: ordinary airborne contact now enters a separate
+`Landing` state instead of immediately returning to `Wait`, while `EscapeAir`
+and `FallSpecial` contact still enter `LandingFallSpecial`. Held analog shield
+does not skip the ordinary landing lag; when the landing state finishes, the
+next actionable `Wait` frame may enter `GuardOn` if shield is still held. The
+current four-frame ordinary landing duration is a provisional Falcon-like value
+until exact animation/landing-lag data is extracted.
 
 Horizontal jump velocity uses main-stick x and character jump attributes, then
 clamps against character max horizontal jump velocity. This is another reason

@@ -5,10 +5,6 @@ use crate::{
 };
 
 const GROUND_Y: i32 = 0;
-const WALK_TARGET_SPEED_PER_STICK: i32 = 6;
-const WALK_INIT_ACCEL_PER_STICK: i32 = 1;
-const WALK_ACCEL_PER_TICK: i32 = 20;
-const WALK_FRICTION_PER_TICK: i32 = 72;
 const JUMP_VELOCITY: i32 = 920;
 const SHORT_HOP_VELOCITY: i32 = 560;
 const JUMP_H_INITIAL_VELOCITY_PER_STICK: i32 = 4;
@@ -71,6 +67,7 @@ const FALCON_ESCAPE_F_FRAMES: u8 = 31;
 const FALCON_ESCAPE_B_FRAMES: u8 = 31;
 const FALCON_ATTACK_DASH_FRAMES: u8 = 39;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
+const FALCON_LANDING_FRAMES: u8 = 4;
 const GUARD_ON_TICKS: u8 = 4;
 const DASH_EARLY_ACTION_WINDOW: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.dash_early_action_window;
@@ -96,6 +93,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
     world.set_frame(frame);
     let previous_inputs = *world.previous_inputs();
     let mut input_timers = *world.input_timers();
+    let mut last_input_facts = [MeleeInputFacts::default(); 2];
 
     for (player_index, ((player, input), previous_input)) in world
         .players_mut()
@@ -108,6 +106,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
         let stick_y = input.stick_y();
         let input_snapshot = input.melee_snapshot(previous_input, input_timers[player_index]);
         let input_facts = input_snapshot.facts(MeleeInputThresholds::default());
+        last_input_facts[player_index] = input_facts;
         input_timers[player_index].x_tap = input_snapshot.x_tap_timer;
         input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
         input_timers[player_index].trigger = input_snapshot.trigger_timer;
@@ -498,6 +497,15 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = 0;
                 }
             }
+            MotionState::Landing => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                apply_ground_traction(player);
+                player.velocity.y = 0;
+                if player.motion_frame >= FALCON_LANDING_FRAMES {
+                    player.motion_state = MotionState::Wait;
+                    player.motion_frame = 0;
+                }
+            }
         }
 
         if input.attack() {
@@ -559,14 +567,14 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 ) {
                     enter_landing_fall_special(player);
                 } else {
-                    player.motion_state = MotionState::Wait;
-                    player.motion_frame = 0;
+                    enter_landing(player);
                 }
             }
         }
     }
 
     world.set_input_timers(input_timers);
+    world.set_last_input_facts(last_input_facts);
     world.set_previous_inputs(*inputs);
     world.set_frame(frame.next());
 }
@@ -994,6 +1002,16 @@ fn enter_landing_fall_special(player: &mut PlayerState) {
     player.velocity.y = 0;
 }
 
+fn enter_landing(player: &mut PlayerState) {
+    clear_shield_turn(player);
+    clear_turn_state(player);
+    player.motion_state = MotionState::Landing;
+    player.motion_frame = 0;
+    player.grounded = true;
+    player.fast_falling = false;
+    player.velocity.y = 0;
+}
+
 fn enter_air_special(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
     player.motion_state = motion_state;
     player.motion_frame = 0;
@@ -1043,15 +1061,21 @@ fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32) {
         player.facing = -1;
     }
 
-    let target_velocity = stick_x * WALK_TARGET_SPEED_PER_STICK;
-    let mut accel = stick_x * WALK_INIT_ACCEL_PER_STICK;
+    let profile = player.profile;
+    let target_velocity = stick_x * profile.walk_target_speed_per_stick;
+    let mut accel = stick_x * profile.walk_initial_accel_per_stick;
     if stick_x > 0 {
-        accel += WALK_ACCEL_PER_TICK;
+        accel += profile.walk_accel_per_tick;
     } else if stick_x < 0 {
-        accel -= WALK_ACCEL_PER_TICK;
+        accel -= profile.walk_accel_per_tick;
     }
 
-    player.velocity.x = apply_ground_accel_toward_target(player.velocity.x, accel, target_velocity);
+    player.velocity.x = apply_ground_accel_toward_target(
+        player.velocity.x,
+        accel,
+        target_velocity,
+        profile.walk_friction_per_tick,
+    );
 }
 
 fn apply_air_drift(player: &mut PlayerState, stick_x: i32) {
@@ -1184,19 +1208,21 @@ fn apply_ground_accel_toward_target(
     current_velocity: i32,
     mut accel: i32,
     target_velocity: i32,
+    friction_per_tick: i32,
 ) -> i32 {
+    let friction_per_tick = friction_per_tick.abs();
     if target_velocity == 0 {
-        return apply_friction_to_zero(current_velocity, WALK_FRICTION_PER_TICK);
+        return apply_friction_to_zero(current_velocity, friction_per_tick);
     }
 
     if current_velocity * accel >= 0 {
         if accel > 0 && current_velocity + accel > target_velocity {
-            accel = -WALK_FRICTION_PER_TICK;
+            accel = -friction_per_tick;
             if current_velocity + accel < target_velocity {
                 accel = target_velocity - current_velocity;
             }
         } else if accel < 0 && current_velocity + accel < target_velocity {
-            accel = WALK_FRICTION_PER_TICK;
+            accel = friction_per_tick;
             if current_velocity + accel > target_velocity {
                 accel = target_velocity - current_velocity;
             }

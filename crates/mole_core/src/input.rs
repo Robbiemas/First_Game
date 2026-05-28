@@ -479,6 +479,9 @@ impl Default for MeleeInputTimers {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MeleeInputThresholds {
     pub walk_x: i8,
+    pub walk_slow_x: i8,
+    pub walk_middle_x: i8,
+    pub walk_fast_x: i8,
     pub dash_x: i8,
     pub dash_tap_window: u8,
     pub turn_x: i8,
@@ -590,7 +593,7 @@ pub struct MeleeInputFacts {
 impl MeleeInputSnapshot {
     pub fn facts(self, thresholds: MeleeInputThresholds) -> MeleeInputFacts {
         let walk_direction = axis_direction(self.lstick.0, thresholds.walk_x);
-        let walk_speed_bucket = walk_speed_bucket(self.lstick.0, thresholds.walk_x);
+        let walk_speed_bucket = walk_speed_bucket(self.lstick.0, thresholds);
         let turn_direction = axis_direction(self.lstick.0, thresholds.turn_x);
         let horizontal_smash_direction = if self.x_tap_timer < thresholds.dash_tap_window {
             axis_direction(self.lstick.0, thresholds.dash_x)
@@ -1375,13 +1378,18 @@ fn axis_direction(value: i8, threshold: i8) -> i8 {
     }
 }
 
-fn walk_speed_bucket(stick_x: i8, walk_threshold: i8) -> WalkSpeedBucket {
-    let magnitude = stick_x.saturating_abs();
-    if magnitude < walk_threshold {
+fn walk_speed_bucket(stick_x: i8, thresholds: MeleeInputThresholds) -> WalkSpeedBucket {
+    let magnitude = stick_x.saturating_abs() as i16;
+    let slow_threshold =
+        threshold_abs(thresholds.walk_slow_x).max(threshold_abs(thresholds.walk_x));
+    let middle_threshold = threshold_abs(thresholds.walk_middle_x).max(slow_threshold);
+    let fast_threshold = threshold_abs(thresholds.walk_fast_x).max(middle_threshold);
+
+    if magnitude < slow_threshold {
         WalkSpeedBucket::None
-    } else if magnitude < 50 {
+    } else if magnitude < middle_threshold {
         WalkSpeedBucket::Slow
-    } else if magnitude < 90 {
+    } else if magnitude < fast_threshold {
         WalkSpeedBucket::Middle
     } else {
         WalkSpeedBucket::Fast

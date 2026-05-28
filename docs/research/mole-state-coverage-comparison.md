@@ -41,7 +41,7 @@ Defined by `MotionState` in `crates/mole_core/src/state.rs`:
   `RunBrake`, `TurnRun`, `Turn`
 - Crouch: `Squat`
 - Jump/air/landing: `KneeBend`, `JumpF`, `JumpB`, `Air`, `JumpAerialF`,
-  `JumpAerialB`, `EscapeAir`, `FallSpecial`, `LandingFallSpecial`
+  `JumpAerialB`, `EscapeAir`, `FallSpecial`, `Landing`, `LandingFallSpecial`
 - Shield/defense: `GuardOn`, `Guard`, `GuardOff`, `EscapeN`, `EscapeF`,
   `EscapeB`
 - Grab: `Catch`, `CatchDash`
@@ -54,7 +54,7 @@ Defined by `MotionState` in `crates/mole_core/src/state.rs`:
 
 Important note: Rust has fewer states than Melee, but its state boundaries are
 closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
-`GuardOff`, `EscapeAir`, `FallSpecial`, `LandingFallSpecial`, `RunBrake`,
+`GuardOff`, `EscapeAir`, `FallSpecial`, `Landing`, `LandingFallSpecial`, `RunBrake`,
 `TurnRun`, explicit walk buckets, and ground-vs-air specials.
 
 ## Coverage Matrix
@@ -63,7 +63,7 @@ closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 | --- | --- | --- | --- |
 | Death/rebirth/entry | Missing | Missing | Not needed for movement feel yet, but required for full match flow. |
 | `Wait` | `standing` | `Wait` | Covered conceptually. Rust name should be canonical. |
-| `WalkSlow/Middle/Fast` | One `walking` state plus `walkSlow`, `walkMiddle`, `walkFast` flags | `WalkSlow`, `WalkMiddle`, `WalkFast` | Rust now owns explicit walk state identity from rollback-owned input facts. Bucket thresholds are provisional until exact Melee `x28`, `x2C`, and `x30` data is extracted. |
+| `WalkSlow/Middle/Fast` | One `walking` state plus `walkSlow`, `walkMiddle`, `walkFast` flags | `WalkSlow`, `WalkMiddle`, `WalkFast` | Rust now owns explicit walk state identity from rollback-owned input facts. Bucket thresholds are centralized in `MeleeCommonData`, source-mapped to `x28`, `x2C`, and `x30`, and covered by extractor/input-fact tests while exact retail data remains a future `PlCo.dat` extraction step. Walk acceleration, target speed, and friction now come from deterministic `FighterProfile` data instead of local simulation constants. |
 | `Turn` | `turning` | `Turn` | Covered conceptually. Pygame mixes dash-out logic inside `turn()`. Rust is the cleaner model. |
 | `TurnRun` | `runTurn` | `TurnRun` | Covered conceptually. Needs continued parity checks for old-facing acceleration and no-interrupt windows. |
 | `Dash` | `dashing` | `Dash` | Covered. Current playable Pygame still recomputes dash taps from floats instead of consuming Rust's input facts. |
@@ -76,7 +76,7 @@ closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 | `Fall/FallF/FallB/FallAerial/FallAerialF/FallAerialB` | Mostly `air` | Mostly `Air` | Missing explicit fall variants. This affects animation, aerial drift state identity, and collision transitions. |
 | `FallSpecial/F/B` | `fallSpecial` | `FallSpecial` | Base state covered. Forward/back variants missing. |
 | `Squat/SquatWait/SquatRv` | `crouchStart`, `crouching`; no explicit crouch release | `Squat` only | Needs `SquatWait` and `SquatRv` before crouch and shield-drop-like behavior can be trusted. |
-| `Landing` | `landingLag` | Missing general `Landing` | Pygame has a temporary landing lag state. Rust only has `LandingFallSpecial`; add general `Landing`. |
+| `Landing` | `landingLag` | `Landing` | Rust now has a general landing state for ordinary airborne contact. Held shield does not skip landing lag; after landing lag finishes, normal grounded shield entry can happen on the next actionable frame. |
 | `LandingFallSpecial` | `landingFallSpecial` | `LandingFallSpecial` | Covered conceptually. |
 | Ground attacks | One jab, one tilt per direction, one smash per direction | Basic jab, dash attack, tilt/smash direction buckets | Missing jab chain/rapid jab and angled side tilt/smash variants. |
 | Aerial attacks | Five aerial states | Five aerial states | Covered conceptually. Missing `LandingAir*` states in both. |
@@ -135,11 +135,10 @@ current bottom-up Pygame movement audit notes.
 These are the next missing or collapsed states most likely to affect immediate
 movement feel:
 
-1. Add `Landing` as a separate general landing state.
-2. Add `SquatWait` and `SquatRv`.
-3. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
+1. Add `SquatWait` and `SquatRv`.
+2. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
    `FallAerialB`.
-4. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
+3. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
    `LandingAirLw`.
-5. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
-6. Add tech/knockdown/passive states before building full combat.
+4. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
+5. Add tech/knockdown/passive states before building full combat.

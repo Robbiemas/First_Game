@@ -1,10 +1,10 @@
 use mole_core::{
     input_common_data_field_sources, step_world, CommonDataExtractError, CommonDataProvenance,
-    Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData, MeleeInputConfig,
-    MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds, MeleeInputTimers,
-    MeleeJumpInput, MotionState, PlayerInput, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
-    UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA,
-    UCF_VERSION,
+    FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
+    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
+    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, Vec2, WalkSpeedBucket, World,
+    TICK_RATE_HZ, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA,
+    UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -44,6 +44,12 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.trigger_threshold, 1);
     assert_eq!(common.trigger_timer_threshold, 140);
     assert_eq!(thresholds.walk_x, 20);
+    assert_eq!(common.walk_slow_x, 20);
+    assert_eq!(common.walk_middle_x, 50);
+    assert_eq!(common.walk_fast_x, 90);
+    assert_eq!(thresholds.walk_slow_x, 20);
+    assert_eq!(thresholds.walk_middle_x, 50);
+    assert_eq!(thresholds.walk_fast_x, 90);
     assert_eq!(thresholds.dash_x, 80);
     assert_eq!(thresholds.dash_tap_window, 3);
     assert_eq!(common.z_shield_analog, 49);
@@ -78,6 +84,33 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(dash.source_name, "x3C");
     assert_eq!(dash.offset, 0x3c);
     assert_eq!(dash.provenance, CommonDataProvenance::ProvisionalMole);
+
+    let walk_slow = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_slow_x")
+        .expect("walk_slow_x common-data source should be recorded");
+    assert_eq!(walk_slow.source_name, "x28");
+    assert_eq!(walk_slow.offset, 0x28);
+    assert_eq!(walk_slow.provenance, CommonDataProvenance::ProvisionalMole);
+
+    let walk_middle = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_middle_x")
+        .expect("walk_middle_x common-data source should be recorded");
+    assert_eq!(walk_middle.source_name, "x2C");
+    assert_eq!(walk_middle.offset, 0x2c);
+    assert_eq!(
+        walk_middle.provenance,
+        CommonDataProvenance::ProvisionalMole
+    );
+
+    let walk_fast = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_fast_x")
+        .expect("walk_fast_x common-data source should be recorded");
+    assert_eq!(walk_fast.source_name, "x30");
+    assert_eq!(walk_fast.offset, 0x30);
+    assert_eq!(walk_fast.provenance, CommonDataProvenance::ProvisionalMole);
 
     let dash_window = sources
         .iter()
@@ -238,6 +271,9 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x18, 0.55);
     put_f32_be(&mut bytes, 0x20, std::f32::consts::FRAC_PI_4);
     put_f32_be(&mut bytes, 0x24, 0.21);
+    put_f32_be(&mut bytes, 0x28, 0.31);
+    put_f32_be(&mut bytes, 0x2c, 0.52);
+    put_f32_be(&mut bytes, 0x30, 0.74);
     put_f32_be(&mut bytes, 0x34, 0.24);
     put_f32_be(&mut bytes, 0x3c, 0.82);
     put_i32_be(&mut bytes, 0x40, 5);
@@ -278,6 +314,9 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.trigger_timer_threshold, 140);
     assert_eq!(common.aerial_vertical_angle_tan_milli, 1000);
     assert_eq!(common.walk_x, 27);
+    assert_eq!(common.walk_slow_x, 39);
+    assert_eq!(common.walk_middle_x, 66);
+    assert_eq!(common.walk_fast_x, 94);
     assert_eq!(common.turn_x, 30);
     assert_eq!(common.dash_x, 104);
     assert_eq!(common.dash_tap_window, 5);
@@ -766,6 +805,9 @@ fn player_input_can_carry_ucf_facts_for_rollback_owned_input() {
 fn melee_input_facts_classify_walk_crouch_dash_and_jump_windows() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -861,9 +903,38 @@ fn melee_input_facts_classify_walk_speed_bucket_from_current_stick() {
 }
 
 #[test]
+fn melee_input_facts_classify_walk_speed_bucket_from_common_data_thresholds() {
+    let thresholds = MeleeInputThresholds {
+        walk_x: 25,
+        walk_slow_x: 25,
+        walk_middle_x: 72,
+        walk_fast_x: 108,
+        dash_x: 120,
+        ..MeleeInputThresholds::default()
+    };
+
+    let slow = snapshot_with_timers((64, 0), (0, 0), 0xfe, 0xfe).facts(thresholds);
+    let middle = snapshot_with_timers((100, 0), (0, 0), 0xfe, 0xfe).facts(thresholds);
+    let fast = snapshot_with_timers((112, 0), (0, 0), 0xfe, 0xfe).facts(thresholds);
+
+    assert_eq!(slow.walk_direction, 1);
+    assert_eq!(middle.walk_direction, 1);
+    assert_eq!(fast.walk_direction, 1);
+    assert_eq!(slow.walk_speed_bucket, WalkSpeedBucket::Slow);
+    assert_eq!(middle.walk_speed_bucket, WalkSpeedBucket::Middle);
+    assert_eq!(fast.walk_speed_bucket, WalkSpeedBucket::Fast);
+    assert_eq!(slow.dash_direction, 0);
+    assert_eq!(middle.dash_direction, 0);
+    assert_eq!(fast.dash_direction, 0);
+}
+
+#[test]
 fn melee_input_facts_track_fast_fall_as_downward_tap_intent() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -975,6 +1046,9 @@ fn melee_input_facts_use_exclusive_shield_escape_tap_windows() {
 fn melee_input_facts_separate_tilts_from_facing_aware_smash_turns() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -1056,6 +1130,9 @@ fn melee_input_facts_separate_tilts_from_facing_aware_smash_turns() {
 fn melee_input_facts_classify_attack_intent_from_a_press_and_cstick() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -1256,6 +1333,9 @@ fn melee_input_facts_classify_attack_intent_from_a_press_and_cstick() {
 fn melee_input_facts_track_jump_source_and_short_hop_release() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -1437,6 +1517,9 @@ fn melee_input_source_lr_uses_cleaned_nonzero_trigger_before_shield_threshold() 
 fn melee_input_facts_preserve_cstick_dpad_and_trigger_clicks() {
     let thresholds = MeleeInputThresholds {
         walk_x: 20,
+        walk_slow_x: 20,
+        walk_middle_x: 50,
+        walk_fast_x: 90,
         dash_x: 80,
         dash_tap_window: 2,
         turn_x: 24,
@@ -1621,6 +1704,37 @@ fn world_owns_melee_input_timers_for_rollback() {
     step_world(&mut world, Frame(3), &[right_trigger, neutral]);
 
     assert_eq!(world.input_timers()[0].trigger, 1);
+}
+
+#[test]
+fn world_snapshot_exposes_render_state_without_mutating_core() {
+    let mut world = World::for_two_players();
+    let inputs = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &inputs);
+
+    let mut snapshot = world.snapshot();
+    let player = snapshot.players[0];
+
+    assert_eq!(snapshot.frame, world.frame());
+    assert_eq!(snapshot.checksum, world.checksum());
+    assert_eq!(player.position, world.players()[0].position);
+    assert_eq!(player.facing, world.players()[0].facing);
+    assert_eq!(player.motion_state, MotionState::WalkMiddle);
+    assert_eq!(player.state_frame, world.players()[0].motion_frame);
+    assert_eq!(player.animation_frame, world.players()[0].attack_frame);
+    assert_eq!(player.debug_input_facts.walk_direction, 1);
+    assert_eq!(
+        player.debug_input_facts.walk_speed_bucket,
+        WalkSpeedBucket::Middle
+    );
+
+    snapshot.players[0].position.x += 777;
+
+    assert_ne!(snapshot.players[0].position, world.players()[0].position);
 }
 
 #[test]
@@ -2900,6 +3014,58 @@ fn fall_special_landing_enters_landing_fall_special() {
 }
 
 #[test]
+fn ordinary_airborne_landing_enters_landing_not_wait() {
+    let mut world = World::for_two_players();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    advance_to_air(&mut world);
+    let mut frame = 4;
+    while !world.players()[0].grounded && frame < 120 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert!(world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert_eq!(world.players()[0].velocity.y, 0);
+}
+
+#[test]
+fn held_shield_does_not_skip_ordinary_landing_lag() {
+    let mut world = World::for_two_players();
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+
+    advance_to_air(&mut world);
+    let mut frame = 4;
+    while !world.players()[0].grounded && frame < 120 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+
+    for expected_motion_frame in 1..4 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+        assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+        assert_eq!(world.players()[0].motion_frame, expected_motion_frame);
+    }
+
+    step_world(&mut world, Frame(frame), &shield);
+    frame += 1;
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+
+    step_world(&mut world, Frame(frame), &shield);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+}
+
+#[test]
 fn fall_special_accepts_air_jump_like_source_iasa() {
     let mut world = World::for_two_players();
     let jump = [
@@ -3760,6 +3926,47 @@ fn wait_enters_walk_fast_after_dash_tap_window_expires() {
 }
 
 #[test]
+fn rollback_owned_input_snapshots_deterministically_select_walk_bands() {
+    for (stick_x, expected_state) in [
+        (30, MotionState::WalkSlow),
+        (64, MotionState::WalkMiddle),
+        (100, MotionState::WalkFast),
+    ] {
+        let mut a = World::for_two_players();
+        let mut b = World::for_two_players();
+        let walk = [
+            PlayerInput::neutral().with_left_stick(stick_x, 0),
+            PlayerInput::neutral(),
+        ];
+
+        if expected_state == MotionState::WalkFast {
+            let shield_walk = [
+                PlayerInput::neutral()
+                    .with_left_stick(stick_x, 0)
+                    .with_left_trigger_analog(80),
+                PlayerInput::neutral(),
+            ];
+
+            step_world(&mut a, Frame(0), &shield_walk);
+            step_world(&mut b, Frame(0), &shield_walk);
+            for frame in 1..=17 {
+                step_world(&mut a, Frame(frame), &walk);
+                step_world(&mut b, Frame(frame), &walk);
+            }
+        } else {
+            step_world(&mut a, Frame(0), &walk);
+            step_world(&mut b, Frame(0), &walk);
+        }
+
+        assert_eq!(a.players()[0].motion_state, expected_state);
+        assert_eq!(b.players()[0].motion_state, expected_state);
+        assert_eq!(a.players()[0].facing, b.players()[0].facing);
+        assert_eq!(a.players()[0].velocity, b.players()[0].velocity);
+        assert_eq!(a.checksum(), b.checksum());
+    }
+}
+
+#[test]
 fn walk_accelerates_toward_analog_target_instead_of_snapping() {
     let mut world = World::for_two_players();
     let walk_right = [
@@ -3779,6 +3986,43 @@ fn walk_accelerates_toward_analog_target_instead_of_snapping() {
     assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
     assert!(world.players()[0].velocity.x > first_walk_velocity);
     assert!(world.players()[0].velocity.x <= 40 * 6);
+}
+
+#[test]
+fn walk_velocity_uses_player_profile_attributes() {
+    let steady_profile = FighterProfile {
+        walk_target_speed_per_stick: 4,
+        walk_initial_accel_per_stick: 1,
+        walk_accel_per_tick: 12,
+        walk_friction_per_tick: 30,
+    };
+    let quick_profile = FighterProfile {
+        walk_target_speed_per_stick: 8,
+        walk_initial_accel_per_stick: 2,
+        walk_accel_per_tick: 24,
+        walk_friction_per_tick: 60,
+    };
+    let mut steady = World::for_two_players_with_profiles([steady_profile, steady_profile]);
+    let mut quick = World::for_two_players_with_profiles([quick_profile, quick_profile]);
+    let walk_right = [
+        PlayerInput::neutral().with_left_stick(40, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut steady, Frame(0), &walk_right);
+    step_world(&mut quick, Frame(0), &walk_right);
+
+    assert_eq!(steady.players()[0].motion_state, MotionState::WalkSlow);
+    assert_eq!(quick.players()[0].motion_state, MotionState::WalkSlow);
+    assert_eq!(steady.players()[0].velocity.x, 52);
+    assert_eq!(quick.players()[0].velocity.x, 104);
+    assert_ne!(steady.checksum(), quick.checksum());
+
+    step_world(&mut steady, Frame(1), &walk_right);
+    step_world(&mut quick, Frame(1), &walk_right);
+
+    assert_eq!(steady.players()[0].velocity.x, 104);
+    assert_eq!(quick.players()[0].velocity.x, 208);
 }
 
 #[test]

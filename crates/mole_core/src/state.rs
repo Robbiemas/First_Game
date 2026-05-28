@@ -1,4 +1,6 @@
-use crate::{time::Frame, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput};
+use crate::{
+    time::Frame, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput,
+};
 
 pub const PLAYER_COUNT: usize = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
@@ -7,6 +9,33 @@ pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
 pub struct Vec2 {
     pub x: i32,
     pub y: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FighterProfile {
+    pub walk_target_speed_per_stick: i32,
+    pub walk_initial_accel_per_stick: i32,
+    pub walk_accel_per_tick: i32,
+    pub walk_friction_per_tick: i32,
+}
+
+impl FighterProfile {
+    pub const FALCON_LIKE: Self = Self {
+        walk_target_speed_per_stick: 6,
+        walk_initial_accel_per_stick: 1,
+        walk_accel_per_tick: 20,
+        walk_friction_per_tick: 72,
+    };
+
+    pub const fn falcon_like() -> Self {
+        Self::FALCON_LIKE
+    }
+}
+
+impl Default for FighterProfile {
+    fn default() -> Self {
+        Self::falcon_like()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -60,10 +89,12 @@ pub enum MotionState {
     EscapeAir,
     FallSpecial,
     LandingFallSpecial,
+    Landing,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlayerState {
+    pub profile: FighterProfile,
     pub position: Vec2,
     pub velocity: Vec2,
     pub jumps_remaining: u8,
@@ -91,7 +122,12 @@ pub struct PlayerState {
 
 impl PlayerState {
     pub const fn new(x: i32, y: i32, facing: i8) -> Self {
+        Self::new_with_profile(x, y, facing, FighterProfile::FALCON_LIKE)
+    }
+
+    pub const fn new_with_profile(x: i32, y: i32, facing: i8, profile: FighterProfile) -> Self {
         Self {
+            profile,
             position: Vec2 { x, y },
             velocity: Vec2 { x: 0, y: 0 },
             jumps_remaining: 1,
@@ -119,24 +155,60 @@ impl PlayerState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlayerRenderSnapshot {
+    pub position: Vec2,
+    pub facing: i8,
+    pub motion_state: MotionState,
+    pub state_frame: u8,
+    pub animation_frame: u8,
+    pub debug_input_facts: MeleeInputFacts,
+}
+
+impl PlayerRenderSnapshot {
+    fn from_player(player: PlayerState, debug_input_facts: MeleeInputFacts) -> Self {
+        Self {
+            position: player.position,
+            facing: player.facing,
+            motion_state: player.motion_state,
+            state_frame: player.motion_frame,
+            animation_frame: player.attack_frame,
+            debug_input_facts,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorldSnapshot {
+    pub frame: Frame,
+    pub players: [PlayerRenderSnapshot; PLAYER_COUNT],
+    pub checksum: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct World {
     frame: Frame,
     players: [PlayerState; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
+    last_input_facts: [MeleeInputFacts; PLAYER_COUNT],
 }
 
 impl World {
     pub fn for_two_players() -> Self {
+        Self::for_two_players_with_profiles([FighterProfile::FALCON_LIKE; PLAYER_COUNT])
+    }
+
+    pub fn for_two_players_with_profiles(profiles: [FighterProfile; PLAYER_COUNT]) -> Self {
         Self {
             frame: Frame(0),
             players: [
-                PlayerState::new(-1_000, 0, 1),
-                PlayerState::new(1_000, 0, -1),
+                PlayerState::new_with_profile(-1_000, 0, 1, profiles[0]),
+                PlayerState::new_with_profile(1_000, 0, -1, profiles[1]),
             ],
             previous_inputs: [PlayerInput::neutral(), PlayerInput::neutral()],
             input_timers: [MeleeInputTimers::expired(); PLAYER_COUNT],
+            last_input_facts: [MeleeInputFacts::default(); PLAYER_COUNT],
         }
     }
 
@@ -172,6 +244,14 @@ impl World {
         self.input_timers = timers;
     }
 
+    pub const fn last_input_facts(&self) -> &[MeleeInputFacts; PLAYER_COUNT] {
+        &self.last_input_facts
+    }
+
+    pub(crate) fn set_last_input_facts(&mut self, facts: [MeleeInputFacts; PLAYER_COUNT]) {
+        self.last_input_facts = facts;
+    }
+
     pub fn melee_input_snapshot(
         &self,
         player_index: usize,
@@ -183,10 +263,22 @@ impl World {
         Some(current_input.melee_snapshot(previous, timers))
     }
 
+    pub fn snapshot(&self) -> WorldSnapshot {
+        WorldSnapshot {
+            frame: self.frame,
+            players: [
+                PlayerRenderSnapshot::from_player(self.players[0], self.last_input_facts[0]),
+                PlayerRenderSnapshot::from_player(self.players[1], self.last_input_facts[1]),
+            ],
+            checksum: self.checksum(),
+        }
+    }
+
     pub fn checksum(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         mix_u32(&mut hash, self.frame.0);
         for player in self.players {
+            mix_fighter_profile(&mut hash, player.profile);
             mix_i32(&mut hash, player.position.x);
             mix_i32(&mut hash, player.position.y);
             mix_i32(&mut hash, player.velocity.x);
@@ -275,6 +367,7 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::JumpAerialB => 45,
         MotionState::JumpF => 46,
         MotionState::JumpB => 47,
+        MotionState::Landing => 48,
     }
 }
 
@@ -302,6 +395,13 @@ fn mix_u64(hash: &mut u64, value: u64) {
     for byte in value.to_le_bytes() {
         mix_u8(hash, byte);
     }
+}
+
+fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
+    mix_i32(hash, profile.walk_target_speed_per_stick);
+    mix_i32(hash, profile.walk_initial_accel_per_stick);
+    mix_i32(hash, profile.walk_accel_per_tick);
+    mix_i32(hash, profile.walk_friction_per_tick);
 }
 
 fn mix_i32(hash: &mut u64, value: i32) {

@@ -103,12 +103,12 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_core/tests/core_contract.rs`
 - Update: `docs/research/mole-state-coverage-comparison.md`
 
-- [ ] Add failing tests for `Wait -> WalkSlow`, `Wait -> WalkMiddle`, and `Wait -> WalkFast`.
-- [ ] Tests should assert motion state, facing, state frame, and velocity target behavior.
-- [ ] Implement explicit `WalkSlow`, `WalkMiddle`, and `WalkFast` states or explicit state metadata if the codebase has already moved that way.
-- [ ] Keep walk acceleration/target-speed logic data-driven by character attributes.
-- [ ] Run `cargo test -p mole_core`.
-- [ ] Update the state coverage doc to mark the walk split as Rust-covered.
+- [x] Add failing tests for `Wait -> WalkSlow`, `Wait -> WalkMiddle`, and `Wait -> WalkFast`.
+- [x] Tests should assert motion state, facing, state frame, and velocity target behavior.
+- [x] Implement explicit `WalkSlow`, `WalkMiddle`, and `WalkFast` states or explicit state metadata if the codebase has already moved that way.
+- [x] Keep walk acceleration/target-speed logic data-driven by character attributes.
+- [x] Run `cargo test -p mole_core`.
+- [x] Update the state coverage doc to mark the walk split as Rust-covered.
 
 ### Task 1.2: Keep State-Local Transition Order
 
@@ -117,11 +117,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_core/src/sim.rs`
 - Test: `crates/mole_core/tests/core_contract.rs`
 
-- [ ] Add tests proving a walk frame checks higher-priority transitions before continuing walk.
-- [ ] Cover dash-from-walk only when the rollback-owned dash fact is fresh.
-- [ ] Cover soft opposite stick exiting walk without flipping facing.
-- [ ] Ensure no generic action resolver can overwrite the state later in the same frame.
-- [ ] Run `cargo test -p mole_core`.
+- [x] Add tests proving a walk frame checks higher-priority transitions before continuing walk.
+- [x] Cover dash-from-walk only when the rollback-owned dash fact is fresh.
+- [x] Cover soft opposite stick exiting walk without flipping facing.
+- [x] Ensure no generic action resolver can overwrite the state later in the same frame.
+- [x] Run `cargo test -p mole_core`.
 
 ### Task 1.3: General Landing State
 
@@ -132,11 +132,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_core/tests/core_contract.rs`
 - Update: `docs/research/mole-state-coverage-comparison.md`
 
-- [ ] Add `Landing` as a general landing state distinct from `LandingFallSpecial`.
-- [ ] Add tests for ordinary airborne landing entering `Landing`.
-- [ ] Add tests for `FallSpecial` collision entering `LandingFallSpecial`.
-- [ ] Ensure held shield does not automatically enter guard during landing lag unless the state rules allow it.
-- [ ] Run `cargo test -p mole_core`.
+- [x] Add `Landing` as a general landing state distinct from `LandingFallSpecial`.
+- [x] Add tests for ordinary airborne landing entering `Landing`.
+- [x] Add tests for `FallSpecial` collision entering `LandingFallSpecial`.
+- [x] Ensure held shield does not automatically enter guard during landing lag unless the state rules allow it.
+- [x] Run `cargo test -p mole_core`.
 
 ## Phase 2: GameCube-First Input Crate
 
@@ -149,12 +149,12 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: root `Cargo.toml`
 - Test: `crates/mole_input/tests/input_contract.rs`
 
-- [ ] Add `mole_input` to the Cargo workspace if it does not exist.
-- [ ] Define `GameCubePadStatus` with raw main stick, C-stick, L/R analog bytes, and button bits.
-- [ ] Define a deterministic `InputOrigin` captured from stable initial samples.
-- [ ] Define a packed `PlayerInput` output compatible with rollback.
-- [ ] Add tests for neutral, max left/right/up/down, C-stick, D-pad, L/R analog, and L/R digital bottom-out.
-- [ ] Run `cargo test -p mole_input`.
+- [x] Add `mole_input` to the Cargo workspace if it does not exist.
+- [x] Define `GameCubePadStatus` with raw main stick, C-stick, L/R analog bytes, and button bits.
+- [x] Define a deterministic `InputOrigin` captured from stable initial samples.
+- [x] Define a packed `PlayerInput` output compatible with rollback.
+- [x] Add tests for neutral, max left/right/up/down, C-stick, D-pad, L/R analog, and L/R digital bottom-out.
+- [x] Run `cargo test -p mole_input`.
 
 ### Task 2.2: Implement Trigger Deadzone As Input Mapping
 
@@ -163,11 +163,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_input/src/lib.rs`
 - Test: `crates/mole_input/tests/input_contract.rs`
 
-- [ ] Add tests for analog trigger values below the default deadzone mapping to zero pressure.
-- [ ] Add tests for values above deadzone remapping continuously to the full range.
-- [ ] Add tests proving L and R remain independent.
-- [ ] Add tests proving digital bottom-out remains separate from analog pressure.
-- [ ] Run `cargo test -p mole_input`.
+- [x] Add tests for analog trigger values below the default deadzone mapping to zero pressure.
+- [x] Add tests for values above deadzone remapping continuously to the full range.
+- [x] Add tests proving L and R remain independent.
+- [x] Add tests proving digital bottom-out remains separate from analog pressure.
+- [x] Run `cargo test -p mole_input`.
 
 ### Task 2.3: Implement UCF-Native Facts
 
@@ -177,11 +177,11 @@ letting input preprocessing sprawl through runtime or core code.
 - Test: `crates/mole_input/tests/ucf_contract.rs`
 - Update: `docs/research/melee-input-state-reference.md`
 
-- [ ] Add tests for dashback correction facts.
-- [ ] Add tests for shield-drop relevant stick facts without turning them into game-state decisions.
-- [ ] Add tests for snapback-resilient directional facts if current UCF research supports them locally.
-- [ ] Ensure outputs are facts consumed by the core, not direct state commands.
-- [ ] Run `cargo test -p mole_input`.
+- [x] Add tests for dashback correction facts.
+- [x] Add tests for shield-drop relevant stick facts without turning them into game-state decisions.
+- [x] Confirm current local UCF research covers cardinal cleanup, dashback, and shield-drop intent; defer separate snapback-resilient facts until source coverage exists.
+- [x] Ensure outputs are facts consumed by the core, not direct state commands.
+- [x] Run `cargo test -p mole_input`.
 
 ## Phase 3: Runtime Consumes Rust Snapshots
 
@@ -193,10 +193,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_runtime/src/main.rs`
 - Test: `crates/mole_core/tests/core_contract.rs`
 
-- [ ] Add or stabilize a read-only world snapshot type for rendering.
-- [ ] Ensure snapshot contains position, facing, motion state, state frame, animation frame, and debug input facts.
-- [ ] Ensure snapshot cannot mutate core state.
-- [ ] Run `cargo test -p mole_core`.
+- [x] Add or stabilize a read-only world snapshot type for rendering.
+- [x] Ensure snapshot contains position, facing, motion state, state frame, animation frame, and debug input facts.
+- [x] Ensure snapshot cannot mutate core state.
+- [x] Run `cargo test -p mole_core`.
 
 ### Task 3.2: SDL3 Local Harness
 

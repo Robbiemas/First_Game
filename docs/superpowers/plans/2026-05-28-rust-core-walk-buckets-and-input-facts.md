@@ -4,7 +4,7 @@
 
 **Goal:** Make the Rust core own explicit `Wait -> WalkSlow/WalkMiddle/WalkFast` transitions from rollback-owned input facts.
 
-**Architecture:** `mole_core` remains deterministic and authoritative. The input snapshot derives a walk bucket fact from current stick magnitude, and the state-local grounded transition code chooses explicit walk motion states while preserving existing walk physics and priority. Pygame remains untouched.
+**Architecture:** `mole_core` remains deterministic and authoritative. The input snapshot derives a walk bucket fact from current stick magnitude and `MeleeCommonData` thresholds, and the state-local grounded transition code chooses explicit walk motion states while preserving existing walk physics and priority. Pygame remains untouched.
 
 **Tech Stack:** Rust 2021, Cargo workspace, `mole_core` contract tests, Markdown docs.
 
@@ -24,10 +24,12 @@ Baseline at plan creation:
 ## Files
 
 - Modify: `crates/mole_core/src/input.rs`
+- Modify: `crates/mole_core/src/common_data.rs`
 - Modify: `crates/mole_core/src/lib.rs`
 - Modify: `crates/mole_core/src/state.rs`
 - Modify: `crates/mole_core/src/sim.rs`
 - Test: `crates/mole_core/tests/core_contract.rs`
+- Update: `docs/research/melee-input-state-reference.md`
 - Update: `docs/research/mole-state-coverage-comparison.md`
 
 ## Task 1: Add Walk Bucket Input Fact
@@ -35,19 +37,27 @@ Baseline at plan creation:
 - [x] Add `WalkSpeedBucket::{None, Slow, Middle, Fast}` to `crates/mole_core/src/input.rs`.
 - [x] Add `walk_speed_bucket: WalkSpeedBucket` to `MeleeInputFacts`.
 - [x] Derive the bucket from current `lstick.0` inside `MeleeInputSnapshot::facts`.
+- [x] Move bucket cutoffs into `MeleeCommonData` and `MeleeInputThresholds` instead of hardcoding them in the helper.
+- [x] Source-map `walk_slow_x`, `walk_middle_x`, and `walk_fast_x` to `x28`, `x2C`, and `x30`.
 - [x] Export `WalkSpeedBucket` from `crates/mole_core/src/lib.rs`.
 - [x] Add a failing contract test named `melee_input_facts_classify_walk_speed_bucket_from_current_stick`.
+- [x] Add a failing contract test named `melee_input_facts_classify_walk_speed_bucket_from_common_data_thresholds`.
 - [x] Verify RED with `cargo test -p mole_core melee_input_facts_classify_walk_speed_bucket_from_current_stick`.
-- [x] Implement the minimal helper:
+- [x] Implement the data-driven helper:
 
 ```rust
-fn walk_speed_bucket(stick_x: i8, walk_threshold: i8) -> WalkSpeedBucket {
-    let magnitude = stick_x.saturating_abs();
-    if magnitude < walk_threshold {
+fn walk_speed_bucket(stick_x: i8, thresholds: MeleeInputThresholds) -> WalkSpeedBucket {
+    let magnitude = stick_x.saturating_abs() as i16;
+    let slow_threshold =
+        threshold_abs(thresholds.walk_slow_x).max(threshold_abs(thresholds.walk_x));
+    let middle_threshold = threshold_abs(thresholds.walk_middle_x).max(slow_threshold);
+    let fast_threshold = threshold_abs(thresholds.walk_fast_x).max(middle_threshold);
+
+    if magnitude < slow_threshold {
         WalkSpeedBucket::None
-    } else if magnitude < 50 {
+    } else if magnitude < middle_threshold {
         WalkSpeedBucket::Slow
-    } else if magnitude < 90 {
+    } else if magnitude < fast_threshold {
         WalkSpeedBucket::Middle
     } else {
         WalkSpeedBucket::Fast
@@ -78,11 +88,21 @@ cargo test -p mole_core wait_enters_walk_
 cargo test -p mole_core walk_state_
 ```
 
+## Task 2.5: Route Walk Physics Through Fighter Profile Data
+
+- [x] Add a failing contract test named `walk_velocity_uses_player_profile_attributes`.
+- [x] Add deterministic `FighterProfile` walk fields for target speed, initial acceleration, walk acceleration, and walk friction.
+- [x] Seed `World::for_two_players` with the default Falcon-like profile.
+- [x] Add `World::for_two_players_with_profiles` so tests and future replay/session setup can choose deterministic profiles explicitly.
+- [x] Include profile walk fields in the world checksum.
+- [x] Route `apply_walk_velocity` through the player's profile instead of file-local walk constants.
+- [x] Verify GREEN with `cargo test -p mole_core walk_velocity_uses_player_profile_attributes`.
+
 ## Task 3: Update Coverage Docs
 
 - [x] Update the Rust state list in `docs/research/mole-state-coverage-comparison.md` to include `WalkSlow`, `WalkMiddle`, and `WalkFast`.
 - [x] Update the `WalkSlow/Middle/Fast` coverage row to mark Rust covered.
-- [x] Note that bucket thresholds are provisional until exact Melee `x28`, `x2C`, and `x30` data is extracted.
+- [x] Note that bucket thresholds are now centralized and source-mapped to Melee `x28`, `x2C`, and `x30`, with exact retail values still awaiting a real `PlCo.dat` extraction.
 - [x] Remove the walk split from the open priority add list.
 
 ## Task 4: Verify Slice

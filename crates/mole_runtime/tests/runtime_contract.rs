@@ -1,4 +1,7 @@
-use mole_core::{Frame, GameCubeButtonState, GameCubePadStatus, PlayerInput, World};
+use mole_core::{
+    step_world, Frame, GameCubeButtonState, GameCubePadStatus, MotionState, PlayerInput,
+    WalkSpeedBucket, World,
+};
 use mole_runtime::{
     map_gamecube_pad_to_player_input, map_physical_input, parse_wup_report, FixedStepClock,
     InputReadout, InputSource, PhysicalInput, RenderFrame, WupInputMapper, WupPort,
@@ -46,6 +49,41 @@ fn render_frame_copies_world_without_owning_simulation_state() {
     assert_eq!(render_frame.frame, world.frame());
     assert_eq!(render_frame.checksum, world.checksum());
     assert_eq!(
+        render_frame.player_positions[0],
+        world.players()[0].position
+    );
+}
+
+#[test]
+fn render_frame_consumes_core_snapshot_boundary() {
+    let mut world = World::for_two_players();
+    let inputs = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &inputs);
+
+    let core_snapshot = world.snapshot();
+    let mut render_frame = RenderFrame::from_snapshot(core_snapshot);
+
+    assert_eq!(render_frame.frame, core_snapshot.frame);
+    assert_eq!(
+        render_frame.player_motion_states[0],
+        MotionState::WalkMiddle
+    );
+    assert_eq!(
+        render_frame.player_state_frames[0],
+        core_snapshot.players[0].state_frame
+    );
+    assert_eq!(
+        render_frame.player_debug_input_facts[0].walk_speed_bucket,
+        WalkSpeedBucket::Middle
+    );
+
+    render_frame.player_positions[0].x += 99;
+
+    assert_ne!(
         render_frame.player_positions[0],
         world.players()[0].position
     );

@@ -16,5 +16,8 @@ pub use input::{
     UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 pub use sim::step_world;
-pub use state::{MotionState, PlayerState, Vec2, World, PLAYER_COUNT};
+pub use state::{
+    FighterProfile, MotionState, PlayerRenderSnapshot, PlayerState, Vec2, World, WorldSnapshot,
+    PLAYER_COUNT,
+};
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};

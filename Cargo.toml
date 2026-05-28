@@ -5,6 +5,7 @@ members = [
     "crates/mole_replay",
     "crates/mole_transport",
     "crates/mole_runtime",
+    "crates/mole_input",
 ]
 resolver = "2"
 

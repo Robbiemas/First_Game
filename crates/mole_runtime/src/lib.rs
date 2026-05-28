@@ -1,4 +1,7 @@
-use mole_core::{Frame, GameCubePadStatus, PlayerInput, Vec2, World, TICK_NANOS};
+use mole_core::{
+    Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput, Vec2, World,
+    WorldSnapshot, TICK_NANOS,
+};
 
 #[cfg(feature = "sdl")]
 pub mod sdl_input;
@@ -161,15 +164,41 @@ fn axis_to_i8(value: i16) -> i8 {
 pub struct RenderFrame {
     pub frame: Frame,
     pub player_positions: [Vec2; 2],
+    pub player_facings: [i8; 2],
+    pub player_motion_states: [MotionState; 2],
+    pub player_state_frames: [u8; 2],
+    pub player_animation_frames: [u8; 2],
+    pub player_debug_input_facts: [MeleeInputFacts; 2],
     pub checksum: u64,
 }
 
 impl RenderFrame {
     pub fn from_world(world: &World) -> Self {
+        Self::from_snapshot(world.snapshot())
+    }
+
+    pub fn from_snapshot(snapshot: WorldSnapshot) -> Self {
         Self {
-            frame: world.frame(),
-            player_positions: [world.players()[0].position, world.players()[1].position],
-            checksum: world.checksum(),
+            frame: snapshot.frame,
+            player_positions: [snapshot.players[0].position, snapshot.players[1].position],
+            player_facings: [snapshot.players[0].facing, snapshot.players[1].facing],
+            player_motion_states: [
+                snapshot.players[0].motion_state,
+                snapshot.players[1].motion_state,
+            ],
+            player_state_frames: [
+                snapshot.players[0].state_frame,
+                snapshot.players[1].state_frame,
+            ],
+            player_animation_frames: [
+                snapshot.players[0].animation_frame,
+                snapshot.players[1].animation_frame,
+            ],
+            player_debug_input_facts: [
+                snapshot.players[0].debug_input_facts,
+                snapshot.players[1].debug_input_facts,
+            ],
+            checksum: snapshot.checksum,
         }
     }
 }

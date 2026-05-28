@@ -47,6 +47,13 @@ name = "mole_core"
 version = "0.1.0"
 
 [[package]]
+name = "mole_input"
+version = "0.1.0"
+dependencies = [
+ "mole_core",
+]
+
+[[package]]
 name = "mole_replay"
 version = "0.1.0"
 dependencies = [
