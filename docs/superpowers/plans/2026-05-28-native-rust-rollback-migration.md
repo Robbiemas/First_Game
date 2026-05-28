@@ -323,10 +323,10 @@ letting input preprocessing sprawl through runtime or core code.
 - Modify: `crates/mole_signaling/src/lib.rs`
 - Create: `docs/architecture/supabase-signaling-notes.md`
 
-- [ ] Use Supabase only for presence, matchmaking, room codes, and setup message exchange.
-- [ ] Document free-tier constraints and failure modes.
-- [ ] Keep direct IP/UDP available without Supabase.
-- [ ] Do not send 60 Hz gameplay input through Supabase.
+- [x] Use Supabase only for presence, matchmaking, room codes, and setup message exchange.
+- [x] Document free-tier constraints and failure modes.
+- [x] Keep direct IP/UDP available without Supabase.
+- [x] Do not send 60 Hz gameplay input through Supabase.
 
 ## Phase 8: WebRTC Transport
 

@@ -1,5 +1,6 @@
 use mole_signaling::{
     DirectEndpoint, SessionDescription, SignalingMessage, SignalingValidationError,
+    SupabaseRealtimeLimits, SupabaseRealtimePurpose, SupabaseUsageError,
 };
 
 #[test]
@@ -75,4 +76,41 @@ fn signaling_messages_are_separate_from_gameplay_input_packets() {
     assert!(!json.contains("\"frame\""));
     assert!(!json.contains("\"input\""));
     assert!(!json.contains("\"checksum\""));
+}
+
+#[test]
+fn supabase_policy_allows_only_lobby_and_setup_purposes() {
+    assert_eq!(
+        SupabaseRealtimePurpose::Presence.validate_for_supabase(),
+        Ok(())
+    );
+    assert_eq!(
+        SupabaseRealtimePurpose::Matchmaking.validate_for_supabase(),
+        Ok(())
+    );
+    assert_eq!(
+        SupabaseRealtimePurpose::RoomCode.validate_for_supabase(),
+        Ok(())
+    );
+    assert_eq!(
+        SupabaseRealtimePurpose::SetupMessage.validate_for_supabase(),
+        Ok(())
+    );
+    assert_eq!(
+        SupabaseRealtimePurpose::GameplayInput.validate_for_supabase(),
+        Err(SupabaseUsageError::GameplayInputNotAllowed)
+    );
+}
+
+#[test]
+fn free_plan_limits_show_naive_sixty_hertz_gameplay_exceeds_setup_budget() {
+    let free_limits = SupabaseRealtimeLimits::free_plan();
+    let naive_two_player_input_events =
+        SupabaseRealtimeLimits::gameplay_input_events_per_second(2, 60);
+
+    assert_eq!(free_limits.concurrent_connections, 200);
+    assert_eq!(free_limits.messages_per_second, 100);
+    assert_eq!(free_limits.presence_messages_per_second, 20);
+    assert_eq!(naive_two_player_input_events, 120);
+    assert!(!free_limits.can_fit_messages_per_second(naive_two_player_input_events));
 }

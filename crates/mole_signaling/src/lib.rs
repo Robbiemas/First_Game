@@ -184,6 +184,54 @@ pub enum SignalingValidationError {
     InvalidDirectEndpoint,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupabaseRealtimePurpose {
+    Presence,
+    Matchmaking,
+    RoomCode,
+    SetupMessage,
+    GameplayInput,
+}
+
+impl SupabaseRealtimePurpose {
+    pub const fn validate_for_supabase(self) -> Result<(), SupabaseUsageError> {
+        match self {
+            Self::Presence | Self::Matchmaking | Self::RoomCode | Self::SetupMessage => Ok(()),
+            Self::GameplayInput => Err(SupabaseUsageError::GameplayInputNotAllowed),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupabaseUsageError {
+    GameplayInputNotAllowed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SupabaseRealtimeLimits {
+    pub concurrent_connections: u32,
+    pub messages_per_second: u32,
+    pub presence_messages_per_second: u32,
+}
+
+impl SupabaseRealtimeLimits {
+    pub const fn free_plan() -> Self {
+        Self {
+            concurrent_connections: 200,
+            messages_per_second: 100,
+            presence_messages_per_second: 20,
+        }
+    }
+
+    pub const fn can_fit_messages_per_second(self, events_per_second: u32) -> bool {
+        events_per_second <= self.messages_per_second
+    }
+
+    pub const fn gameplay_input_events_per_second(players: u32, simulation_hz: u32) -> u32 {
+        players.saturating_mul(simulation_hz)
+    }
+}
+
 fn is_valid_room_code(room_code: &str) -> bool {
     (4..=12).contains(&room_code.len())
         && room_code
