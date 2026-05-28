@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use mole_core::{
-    Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput, Vec2, World,
+    step_world, Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput, Vec2, World,
     WorldSnapshot, TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
@@ -69,6 +69,16 @@ impl FixedStepClock {
 
 pub trait InputSource {
     fn poll_inputs(&mut self, frame: Frame) -> [PlayerInput; 2];
+}
+
+pub fn step_world_from_input_source<S: InputSource + ?Sized>(
+    world: &mut World,
+    input_source: &mut S,
+    frame: Frame,
+) -> [PlayerInput; 2] {
+    let inputs = input_source.poll_inputs(frame);
+    step_world(world, frame, &inputs);
+    inputs
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

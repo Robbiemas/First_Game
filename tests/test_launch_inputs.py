@@ -1,7 +1,10 @@
 import importlib
 import sys
+from pathlib import Path
 
 import pygame
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class PlayerStub:
@@ -62,6 +65,16 @@ def test_main_module_enables_sdl_gamecube_hidapi(monkeypatch):
 
     assert module.os.environ["SDL_JOYSTICK_HIDAPI"] == "1"
     assert module.os.environ["SDL_JOYSTICK_HIDAPI_GAMECUBE"] == "1"
+
+
+def test_sdl3_runtime_launcher_builds_with_native_wup_feature():
+    launcher = ROOT / "execs" / "Run SDL3 Runtime.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert '--features "sdl wup"' in text
+    assert "-- --sdl" in text
+    assert "--features sdl -- --sdl" not in text
 
 
 def test_main_menu_is_skipped_by_default(monkeypatch):

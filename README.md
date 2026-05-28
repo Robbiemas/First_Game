@@ -67,7 +67,7 @@ From `D:\Mole Game\First_Game`:
 cargo test --workspace
 cargo run -p mole_runtime -- --frames 120
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup_sdl3.ps1
-cargo run -p mole_runtime --features sdl -- --sdl --frames 600
+cargo run -p mole_runtime --features "sdl wup" -- --sdl --frames 600
 cargo run -p mole_runtime -- --record-replay --frames 600
 ```
 

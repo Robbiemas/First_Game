@@ -3,16 +3,16 @@ use std::path::{Path, PathBuf};
 use mole_core::{step_world, Frame, PlayerInput, World};
 use mole_transport::{InputPacket, InputPacketInbox, UdpTransport};
 
-#[cfg(any(feature = "sdl", feature = "wup"))]
+#[cfg(feature = "wup")]
 use mole_core::TICK_NANOS;
 
 #[cfg(feature = "sdl")]
-use mole_runtime::{
-    configure_sdl_controller_hints, DebugOverlay, RenderColor, RenderRect, RenderScene,
-    SdlInputSource,
-};
+use mole_runtime::configure_sdl_controller_hints;
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
+use mole_runtime::{DebugOverlay, RenderColor, RenderRect, RenderScene, SdlInputSource};
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 use sdl3::{
     pixels::Color,
     render::{FRect, WindowCanvas},
@@ -47,7 +47,7 @@ fn main() {
         #[cfg(not(feature = "sdl"))]
         if has_flag(&args, "--sdl") {
             eprintln!(
-                "UDP SDL runtime needs: cargo run -p mole_runtime --features sdl -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
+                "UDP SDL runtime needs native WUP gameplay input: cargo run -p mole_runtime --features \"sdl wup\" -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
             );
             std::process::exit(2);
         }
@@ -168,7 +168,9 @@ fn main() {
 
     #[cfg(not(feature = "sdl"))]
     if has_flag(&args, "--sdl") {
-        eprintln!("The SDL3 runtime needs: cargo run -p mole_runtime --features sdl -- --sdl");
+        eprintln!(
+            "The SDL3 native WUP runtime needs: cargo run -p mole_runtime --features \"sdl wup\" -- --sdl"
+        );
         std::process::exit(2);
     }
 
@@ -285,7 +287,7 @@ fn drain_udp_packets(
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn run_udp_sdl(
     frames: u32,
     config: mole_runtime::UdpRuntimeConfig,
@@ -300,7 +302,8 @@ fn run_udp_sdl(
         .build()
         .map_err(|error| error.to_string())?;
     let mut canvas = window.into_canvas();
-    let mut input_source = SdlInputSource::new(&sdl)?;
+    let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
+    let mut local_input_source = WupInputSource::open()?;
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
         .map_err(|error| error.to_string())?;
     let initial = World::for_two_players();
@@ -312,7 +315,8 @@ fn run_udp_sdl(
 
     for frame_number in 0..frames {
         let frame = Frame(frame_number);
-        let polled_inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, frame);
+        let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, frame);
+        let polled_inputs = mole_runtime::InputSource::poll_inputs(&mut local_input_source, frame);
         drain_udp_packets(&transport, &mut inbox, &mut stats, frame)?;
 
         let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -350,7 +354,7 @@ fn run_udp_sdl(
             Some(&overlay),
         )?;
 
-        if input_source.quit_requested() {
+        if sdl_shell_input.quit_requested() {
             break;
         }
 
@@ -364,10 +368,10 @@ fn run_udp_sdl(
     }
 
     println!(
-        "final_frame={} checksum={} gamepads={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?} udp_rtt_frames={:?}",
+        "final_frame={} checksum={} input_backend=wup sdl_gamepads={} udp_sent={} udp_recv={} udp_dup={} udp_unsupported={} udp_missing={} udp_last_remote_frame={:?} udp_last_remote_checksum={:?} udp_rtt_frames={:?}",
         world.frame().0,
         world.checksum(),
-        input_source.gamepad_count(),
+        sdl_shell_input.gamepad_count(),
         stats.sent_packets,
         stats.received_packets,
         stats.duplicate_packets,
@@ -380,7 +384,19 @@ fn run_udp_sdl(
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", not(feature = "wup")))]
+fn run_udp_sdl(
+    _frames: u32,
+    _config: mole_runtime::UdpRuntimeConfig,
+    _replay_path: Option<&Path>,
+) -> Result<(), String> {
+    Err(
+        "UDP SDL runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
+            .to_string(),
+    )
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
@@ -392,16 +408,22 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
         .map_err(|error| error.to_string())?;
     let mut canvas = window.into_canvas();
 
-    let mut input_source = SdlInputSource::new(&sdl)?;
+    let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
+    let mut gameplay_input_source = WupInputSource::open()?;
     let initial = World::for_two_players();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 
     for frame in 0..frames {
-        let inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, Frame(frame));
-        step_world(&mut world, Frame(frame), &inputs);
+        let frame = Frame(frame);
+        let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, frame);
+        let inputs = mole_runtime::step_world_from_input_source(
+            &mut world,
+            &mut gameplay_input_source,
+            frame,
+        );
         if let Some(capture) = replay_capture.as_mut() {
-            capture.record_frame(Frame(frame), inputs, world.checksum());
+            capture.record_frame(frame, inputs, world.checksum());
         }
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
         let overlay = DebugOverlay::from_frame(&render_frame);
@@ -412,7 +434,7 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
             Some(&overlay),
         )?;
 
-        if input_source.quit_requested() {
+        if sdl_shell_input.quit_requested() {
             break;
         }
 
@@ -425,15 +447,23 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
     }
 
     println!(
-        "final_frame={} checksum={} gamepads={}",
+        "final_frame={} checksum={} input_backend=wup sdl_gamepads={}",
         world.frame().0,
         world.checksum(),
-        input_source.gamepad_count()
+        sdl_shell_input.gamepad_count()
     );
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", not(feature = "wup")))]
+fn run_sdl_smoke(_frames: u32, _replay_path: Option<&Path>) -> Result<(), String> {
+    Err(
+        "SDL3 runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --sdl"
+            .to_string(),
+    )
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn draw_sdl_scene(
     canvas: &mut WindowCanvas,
     scene: &RenderScene,
@@ -454,7 +484,7 @@ fn draw_sdl_scene(
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn draw_sdl_rect(canvas: &mut WindowCanvas, rect: RenderRect) -> Result<(), String> {
     canvas.set_draw_color(sdl_color(rect.color));
     canvas
@@ -467,7 +497,7 @@ fn draw_sdl_rect(canvas: &mut WindowCanvas, rect: RenderRect) -> Result<(), Stri
         .map_err(|error| error.to_string())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn draw_debug_overlay(canvas: &mut WindowCanvas, overlay: &DebugOverlay) -> Result<(), String> {
     let color = Color::RGBA(235, 240, 248, 255);
     for (index, line) in overlay.lines.iter().enumerate() {
@@ -476,7 +506,7 @@ fn draw_debug_overlay(canvas: &mut WindowCanvas, overlay: &DebugOverlay) -> Resu
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn draw_sdl_label(
     canvas: &mut WindowCanvas,
     text: &str,
@@ -512,7 +542,7 @@ fn draw_sdl_label(
     Ok(())
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn debug_glyph(character: char) -> [&'static str; 5] {
     match character {
         '0' => ["111", "101", "101", "101", "111"],
@@ -556,7 +586,7 @@ fn debug_glyph(character: char) -> [&'static str; 5] {
     }
 }
 
-#[cfg(feature = "sdl")]
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn sdl_color(color: RenderColor) -> Color {
     Color::RGBA(color.r, color.g, color.b, color.a)
 }
@@ -668,10 +698,11 @@ fn run_wup_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> 
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 
     for frame in 0..frames {
-        let inputs = mole_runtime::InputSource::poll_inputs(&mut input_source, Frame(frame));
-        step_world(&mut world, Frame(frame), &inputs);
+        let frame = Frame(frame);
+        let inputs =
+            mole_runtime::step_world_from_input_source(&mut world, &mut input_source, frame);
         if let Some(capture) = replay_capture.as_mut() {
-            capture.record_frame(Frame(frame), inputs, world.checksum());
+            capture.record_frame(frame, inputs, world.checksum());
         }
         std::thread::sleep(std::time::Duration::from_nanos(TICK_NANOS));
     }

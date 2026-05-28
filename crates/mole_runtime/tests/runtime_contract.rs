@@ -48,6 +48,19 @@ fn input_source_returns_frame_indexed_inputs() {
 }
 
 #[test]
+fn runtime_step_uses_input_source_output_for_authoritative_gameplay() {
+    let mut source = ScriptedInputSource {
+        input: PlayerInput::neutral().with_left_stick(64, 0),
+    };
+    let mut world = World::for_two_players();
+
+    let inputs = mole_runtime::step_world_from_input_source(&mut world, &mut source, Frame(0));
+
+    assert_eq!(inputs[0].stick_x(), 64);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkMiddle);
+}
+
+#[test]
 fn render_frame_copies_world_without_owning_simulation_state() {
     let world = World::for_two_players();
     let render_frame = RenderFrame::from_world(&world);
