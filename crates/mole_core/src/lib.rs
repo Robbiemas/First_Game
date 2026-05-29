@@ -7,7 +7,9 @@ mod state;
 mod time;
 mod units;
 
-pub use collision::{landing_contact_for_bottom, EcbDiamond, StageLandingContact};
+pub use collision::{
+    has_floor_support, landing_contact_for_bottom, EcbDiamond, StageLandingContact,
+};
 pub use common_data::{
     input_common_data_field_sources, CommonDataExtractError, CommonDataFieldSource,
     CommonDataProvenance, MeleeCommonData,

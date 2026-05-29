@@ -1,8 +1,9 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
-    collision::landing_contact_for_bottom, state::EXPIRED_INPUT_TIMER, Frame, MeleeInputFacts,
-    MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput, PlayerState, WalkSpeedBucket,
-    World,
+    collision::{has_floor_support, landing_contact_for_bottom},
+    state::EXPIRED_INPUT_TIMER,
+    Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput,
+    PlayerState, WalkSpeedBucket, World,
 };
 
 const GROUND_Y: i32 = 0;
@@ -467,6 +468,12 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 }
             }
             MotionState::LandingFallSpecial => {
+                if !has_floor_support(stage, player.position) {
+                    player.grounded = false;
+                    player.motion_state = MotionState::FallSpecial;
+                    player.motion_frame = 0;
+                    continue;
+                }
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 apply_ground_traction(player);
                 player.velocity.y = 0;
@@ -476,6 +483,12 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 }
             }
             MotionState::Landing => {
+                if !has_floor_support(stage, player.position) {
+                    player.grounded = false;
+                    player.motion_state = MotionState::Air;
+                    player.motion_frame = 0;
+                    continue;
+                }
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 apply_ground_traction(player);
                 player.velocity.y = 0;

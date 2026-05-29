@@ -78,3 +78,9 @@ pub fn landing_contact_for_bottom(
 
     best
 }
+
+pub fn has_floor_support(stage: StageProfile, bottom: Vec2) -> bool {
+    stage.collision_surfaces().iter().any(|surface| {
+        bottom.y == surface.y && bottom.x >= surface.left_x && bottom.x <= surface.right_x
+    })
+}

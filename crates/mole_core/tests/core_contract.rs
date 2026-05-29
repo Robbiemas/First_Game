@@ -184,6 +184,41 @@ fn vertical_stage_contact_ignores_soft_platform_when_dropping_through() {
 }
 
 #[test]
+fn stage_floor_support_requires_surface_range_and_matching_height() {
+    let stage = StageProfile::battlefield_test();
+    let floor = stage.main_floor;
+
+    assert!(mole_core::has_floor_support(
+        stage,
+        Vec2 {
+            x: floor.left_x,
+            y: floor.y,
+        }
+    ));
+    assert!(mole_core::has_floor_support(
+        stage,
+        Vec2 {
+            x: floor.right_x,
+            y: floor.y,
+        }
+    ));
+    assert!(!mole_core::has_floor_support(
+        stage,
+        Vec2 {
+            x: floor.left_x - 1,
+            y: floor.y,
+        }
+    ));
+    assert!(!mole_core::has_floor_support(
+        stage,
+        Vec2 {
+            x: 0,
+            y: floor.y + 1,
+        }
+    ));
+}
+
+#[test]
 fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     let profile = FighterProfile::falcon_like();
 
