@@ -244,14 +244,16 @@ named by offset in the decomp, so this table maps them by observed use.
 | `x18` | Analog trigger timer threshold: `fighter.c` advances `x672_input_timer_counter` only when current and previous combined `input.x650` are at or above this value. The current Mole provisional byte value is 140. |
 | `x20_radians` | Angle gate used to separate side tilts from up/down tilts. |
 | `x24` | Walk entry threshold. |
-| `x28`, `x2C`, `x30` | Walk speed bucket thresholds used by walk common code. |
+| `x28`, `x2C` | Walk velocity ratios used by `ftWalkCommon_GetWalkType`: middle/fast walk are selected from current ground velocity as a fraction of character `walk_max_vel`. |
+| `x30` | Walk acceleration taper used by `ftWalkCommon_800E0060` when current ground velocity is already moving toward the target walk velocity. |
 | `x34` | Standing turn threshold. |
 | `x38_someLStickXThreshold` | Turn-run threshold. |
 | `x3C` | Horizontal smash/dash threshold. |
 | `x40` | Horizontal smash/tap window. |
 | `x44`, `x48`, `x4C` | Dash-state IASA windows/checks. |
 | `x58_someLStickXThreshold` | Run and run-brake threshold. |
-| `x60_someFrictionMul` | Turn-run friction multiplier. |
+| `x5C` | Run acceleration taper used by `ftCo_Run_Phys` as current ground velocity approaches target run velocity. |
+| `x60_someFrictionMul` | Dash, run, turn-run, and run-brake ground friction multiplier. |
 | `x68` | GuardOn catch-dash window copied into `mv.co.guard.x24` after run/dash shield entry. |
 | `tap_jump_threshold` | Upward stick threshold for tap jump. |
 | `x74` | Tap-jump timer window. |
@@ -272,7 +274,7 @@ named by offset in the decomp, so this table maps them by observed use.
 | `escapeair_deadzone`, `x334`, `escapeair_force`, `escapeair_decay`, `x340`, `x344` | Air-dodge vector/deceleration/landing-fallspecial data used by wavedash behavior. `x334` seeds `mv.co.escapeair.timer`; it is an EscapeAir IASA/action timer, not the total animation duration. |
 | `x25C` | Fall-special collision/landing condition. |
 | `x430` | Run no-interrupt timer seeded when TurnRun resolves into Run. |
-| `x440` | Walk common transition field referenced by walk code. |
+| `x440` | Walk/run animation-reference velocity scale (`mv.co.walk.x0` / `mv.co.run.x4`), not a gameplay velocity cap. |
 
 Exact one-to-one behavior eventually needs the numeric `ftCommonData` table and
 character attribute tables, not just these field names. The decomp tells us
@@ -292,10 +294,14 @@ are now DAT-backed, while broader input thresholds should still be treated as
 provisional unless documented with source offset and extracted data source.
 
 Implementation status: `crates/mole_core/src/common_data.rs` now owns the
-current provisional threshold values through `MeleeCommonData::provisional_mole`,
-including the walk bucket fields `x28`, `x2C`, and `x30` plus the run/run-brake
-threshold `x58`, exposes source-offset metadata through
-`input_common_data_field_sources`, and has a tested
+current provisional threshold values through `MeleeCommonData::provisional_mole`.
+The same struct also carries extracted walk/run physics fields: `x28` and
+`x2C` as walk velocity ratios, `x30` as walk acceleration taper, `x5C` as run
+acceleration taper, `x60` as dash/run/run-brake friction multiplier, and `x440`
+as an animation-reference velocity scale. The walk input bucket cutoffs remain
+provisional Rust input facts until their exact source relationship is verified;
+they are no longer treated as `x28`/`x2C`/`x30` data. Common data exposes
+source-offset metadata through `input_common_data_field_sources`, and has a tested
 `MeleeCommonData::from_plco_bytes` extractor for the known
 big-endian common-data offsets. The extractor reads real source field types
 (`float`, `int`, and `Vec2`) and converts them into the current Rust core units:
@@ -431,9 +437,10 @@ falling through to `Walk`. Same-direction soft stick still enters analog
 `MotionState::WalkSlow`, `MotionState::WalkMiddle`, or
 `MotionState::WalkFast` from rollback-owned input facts, and once walking has
 started a later high stick value does not retroactively become dash if the x tap
-timer has aged out. The walk speed bucket cutoffs are centralized in
-`MeleeCommonData` with tested `x28`, `x2C`, and `x30` provenance instead of
-living as ad hoc movement constants. Fresh forward dash and fresh opposite
+timer has aged out. The walk input bucket cutoffs are centralized in
+`MeleeCommonData` as provisional input facts; the decomp-backed `x28`, `x2C`,
+and `x30` values now feed walk velocity classification/taper data separately
+instead of being mislabeled as input cutoffs. Fresh forward dash and fresh opposite
 smash-turn share the Melee dash check and have priority over crouch; crouch
 still has priority over the softer standing-turn check.
 The compact Turn IASA slice now accepts grounded side/down/up special, catch,
@@ -962,8 +969,14 @@ Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
 `inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
 `dash_run_acceleration_b` is added by input side, and the run target scales from
 `dash_run_terminal_velocity` rather than always clamping to full run speed.
-RunBrake now consumes extracted `max_run_brake_frames` from the Captain Falcon
-bootstrap profile.
+Walk physics now follows `ftWalkCommon_800E0060`: main-stick X scales
+`walk_init_vel` and `walk_max_vel`, `walk_accel` is added by input side, PlCo
+`x30` tapers acceleration while already approaching target velocity, and
+`gr_friction` is the friction argument to the shared ground-acceleration helper.
+Run physics now applies PlCo `x5C` target-approach taper, while Dash, Run,
+TurnRun, and RunBrake apply `gr_friction * x60_someFrictionMul`. RunBrake now
+also consumes extracted `max_run_brake_frames` from the Captain Falcon bootstrap
+profile.
 Basic standing-turn facing timing now reads the profile-owned
 `frames_to_change_direction_on_standing_turn` field.
 The full standing-turn lifetime now reads

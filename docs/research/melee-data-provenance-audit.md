@@ -51,15 +51,23 @@ resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`.
   threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
   reads the centralized value through `MeleeCommonData` instead of a local
   hardcoded constant.
+- `MeleeCommonData::from_plco_bytes` now extracts walk/run physics multipliers
+  from PlCo: `x28`/`x2C` walk velocity ratios, `x30` walk acceleration taper,
+  `x5C` run acceleration taper, `x60_someFrictionMul` for dash/run/run-brake
+  friction, and `x440` as walk/run animation-reference velocity scale. The
+  older Rust walk input-bucket thresholds remain explicitly provisional and are
+  no longer labeled as `x28`/`x2C`/`x30` source fields.
 - `MeleeCommonData::from_plco_bytes` now extracts common-data `x6C`, the
   high-speed ground-friction multiplier used by `ft_80084F3C` when ground
   velocity exceeds `walk_max_vel`; wavedash landing slide friction now reads
   this value from world-owned common data.
 - `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
-  `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,
-  `dash_run_acceleration_a`, `dash_run_acceleration_b`,
-  `dash_run_terminal_velocity`, `max_run_brake_frames`,
+  `walk_initial_velocity`, `walk_accel`, `walk_max_vel`,
+  `slow_walk_max_velocity`, `mid_walk_threshold`, `fast_walk_threshold`,
+  `gr_friction`, `dash_initial_velocity`, `dash_run_acceleration_a`,
+  `dash_run_acceleration_b`, `dash_run_terminal_velocity`,
+  `run_animation_scaling`, `max_run_brake_frames`,
   `ground_max_horizontal_velocity`, `jump_startup_time`,
   `jump_h_initial_velocity`, `jump_v_initial_velocity`,
   `ground_to_air_jump_momentum_multiplier`, `jump_h_max_velocity`,
@@ -77,6 +85,13 @@ resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`.
   main-stick X scales `dash_run_acceleration_a`, same-side input adds
   `dash_run_acceleration_b`, and the target velocity scales
   `dash_run_terminal_velocity`.
+- Walk physics follows `ftWalkCommon_800E0060`: main-stick X scales
+  `walk_initial_velocity`, target velocity scales `walk_max_vel`, side-based
+  `walk_accel` is added, PlCo `x30` tapers acceleration toward the target, and
+  `gr_friction` feeds the shared ground-acceleration helper.
+- Dash uses `gr_friction * x60_someFrictionMul`, Run additionally applies PlCo
+  `x5C` acceleration taper, and RunBrake/TurnRun now use the same `x60`
+  friction path instead of the generic high-speed `ft_80084F3C` multiplier.
 - Basic standing-turn direction-change timing is profile-owned through
   `ftCo_DatAttrs.frames_to_change_direction_on_standing_turn`.
 - Standing-turn total duration is now profile-owned through
@@ -120,8 +135,8 @@ These should not be hand-tuned:
 - Full Melee collision parity still needs ledges, walls, ceilings, cliff catch,
   pass-through platform timing, and source-accurate collision callbacks.
 - `MeleeCommonData::PROVISIONAL` still has broad input thresholds that should be
-  replaced or verified field-by-field against `PlCo.dat`; the air-dodge subset
-  is now extracted.
+  replaced or verified field-by-field against `PlCo.dat`; the air-dodge,
+  walk/run physics, and selected defensive/platform subsets are now extracted.
 - `FighterProfile::FALCON_LIKE` still needs extracted action/submotion data for
   animation-specific durations and IASA. Core movement attributes now use the
   generated Captain Falcon bootstrap values.

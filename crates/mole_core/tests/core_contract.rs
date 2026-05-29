@@ -272,8 +272,13 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.dash_run_accel_stick_per_tick, 150);
     assert_eq!(profile.dash_run_accel_base_per_tick, 10);
+    assert_eq!(profile.walk_initial_velocity_per_tick, 150);
     assert_eq!(profile.walk_accel_per_tick, 100);
     assert_eq!(profile.walk_speed_per_tick, 850);
+    assert_eq!(profile.slow_walk_max_velocity_per_tick, 165);
+    assert_eq!(profile.mid_walk_animation_rate_per_tick, 407);
+    assert_eq!(profile.fast_walk_animation_rate_per_tick, 660);
+    assert_eq!(profile.run_animation_scaling_per_tick, 2_330);
     assert_eq!(profile.traction_per_tick, 80);
     assert_eq!(profile.ground_to_air_jump_momentum_milli, 750);
     assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 950);
@@ -307,13 +312,18 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
 fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     let mut bytes = vec![0_u8; 0x188];
 
+    put_f32_be(&mut bytes, 0x00, 0.151);
     put_f32_be(&mut bytes, 0x04, 0.02);
     put_f32_be(&mut bytes, 0x08, 0.85);
+    put_f32_be(&mut bytes, 0x0c, 0.166);
+    put_f32_be(&mut bytes, 0x10, 0.407);
+    put_f32_be(&mut bytes, 0x14, 0.660);
     put_f32_be(&mut bytes, 0x18, 0.08);
     put_f32_be(&mut bytes, 0x1c, 2.0);
     put_f32_be(&mut bytes, 0x20, 0.011);
     put_f32_be(&mut bytes, 0x24, 0.151);
     put_f32_be(&mut bytes, 0x28, 2.3);
+    put_f32_be(&mut bytes, 0x2c, 2.331);
     put_f32_be(&mut bytes, 0x30, 8.0);
     put_f32_be(&mut bytes, 0x34, 2.35);
     put_f32_be(&mut bytes, 0x38, 4.0);
@@ -340,13 +350,18 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
         .expect("synthetic ftCo_DatAttrs slice should extract");
 
     assert_eq!(profile.reference_character, "captain_falcon");
+    assert_eq!(profile.walk_initial_velocity_per_tick, 151);
     assert_eq!(profile.walk_accel_per_tick, 20);
     assert_eq!(profile.walk_speed_per_tick, 850);
+    assert_eq!(profile.slow_walk_max_velocity_per_tick, 166);
+    assert_eq!(profile.mid_walk_animation_rate_per_tick, 407);
+    assert_eq!(profile.fast_walk_animation_rate_per_tick, 660);
     assert_eq!(profile.traction_per_tick, 80);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.dash_run_accel_stick_per_tick, 11);
     assert_eq!(profile.dash_run_accel_base_per_tick, 151);
     assert_eq!(profile.run_speed_per_tick, 2_300);
+    assert_eq!(profile.run_animation_scaling_per_tick, 2_331);
     assert_eq!(profile.max_run_brake_frames, Some(8));
     assert_eq!(profile.ground_max_horizontal_velocity_per_tick, 2_350);
     assert_eq!(profile.jumpsquat_frames, 4);
@@ -455,7 +470,13 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_force, 3_100);
     assert_eq!(common.escapeair_decay_milli, 900);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
+    assert_eq!(common.walk_middle_velocity_ratio_milli, 400);
+    assert_eq!(common.walk_fast_velocity_ratio_milli, 800);
+    assert_eq!(common.walk_accel_taper_milli, 500);
+    assert_eq!(common.run_accel_taper_milli, 400);
+    assert_eq!(common.run_ground_friction_multiplier_milli, 1_000);
     assert_eq!(common.high_speed_ground_friction_multiplier_milli, 2_000);
+    assert_eq!(common.animation_velocity_scale_milli, 1_300);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
     assert_eq!(common.platform_pass_y, 84);
     assert_eq!(common.platform_pass_y_tap_window, 3);
@@ -481,16 +502,16 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .iter()
         .find(|source| source.rust_name == "walk_slow_x")
         .expect("walk_slow_x common-data source should be recorded");
-    assert_eq!(walk_slow.source_name, "x28");
-    assert_eq!(walk_slow.offset, 0x28);
+    assert_eq!(walk_slow.source_name, "provisional_walk_slow_x");
+    assert_eq!(walk_slow.offset, 0);
     assert_eq!(walk_slow.provenance, CommonDataProvenance::ProvisionalMole);
 
     let walk_middle = sources
         .iter()
         .find(|source| source.rust_name == "walk_middle_x")
         .expect("walk_middle_x common-data source should be recorded");
-    assert_eq!(walk_middle.source_name, "x2C");
-    assert_eq!(walk_middle.offset, 0x2c);
+    assert_eq!(walk_middle.source_name, "provisional_walk_middle_x");
+    assert_eq!(walk_middle.offset, 0);
     assert_eq!(
         walk_middle.provenance,
         CommonDataProvenance::ProvisionalMole
@@ -500,9 +521,30 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .iter()
         .find(|source| source.rust_name == "walk_fast_x")
         .expect("walk_fast_x common-data source should be recorded");
-    assert_eq!(walk_fast.source_name, "x30");
-    assert_eq!(walk_fast.offset, 0x30);
+    assert_eq!(walk_fast.source_name, "provisional_walk_fast_x");
+    assert_eq!(walk_fast.offset, 0);
     assert_eq!(walk_fast.provenance, CommonDataProvenance::ProvisionalMole);
+
+    let walk_middle_velocity_ratio = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_middle_velocity_ratio_milli")
+        .expect("walk middle velocity ratio source should be recorded");
+    assert_eq!(walk_middle_velocity_ratio.source_name, "x28");
+    assert_eq!(walk_middle_velocity_ratio.offset, 0x28);
+
+    let walk_fast_velocity_ratio = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_fast_velocity_ratio_milli")
+        .expect("walk fast velocity ratio source should be recorded");
+    assert_eq!(walk_fast_velocity_ratio.source_name, "x2C");
+    assert_eq!(walk_fast_velocity_ratio.offset, 0x2c);
+
+    let walk_accel_taper = sources
+        .iter()
+        .find(|source| source.rust_name == "walk_accel_taper_milli")
+        .expect("walk acceleration taper source should be recorded");
+    assert_eq!(walk_accel_taper.source_name, "x30");
+    assert_eq!(walk_accel_taper.offset, 0x30);
 
     let dash_window = sources
         .iter()
@@ -706,6 +748,30 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("run_x common-data source should be recorded");
     assert_eq!(run_x.source_name, "x58_someLStickXThreshold");
     assert_eq!(run_x.offset, 0x58);
+
+    let run_accel_taper = sources
+        .iter()
+        .find(|source| source.rust_name == "run_accel_taper_milli")
+        .expect("run acceleration taper common-data source should be recorded");
+    assert_eq!(run_accel_taper.source_name, "x5C");
+    assert_eq!(run_accel_taper.offset, 0x5c);
+
+    let run_ground_friction_multiplier = sources
+        .iter()
+        .find(|source| source.rust_name == "run_ground_friction_multiplier_milli")
+        .expect("run ground friction multiplier source should be recorded");
+    assert_eq!(
+        run_ground_friction_multiplier.source_name,
+        "x60_someFrictionMul"
+    );
+    assert_eq!(run_ground_friction_multiplier.offset, 0x60);
+
+    let animation_velocity_scale = sources
+        .iter()
+        .find(|source| source.rust_name == "animation_velocity_scale_milli")
+        .expect("animation velocity scale source should be recorded");
+    assert_eq!(animation_velocity_scale.source_name, "x440");
+    assert_eq!(animation_velocity_scale.offset, 0x440);
 }
 
 #[test]
@@ -729,6 +795,8 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x48, 7.0);
     put_f32_be(&mut bytes, 0x4c, 16.0);
     put_f32_be(&mut bytes, 0x58, 0.66);
+    put_f32_be(&mut bytes, 0x5c, 0.42);
+    put_f32_be(&mut bytes, 0x60, 1.25);
     put_f32_be(&mut bytes, 0x68, 4.0);
     put_f32_be(&mut bytes, 0x6c, 1.75);
     put_f32_be(&mut bytes, 0x70, 0.81);
@@ -755,6 +823,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x33c, 0.91);
     put_f32_be(&mut bytes, 0x344, 10.0);
     put_f32_be(&mut bytes, 0x430, 2.0);
+    put_f32_be(&mut bytes, 0x440, 1.31);
     put_f32_be(&mut bytes, 0x464, 0.63);
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
@@ -770,9 +839,9 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.trigger_timer_threshold, 140);
     assert_eq!(common.aerial_vertical_angle_tan_milli, 1000);
     assert_eq!(common.walk_x, 27);
-    assert_eq!(common.walk_slow_x, 39);
-    assert_eq!(common.walk_middle_x, 66);
-    assert_eq!(common.walk_fast_x, 94);
+    assert_eq!(common.walk_slow_x, 20);
+    assert_eq!(common.walk_middle_x, 50);
+    assert_eq!(common.walk_fast_x, 90);
     assert_eq!(common.turn_x, 30);
     assert_eq!(common.dash_x, 104);
     assert_eq!(common.dash_tap_window, 5);
@@ -780,8 +849,14 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.dash_defensive_action_window, 7);
     assert_eq!(common.dash_late_action_window, 16);
     assert_eq!(common.run_x, 84);
+    assert_eq!(common.walk_middle_velocity_ratio_milli, 310);
+    assert_eq!(common.walk_fast_velocity_ratio_milli, 520);
+    assert_eq!(common.walk_accel_taper_milli, 740);
+    assert_eq!(common.run_accel_taper_milli, 420);
+    assert_eq!(common.run_ground_friction_multiplier_milli, 1_250);
     assert_eq!(common.guard_on_catch_dash_window, 4);
     assert_eq!(common.high_speed_ground_friction_multiplier_milli, 1_750);
+    assert_eq!(common.animation_velocity_scale_milli, 1_310);
     assert_eq!(common.tap_jump_y, 103);
     assert_eq!(common.tap_jump_window, 4);
     assert_eq!(common.air_jump_backward_x, 28);
@@ -5702,29 +5777,32 @@ fn walk_accelerates_toward_analog_target_instead_of_snapping() {
     let first_walk_velocity = world.players()[0].velocity.x;
     assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
     assert!(first_walk_velocity > 0);
-    assert!(first_walk_velocity < 40 * 6);
+    assert!(first_walk_velocity < 40 * FighterProfile::falcon_like().walk_speed_per_tick / 127);
 
     step_world(&mut world, Frame(1), &walk_right);
 
     assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
     assert!(world.players()[0].velocity.x > first_walk_velocity);
-    assert!(world.players()[0].velocity.x <= 40 * 6);
+    assert!(
+        world.players()[0].velocity.x
+            <= 40 * FighterProfile::falcon_like().walk_speed_per_tick / 127
+    );
 }
 
 #[test]
-fn walk_velocity_uses_player_profile_attributes() {
+fn walk_velocity_uses_source_walk_formula_and_profile_traction() {
     let steady_profile = FighterProfile {
-        walk_target_speed_per_stick: 4,
-        walk_initial_accel_per_stick: 1,
-        walk_accel_per_tick: 12,
-        walk_friction_per_tick: 30,
+        walk_initial_velocity_per_tick: 150,
+        walk_accel_per_tick: 100,
+        walk_speed_per_tick: 850,
+        traction_per_tick: 80,
         ..FighterProfile::falcon_like()
     };
     let quick_profile = FighterProfile {
-        walk_target_speed_per_stick: 8,
-        walk_initial_accel_per_stick: 2,
-        walk_accel_per_tick: 24,
-        walk_friction_per_tick: 60,
+        walk_initial_velocity_per_tick: 300,
+        walk_accel_per_tick: 200,
+        walk_speed_per_tick: 1_700,
+        traction_per_tick: 160,
         ..FighterProfile::falcon_like()
     };
     let mut steady = World::for_two_players_with_profiles([steady_profile, steady_profile]);
@@ -5739,15 +5817,15 @@ fn walk_velocity_uses_player_profile_attributes() {
 
     assert_eq!(steady.players()[0].motion_state, MotionState::WalkSlow);
     assert_eq!(quick.players()[0].motion_state, MotionState::WalkSlow);
-    assert_eq!(steady.players()[0].velocity.x, 52);
-    assert_eq!(quick.players()[0].velocity.x, 104);
+    assert_eq!(steady.players()[0].velocity.x, 147);
+    assert_eq!(quick.players()[0].velocity.x, 294);
     assert_ne!(steady.checksum(), quick.checksum());
 
     step_world(&mut steady, Frame(1), &walk_right);
     step_world(&mut quick, Frame(1), &walk_right);
 
-    assert_eq!(steady.players()[0].velocity.x, 104);
-    assert_eq!(quick.players()[0].velocity.x, 208);
+    assert_eq!(steady.players()[0].velocity.x, 180);
+    assert_eq!(quick.players()[0].velocity.x, 360);
 }
 
 #[test]
@@ -6726,7 +6804,7 @@ fn walk_after_moonwalk_carry_speed_decays_toward_walk_target_instead_of_snapping
     step_world(&mut world, Frame(16), &full_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    let walk_target = -90 * FighterProfile::falcon_like().walk_target_speed_per_stick;
+    let walk_target = -((90 * FighterProfile::falcon_like().walk_speed_per_tick + 63) / 127);
     assert!(
         (world.players()[0].velocity.x - walk_target).abs()
             < (carried_velocity - walk_target).abs()
@@ -6755,6 +6833,98 @@ fn run_neutral_stick_enters_run_brake_without_zeroing_velocity() {
     assert_eq!(world.players()[0].facing, 1);
     assert!(world.players()[0].velocity.x > 0);
     assert!(world.players()[0].velocity.x < run_velocity);
+}
+
+#[test]
+fn dash_neutral_and_run_brake_use_x60_ground_friction_not_generic_high_speed_traction() {
+    let dash_profile = FighterProfile {
+        dash_frames: 2,
+        walk_speed_per_tick: 100,
+        traction_per_tick: 80,
+        ..FighterProfile::falcon_like()
+    };
+    let run_profile = FighterProfile {
+        dash_frames: 1,
+        walk_speed_per_tick: 100,
+        traction_per_tick: 80,
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        run_ground_friction_multiplier_milli: 1_250,
+        high_speed_ground_friction_multiplier_milli: 3_000,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut dash_release = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [dash_profile; 2],
+        common,
+    );
+    let mut run_release = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [run_profile; 2],
+        common,
+    );
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut dash_release, Frame(0), &dash_right);
+    let dash_entry_velocity = dash_release.players()[0].velocity.x;
+    step_world(&mut dash_release, Frame(1), &neutral);
+
+    assert_eq!(
+        dash_release.players()[0].velocity.x,
+        dash_entry_velocity - 100
+    );
+
+    step_world(&mut run_release, Frame(0), &dash_right);
+    step_world(&mut run_release, Frame(1), &dash_right);
+    assert_eq!(run_release.players()[0].motion_state, MotionState::Run);
+    let run_velocity = run_release.players()[0].velocity.x;
+    step_world(&mut run_release, Frame(2), &neutral);
+
+    assert_eq!(run_release.players()[0].motion_state, MotionState::RunBrake);
+    assert_eq!(run_release.players()[0].velocity.x, run_velocity - 100);
+}
+
+#[test]
+fn run_acceleration_uses_source_x5c_remaining_velocity_taper() {
+    let profile = FighterProfile {
+        dash_frames: 1,
+        initial_dash_speed_per_tick: 500,
+        dash_run_accel_stick_per_tick: 10,
+        dash_run_accel_base_per_tick: 0,
+        run_speed_per_tick: 1_270,
+        traction_per_tick: 50,
+        ground_max_horizontal_velocity_per_tick: 3_000,
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        run_accel_taper_milli: 400,
+        run_ground_friction_multiplier_milli: 1_000,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [profile; 2],
+        common,
+    );
+    let run_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &run_right);
+    step_world(&mut world, Frame(1), &run_right);
+    assert_eq!(world.players()[0].motion_state, MotionState::Run);
+    assert_eq!(world.players()[0].velocity.x, 510);
+
+    step_world(&mut world, Frame(2), &run_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Run);
+    assert_eq!(world.players()[0].velocity.x, 512);
 }
 
 #[test]

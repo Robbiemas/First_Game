@@ -28,6 +28,13 @@
       "source_name": "x78",
       "stick_byte": 16
     },
+    "animation_velocity_scale_milli": {
+      "kind": "milli",
+      "milli": 1300,
+      "offset": 1088,
+      "raw": 1.2999999523162842,
+      "source_name": "x440"
+    },
     "crouch_release_y": {
       "kind": "stick",
       "offset": 148,
@@ -210,6 +217,20 @@
       "source_name": "x468",
       "ticks": 6
     },
+    "run_accel_taper_milli": {
+      "kind": "milli",
+      "milli": 400,
+      "offset": 92,
+      "raw": 0.4000000059604645,
+      "source_name": "x5C"
+    },
+    "run_ground_friction_multiplier_milli": {
+      "kind": "milli",
+      "milli": 1000,
+      "offset": 96,
+      "raw": 1.0,
+      "source_name": "x60_someFrictionMul"
+    },
     "run_turn_run_no_interrupt_frames": {
       "kind": "f32_ticks",
       "offset": 1072,
@@ -294,26 +315,26 @@
       "source_name": "x34",
       "stick_byte": -32
     },
-    "walk_fast_x": {
-      "kind": "stick",
+    "walk_accel_taper_milli": {
+      "kind": "milli",
+      "milli": 500,
       "offset": 48,
       "raw": 0.5,
-      "source_name": "x30",
-      "stick_byte": 64
+      "source_name": "x30"
     },
-    "walk_middle_x": {
-      "kind": "stick",
+    "walk_fast_velocity_ratio_milli": {
+      "kind": "milli",
+      "milli": 800,
       "offset": 44,
       "raw": 0.800000011920929,
-      "source_name": "x2C",
-      "stick_byte": 102
+      "source_name": "x2C"
     },
-    "walk_slow_x": {
-      "kind": "stick",
+    "walk_middle_velocity_ratio_milli": {
+      "kind": "milli",
+      "milli": 400,
       "offset": 40,
       "raw": 0.4000000059604645,
-      "source_name": "x28",
-      "stick_byte": 51
+      "source_name": "x28"
     },
     "walk_x": {
       "kind": "stick",

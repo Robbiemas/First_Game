@@ -95,6 +95,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                             player,
                             walk_motion_state(input_facts.walk_speed_bucket),
                             stick_x,
+                            common_data,
                         );
                     } else {
                         player.velocity.x = 0;
@@ -135,7 +136,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else if input_facts.walk_direction == player.facing {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     player.motion_state = walk_motion_state(input_facts.walk_speed_bucket);
-                    apply_walk_velocity(player, stick_x);
+                    apply_walk_velocity(player, stick_x, common_data);
                 } else {
                     enter_wait_from_walk(player);
                 }
@@ -157,9 +158,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     if stick_x == 0 {
-                        apply_ground_traction(player, common_data);
+                        apply_run_ground_traction(player, common_data);
                     } else {
-                        apply_dash_velocity(player, stick_x);
+                        apply_dash_velocity(player, stick_x, common_data);
                     }
                     if player.motion_frame >= player.profile.dash_frames {
                         exit_dash(player, stick_x, input_facts.walk_speed_bucket, common_data);
@@ -180,13 +181,13 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.run_no_interrupt_frames -= 1;
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     if stick_x == 0 {
-                        apply_ground_traction(player, common_data);
+                        apply_run_ground_traction(player, common_data);
                     } else {
-                        apply_dash_velocity(player, stick_x);
+                        apply_run_velocity(player, stick_x, common_data);
                     }
                 } else if is_same_direction_run(stick_x, player.facing, common_data) {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_dash_velocity(player, stick_x);
+                    apply_run_velocity(player, stick_x, common_data);
                 } else if is_opposite_run_turn(stick_x, player.facing, common_data) {
                     enter_turn_run(player, common_data);
                 } else {
@@ -203,7 +204,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_squat(player);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_ground_traction(player, common_data);
+                    apply_run_ground_traction(player, common_data);
                     let profile_brake_expired = player
                         .profile
                         .max_run_brake_frames
@@ -344,6 +345,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         player,
                         walk_motion_state(input_facts.walk_speed_bucket),
                         stick_x,
+                        common_data,
                     );
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
@@ -696,12 +698,17 @@ fn ground_jump_vertical_velocity(player: &PlayerState) -> i32 {
     }
 }
 
-fn enter_walk(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
+fn enter_walk(
+    player: &mut PlayerState,
+    motion_state: MotionState,
+    stick_x: i32,
+    common_data: MeleeCommonData,
+) {
     clear_shield_turn(player);
     clear_turn_state(player);
     player.motion_state = motion_state;
     player.motion_frame = 0;
-    apply_walk_velocity(player, stick_x);
+    apply_walk_velocity(player, stick_x, common_data);
 }
 
 fn walk_motion_state(bucket: WalkSpeedBucket) -> MotionState {
@@ -740,7 +747,7 @@ fn enter_run_brake(player: &mut PlayerState, common_data: MeleeCommonData) {
     clear_turn_state(player);
     player.motion_state = MotionState::RunBrake;
     player.motion_frame = 0;
-    apply_ground_traction(player, common_data);
+    apply_run_ground_traction(player, common_data);
 }
 
 fn enter_turn_run(player: &mut PlayerState, common_data: MeleeCommonData) {
@@ -753,7 +760,7 @@ fn enter_turn_run(player: &mut PlayerState, common_data: MeleeCommonData) {
     player.turn_run_accel_mul = accel_mul;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
-    apply_ground_traction(player, common_data);
+    apply_run_ground_traction(player, common_data);
 }
 
 fn enter_smash_turn(player: &mut PlayerState, direction: i8) {
@@ -868,11 +875,11 @@ fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: 
             player.velocity.x,
             accel,
             target_velocity,
-            player.profile.traction_per_tick,
+            run_ground_friction(player, common_data),
             player.profile.ground_max_horizontal_velocity_per_tick,
         );
     } else {
-        apply_ground_traction(player, common_data);
+        apply_run_ground_traction(player, common_data);
     }
 }
 
@@ -1111,7 +1118,7 @@ fn enter_iasa_state(
         MotionState::Squat => enter_squat(player),
         MotionState::Turn => enter_smash_turn(player, -player.facing),
         MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
-            enter_walk(player, motion_state, stick_x);
+            enter_walk(player, motion_state, stick_x, common_data);
         }
         MotionState::EscapeN | MotionState::EscapeF | MotionState::EscapeB => {
             enter_ground_escape(player, motion_state);
@@ -1266,7 +1273,7 @@ fn enter_ground_escape(player: &mut PlayerState, motion_state: MotionState) {
     player.velocity.y = 0;
 }
 
-fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32) {
+fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
     if stick_x > 0 {
         player.facing = 1;
     } else if stick_x < 0 {
@@ -1274,20 +1281,26 @@ fn apply_walk_velocity(player: &mut PlayerState, stick_x: i32) {
     }
 
     let profile = player.profile;
-    let target_velocity = stick_x * profile.walk_target_speed_per_stick;
-    let mut accel = stick_x * profile.walk_initial_accel_per_stick;
+    let target_velocity = stick_scaled_velocity(stick_x, profile.walk_speed_per_tick);
+    let mut accel = stick_scaled_velocity(stick_x, profile.walk_initial_velocity_per_tick);
     if stick_x > 0 {
         accel += profile.walk_accel_per_tick;
     } else if stick_x < 0 {
         accel -= profile.walk_accel_per_tick;
     }
+    accel = apply_remaining_velocity_taper(
+        player.velocity.x,
+        accel,
+        target_velocity,
+        common_data.walk_accel_taper_milli,
+    );
 
     player.velocity.x = apply_ground_accel_toward_target(
         player.velocity.x,
         accel,
         target_velocity,
-        profile.walk_friction_per_tick,
-        profile.walk_speed_per_tick,
+        profile.traction_per_tick,
+        profile.ground_max_horizontal_velocity_per_tick,
     );
 }
 
@@ -1312,13 +1325,30 @@ fn apply_air_drift(player: &mut PlayerState, stick_x: i32) {
     player.velocity.x += accel;
 }
 
-fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
+fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
     let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     player.velocity.x = apply_ground_accel_toward_target(
         player.velocity.x,
         accel,
         target_velocity,
-        player.profile.traction_per_tick,
+        run_ground_friction(player, common_data),
+        player.profile.ground_max_horizontal_velocity_per_tick,
+    );
+}
+
+fn apply_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
+    let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
+    let accel = apply_remaining_velocity_taper(
+        player.velocity.x,
+        accel,
+        target_velocity,
+        common_data.run_accel_taper_milli,
+    );
+    player.velocity.x = apply_ground_accel_toward_target(
+        player.velocity.x,
+        accel,
+        target_velocity,
+        run_ground_friction(player, common_data),
         player.profile.ground_max_horizontal_velocity_per_tick,
     );
 }
@@ -1372,6 +1402,15 @@ fn apply_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData)
     player.velocity.x = apply_friction_to_zero(player.velocity.x, traction);
 }
 
+fn apply_run_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData) {
+    player.velocity.x =
+        apply_friction_to_zero(player.velocity.x, run_ground_friction(player, common_data));
+}
+
+fn run_ground_friction(player: &PlayerState, common_data: MeleeCommonData) -> i32 {
+    player.profile.traction_per_tick * common_data.run_ground_friction_multiplier_milli / 1000
+}
+
 fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {
     const FULL_NATIVE_STICK: i32 = 127;
     let scaled = stick_x * full_stick_velocity;
@@ -1388,6 +1427,28 @@ fn dash_run_accel_and_target(profile: crate::FighterProfile, stick_x: i32) -> (i
     let target_velocity = stick_scaled_velocity(stick_x, profile.run_speed_per_tick);
 
     (stick_accel + base_accel, target_velocity)
+}
+
+fn apply_remaining_velocity_taper(
+    current_velocity: i32,
+    accel: i32,
+    target_velocity: i32,
+    taper_milli: i32,
+) -> i32 {
+    if target_velocity == 0 || taper_milli == 1_000 {
+        return accel;
+    }
+
+    let same_direction_ratio = current_velocity.signum() == target_velocity.signum()
+        && current_velocity.abs() < target_velocity.abs();
+    if !same_direction_ratio {
+        return accel;
+    }
+
+    let remaining = (target_velocity - current_velocity).abs() as i64;
+    let denominator = target_velocity.abs() as i64 * 1_000;
+    let scaled_abs = accel.abs() as i64 * remaining * taper_milli as i64 / denominator;
+    scaled_abs as i32 * accel.signum()
 }
 
 fn air_accel_for_velocity(

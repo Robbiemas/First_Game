@@ -111,12 +111,14 @@ impl FighterActionFrames {
 pub struct FighterProfile {
     pub reference_character: &'static str,
     pub action_frames: FighterActionFrames,
-    pub walk_target_speed_per_stick: i32,
-    pub walk_initial_accel_per_stick: i32,
+    pub walk_initial_velocity_per_tick: i32,
     pub walk_accel_per_tick: i32,
-    pub walk_friction_per_tick: i32,
     pub walk_speed_per_tick: i32,
+    pub slow_walk_max_velocity_per_tick: i32,
+    pub mid_walk_animation_rate_per_tick: i32,
+    pub fast_walk_animation_rate_per_tick: i32,
     pub run_speed_per_tick: i32,
+    pub run_animation_scaling_per_tick: i32,
     pub initial_dash_speed_per_tick: i32,
     pub dash_run_accel_stick_per_tick: i32,
     pub dash_run_accel_base_per_tick: i32,
@@ -154,12 +156,14 @@ impl FighterProfile {
     pub const FALCON_LIKE: Self = Self {
         reference_character: "captain_falcon",
         action_frames: FighterActionFrames::FALCON_LIKE,
-        walk_target_speed_per_stick: 6,
-        walk_initial_accel_per_stick: 1,
+        walk_initial_velocity_per_tick: 150,
         walk_accel_per_tick: 100,
-        walk_friction_per_tick: 72,
         walk_speed_per_tick: 850,
+        slow_walk_max_velocity_per_tick: 165,
+        mid_walk_animation_rate_per_tick: 407,
+        fast_walk_animation_rate_per_tick: 660,
         run_speed_per_tick: 2_300,
+        run_animation_scaling_per_tick: 2_330,
         initial_dash_speed_per_tick: 2_000,
         dash_run_accel_stick_per_tick: 150,
         dash_run_accel_base_per_tick: 10,
@@ -208,8 +212,16 @@ impl FighterProfile {
         let jump_v_initial_velocity = read_profile_f32(bytes, 0x40, "jump_v_initial_velocity")?;
         let air_jump_v_multiplier = read_profile_f32(bytes, 0x50, "air_jump_v_multiplier")?;
 
+        profile.walk_initial_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x00, "walk_initial_velocity")?;
         profile.walk_accel_per_tick = read_profile_milli_i32(bytes, 0x04, "walk_accel")?;
         profile.walk_speed_per_tick = read_profile_milli_i32(bytes, 0x08, "walk_max_vel")?;
+        profile.slow_walk_max_velocity_per_tick =
+            read_profile_milli_i32(bytes, 0x0c, "slow_walk_max_velocity")?;
+        profile.mid_walk_animation_rate_per_tick =
+            read_profile_milli_i32(bytes, 0x10, "mid_walk_threshold")?;
+        profile.fast_walk_animation_rate_per_tick =
+            read_profile_milli_i32(bytes, 0x14, "fast_walk_threshold")?;
         profile.traction_per_tick = read_profile_milli_i32(bytes, 0x18, "gr_friction")?;
         profile.initial_dash_speed_per_tick =
             read_profile_milli_i32(bytes, 0x1c, "dash_initial_velocity")?;
@@ -219,6 +231,8 @@ impl FighterProfile {
             read_profile_milli_i32(bytes, 0x24, "dash_run_acceleration_b")?;
         profile.run_speed_per_tick =
             read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.run_animation_scaling_per_tick =
+            read_profile_milli_i32(bytes, 0x2c, "run_animation_scaling")?;
         profile.max_run_brake_frames = Some(read_profile_u8_from_f32(
             bytes,
             0x30,
@@ -885,7 +899,13 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_i32(hash, common.escapeair_force);
     mix_i32(hash, common.escapeair_decay_milli);
     mix_u8(hash, common.escapeair_landing_lag_ticks);
+    mix_i32(hash, common.walk_middle_velocity_ratio_milli);
+    mix_i32(hash, common.walk_fast_velocity_ratio_milli);
+    mix_i32(hash, common.walk_accel_taper_milli);
+    mix_i32(hash, common.run_accel_taper_milli);
+    mix_i32(hash, common.run_ground_friction_multiplier_milli);
     mix_i32(hash, common.high_speed_ground_friction_multiplier_milli);
+    mix_i32(hash, common.animation_velocity_scale_milli);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);
@@ -900,13 +920,15 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
 }
 
 fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
-    mix_i32(hash, profile.walk_target_speed_per_stick);
-    mix_i32(hash, profile.walk_initial_accel_per_stick);
+    mix_i32(hash, profile.walk_initial_velocity_per_tick);
     mix_fighter_action_frames(hash, profile.action_frames);
     mix_i32(hash, profile.walk_accel_per_tick);
-    mix_i32(hash, profile.walk_friction_per_tick);
     mix_i32(hash, profile.walk_speed_per_tick);
+    mix_i32(hash, profile.slow_walk_max_velocity_per_tick);
+    mix_i32(hash, profile.mid_walk_animation_rate_per_tick);
+    mix_i32(hash, profile.fast_walk_animation_rate_per_tick);
     mix_i32(hash, profile.run_speed_per_tick);
+    mix_i32(hash, profile.run_animation_scaling_per_tick);
     mix_i32(hash, profile.initial_dash_speed_per_tick);
     mix_i32(hash, profile.dash_run_accel_stick_per_tick);
     mix_i32(hash, profile.dash_run_accel_base_per_tick);

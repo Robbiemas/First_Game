@@ -38,7 +38,8 @@ Baseline at plan creation:
 - [x] Add `walk_speed_bucket: WalkSpeedBucket` to `MeleeInputFacts`.
 - [x] Derive the bucket from current `lstick.0` inside `MeleeInputSnapshot::facts`.
 - [x] Move bucket cutoffs into `MeleeCommonData` and `MeleeInputThresholds` instead of hardcoding them in the helper.
-- [x] Source-map `walk_slow_x`, `walk_middle_x`, and `walk_fast_x` to `x28`, `x2C`, and `x30`.
+- [x] Initially source-mapped `walk_slow_x`, `walk_middle_x`, and `walk_fast_x` to `x28`, `x2C`, and `x30`.
+  Corrected on 2026-05-29: decomp shows `x28`/`x2C` are walk velocity ratios and `x30` is walk acceleration taper, so Rust walk input buckets are now marked provisional instead of source-mapped to those fields.
 - [x] Export `WalkSpeedBucket` from `crates/mole_core/src/lib.rs`.
 - [x] Add a failing contract test named `melee_input_facts_classify_walk_speed_bucket_from_current_stick`.
 - [x] Add a failing contract test named `melee_input_facts_classify_walk_speed_bucket_from_common_data_thresholds`.
@@ -102,7 +103,7 @@ cargo test -p mole_core walk_state_
 
 - [x] Update the Rust state list in `docs/research/mole-state-coverage-comparison.md` to include `WalkSlow`, `WalkMiddle`, and `WalkFast`.
 - [x] Update the `WalkSlow/Middle/Fast` coverage row to mark Rust covered.
-- [x] Note that bucket thresholds are now centralized and source-mapped to Melee `x28`, `x2C`, and `x30`, with exact retail values still awaiting a real `PlCo.dat` extraction.
+- [x] Note that bucket thresholds are now centralized. Corrected on 2026-05-29: those thresholds are provisional Rust input facts; Melee `x28`, `x2C`, and `x30` now map to walk velocity ratio/taper fields instead.
 - [x] Remove the walk split from the open priority add list.
 
 ## Task 4: Verify Slice
