@@ -109,6 +109,8 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.reference_character, "captain_falcon");
     assert_eq!(profile.action_frames.attack1_total_frames, 21);
     assert_eq!(profile.action_frames.attack1_iasa_frame, 16);
+    assert_eq!(profile.action_frames.attack_dash_total_frames, 39);
+    assert_eq!(profile.action_frames.attack_dash_iasa_frame, 38);
     assert_eq!(profile.run_speed_per_tick, 2_300);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.dash_run_accel_stick_per_tick, 10);
@@ -6309,6 +6311,60 @@ fn attack1_iasa_uses_profile_action_frames() {
     step_world(&mut world, Frame(1), &neutral);
     step_world(&mut world, Frame(2), &neutral);
     step_world(&mut world, Frame(3), &jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+}
+
+#[test]
+fn attack_dash_total_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            attack_dash_total_frames: 12,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let dash_attack = [
+        PlayerInput::neutral()
+            .with_left_stick(80, 0)
+            .with_attack(true),
+        PlayerInput::neutral(),
+    ];
+
+    advance_player_to_run(&mut world);
+    step_world(&mut world, Frame(16), &dash_attack);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 16, MotionState::AttackDash, 12);
+}
+
+#[test]
+fn attack_dash_iasa_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            attack_dash_iasa_frame: 3,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let dash_attack = [
+        PlayerInput::neutral()
+            .with_left_stick(80, 0)
+            .with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    advance_player_to_run(&mut world);
+    step_world(&mut world, Frame(16), &dash_attack);
+    step_world(&mut world, Frame(17), &neutral);
+    step_world(&mut world, Frame(18), &neutral);
+    step_world(&mut world, Frame(19), &jump);
 
     assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
 }

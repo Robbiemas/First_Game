@@ -44,7 +44,6 @@ const FALCON_SPECIAL_LW_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_ESCAPE_N_FRAMES: u8 = 23;
 const FALCON_ESCAPE_F_FRAMES: u8 = 31;
 const FALCON_ESCAPE_B_FRAMES: u8 = 31;
-const FALCON_ATTACK_DASH_FRAMES: u8 = 39;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
 const GUARD_ON_TICKS: u8 = 4;
 const DASH_EARLY_ACTION_WINDOW: u8 =
@@ -58,7 +57,6 @@ const GUARD_ON_CATCH_DASH_WINDOW: u8 =
 const RUN_TURN_RUN_NO_INTERRUPT_FRAMES: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.run_turn_run_no_interrupt_frames;
 const GUARD_OFF_FRAMES: u8 = 15;
-const FALCON_ATTACK_DASH_IASA: u8 = 38;
 const FALCON_ATTACK_HI3_IASA: u8 = 38;
 const FALCON_ATTACK_LW3_IASA: u8 = 35;
 const FALCON_ATTACK_S4_IASA: u8 = 60;
@@ -891,7 +889,7 @@ fn grounded_action_total_frames(player: &PlayerState) -> u8 {
         MotionState::Catch => FALCON_CATCH_FRAMES,
         MotionState::CatchDash => FALCON_CATCH_DASH_FRAMES,
         MotionState::Attack1 => player.profile.action_frames.attack1_total_frames,
-        MotionState::AttackDash => FALCON_ATTACK_DASH_FRAMES,
+        MotionState::AttackDash => player.profile.action_frames.attack_dash_total_frames,
         MotionState::AttackS3 => FALCON_ATTACK_S3_FRAMES,
         MotionState::AttackHi3 => FALCON_ATTACK_HI3_FRAMES,
         MotionState::AttackLw3 => FALCON_ATTACK_LW3_FRAMES,
@@ -937,7 +935,7 @@ fn grounded_action_iasa_frame(player: &PlayerState) -> Option<u8> {
     match player.motion_state {
         MotionState::SpecialN => Some(FALCON_SPECIAL_N_IASA),
         MotionState::Attack1 => Some(player.profile.action_frames.attack1_iasa_frame),
-        MotionState::AttackDash => Some(FALCON_ATTACK_DASH_IASA),
+        MotionState::AttackDash => Some(player.profile.action_frames.attack_dash_iasa_frame),
         MotionState::AttackHi3 => Some(FALCON_ATTACK_HI3_IASA),
         MotionState::AttackLw3 => Some(FALCON_ATTACK_LW3_IASA),
         MotionState::AttackS4 => Some(FALCON_ATTACK_S4_IASA),

@@ -922,11 +922,11 @@ The full standing-turn lifetime now reads
 `FighterProfile::standing_turn_total_frames` instead of a simulator-local Falcon
 constant; the value is still a fallback action-frame count until animation data
 is extracted.
-Attack1 total duration and IASA now read from `FighterActionFrames`, carried by
-the fighter profile and covered by rollback checksums. This is the first narrow
-action-frame table seam; the remaining grounded action durations and IASA values
-still need the same treatment before they can be fed by extracted Falcon action
-data.
+Attack1 and AttackDash total durations/IASA now read from
+`FighterActionFrames`, carried by the fighter profile and covered by rollback
+checksums. This is the first narrow action-frame table seam; the remaining
+grounded action durations and IASA values still need the same treatment before
+they can be fed by extracted Falcon action data.
 Ordinary grounded `Landing` now also consumes profile-owned
 `normal_landing_lag` instead of a simulator constant.
 
