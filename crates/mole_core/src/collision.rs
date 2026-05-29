@@ -80,7 +80,11 @@ pub fn landing_contact_for_bottom(
 }
 
 pub fn has_floor_support(stage: StageProfile, bottom: Vec2) -> bool {
-    stage.collision_surfaces().iter().any(|surface| {
+    floor_surface_for_bottom(stage, bottom).is_some()
+}
+
+pub fn floor_surface_for_bottom(stage: StageProfile, bottom: Vec2) -> Option<StageSurface> {
+    stage.collision_surfaces().into_iter().find(|surface| {
         bottom.y == surface.y && bottom.x >= surface.left_x && bottom.x <= surface.right_x
     })
 }

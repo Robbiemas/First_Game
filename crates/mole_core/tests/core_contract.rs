@@ -219,6 +219,46 @@ fn stage_floor_support_requires_surface_range_and_matching_height() {
 }
 
 #[test]
+fn stage_floor_support_reports_surface_kind() {
+    let stage = StageProfile::battlefield_test();
+    let floor = stage.main_floor;
+    let platform = stage.soft_platforms[0];
+
+    let main_support = mole_core::floor_surface_for_bottom(
+        stage,
+        Vec2 {
+            x: floor.left_x,
+            y: floor.y,
+        },
+    )
+    .expect("main floor support should be returned");
+    assert_eq!(main_support.name, "main_floor");
+    assert_eq!(main_support.kind, StageSurfaceKind::Solid);
+
+    let platform_support = mole_core::floor_surface_for_bottom(
+        stage,
+        Vec2 {
+            x: platform.right_x,
+            y: platform.y,
+        },
+    )
+    .expect("soft platform support should be returned");
+    assert_eq!(platform_support.name, "left_platform");
+    assert_eq!(platform_support.kind, StageSurfaceKind::Soft);
+
+    assert_eq!(
+        mole_core::floor_surface_for_bottom(
+            stage,
+            Vec2 {
+                x: platform.right_x + 1,
+                y: platform.y,
+            },
+        ),
+        None
+    );
+}
+
+#[test]
 fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     let profile = FighterProfile::falcon_like();
 
