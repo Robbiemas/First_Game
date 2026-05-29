@@ -83,6 +83,8 @@ pub struct FighterActionFrames {
     pub escape_n_total_frames: u8,
     pub escape_f_total_frames: u8,
     pub escape_b_total_frames: u8,
+    pub squat_total_frames: u8,
+    pub squat_rv_total_frames: u8,
 }
 
 impl FighterActionFrames {
@@ -96,6 +98,8 @@ impl FighterActionFrames {
         escape_n_total_frames: 23,
         escape_f_total_frames: 31,
         escape_b_total_frames: 31,
+        squat_total_frames: 4,
+        squat_rv_total_frames: 4,
     };
 
     pub const fn falcon_like() -> Self {
@@ -393,6 +397,8 @@ pub enum MotionState {
     TurnRun,
     Turn,
     Squat,
+    SquatWait,
+    SquatRv,
     SpecialN,
     SpecialS,
     SpecialHi,
@@ -730,6 +736,8 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::TurnRun => 7,
         MotionState::Turn => 8,
         MotionState::Squat => 9,
+        MotionState::SquatWait => 51,
+        MotionState::SquatRv => 52,
         MotionState::SpecialN => 10,
         MotionState::Catch => 11,
         MotionState::Attack1 => 12,
@@ -853,6 +861,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.tilt_y as u8);
     mix_u8(hash, common.smash_y as u8);
     mix_u8(hash, common.crouch_y as u8);
+    mix_u8(hash, common.crouch_release_y as u8);
     mix_u8(hash, common.tap_jump_y as u8);
     mix_u8(hash, common.tap_jump_window);
     mix_u8(hash, common.tap_jump_release_y as u8);
@@ -946,6 +955,8 @@ fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames)
     mix_u8(hash, action_frames.escape_n_total_frames);
     mix_u8(hash, action_frames.escape_f_total_frames);
     mix_u8(hash, action_frames.escape_b_total_frames);
+    mix_u8(hash, action_frames.squat_total_frames);
+    mix_u8(hash, action_frames.squat_rv_total_frames);
 }
 
 fn mix_i32(hash: &mut u64, value: i32) {

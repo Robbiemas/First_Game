@@ -210,7 +210,8 @@ and x/y/trigger timers. This means future core motion-state code can consume the
 same facts as the runtime readout without depending on WUP-only host state.
 The first Rust motion-state slice is now rollback-owned as `Wait`, `WalkSlow`,
 `WalkMiddle`, `WalkFast`, `Dash`, `Run`, `RunBrake`, `TurnRun`, `Turn`,
-`Squat`, `SpecialN`, `SpecialS`, `SpecialHi`, `SpecialLw`, `SpecialAirN`,
+`Squat`, `SquatWait`, `SquatRv`, `SpecialN`, `SpecialS`, `SpecialHi`,
+`SpecialLw`, `SpecialAirN`,
 `SpecialAirS`, `SpecialAirHi`, `SpecialAirLw`, `AttackAirN`, `AttackAirF`,
 `AttackAirB`, `AttackAirHi`, `AttackAirLw`, `Catch`, `Attack1`,
 `AttackDash`, `AttackS3`, `AttackHi3`, `AttackLw3`, `AttackS4`,
@@ -258,6 +259,7 @@ named by offset in the decomp, so this table maps them by observed use.
 | `x80` | Additional jump/knee-bend common-data field referenced by jump code. |
 | `x88`, `x8C` | Fast-fall downward stick threshold and tap-window check. |
 | `x90` | Crouch threshold. |
+| `x94` | Crouch release / SquatRv threshold. |
 | `x98` | Forward tilt / throw direction threshold. |
 | `attackhi3_stick_threshold_y` | Up tilt threshold. |
 | `xCC` | Up smash threshold. |
@@ -603,12 +605,14 @@ Current Rust core status: `Wait` now enters `MotionState::Squat` from down
 stick after forward dash and before turn/walk, so diagonal down-walk input
 crouches instead of walking while a high forward dash input still keeps dash
 priority. `Squat` consumes the same offensive priority slice as `Wait` before
-shield, jump, crouch-hold, or release: special wins first, then grab, C-stick
-smash, A+smash, A+tilt, and jab. Holding down through the y tap window and then
-pressing A becomes `AttackLw3` rather than a buffered down smash or continued
-crouch. If no higher-priority transition is present, `Squat` holds while crouch
-input is present, releases to `Wait`, and lets shield and jump transition to
-`Guard` and `KneeBend` respectively.
+shield and jump, then advances through a profile-owned startup into
+`SquatWait`. `SquatWait` holds crouch until the raw stick crosses the
+world-owned common-data `x94` release gate, and checks fresh dash before
+entering `SquatRv`, matching the decomp's dash-before-release ordering.
+`SquatRv` is now explicit and returns to `Wait` after a profile-owned release
+duration, while still allowing source-shaped action, shield, jump, and walk
+interrupts. Holding down through the y tap window and then pressing A becomes
+`AttackLw3` rather than a buffered down smash or continued crouch.
 
 ## Jump And Jumpsquat
 
@@ -957,9 +961,11 @@ is extracted.
 Attack1 and AttackDash total durations/IASA now read from
 `FighterActionFrames`, carried by the fighter profile and covered by rollback
 checksums. `GuardOn`, `GuardOff`, `EscapeN`, `EscapeF`, and `EscapeB` total
-durations now use the same profile-owned action-frame seam. Remaining grounded
-action durations and IASA values still need the same treatment before they can
-be fed by extracted Falcon action data.
+durations now use the same profile-owned action-frame seam. `Squat` startup and
+`SquatRv` release duration are also profile-owned; exact values still need
+extracted animation/action data before they should be treated as authoritative.
+Remaining grounded action durations and IASA values still need the same
+treatment before they can be fed by extracted Falcon action data.
 Ordinary grounded `Landing` now also consumes profile-owned
 `normal_landing_lag` instead of a simulator constant.
 
@@ -1374,7 +1380,7 @@ That keeps animation end, input/IASA, physics, collision, and rollback state
 ownership aligned with the decomp. The current Python bridge is allowed to use
 temporary legacy names while we migrate, but each touched mechanic should move
 toward explicit Melee-shaped states such as `LandingFallSpecial`, `GuardOff`,
-`RunBrake`, `SquatWait`, and the separate aerial jump/fall variants.
+`RunBrake`, and the separate aerial jump/fall variants.
 
 In practice, this means our future Rust core should model a state as data plus
 five callbacks or callback-equivalents:

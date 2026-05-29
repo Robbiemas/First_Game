@@ -299,13 +299,60 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_guard(player);
                 } else if input_facts.normal_jump_pressed {
                     enter_knee_bend(player, input_facts.normal_jump_input);
-                } else if input_facts.crouch {
+                } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     player.velocity.x = 0;
-                } else {
-                    player.motion_state = MotionState::Wait;
+                    player.velocity.y = 0;
+                    if player.motion_frame >= player.profile.action_frames.squat_total_frames {
+                        enter_squat_wait(player);
+                    }
+                }
+            }
+            MotionState::SquatWait => {
+                if !player.grounded {
+                    player.motion_state = MotionState::Air;
                     player.motion_frame = 0;
+                } else if let Some(action_state) = wait_action_state(input_facts) {
+                    enter_action_state(player, action_state, stick_x);
+                } else if input_facts.shield_held {
+                    enter_guard(player);
+                } else if input_facts.normal_jump_pressed {
+                    enter_knee_bend(player, input_facts.normal_jump_input);
+                } else if input_facts.forward_dash_direction(player.facing) != 0 {
+                    enter_dash(player, player.facing);
+                    input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
+                } else if crouch_released(stick_y, common_data) {
+                    enter_squat_rv(player);
+                } else {
+                    player.motion_frame = player.motion_frame.saturating_add(1);
                     player.velocity.x = 0;
+                    player.velocity.y = 0;
+                }
+            }
+            MotionState::SquatRv => {
+                if !player.grounded {
+                    player.motion_state = MotionState::Air;
+                    player.motion_frame = 0;
+                } else if let Some(action_state) = wait_action_state(input_facts) {
+                    enter_action_state(player, action_state, stick_x);
+                } else if input_facts.shield_held {
+                    enter_guard(player);
+                } else if input_facts.normal_jump_pressed {
+                    enter_knee_bend(player, input_facts.normal_jump_input);
+                } else if input_facts.walk_direction != 0 {
+                    enter_walk(
+                        player,
+                        walk_motion_state(input_facts.walk_speed_bucket),
+                        stick_x,
+                    );
+                } else {
+                    player.motion_frame = player.motion_frame.saturating_add(1);
+                    player.velocity.x = 0;
+                    player.velocity.y = 0;
+                    if player.motion_frame >= player.profile.action_frames.squat_rv_total_frames {
+                        player.motion_state = MotionState::Wait;
+                        player.motion_frame = 0;
+                    }
                 }
             }
             MotionState::SpecialN
@@ -860,6 +907,28 @@ fn enter_squat(player: &mut PlayerState) {
     player.motion_frame = 0;
     player.velocity.x = 0;
     player.velocity.y = 0;
+}
+
+fn enter_squat_wait(player: &mut PlayerState) {
+    clear_shield_turn(player);
+    clear_turn_state(player);
+    player.motion_state = MotionState::SquatWait;
+    player.motion_frame = 0;
+    player.velocity.x = 0;
+    player.velocity.y = 0;
+}
+
+fn enter_squat_rv(player: &mut PlayerState) {
+    clear_shield_turn(player);
+    clear_turn_state(player);
+    player.motion_state = MotionState::SquatRv;
+    player.motion_frame = 0;
+    player.velocity.x = 0;
+    player.velocity.y = 0;
+}
+
+fn crouch_released(stick_y: i8, common_data: MeleeCommonData) -> bool {
+    stick_y > -common_data.crouch_release_y
 }
 
 fn enter_guard(player: &mut PlayerState) {

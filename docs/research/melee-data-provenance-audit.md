@@ -35,11 +35,11 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   inside Rust core state.
 - `World` now carries `MeleeCommonData`, mixes it into rollback checksums, and
   uses that world-owned data for input tap thresholds, input-fact thresholds,
-  fast-fall gates, aerial-jump forward/back selection, shield platform-pass
-  gates, pass/drop-through initial velocity, dash action windows, run thresholds,
-  and the EscapeAir/FallSpecial common-data slice. This turns the existing
-  `PlCo.dat` extractor seam into data the deterministic simulation can actually
-  consume once clean bytes are available.
+  fast-fall gates, aerial-jump forward/back selection, crouch entry/release
+  gates, shield platform-pass gates, pass/drop-through initial velocity, dash
+  action windows, run thresholds, and the EscapeAir/FallSpecial common-data
+  slice. This turns the existing `PlCo.dat` extractor seam into data the
+  deterministic simulation can actually consume once clean bytes are available.
 - `MeleeCommonData::from_plco_bytes` now extracts the run/run-brake stick
   threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
   reads the provisional value through `MeleeCommonData` instead of a local
@@ -72,10 +72,10 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `FighterProfile::standing_turn_total_frames`; the fallback Falcon-like value
   remains an animation-data placeholder until exact action data is extracted.
 - Attack1 and AttackDash total durations/IASA, plus `GuardOn`, `GuardOff`,
-  `EscapeN`, `EscapeF`, and `EscapeB` total durations, now read through
-  `FighterActionFrames`, which is carried by `FighterProfile` and mixed into the
-  rollback checksum. The Falcon-like values are still fallback frame-data values
-  until extracted action data is available.
+  `EscapeN`, `EscapeF`, `EscapeB`, `Squat`, and `SquatRv` total durations, now
+  read through `FighterActionFrames`, which is carried by `FighterProfile` and
+  mixed into the rollback checksum. The Falcon-like values are still fallback
+  frame-data values until extracted action data is available.
 - Run-brake max duration can now be profile-owned through
   `ftCo_DatAttrs.max_run_brake_frames`; the fallback profile keeps this unset
   until real Captain Falcon attribute bytes are available.
@@ -99,9 +99,9 @@ These should not be hand-tuned:
   `FighterProfile::from_ftco_dat_attrs_bytes` once `PlCa.dat` data is available.
 - Animation durations and IASA frames currently stored as `FALCON_*` constants:
   replace with extracted action/animation data. Standing turn, Attack1,
-  AttackDash, GuardOn, GuardOff, spotdodge, and rolls now have profile-owned
-  fields, but their fallback values are still not extracted from
-  animation/action data.
+  AttackDash, GuardOn, GuardOff, spotdodge, rolls, crouch startup, and crouch
+  release now have profile-owned fields, but their fallback values are still not
+  extracted from animation/action data.
 - Escape-air force, decay, deadzones, landing lag, and related common-data
   values: replace through `PlCo.dat` extraction.
 - The default public `FighterProfile::FALCON_LIKE` values are still a fallback
@@ -109,8 +109,8 @@ These should not be hand-tuned:
   extraction slots for horizontal jump, air jump, max jumps, air drift
   attributes, optional run-brake max frames, standing-turn direction-change
   timing, standing-turn total frames, Attack1/AttackDash action frames,
-  defensive action-frame durations, and ordinary landing lag, instead of leaving
-  those values as mechanics constants.
+  defensive/crouch action-frame durations, and ordinary landing lag, instead of
+  leaving those values as mechanics constants.
 
 ## Working Rule
 

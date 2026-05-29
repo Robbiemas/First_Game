@@ -217,7 +217,9 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::SpecialLw
         | MotionState::Catch
         | MotionState::CatchDash
-        | MotionState::Squat => LegacyAnimationKey::Standing,
+        | MotionState::Squat
+        | MotionState::SquatWait
+        | MotionState::SquatRv => LegacyAnimationKey::Standing,
         MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
             LegacyAnimationKey::Walking
         }

@@ -73,7 +73,7 @@
       "label": "Squat",
       "pos": [5, 1],
       "status": "partial",
-      "notes": "Rust has Squat, but SquatWait and SquatRv are not explicit yet."
+      "notes": "Rust has explicit crouch startup and profile-owned startup duration; exact animation data still needs extraction."
     },
     {
       "id": "GuardOn",
@@ -107,8 +107,8 @@
       "id": "SquatWait",
       "label": "SquatWait",
       "pos": [5, 2],
-      "status": "missing",
-      "notes": "Held crouch is still folded into Squat."
+      "status": "partial",
+      "notes": "Rust has explicit held crouch with source-shaped x94 release hysteresis and dash-before-release priority."
     },
     {
       "id": "Guard",
@@ -149,8 +149,8 @@
       "id": "SquatRv",
       "label": "SquatRv",
       "pos": [5, 3],
-      "status": "missing",
-      "notes": "Crouch release is not an explicit Rust MotionState yet."
+      "status": "partial",
+      "notes": "Rust has explicit crouch release with profile-owned release duration; exact animation data still needs extraction."
     },
     {
       "id": "GuardOff",
@@ -481,21 +481,21 @@
       "to": "SquatWait",
       "input": "continue holding crouch",
       "frames": "after squat startup",
-      "status": "missing"
+      "status": "partial"
     },
     {
       "from": "SquatWait",
       "to": "SquatRv",
       "input": "release crouch input",
       "frames": "current frame",
-      "status": "missing"
+      "status": "partial"
     },
     {
       "from": "SquatRv",
       "to": "Wait",
       "input": "crouch release animation completes",
       "frames": "state-local duration",
-      "status": "missing"
+      "status": "partial"
     },
     {
       "from": "GuardOn",

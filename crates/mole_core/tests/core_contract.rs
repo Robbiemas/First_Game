@@ -445,6 +445,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(thresholds.aerial_neutral_x, 40);
     assert_eq!(thresholds.aerial_neutral_y, 40);
     assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1000);
+    assert_eq!(common.crouch_release_y, 36);
     assert_eq!(common.air_jump_backward_x, 20);
     assert_eq!(common.escapeair_iasa_timer_ticks, 15);
     assert_eq!(common.escapeair_animation_ticks, 20);
@@ -556,6 +557,13 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("air_jump_backward_x common-data source should be recorded");
     assert_eq!(air_jump_backward_x.source_name, "x78");
     assert_eq!(air_jump_backward_x.offset, 0x78);
+
+    let crouch_release_y = sources
+        .iter()
+        .find(|source| source.rust_name == "crouch_release_y")
+        .expect("crouch_release_y common-data source should be recorded");
+    assert_eq!(crouch_release_y.source_name, "x94");
+    assert_eq!(crouch_release_y.offset, 0x94);
 
     let escape_x = sources
         .iter()
@@ -720,6 +728,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x88, 0.83);
     put_i32_be(&mut bytes, 0x8c, 2);
     put_f32_be(&mut bytes, 0x90, 0.35);
+    put_f32_be(&mut bytes, 0x94, 0.28);
     put_f32_be(&mut bytes, 0x98, 0.25);
     put_f32_be(&mut bytes, 0xac, 0.26);
     put_f32_be(&mut bytes, 0xdc, 0.43);
@@ -769,6 +778,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.fast_fall_y, 105);
     assert_eq!(common.fast_fall_window, 2);
     assert_eq!(common.crouch_y, 44);
+    assert_eq!(common.crouch_release_y, 36);
     assert_eq!(common.tilt_x, 32);
     assert_eq!(common.tilt_y, 33);
     assert_eq!(common.aerial_neutral_x, 55);
@@ -6828,10 +6838,17 @@ fn crouch_has_priority_over_turn_from_wait() {
 }
 
 #[test]
-fn squat_release_returns_to_wait_and_jump_or_shield_take_priority() {
-    let mut release = World::for_two_players();
-    let mut jump = World::for_two_players();
-    let mut shield = World::for_two_players();
+fn squat_startup_does_not_release_before_squat_wait_but_jump_or_shield_take_priority() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            squat_total_frames: 2,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut release = World::for_two_players_with_profiles([profile; 2]);
+    let mut jump = World::for_two_players_with_profiles([profile; 2]);
+    let mut shield = World::for_two_players_with_profiles([profile; 2]);
     let down = [
         PlayerInput::neutral().with_left_stick(0, -80),
         PlayerInput::neutral(),
@@ -6858,9 +6875,104 @@ fn squat_release_returns_to_wait_and_jump_or_shield_take_priority() {
     step_world(&mut jump, Frame(1), &down_jump);
     step_world(&mut shield, Frame(1), &down_shield);
 
-    assert_eq!(release.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(release.players()[0].motion_state, MotionState::Squat);
     assert_eq!(jump.players()[0].motion_state, MotionState::KneeBend);
     assert_eq!(shield.players()[0].motion_state, MotionState::GuardOn);
+}
+
+#[test]
+fn squat_enters_squat_wait_after_profile_startup_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            squat_total_frames: 2,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let down = [
+        PlayerInput::neutral().with_left_stick(0, -80),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &down);
+    step_world(&mut world, Frame(1), &down);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Squat);
+
+    step_world(&mut world, Frame(2), &down);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::SquatWait);
+}
+
+#[test]
+fn squat_wait_release_uses_common_data_x94_hysteresis() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            squat_total_frames: 1,
+            squat_rv_total_frames: 2,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        crouch_y: 60,
+        crouch_release_y: 20,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [profile; 2],
+        common,
+    );
+    let deep_down = [
+        PlayerInput::neutral().with_left_stick(0, -70),
+        PlayerInput::neutral(),
+    ];
+    let between_crouch_and_release = [
+        PlayerInput::neutral().with_left_stick(0, -30),
+        PlayerInput::neutral(),
+    ];
+    let released = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &deep_down);
+    step_world(&mut world, Frame(1), &between_crouch_and_release);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::SquatWait);
+
+    step_world(&mut world, Frame(2), &between_crouch_and_release);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::SquatWait);
+
+    step_world(&mut world, Frame(3), &released);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 3, MotionState::SquatRv, 2);
+}
+
+#[test]
+fn squat_wait_dash_check_runs_before_squat_release() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            squat_total_frames: 1,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let down = [
+        PlayerInput::neutral().with_left_stick(0, -80),
+        PlayerInput::neutral(),
+    ];
+    let forward_dash_release = [
+        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &down);
+    step_world(&mut world, Frame(1), &down);
+    step_world(&mut world, Frame(2), &forward_dash_release);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
 }
 
 #[test]

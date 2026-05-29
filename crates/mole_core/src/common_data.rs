@@ -91,6 +91,7 @@ pub struct MeleeCommonData {
     pub tilt_y: i8,
     pub smash_y: i8,
     pub crouch_y: i8,
+    pub crouch_release_y: i8,
     pub tap_jump_y: i8,
     pub tap_jump_window: u8,
     pub tap_jump_release_y: i8,
@@ -148,6 +149,7 @@ impl MeleeCommonData {
         tilt_y: 24,
         smash_y: 80,
         crouch_y: 36,
+        crouch_release_y: 36,
         tap_jump_y: 80,
         tap_jump_window: 3,
         tap_jump_release_y: 40,
@@ -217,6 +219,7 @@ impl MeleeCommonData {
         data.fast_fall_y = read_stick_i8(bytes, 0x88, "x88")?;
         data.fast_fall_window = read_u8_from_i32(bytes, 0x8c, "x8C")?;
         data.crouch_y = read_stick_i8(bytes, 0x90, "x90")?;
+        data.crouch_release_y = read_stick_i8(bytes, 0x94, "x94")?;
         data.tilt_x = read_stick_i8(bytes, 0x98, "x98")?;
         data.tilt_y = read_stick_i8(bytes, 0xac, "attackhi3_stick_threshold_y")?;
         data.aerial_neutral_x = read_stick_i8(bytes, 0xdc, "xDC")?;
@@ -593,6 +596,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "crouch_y",
         source_name: "x90",
         offset: 0x90,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "crouch_release_y",
+        source_name: "x94",
+        offset: 0x94,
         provenance: CommonDataProvenance::ProvisionalMole,
     },
     CommonDataFieldSource {

@@ -39,7 +39,7 @@ Defined by `MotionState` in `crates/mole_core/src/state.rs`:
 
 - Movement: `Wait`, `WalkSlow`, `WalkMiddle`, `WalkFast`, `Dash`, `Run`,
   `RunBrake`, `TurnRun`, `Turn`
-- Crouch: `Squat`
+- Crouch: `Squat`, `SquatWait`, `SquatRv`
 - Jump/air/landing: `KneeBend`, `JumpF`, `JumpB`, `Air`, `JumpAerialF`,
   `JumpAerialB`, `EscapeAir`, `FallSpecial`, `Landing`, `LandingFallSpecial`
 - Shield/defense: `GuardOn`, `Guard`, `GuardOff`, `EscapeN`, `EscapeF`,
@@ -55,7 +55,8 @@ Defined by `MotionState` in `crates/mole_core/src/state.rs`:
 Important note: Rust has fewer states than Melee, but its state boundaries are
 closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 `GuardOff`, `EscapeAir`, `FallSpecial`, `Landing`, `LandingFallSpecial`, `RunBrake`,
-`TurnRun`, explicit walk buckets, and ground-vs-air specials.
+`TurnRun`, explicit walk buckets, crouch hold/release states, and
+ground-vs-air specials.
 
 ## Coverage Matrix
 
@@ -75,7 +76,7 @@ closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 | `JumpAerialF/B` | Collapsed into `air` | `JumpAerialF`, `JumpAerialB` | Rust is closer. |
 | `Fall/FallF/FallB/FallAerial/FallAerialF/FallAerialB` | Mostly `air` | Mostly `Air` | Missing explicit fall variants. This affects animation, aerial drift state identity, and collision transitions. |
 | `FallSpecial/F/B` | `fallSpecial` | `FallSpecial` | Base state covered. Forward/back variants missing. |
-| `Squat/SquatWait/SquatRv` | `crouchStart`, `crouching`; no explicit crouch release | `Squat` only | Needs `SquatWait` and `SquatRv` before crouch and shield-drop-like behavior can be trusted. |
+| `Squat/SquatWait/SquatRv` | `crouchStart`, `crouching`; no explicit crouch release | `Squat`, `SquatWait`, `SquatRv` | Rust is closer. Crouch release now uses common-data `x94` hysteresis and profile-owned crouch startup/release durations; exact animation data remains a future extraction step. |
 | `Landing` | `landingLag` | `Landing` | Rust now has a general landing state for ordinary airborne contact. Held shield does not skip landing lag; after landing lag finishes, normal grounded shield entry can happen on the next actionable frame. |
 | `LandingFallSpecial` | `landingFallSpecial` | `LandingFallSpecial` | Covered conceptually. |
 | Ground attacks | One jab, one tilt per direction, one smash per direction | Basic jab, dash attack, tilt/smash direction buckets | Missing jab chain/rapid jab and angled side tilt/smash variants. |
@@ -135,10 +136,9 @@ current bottom-up Pygame movement audit notes.
 These are the next missing or collapsed states most likely to affect immediate
 movement feel:
 
-1. Add `SquatWait` and `SquatRv`.
-2. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
+1. Add `Fall`, `FallF`, `FallB`, `FallAerial`, `FallAerialF`,
    `FallAerialB`.
-3. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
+2. Add `LandingAirN`, `LandingAirF`, `LandingAirB`, `LandingAirHi`,
    `LandingAirLw`.
-4. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
-5. Add tech/knockdown/passive states before building full combat.
+3. Add `GuardSetOff` and `GuardReflect` once shield hit behavior is implemented.
+4. Add tech/knockdown/passive states before building full combat.
