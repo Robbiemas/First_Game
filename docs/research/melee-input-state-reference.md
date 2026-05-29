@@ -474,10 +474,13 @@ extraction from `PlCo.dat`; the current one-frame value is a lower-bound
 contract for source ordering, not a final data value.
 `RunBrake` now mirrors the source IASA shape more closely: jump and crouch are
 available, but forward or soft stick does not immediately cancel back to Run or
-walk. The simplified Rust dash/run/turn physics still needs the full Melee
-acceleration model, exact common-data thresholds, exact TurnRun animation-script
-timing, exact Turn animation-duration data extraction, and the rest of
-dash/run/turn IASA transitions.
+walk. When extracted character attributes provide
+`max_run_brake_frames`, Rust caps the brake state with that profile-owned value;
+the default Falcon-like fallback leaves it unset rather than guessing without
+`PlCa.dat` bytes. The simplified Rust dash/run/turn physics still needs the full
+Melee acceleration model, exact common-data thresholds, exact TurnRun
+animation-script timing, exact Turn animation-duration data extraction, and the
+rest of dash/run/turn IASA transitions.
 
 The current rules are:
 
@@ -907,6 +910,8 @@ Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
 `inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
 `dash_run_acceleration_b` is added by input side, and the run target scales from
 `dash_run_terminal_velocity` rather than always clamping to full run speed.
+RunBrake can now consume extracted `max_run_brake_frames` while leaving the
+fallback profile uncapped until real Captain Falcon attributes are available.
 Basic standing-turn facing timing now reads the profile-owned
 `frames_to_change_direction_on_standing_turn` field.
 Ordinary grounded `Landing` now also consumes profile-owned

@@ -81,6 +81,7 @@ pub struct FighterProfile {
     pub initial_dash_speed_per_tick: i32,
     pub dash_run_accel_stick_per_tick: i32,
     pub dash_run_accel_base_per_tick: i32,
+    pub max_run_brake_frames: Option<u8>,
     pub traction_per_tick: i32,
     pub ground_max_horizontal_velocity_per_tick: i32,
     pub ground_to_air_jump_momentum_milli: i32,
@@ -121,6 +122,7 @@ impl FighterProfile {
         initial_dash_speed_per_tick: 2_000,
         dash_run_accel_stick_per_tick: 10,
         dash_run_accel_base_per_tick: 150,
+        max_run_brake_frames: None,
         traction_per_tick: 80,
         ground_max_horizontal_velocity_per_tick: 2_300,
         ground_to_air_jump_momentum_milli: 800,
@@ -175,6 +177,11 @@ impl FighterProfile {
             read_profile_milli_i32(bytes, 0x24, "dash_run_acceleration_b")?;
         profile.run_speed_per_tick =
             read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.max_run_brake_frames = Some(read_profile_u8_from_f32(
+            bytes,
+            0x30,
+            "max_run_brake_frames",
+        )?);
         profile.ground_max_horizontal_velocity_per_tick =
             read_profile_milli_i32(bytes, 0x34, "ground_max_horizontal_velocity")?;
         profile.jumpsquat_frames = read_profile_u8_from_f32(bytes, 0x38, "jump_startup_time")?;
@@ -706,6 +713,13 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.initial_dash_speed_per_tick);
     mix_i32(hash, profile.dash_run_accel_stick_per_tick);
     mix_i32(hash, profile.dash_run_accel_base_per_tick);
+    match profile.max_run_brake_frames {
+        Some(frames) => {
+            mix_u8(hash, 1);
+            mix_u8(hash, frames);
+        }
+        None => mix_u8(hash, 0),
+    }
     mix_i32(hash, profile.traction_per_tick);
     mix_i32(hash, profile.ground_max_horizontal_velocity_per_tick);
     mix_i32(hash, profile.ground_to_air_jump_momentum_milli);

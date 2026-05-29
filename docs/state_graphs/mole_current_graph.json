@@ -136,7 +136,7 @@
       "label": "RunBrake",
       "pos": [2, 3],
       "status": "partial",
-      "notes": "Explicit Rust state exists and applies traction; exact Melee brake behavior still needs tuning."
+      "notes": "Explicit Rust state applies traction and can honor extracted profile max_run_brake_frames; fallback profile leaves exact Falcon DAT value unset."
     },
     {
       "id": "TurnRun",
@@ -459,7 +459,7 @@
       "from": "RunBrake",
       "to": "Wait",
       "input": "ground traction settles X velocity to zero",
-      "frames": "variable physics duration",
+      "frames": "variable physics duration or extracted profile max_run_brake_frames",
       "status": "partial"
     },
     {

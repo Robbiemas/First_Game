@@ -135,6 +135,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
+    assert_eq!(profile.max_run_brake_frames, None);
     assert_eq!(profile.standing_turn_direction_change_frames, 5);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
 }
@@ -150,6 +151,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x20, 0.011);
     put_f32_be(&mut bytes, 0x24, 0.151);
     put_f32_be(&mut bytes, 0x28, 2.3);
+    put_f32_be(&mut bytes, 0x30, 8.0);
     put_f32_be(&mut bytes, 0x34, 2.35);
     put_f32_be(&mut bytes, 0x38, 4.0);
     put_f32_be(&mut bytes, 0x3c, 0.44);
@@ -182,6 +184,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.dash_run_accel_stick_per_tick, 11);
     assert_eq!(profile.dash_run_accel_base_per_tick, 151);
     assert_eq!(profile.run_speed_per_tick, 2_300);
+    assert_eq!(profile.max_run_brake_frames, Some(8));
     assert_eq!(profile.ground_max_horizontal_velocity_per_tick, 2_350);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 440);
@@ -5636,6 +5639,42 @@ fn run_brake_forward_or_soft_stick_keeps_braking_until_source_exit() {
 
     assert_eq!(forward.players()[0].motion_state, MotionState::RunBrake);
     assert_eq!(soft.players()[0].motion_state, MotionState::RunBrake);
+}
+
+#[test]
+fn run_brake_uses_extracted_profile_max_frames_when_available() {
+    let profile = FighterProfile {
+        max_run_brake_frames: Some(2),
+        traction_per_tick: 1,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    for frame in 1..=15 {
+        step_world(&mut world, Frame(frame), &dash_right);
+    }
+    step_world(&mut world, Frame(16), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::RunBrake);
+    assert!(world.players()[0].velocity.x > 0);
+
+    step_world(&mut world, Frame(17), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::RunBrake);
+    assert_eq!(world.players()[0].motion_frame, 1);
+    assert!(world.players()[0].velocity.x > 0);
+
+    step_world(&mut world, Frame(18), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert!(world.players()[0].velocity.x > 0);
 }
 
 #[test]

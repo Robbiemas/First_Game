@@ -222,7 +222,11 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     apply_ground_traction(player);
-                    if player.velocity.x == 0 {
+                    let profile_brake_expired = player
+                        .profile
+                        .max_run_brake_frames
+                        .is_some_and(|frames| player.motion_frame >= frames);
+                    if player.velocity.x == 0 || profile_brake_expired {
                         player.motion_state = MotionState::Wait;
                         player.motion_frame = 0;
                     }

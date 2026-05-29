@@ -37,8 +37,8 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
   `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,
   `dash_run_acceleration_a`, `dash_run_acceleration_b`,
-  `dash_run_terminal_velocity`, `ground_max_horizontal_velocity`,
-  `jump_startup_time`,
+  `dash_run_terminal_velocity`, `max_run_brake_frames`,
+  `ground_max_horizontal_velocity`, `jump_startup_time`,
   `jump_h_initial_velocity`, `jump_v_initial_velocity`,
   `ground_to_air_jump_momentum_multiplier`, `jump_h_max_velocity`,
   `hop_v_initial_velocity`, `air_jump_v_multiplier`,
@@ -57,6 +57,9 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `dash_run_terminal_velocity`.
 - Basic standing-turn direction-change timing is profile-owned through
   `ftCo_DatAttrs.frames_to_change_direction_on_standing_turn`.
+- Run-brake max duration can now be profile-owned through
+  `ftCo_DatAttrs.max_run_brake_frames`; the fallback profile keeps this unset
+  until real Captain Falcon attribute bytes are available.
 - Ordinary `Landing` duration is profile-owned through
   `ftCo_DatAttrs.normal_landing_lag` instead of a simulation constant.
 
@@ -75,9 +78,10 @@ These should not be hand-tuned:
   values: replace through `PlCo.dat` extraction.
 - The default public `FighterProfile::FALCON_LIKE` values are still a fallback
   until extracted Captain Falcon bytes are available; the profile shape now has
-  extraction slots for horizontal jump, air jump, max jumps, and air drift
-  attributes, standing-turn direction-change timing, and ordinary landing lag,
-  instead of leaving those values as mechanics constants.
+  extraction slots for horizontal jump, air jump, max jumps, air drift
+  attributes, optional run-brake max frames, standing-turn direction-change
+  timing, and ordinary landing lag, instead of leaving those values as mechanics
+  constants.
 
 ## Working Rule
 
