@@ -7545,6 +7545,118 @@ fn attack_dash_iasa_uses_profile_action_frames() {
 }
 
 #[test]
+fn guard_on_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            guard_on_total_frames: 2,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &shield);
+    assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+
+    step_world(&mut world, Frame(1), &shield);
+    assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+
+    step_world(&mut world, Frame(2), &shield);
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+}
+
+#[test]
+fn guard_off_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            guard_off_total_frames: 3,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &shield);
+    step_world(&mut world, Frame(1), &neutral);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 1, MotionState::GuardOff, 3);
+}
+
+#[test]
+fn spotdodge_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            escape_n_total_frames: 7,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+    let shield_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_analog(80)
+            .with_left_stick(0, -90),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &shield);
+    step_world(&mut world, Frame(1), &shield_down);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 1, MotionState::EscapeN, 7);
+}
+
+#[test]
+fn roll_durations_use_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            escape_f_total_frames: 8,
+            escape_b_total_frames: 9,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+    let shield_forward = [
+        PlayerInput::neutral()
+            .with_left_trigger_analog(80)
+            .with_left_stick(90, 0),
+        PlayerInput::neutral(),
+    ];
+    let shield_back = [
+        PlayerInput::neutral()
+            .with_left_trigger_analog(80)
+            .with_left_stick(-90, 0),
+        PlayerInput::neutral(),
+    ];
+    let mut forward = World::for_two_players_with_profiles([profile; 2]);
+    let mut back = World::for_two_players_with_profiles([profile; 2]);
+
+    step_world(&mut forward, Frame(0), &shield);
+    step_world(&mut forward, Frame(1), &shield_forward);
+    assert_current_action_returns_to_wait_after_frames(&mut forward, 1, MotionState::EscapeF, 8);
+
+    step_world(&mut back, Frame(0), &shield);
+    step_world(&mut back, Frame(1), &shield_back);
+    assert_current_action_returns_to_wait_after_frames(&mut back, 1, MotionState::EscapeB, 9);
+}
+
+#[test]
 fn attack1_does_not_interrupt_before_falcon_iasa_frame() {
     let mut world = World::for_two_players();
     let jab = [

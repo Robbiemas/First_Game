@@ -722,8 +722,10 @@ starts in `GuardOn` with no catch-dash window, so A/Z during that startup still
 routes to normal `Catch`. Run/dash-style shield entry seeds a small provisional
 `mv.co.guard.x24`-style window from common-data `x68`; a fresh A/Z during that
 window routes to `CatchDash`, matching the source helper `ftCo_800D8B9C` before
-the normal `ftCo_Catch_CheckInput` path. The exact `x68` value and GuardOn
-animation duration remain provisional until common-data/animation extraction.
+the normal `ftCo_Catch_CheckInput` path. The exact `x68` value still needs
+common-data extraction; `GuardOn` duration is profile-owned through
+`FighterActionFrames` and remains a fallback action-frame value until exact
+animation/action data is extracted.
 Shield platform pass now reads its down-stick gate and tap-window from
 world-owned common-data `x464`/`x468`, and `Pass` entry uses common-data `x46C`
 for the initial drop-through vertical velocity.
@@ -734,10 +736,10 @@ branch, it checks spotdodge and then jump. The current Rust slice does not model
 `mv.co.guard.x1C`, so it intentionally models only the always-visible part:
 spotdodge before jump, no roll, no dash, and return to `Wait` after a named
 profile duration. The 15-frame duration currently matches the local parity
-profile but still needs exact animation-data extraction before being treated as
-an authoritative source constant. Platform shield drop, item throw, guard
-reflect, shield damage, shield setoff, and the `mv.co.guard.x1C` offensive gate
-are still future work.
+profile through `FighterActionFrames`, but still needs exact animation-data
+extraction before being treated as an authoritative source constant. Platform
+shield drop, item throw, guard reflect, shield damage, shield setoff, and the
+`mv.co.guard.x1C` offensive gate are still future work.
 
 Legacy Python bridge status: held shield remains `blocking`, shield release now
 enters an explicit `guardOff` state instead of staying in `blocking` with a
@@ -954,9 +956,10 @@ constant; the value is still a fallback action-frame count until animation data
 is extracted.
 Attack1 and AttackDash total durations/IASA now read from
 `FighterActionFrames`, carried by the fighter profile and covered by rollback
-checksums. This is the first narrow action-frame table seam; the remaining
-grounded action durations and IASA values still need the same treatment before
-they can be fed by extracted Falcon action data.
+checksums. `GuardOn`, `GuardOff`, `EscapeN`, `EscapeF`, and `EscapeB` total
+durations now use the same profile-owned action-frame seam. Remaining grounded
+action durations and IASA values still need the same treatment before they can
+be fed by extracted Falcon action data.
 Ordinary grounded `Landing` now also consumes profile-owned
 `normal_landing_lag` instead of a simulator constant.
 

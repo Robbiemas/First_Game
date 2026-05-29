@@ -80,9 +80,9 @@ closer to Melee than Pygame. It already separates `GuardOn`, `Guard`,
 | `LandingFallSpecial` | `landingFallSpecial` | `LandingFallSpecial` | Covered conceptually. |
 | Ground attacks | One jab, one tilt per direction, one smash per direction | Basic jab, dash attack, tilt/smash direction buckets | Missing jab chain/rapid jab and angled side tilt/smash variants. |
 | Aerial attacks | Five aerial states | Five aerial states | Covered conceptually. Missing `LandingAir*` states in both. |
-| `GuardOn/Guard/GuardOff` | `blocking` and `guardOff`; no real `GuardOn` | `GuardOn`, `Guard`, `GuardOff` | Rust is closer. Pygame shield behavior should migrate to Rust or mirror these exact boundaries. |
+| `GuardOn/Guard/GuardOff` | `blocking` and `guardOff`; no real `GuardOn` | `GuardOn`, `Guard`, `GuardOff` | Rust is closer. Guard startup and release durations are now profile-owned action-frame values; Pygame shield behavior should migrate to Rust or mirror these exact boundaries. |
 | `GuardSetOff/GuardReflect` | Missing | Missing | Needed for shield hitstun/powershield parity later. |
-| `EscapeN/F/B/Air` | `dodge`, `roll`, `airDodge` umbrella states | `EscapeN`, `EscapeF`, `EscapeB`, `EscapeAir` | Rust is closer. |
+| `EscapeN/F/B/Air` | `dodge`, `roll`, `airDodge` umbrella states | `EscapeN`, `EscapeF`, `EscapeB`, `EscapeAir` | Rust is closer. Spotdodge and roll durations are now profile-owned action-frame values; root-motion-backed roll distance remains future parity work. |
 | Damage/tumble | `hitstun` only | Missing | Huge missing area. Not urgent for empty movement, but essential for combat. |
 | Knockdown/tech/passive | Missing | Missing | Essential later for floor interactions and competitive feel. |
 | Shield break | Missing | Missing | Later combat completeness. |

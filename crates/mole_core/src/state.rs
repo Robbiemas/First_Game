@@ -78,6 +78,11 @@ pub struct FighterActionFrames {
     pub attack1_iasa_frame: u8,
     pub attack_dash_total_frames: u8,
     pub attack_dash_iasa_frame: u8,
+    pub guard_on_total_frames: u8,
+    pub guard_off_total_frames: u8,
+    pub escape_n_total_frames: u8,
+    pub escape_f_total_frames: u8,
+    pub escape_b_total_frames: u8,
 }
 
 impl FighterActionFrames {
@@ -86,6 +91,11 @@ impl FighterActionFrames {
         attack1_iasa_frame: 16,
         attack_dash_total_frames: 39,
         attack_dash_iasa_frame: 38,
+        guard_on_total_frames: 4,
+        guard_off_total_frames: 15,
+        escape_n_total_frames: 23,
+        escape_f_total_frames: 31,
+        escape_b_total_frames: 31,
     };
 
     pub const fn falcon_like() -> Self {
@@ -931,6 +941,11 @@ fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames)
     mix_u8(hash, action_frames.attack1_iasa_frame);
     mix_u8(hash, action_frames.attack_dash_total_frames);
     mix_u8(hash, action_frames.attack_dash_iasa_frame);
+    mix_u8(hash, action_frames.guard_on_total_frames);
+    mix_u8(hash, action_frames.guard_off_total_frames);
+    mix_u8(hash, action_frames.escape_n_total_frames);
+    mix_u8(hash, action_frames.escape_f_total_frames);
+    mix_u8(hash, action_frames.escape_b_total_frames);
 }
 
 fn mix_i32(hash: &mut u64, value: i32) {

@@ -26,12 +26,7 @@ const FALCON_SPECIAL_N_FRAMES: u8 = 99;
 const FALCON_SPECIAL_S_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_SPECIAL_HI_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_SPECIAL_LW_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
-const FALCON_ESCAPE_N_FRAMES: u8 = 23;
-const FALCON_ESCAPE_F_FRAMES: u8 = 31;
-const FALCON_ESCAPE_B_FRAMES: u8 = 31;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
-const GUARD_ON_TICKS: u8 = 4;
-const GUARD_OFF_FRAMES: u8 = 15;
 const FALCON_ATTACK_HI3_IASA: u8 = 38;
 const FALCON_ATTACK_LW3_IASA: u8 = 35;
 const FALCON_ATTACK_S4_IASA: u8 = 60;
@@ -393,7 +388,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     update_shield_turn(player, input_facts);
                     player.velocity.y = 0;
-                    if player.motion_frame >= GUARD_ON_TICKS {
+                    if player.motion_frame >= player.profile.action_frames.guard_on_total_frames {
                         enter_guard_steady(player);
                     }
                 }
@@ -453,7 +448,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                             stage,
                             common_data,
                         );
-                    } else if player.motion_frame >= GUARD_OFF_FRAMES {
+                    } else if player.motion_frame
+                        >= player.profile.action_frames.guard_off_total_frames
+                    {
                         player.motion_state = MotionState::Wait;
                         player.motion_frame = 0;
                     }
@@ -959,9 +956,9 @@ fn grounded_action_total_frames(player: &PlayerState) -> u8 {
         MotionState::SpecialS => FALCON_SPECIAL_S_FRAMES,
         MotionState::SpecialHi => FALCON_SPECIAL_HI_FRAMES,
         MotionState::SpecialLw => FALCON_SPECIAL_LW_FRAMES,
-        MotionState::EscapeN => FALCON_ESCAPE_N_FRAMES,
-        MotionState::EscapeF => FALCON_ESCAPE_F_FRAMES,
-        MotionState::EscapeB => FALCON_ESCAPE_B_FRAMES,
+        MotionState::EscapeN => player.profile.action_frames.escape_n_total_frames,
+        MotionState::EscapeF => player.profile.action_frames.escape_f_total_frames,
+        MotionState::EscapeB => player.profile.action_frames.escape_b_total_frames,
         MotionState::Catch => FALCON_CATCH_FRAMES,
         MotionState::CatchDash => FALCON_CATCH_DASH_FRAMES,
         MotionState::Attack1 => player.profile.action_frames.attack1_total_frames,
