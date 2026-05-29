@@ -73,11 +73,17 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   until real Captain Falcon attribute bytes are available.
 - Ordinary `Landing` duration is profile-owned through
   `ftCo_DatAttrs.normal_landing_lag` instead of a simulation constant.
+- Landing state selection now uses a Rust-owned stage-contact helper over
+  `StageProfile` surfaces instead of a simulator-local hardcoded floor snap.
+  This keeps air-dodge landing movement deterministic and prepares the collision
+  path for platform/drop-through parity.
 
 ## Active Data Gaps
 
 These should not be hand-tuned:
 
+- Full Melee collision parity still needs ledges, walls, ceilings, cliff catch,
+  pass-through platform timing, and source-accurate collision callbacks.
 - `MeleeCommonData::PROVISIONAL` values: replace with `PlCo.dat` extraction via
   `MeleeCommonData::from_plco_bytes`.
 - `FighterProfile::FALCON_LIKE` character attributes: replace by feeding

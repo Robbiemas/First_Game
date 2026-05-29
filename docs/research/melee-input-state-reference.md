@@ -839,6 +839,17 @@ current four-frame ordinary landing duration comes from
 `ftCo_DatAttrs.normal_landing_lag` at `+0xE4` when real character attribute
 bytes are available.
 
+Current Rust core status: airborne landing and air-dodge landing now route
+through a deterministic stage-contact helper instead of a simulator-local
+hardcoded `y = 0` floor snap. The helper checks the Battlefield-like main floor
+and soft platforms in Rust core units, chooses the highest crossed surface under
+the ECB bottom, and preserves the existing Melee state split: ordinary contact
+enters `Landing`, while `EscapeAir`/`FallSpecial` contact enters
+`LandingFallSpecial`. This is still a vertical-contact slice; ledges, walls,
+ceilings, cliff catch, full pass-through platform timing, and source-accurate
+collision callbacks must be implemented from the decomp before being treated as
+parity.
+
 Horizontal jump velocity uses main-stick x and character jump attributes, then
 clamps against character max horizontal jump velocity. This is another reason
 input and character data need to meet inside the deterministic simulation, not in
