@@ -3684,6 +3684,43 @@ fn escape_air_landing_enters_landing_fall_special_instead_of_wait() {
 }
 
 #[test]
+fn air_dodge_landing_uses_existing_melee_states_not_wavedash_state() {
+    let mut world = World::for_two_players();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let diagonal_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(80, -127),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &diagonal_air_dodge);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
+
+    let mut frame = 5;
+    while !world.players()[0].grounded && frame < 80 {
+        step_world(&mut world, Frame(frame), &neutral);
+        assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
+        frame += 1;
+    }
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
+}
+
+#[test]
 fn landing_fall_special_preserves_slide_before_returning_to_wait() {
     let mut world = World::for_two_players();
     let jump = [
