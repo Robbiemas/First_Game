@@ -1,5 +1,7 @@
 use crate::{
-    time::Frame, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput,
+    stage::{StageProfile, StageSurface, StageSurfaceKind},
+    time::Frame,
+    MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput,
 };
 use std::fmt;
 
@@ -519,6 +521,7 @@ pub struct WorldSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct World {
     frame: Frame,
+    stage: StageProfile,
     players: [PlayerState; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
@@ -533,6 +536,7 @@ impl World {
     pub fn for_two_players_with_profiles(profiles: [FighterProfile; PLAYER_COUNT]) -> Self {
         Self {
             frame: Frame(0),
+            stage: StageProfile::battlefield_test(),
             players: [
                 PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
                 PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
@@ -549,6 +553,10 @@ impl World {
 
     pub(crate) fn set_frame(&mut self, frame: Frame) {
         self.frame = frame;
+    }
+
+    pub const fn stage(&self) -> StageProfile {
+        self.stage
     }
 
     pub const fn players(&self) -> &[PlayerState; PLAYER_COUNT] {
@@ -608,6 +616,7 @@ impl World {
     pub fn checksum(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         mix_u32(&mut hash, self.frame.0);
+        mix_stage_profile(&mut hash, self.stage);
         for player in self.players {
             mix_fighter_profile(&mut hash, player.profile);
             mix_i32(&mut hash, player.position.x);
@@ -725,6 +734,39 @@ fn mix_u32(hash: &mut u64, value: u32) {
 fn mix_u64(hash: &mut u64, value: u64) {
     for byte in value.to_le_bytes() {
         mix_u8(hash, byte);
+    }
+}
+
+fn mix_str(hash: &mut u64, value: &str) {
+    for byte in value.as_bytes() {
+        mix_u8(hash, *byte);
+    }
+}
+
+fn mix_stage_profile(hash: &mut u64, stage: StageProfile) {
+    mix_str(hash, stage.name);
+    mix_stage_surface(hash, stage.main_floor);
+    for surface in stage.soft_platforms {
+        mix_stage_surface(hash, surface);
+    }
+    mix_i32(hash, stage.blast_zones.left_x);
+    mix_i32(hash, stage.blast_zones.right_x);
+    mix_i32(hash, stage.blast_zones.top_y);
+    mix_i32(hash, stage.blast_zones.bottom_y);
+}
+
+fn mix_stage_surface(hash: &mut u64, surface: StageSurface) {
+    mix_str(hash, surface.name);
+    mix_u8(hash, stage_surface_kind_id(surface.kind));
+    mix_i32(hash, surface.left_x);
+    mix_i32(hash, surface.right_x);
+    mix_i32(hash, surface.y);
+}
+
+fn stage_surface_kind_id(kind: StageSurfaceKind) -> u8 {
+    match kind {
+        StageSurfaceKind::Solid => 0,
+        StageSurfaceKind::Soft => 1,
     }
 }
 

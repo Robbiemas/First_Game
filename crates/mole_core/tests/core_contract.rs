@@ -92,6 +92,16 @@ fn default_two_player_spawns_are_separated_in_battlefield_units() {
 }
 
 #[test]
+fn world_owns_battlefield_stage_for_deterministic_contact() {
+    let world = World::for_two_players();
+    let stage = world.stage();
+
+    assert_eq!(stage.name, "battlefield_test");
+    assert_eq!(stage.main_floor.name, "main_floor");
+    assert_eq!(stage.soft_platforms.len(), 3);
+}
+
+#[test]
 fn ecb_diamond_uses_four_midpoint_vertices() {
     let ecb = EcbDiamond::from_bottom_center_and_size(Vec2 { x: 100, y: 0 }, 62_000, 136_000);
 
