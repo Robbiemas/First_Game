@@ -2611,7 +2611,7 @@ fn air_drift_uses_profile_source_accel_base_target_and_friction() {
         PlayerInput::neutral(),
     ];
     let drift_right = [
-        PlayerInput::neutral().with_left_stick(100, 0),
+        PlayerInput::neutral().with_left_stick(127, 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -2626,6 +2626,35 @@ fn air_drift_uses_profile_source_accel_base_target_and_friction() {
     step_world(&mut world, Frame(5), &neutral);
 
     assert_eq!(world.players()[0].velocity.x, 50);
+}
+
+#[test]
+fn air_drift_scales_native_full_stick_as_melee_one_point_zero() {
+    let profile = FighterProfile {
+        jump_horizontal_initial_velocity_per_tick: 0,
+        air_drift_stick_accel_per_tick: 40,
+        air_drift_base_accel_per_tick: 20,
+        air_drift_max_velocity_per_tick: 1_120,
+        air_friction_per_tick: 10,
+        air_max_horizontal_velocity_per_tick: 1_120,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let full_drift_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &full_drift_right);
+
+    assert_eq!(world.players()[0].velocity.x, 60);
 }
 
 #[test]
@@ -2644,7 +2673,7 @@ fn aerial_jump_horizontal_velocity_uses_profile_source_field() {
     let double_jump_right = [
         PlayerInput::neutral()
             .with_jump(true)
-            .with_left_stick(100, 0),
+            .with_left_stick(127, 0),
         PlayerInput::neutral(),
     ];
 
@@ -4288,7 +4317,7 @@ fn fall_special_after_air_dodge_applies_source_air_drift() {
         PlayerInput::neutral(),
     ];
     let drift_right = [
-        PlayerInput::neutral().with_left_stick(100, 0),
+        PlayerInput::neutral().with_left_stick(127, 0),
         PlayerInput::neutral(),
     ];
 
@@ -6167,7 +6196,7 @@ fn dash_acceleration_uses_profile_source_accel_and_stick_scaled_target() {
     step_world(&mut world, Frame(1), &dash_right);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
-    assert_eq!(world.players()[0].velocity.x, 68);
+    assert_eq!(world.players()[0].velocity.x, 64);
 }
 
 #[test]

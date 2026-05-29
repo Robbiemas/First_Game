@@ -88,6 +88,10 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
 - Grounded movement now rechecks `StageProfile` floor support after horizontal
   translation and enters ordinary `Fall` when the ECB bottom leaves the floor
   span, instead of carrying grounded state beyond the edge.
+- Profile-owned stick-scaled movement now treats native main-stick `127` as
+  Melee's `1.0` stick magnitude for jump horizontal velocity, air drift, and
+  dash/run acceleration targets. This keeps extracted `ftCo_DatAttrs` values in
+  Melee units instead of percent-style `100` scaling.
 
 ## Active Data Gaps
 

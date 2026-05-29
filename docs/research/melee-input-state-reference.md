@@ -941,10 +941,14 @@ vertical velocity, horizontal velocity combines carried ground speed with
 common fall step reduces stored velocity by profile gravity for the next tick.
 Air jump state entry follows `ftCo_JumpAerial.c` by using profile-owned
 `air_jump_h_multiplier` and `jump_v_initial_velocity * air_jump_v_multiplier`
-attributes. Ordinary airborne drift now follows the `ftCommon_8007D28C` /
-`ftCommon_8007D174` shape: main-stick X scales `air_drift_stick_mul`, same-side
-input adds `aerial_drift_base`, target velocity scales `air_drift_max`, and
-`aerial_friction` is used for neutral input or target overshoot. The
+attributes. Native stick scaling treats `127` as Melee's `1.0` stick magnitude
+when multiplying profile velocity/acceleration values; this avoids the old
+percent-scale behavior where full GameCube input over-drove air speed and jump
+horizontal velocity by roughly 27%. Ordinary airborne drift now follows the
+`ftCommon_8007D28C` / `ftCommon_8007D174` shape: main-stick X scales
+`air_drift_stick_mul`, same-side input adds `aerial_drift_base`, target velocity
+scales `air_drift_max`, and `aerial_friction` is used for neutral input or
+target overshoot. The
 `FighterProfile::from_ftco_dat_attrs_bytes` byte-level path can read those
 fields once a local `PlCa.dat`/`ftDataCaptain` attribute block is available.
 Dash and run acceleration now follow the shared `getAccelAndTarget` helper from

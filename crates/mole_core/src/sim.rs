@@ -1369,7 +1369,13 @@ fn apply_ground_traction(player: &mut PlayerState) {
 }
 
 fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {
-    stick_x * full_stick_velocity / 100
+    const FULL_NATIVE_STICK: i32 = 127;
+    let scaled = stick_x * full_stick_velocity;
+    if scaled >= 0 {
+        (scaled + FULL_NATIVE_STICK / 2) / FULL_NATIVE_STICK
+    } else {
+        (scaled - FULL_NATIVE_STICK / 2) / FULL_NATIVE_STICK
+    }
 }
 
 fn dash_run_accel_and_target(profile: crate::FighterProfile, stick_x: i32) -> (i32, i32) {

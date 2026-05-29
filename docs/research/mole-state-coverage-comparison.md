@@ -72,8 +72,8 @@ ground-vs-air specials.
 | `RunDirect` | Missing | Missing | Low priority, but should be represented if we model run entry variants exactly. |
 | `RunBrake` | `endLag` flag while running | `RunBrake` | Rust is closer. Pygame should stop using generic `endLag` for this. |
 | `KneeBend` | `jumpSquat` | `KneeBend` | Covered conceptually. |
-| `JumpF/JumpB` | Collapsed into `air` after jumpsquat | `JumpF`, `JumpB` | Rust is closer. Pygame cannot distinguish ground jump direction as a state. |
-| `JumpAerialF/B` | Collapsed into `air` | `JumpAerialF`, `JumpAerialB` | Rust is closer. |
+| `JumpF/JumpB` | Collapsed into `air` after jumpsquat | `JumpF`, `JumpB` | Rust is closer. Pygame cannot distinguish ground jump direction as a state. Profile-owned horizontal jump scaling now treats native stick `127` as Melee `1.0`. |
+| `JumpAerialF/B` | Collapsed into `air` | `JumpAerialF`, `JumpAerialB` | Rust is closer. Profile-owned air-jump horizontal velocity uses the same native-stick scale. |
 | `Fall/FallF/FallB/FallAerial/FallAerialF/FallAerialB` | Mostly `air` | Base `Fall` plus generic `Air` | Rust now uses explicit `Fall` for grounded floor-loss, while directional fall and aerial-fall submotion identity still need careful decomp-backed modeling. This affects animation, aerial drift state identity, and collision transitions. |
 | `FallSpecial/F/B` | `fallSpecial` | `FallSpecial` | Base state covered. Forward/back variants missing. |
 | `Squat/SquatWait/SquatRv` | `crouchStart`, `crouching`; no explicit crouch release | `Squat`, `SquatWait`, `SquatRv` | Rust is closer. Crouch release now uses common-data `x94` hysteresis and profile-owned crouch startup/release durations; exact animation data remains a future extraction step. |
