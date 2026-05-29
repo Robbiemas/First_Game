@@ -249,6 +249,45 @@ fn render_scene_draws_translucent_bubble_shield_for_guard_states() {
 }
 
 #[test]
+fn motion_visual_changes_keep_bottom_ecb_vertex_as_character_position() {
+    let world = World::for_two_players();
+    let base_frame = RenderFrame::from_world(&world);
+    let standing_scene = RenderScene::from_frame(&base_frame, 960, 540);
+
+    let mut dash_frame = base_frame;
+    dash_frame.player_motion_states[0] = MotionState::Dash;
+    let dash_scene = RenderScene::from_frame(&dash_frame, 960, 540);
+
+    let mut air_dodge_frame = base_frame;
+    air_dodge_frame.player_motion_states[0] = MotionState::EscapeAir;
+    let air_dodge_scene = RenderScene::from_frame(&air_dodge_frame, 960, 540);
+
+    assert_bottom_ecb_vertex_is_character_position(&standing_scene, 0);
+    assert_bottom_ecb_vertex_is_character_position(&dash_scene, 0);
+    assert_bottom_ecb_vertex_is_character_position(&air_dodge_scene, 0);
+    assert_eq!(
+        dash_scene.player_contact_points[0],
+        standing_scene.player_contact_points[0]
+    );
+    assert_eq!(
+        air_dodge_scene.player_contact_points[0],
+        standing_scene.player_contact_points[0]
+    );
+    assert_eq!(
+        dash_scene.player_ecbs[0].points[2],
+        standing_scene.player_ecbs[0].points[2]
+    );
+    assert_eq!(
+        air_dodge_scene.player_ecbs[0].points[2],
+        standing_scene.player_ecbs[0].points[2]
+    );
+    assert!(dash_scene.players[0].width > dash_scene.players[0].height);
+    assert!(air_dodge_scene.players[0].width > air_dodge_scene.players[0].height);
+    assert!(dash_scene.players[0].height < standing_scene.players[0].height);
+    assert!(air_dodge_scene.players[0].height < standing_scene.players[0].height);
+}
+
+#[test]
 fn sdl_runtime_launcher_uses_native_play_mode() {
     let launcher = project_asset_root()
         .join("execs")
@@ -303,6 +342,13 @@ fn render_scene_exposes_legacy_sprite_cues_without_replacing_rect_fallback() {
     assert!(scene.player_sprites[1].flip_x);
     assert_eq!(scene.players[0].width, 54);
     assert_eq!(scene.players[0].height, 119);
+}
+
+fn assert_bottom_ecb_vertex_is_character_position(scene: &RenderScene, player_index: usize) {
+    let contact = scene.player_contact_points[player_index];
+    let ecb = scene.player_ecbs[player_index];
+
+    assert_eq!(ecb.points[2], contact);
 }
 
 #[test]

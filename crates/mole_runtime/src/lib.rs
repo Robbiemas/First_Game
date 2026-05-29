@@ -374,6 +374,10 @@ pub struct RenderScene {
     pub stage: RenderRect,
     pub stage_surfaces: Vec<RenderRect>,
     pub players: [RenderRect; 2],
+    /// Screen-space projection of the fighter's simulation position.
+    /// This is the bottom ECB vertex/contact point; renderers should anchor
+    /// visual assets to it instead of deriving identity from sprite dimensions.
+    pub player_contact_points: [RenderPoint; 2],
     pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
     pub player_shields: [Option<RenderCircle>; 2],
@@ -398,18 +402,20 @@ impl RenderScene {
             ),
         ];
         let visual = DolphinMoleVisualProfile::default();
+        let player_contact_points = [
+            transform.world_to_screen(frame.player_positions[0]),
+            transform.world_to_screen(frame.player_positions[1]),
+        ];
         let players = [
             player_rect(
-                frame,
-                0,
+                player_contact_points[0],
                 transform,
                 player_sprites[0],
                 visual,
                 player_colors[0],
             ),
             player_rect(
-                frame,
-                1,
+                player_contact_points[1],
                 transform,
                 player_sprites[1],
                 visual,
@@ -433,6 +439,7 @@ impl RenderScene {
             stage: stage_surfaces[0],
             stage_surfaces,
             players,
+            player_contact_points,
             player_ecbs: [
                 player_ecb(frame, 0, transform, player_sprites[0], visual),
                 player_ecb(frame, 1, transform, player_sprites[1], visual),
@@ -561,17 +568,14 @@ fn player_debug_json(
 }
 
 fn player_rect(
-    frame: &RenderFrame,
-    index: usize,
+    bottom_center: RenderPoint,
     transform: RenderTransform,
     sprite: LegacySpriteCue,
     visual: DolphinMoleVisualProfile,
     color: RenderColor,
 ) -> RenderRect {
-    let position = frame.player_positions[index];
     let source_size = sprite.source_size_px();
     let size = visual.scaled_size_units(source_size.width, source_size.height);
-    let bottom_center = transform.world_to_screen(position);
     let width = transform.core_length_to_screen(size.width);
     let height = transform.core_length_to_screen(size.height);
 
