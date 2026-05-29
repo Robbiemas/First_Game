@@ -31,6 +31,8 @@ const ESCAPE_AIR_DECAY_PERCENT: i32 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_decay_percent;
 const ESCAPE_AIR_LANDING_FALL_SPECIAL_TICKS: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_landing_lag_ticks;
+const FALLSPECIAL_PLATFORM_LANDING_Y: i8 =
+    crate::common_data::MeleeCommonData::PROVISIONAL.fallspecial_platform_landing_y;
 const FALCON_ATTACK_S3_FRAMES: u8 = 29;
 const FALCON_ATTACK_HI3_FRAMES: u8 = 39;
 const FALCON_ATTACK_LW3_FRAMES: u8 = 35;
@@ -539,9 +541,15 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         .max(-player.profile.fall_speed_per_tick);
                 }
 
-                if let Some(contact) =
-                    landing_contact_for_bottom(stage, previous_position, player.position, false)
-                {
+                let drop_through_soft_platforms =
+                    player.motion_state == MotionState::FallSpecial
+                        && fall_special_skips_soft_platforms(stick_y);
+                if let Some(contact) = landing_contact_for_bottom(
+                    stage,
+                    previous_position,
+                    player.position,
+                    drop_through_soft_platforms,
+                ) {
                     let landing_state = player.motion_state;
                     land_player_on_contact(player, contact.y);
                     if matches!(
@@ -986,6 +994,10 @@ fn enter_escape_air(player: &mut PlayerState, stick_x: i32, stick_y: i8) {
     let (velocity_x, velocity_y) = escape_air_velocity(stick_x, stick_y as i32);
     player.velocity.x = velocity_x;
     player.velocity.y = velocity_y;
+}
+
+fn fall_special_skips_soft_platforms(stick_y: i8) -> bool {
+    stick_y <= FALLSPECIAL_PLATFORM_LANDING_Y
 }
 
 fn enter_fall_special(player: &mut PlayerState) {
