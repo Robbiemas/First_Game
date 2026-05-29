@@ -4522,6 +4522,42 @@ fn landing_fall_special_preserves_slide_before_returning_to_wait() {
 }
 
 #[test]
+fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration() {
+    let mut world = World::for_two_players();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let down_forward_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(80, -127),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &down_forward_air_dodge);
+
+    let player = world.players()[0];
+    assert!(player.grounded);
+    assert_eq!(player.motion_state, MotionState::LandingFallSpecial);
+    assert!(player.velocity.x > player.profile.traction_per_tick);
+
+    let landing_velocity = player.velocity.x;
+    let expected_after_one_slide_tick = landing_velocity - player.profile.traction_per_tick;
+    step_world(&mut world, Frame(5), &neutral);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_eq!(world.players()[0].velocity.x, expected_after_one_slide_tick);
+}
+
+#[test]
 fn shield_jump_digital_trigger_on_takeoff_tick_does_not_escape_air() {
     let mut world = World::for_two_players();
     let shield = [

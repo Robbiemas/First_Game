@@ -1279,10 +1279,7 @@ fn is_opposite_run_turn(stick_x: i32, facing: i8) -> bool {
 }
 
 fn apply_ground_traction(player: &mut PlayerState) {
-    player.velocity.x = player.velocity.x * (1_000 - player.profile.traction_per_tick) / 1_000;
-    if player.velocity.x.abs() < 5 {
-        player.velocity.x = 0;
-    }
+    player.velocity.x = apply_friction_to_zero(player.velocity.x, player.profile.traction_per_tick);
 }
 
 fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {

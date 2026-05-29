@@ -87,7 +87,7 @@
       "label": "KneeBend",
       "pos": [7, 1],
       "status": "partial",
-      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, and profile-owned full/short hop takeoff forces; broader aerial physics remains partial."
+      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, profile-owned full/short hop takeoff forces, and the Melee-shaped first jump tick that changes state without translating the bottom ECB vertex."
     },
     {
       "id": "Run",
@@ -122,14 +122,14 @@
       "label": "JumpF",
       "pos": [7, 2],
       "status": "partial",
-      "notes": "Rust now has explicit forward ground jump state; gravity/arc tuning is still provisional."
+      "notes": "Rust has explicit forward ground jump state, Falcon-profile takeoff velocity, and anchored first tick; broader Fall/FallF/FallB state split is still pending."
     },
     {
       "id": "JumpB",
       "label": "JumpB",
       "pos": [8, 2],
       "status": "partial",
-      "notes": "Rust now has explicit backward ground jump state; gravity/arc tuning is still provisional."
+      "notes": "Rust has explicit backward ground jump state, Falcon-profile takeoff velocity, and anchored first tick; broader Fall/FallF/FallB state split is still pending."
     },
     {
       "id": "RunBrake",
@@ -241,7 +241,7 @@
       "label": "EscapeAir",
       "pos": [10, 5],
       "status": "partial",
-      "notes": "Rust has airdodge entry, self-velocity, decay, and FallSpecial/LandingFallSpecial exits."
+      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity during EscapeAir, and FallSpecial/LandingFallSpecial exits."
     },
     {
       "id": "FallSpecial",
@@ -276,7 +276,7 @@
       "label": "LandingFallSpecial",
       "pos": [10, 7],
       "status": "partial",
-      "notes": "Rust has fall-special landing lockout; exact wavedash/waveland feel depends on the next collision/air pass."
+      "notes": "Rust preserves EscapeAir/FallSpecial horizontal slide, applies Falcon ground friction as fixed traction toward zero, and returns after common-data landing lag; no Wavedash state exists."
     },
     {
       "id": "ShieldTurn",
@@ -573,14 +573,16 @@
       "to": "JumpF",
       "input": "jumpsquat completes with forward-facing jump",
       "frames": "Falcon reference 4f",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Covered by Rust tests: jumpsquat completes into JumpF with profile velocity while the bottom ECB vertex remains anchored on the takeoff state-change tick."
     },
     {
       "from": "KneeBend",
       "to": "JumpB",
       "input": "jumpsquat completes with backward-facing jump",
       "frames": "Falcon reference 4f",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Covered by Rust tests: jumpsquat completes into JumpB with profile velocity while the bottom ECB vertex remains anchored on the takeoff state-change tick."
     },
     {
       "from": "JumpF",
@@ -603,7 +605,8 @@
       "to": "EscapeAir",
       "input": "digital shield / airdodge press after airborne",
       "frames": "first airborne frame or later",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Fresh native digital L/R bottom-out is required after jumpsquat; analog shield travel alone does not enter EscapeAir."
     },
     {
       "from": "Air",
@@ -652,7 +655,8 @@
       "to": "LandingFallSpecial",
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide."
     },
     {
       "from": "FallSpecial",
@@ -673,7 +677,8 @@
       "to": "Wait",
       "input": "fall-special landing lag completes",
       "frames": "landing-fall-special lag window",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Slide now uses fixed Falcon ground traction each 60 Hz tick until common-data landing lag returns control."
     }
   ]
 }
