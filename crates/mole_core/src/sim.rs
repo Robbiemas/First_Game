@@ -49,7 +49,6 @@ const FALCON_ESCAPE_F_FRAMES: u8 = 31;
 const FALCON_ESCAPE_B_FRAMES: u8 = 31;
 const FALCON_ATTACK_DASH_FRAMES: u8 = 39;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
-const FALCON_LANDING_FRAMES: u8 = 4;
 const GUARD_ON_TICKS: u8 = 4;
 const DASH_EARLY_ACTION_WINDOW: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.dash_early_action_window;
@@ -479,7 +478,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 apply_ground_traction(player);
                 player.velocity.y = 0;
-                if player.motion_frame >= FALCON_LANDING_FRAMES {
+                if player.motion_frame >= player.profile.normal_landing_lag_ticks {
                     player.motion_state = MotionState::Wait;
                     player.motion_frame = 0;
                 }

@@ -826,8 +826,10 @@ Current Rust core status: ordinary airborne contact now enters a separate
 and `FallSpecial` contact still enter `LandingFallSpecial`. Held analog shield
 does not skip the ordinary landing lag; when the landing state finishes, the
 next actionable `Wait` frame may enter `GuardOn` if shield is still held. The
-current four-frame ordinary landing duration is a provisional Falcon-like value
-until exact animation/landing-lag data is extracted.
+current four-frame ordinary landing duration comes from
+`FighterProfile::normal_landing_lag_ticks`; the extractor maps it from
+`ftCo_DatAttrs.normal_landing_lag` at `+0xE4` when real character attribute
+bytes are available.
 
 Horizontal jump velocity uses main-stick x and character jump attributes, then
 clamps against character max horizontal jump velocity. This is another reason
@@ -869,7 +871,7 @@ Applied movement/stat values:
 | Full hop height | 38.52 | `fullHopHeight`, converted to `jumpHeight` velocity |
 | Short hop height | 14.85 | `shortHopHeight`, converted to `shortHop` velocity |
 | Double jump height | 28.56 | `doubleJumpHeight`, converted to `airJumpHeight` velocity |
-| Empty landing lag | 4 frames | `landingLagFrames` |
+| Empty landing lag | 4 frames | `FighterProfile::normal_landing_lag_ticks` |
 | Air dodge | 49 frames | `airDodgeFrames` |
 
 The current Python bridge stores Falcon move frame data on the character as
@@ -904,6 +906,8 @@ Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
 `inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
 `dash_run_acceleration_b` is added by input side, and the run target scales from
 `dash_run_terminal_velocity` rather than always clamping to full run speed.
+Ordinary grounded `Landing` now also consumes profile-owned
+`normal_landing_lag` instead of a simulator constant.
 
 ## Fast Fall
 

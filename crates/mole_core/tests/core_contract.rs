@@ -135,6 +135,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
+    assert_eq!(profile.normal_landing_lag_ticks, 4);
 }
 
 #[test]
@@ -166,6 +167,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x70, 0.011);
     put_f32_be(&mut bytes, 0x74, 3.5);
     put_f32_be(&mut bytes, 0x78, 1.26);
+    put_f32_be(&mut bytes, 0xe4, 5.0);
 
     let profile = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
         .expect("synthetic ftCo_DatAttrs slice should extract");
@@ -196,6 +198,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.air_friction_per_tick, 11);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
     assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_260);
+    assert_eq!(profile.normal_landing_lag_ticks, 5);
 }
 
 #[test]
@@ -3462,6 +3465,38 @@ fn held_shield_does_not_skip_ordinary_landing_lag() {
     step_world(&mut world, Frame(frame), &shield);
 
     assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+}
+
+#[test]
+fn ordinary_landing_duration_uses_player_profile_normal_landing_lag() {
+    let profile = FighterProfile {
+        normal_landing_lag_ticks: 2,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    advance_to_air(&mut world);
+    let mut frame = 4;
+    while !world.players()[0].grounded && frame < 120 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert!(world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].motion_frame, 0);
+
+    step_world(&mut world, Frame(frame), &neutral);
+    frame += 1;
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].motion_frame, 1);
+
+    step_world(&mut world, Frame(frame), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(world.players()[0].motion_frame, 0);
 }
 
 #[test]

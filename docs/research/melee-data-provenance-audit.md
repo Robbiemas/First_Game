@@ -45,7 +45,7 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `air_jump_h_multiplier`, `max_jumps`, `grav`, `terminal_vel`,
   `air_drift_stick_mul`, `aerial_drift_base`, `air_drift_max`,
   `aerial_friction`, `fast_fall_velocity`, and
-  `air_max_horizontal_velocity`.
+  `air_max_horizontal_velocity`, and `normal_landing_lag`.
 - Normal air drift follows `ftcommon.c`'s source-shaped `air_drift_stick_mul +
   aerial_drift_base` acceleration toward `air_drift_max`, with
   `aerial_friction` used when the target is zero or would be overshot.
@@ -53,6 +53,8 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   main-stick X scales `dash_run_acceleration_a`, same-side input adds
   `dash_run_acceleration_b`, and the target velocity scales
   `dash_run_terminal_velocity`.
+- Ordinary `Landing` duration is profile-owned through
+  `ftCo_DatAttrs.normal_landing_lag` instead of a simulation constant.
 
 ## Active Data Gaps
 
@@ -70,7 +72,8 @@ These should not be hand-tuned:
 - The default public `FighterProfile::FALCON_LIKE` values are still a fallback
   until extracted Captain Falcon bytes are available; the profile shape now has
   extraction slots for horizontal jump, air jump, max jumps, and air drift
-  attributes instead of leaving those values as mechanics constants.
+  attributes, plus ordinary landing lag, instead of leaving those values as
+  mechanics constants.
 
 ## Working Rule
 
