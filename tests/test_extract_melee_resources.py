@@ -59,6 +59,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x4C, 16.0)
     put_f32(data_block, common_offset + 0x58, 0.66)
     put_f32(data_block, common_offset + 0x68, 4.0)
+    put_f32(data_block, common_offset + 0x6C, 2.0)
     put_f32(data_block, common_offset + 0x70, 0.81)
     put_i32(data_block, common_offset + 0x74, 4)
     put_f32(data_block, common_offset + 0x78, 0.22)
@@ -99,6 +100,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["fields"]["escapeair_force"]["milli"] == 3100
     assert extracted["fields"]["escapeair_decay_milli"]["milli"] == 915
     assert extracted["fields"]["escapeair_landing_lag_ticks"]["ticks"] == 10
+    assert extracted["fields"]["high_speed_ground_friction_multiplier_milli"]["milli"] == 2000
 
 
 def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():

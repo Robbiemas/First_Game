@@ -49,6 +49,7 @@ COMMON_FIELDS = (
     Field("dash_late_action_window", "x4C", 0x4C, "f32_ticks"),
     Field("run_x", "x58_someLStickXThreshold", 0x58, "stick"),
     Field("guard_on_catch_dash_window", "x68", 0x68, "f32_ticks"),
+    Field("high_speed_ground_friction_multiplier_milli", "x6C", 0x6C, "milli"),
     Field("tap_jump_y", "tap_jump_threshold", 0x70, "stick"),
     Field("tap_jump_window", "x74", 0x74, "i32_ticks"),
     Field("air_jump_backward_x", "x78", 0x78, "stick"),

@@ -115,6 +115,7 @@ pub struct MeleeCommonData {
     pub escapeair_force: i32,
     pub escapeair_decay_milli: i32,
     pub escapeair_landing_lag_ticks: u8,
+    pub high_speed_ground_friction_multiplier_milli: i32,
     pub fallspecial_platform_landing_y: i8,
     pub platform_pass_y: i8,
     pub platform_pass_y_tap_window: u8,
@@ -173,6 +174,7 @@ impl MeleeCommonData {
         escapeair_force: 3_100,
         escapeair_decay_milli: 900,
         escapeair_landing_lag_ticks: 10,
+        high_speed_ground_friction_multiplier_milli: 2_000,
         fallspecial_platform_landing_y: -80,
         platform_pass_y: 84,
         platform_pass_y_tap_window: 3,
@@ -212,6 +214,7 @@ impl MeleeCommonData {
         data.dash_late_action_window = read_u8_from_f32(bytes, 0x4c, "x4C")?;
         data.run_x = read_stick_i8(bytes, 0x58, "x58_someLStickXThreshold")?;
         data.guard_on_catch_dash_window = read_u8_from_f32(bytes, 0x68, "x68")?;
+        data.high_speed_ground_friction_multiplier_milli = read_milli_i32(bytes, 0x6c, "x6C")?;
         data.tap_jump_y = read_stick_i8(bytes, 0x70, "tap_jump_threshold")?;
         data.tap_jump_window = read_u8_from_i32(bytes, 0x74, "x74")?;
         data.air_jump_backward_x = read_stick_i8(bytes, 0x78, "x78")?;
@@ -541,6 +544,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "x68",
         offset: 0x68,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "high_speed_ground_friction_multiplier_milli",
+        source_name: "x6C",
+        offset: 0x6c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "run_turn_run_no_interrupt_frames",

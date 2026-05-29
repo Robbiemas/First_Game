@@ -460,6 +460,7 @@ pub fn project_asset_root() -> PathBuf {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DebugOverlay {
     pub lines: Vec<String>,
+    pub player_state_lines: [String; 2],
 }
 
 impl DebugOverlay {
@@ -468,6 +469,10 @@ impl DebugOverlay {
             lines: vec![
                 format!("FRAME {}", frame.frame.0),
                 format!("CHECKSUM {}", frame.checksum),
+            ],
+            player_state_lines: [
+                player_state_overlay_line(frame, 0),
+                player_state_overlay_line(frame, 1),
             ],
         }
     }
@@ -501,6 +506,15 @@ impl DebugOverlay {
         ));
         overlay
     }
+}
+
+fn player_state_overlay_line(frame: &RenderFrame, index: usize) -> String {
+    format!(
+        "P{} {} F{}",
+        index + 1,
+        format!("{:?}", frame.player_motion_states[index]).to_ascii_uppercase(),
+        frame.player_state_frames[index]
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

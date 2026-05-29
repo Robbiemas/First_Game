@@ -885,6 +885,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_i32(hash, common.escapeair_force);
     mix_i32(hash, common.escapeair_decay_milli);
     mix_u8(hash, common.escapeair_landing_lag_ticks);
+    mix_i32(hash, common.high_speed_ground_friction_multiplier_milli);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);

@@ -697,11 +697,29 @@ fn draw_sdl_rect(canvas: &mut WindowCanvas, rect: RenderRect) -> Result<(), Stri
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 fn draw_debug_overlay(canvas: &mut WindowCanvas, overlay: &DebugOverlay) -> Result<(), String> {
+    let state_color = Color::RGBA(0, 0, 0, 255);
+    for (index, line) in overlay.player_state_lines.iter().enumerate() {
+        let x = centered_debug_label_x(canvas, line, 3)?;
+        draw_sdl_label(canvas, line, x, 18 + index as i32 * 18, 3, state_color)?;
+    }
+
     let color = Color::RGBA(235, 240, 248, 255);
     for (index, line) in overlay.lines.iter().enumerate() {
         draw_sdl_label(canvas, line, 12, 12 + index as i32 * 18, 3, color)?;
     }
     Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn centered_debug_label_x(canvas: &WindowCanvas, text: &str, scale: i32) -> Result<i32, String> {
+    let (width, _height) = canvas.output_size().map_err(|error| error.to_string())?;
+    let label_width = debug_label_width(text, scale);
+    Ok(((width as i32 - label_width) / 2).max(0))
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn debug_label_width(text: &str, scale: i32) -> i32 {
+    text.chars().count() as i32 * scale * 4
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]

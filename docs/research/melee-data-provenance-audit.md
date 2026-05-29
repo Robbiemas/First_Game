@@ -51,6 +51,10 @@ resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`.
   threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
   reads the centralized value through `MeleeCommonData` instead of a local
   hardcoded constant.
+- `MeleeCommonData::from_plco_bytes` now extracts common-data `x6C`, the
+  high-speed ground-friction multiplier used by `ft_80084F3C` when ground
+  velocity exceeds `walk_max_vel`; wavedash landing slide friction now reads
+  this value from world-owned common data.
 - `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
   `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,

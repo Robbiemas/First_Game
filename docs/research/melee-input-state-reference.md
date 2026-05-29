@@ -839,7 +839,9 @@ preserves horizontal slide under traction, and uses a separate provisional
 landing duration instead of Captain Falcon's four-frame empty landing lag. Rust
 now applies ground traction with the same fixed deceleration shape as
 `ftCommon_ApplyFrictionGround`, rather than multiplying the slide velocity each
-tick. The
+tick. The `ft_80084F3C` source path scales `gr_friction` by common-data `x6C`
+when ground velocity is above `walk_max_vel`; Rust now consumes extracted
+`PlCo.dat` `x6C` for that high-speed landing slide branch. The
 decomp path enters this landing state with `allow_interrupt = false`, so a held
 L/R trigger from the air dodge cannot route through the grounded guard helper
 while `landingFallSpecial` is active, including the frame where the landing state

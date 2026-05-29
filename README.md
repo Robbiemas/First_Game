@@ -145,6 +145,8 @@ Turn state now tracks Melee-shaped `has_turned`, one-frame `just_turned`, frames
 
 `EscapeAir` physics now follows the source shape more closely during its action phase: it decays its own self-velocity and skips ordinary falling gravity until it becomes `FallSpecial`. The default deadzone, force, action timer, decay multiplier, and landing-fallspecial lag now come from the extracted `PlCo.dat` bootstrap snapshot.
 
+Ground friction now follows the `ft_80084F3C` high-speed branch used by source landing physics: Rust applies fixed deceleration toward zero, and when horizontal ground speed exceeds the profile walk max it scales traction by extracted `PlCo.dat` common-data `x6C`. For the current bootstrap data that multiplier is `2.0`, which keeps wavedash slide friction source-owned instead of hand-tuned.
+
 The air-dodge vector now also follows the source shape: stick values inside `escapeair_deadzone` create no self-velocity, and non-deadzone input applies a fixed extracted `escapeair_force` along the stick angle instead of scaling x/y independently.
 
 ## Controllers

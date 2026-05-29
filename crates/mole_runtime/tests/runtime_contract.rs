@@ -432,6 +432,24 @@ fn debug_overlay_reports_core_frame_and_checksum() {
 }
 
 #[test]
+fn debug_overlay_reports_each_player_motion_state_for_play_window() {
+    let mut world = World::for_two_players();
+    let inputs = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral().with_left_stick(-127, 0),
+    ];
+    step_world(&mut world, Frame(0), &inputs);
+    let render_frame = RenderFrame::from_world(&world);
+
+    let overlay = DebugOverlay::from_frame(&render_frame);
+
+    assert_eq!(
+        overlay.player_state_lines,
+        ["P1 WALKMIDDLE F0".to_string(), "P2 DASH F0".to_string(),]
+    );
+}
+
+#[test]
 fn frame_debug_log_reports_input_state_physics_ecb_and_render_transform() {
     let mut world = World::for_two_players();
     let inputs = [

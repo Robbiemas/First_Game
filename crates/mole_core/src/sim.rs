@@ -157,7 +157,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     if stick_x == 0 {
-                        apply_ground_traction(player);
+                        apply_ground_traction(player, common_data);
                     } else {
                         apply_dash_velocity(player, stick_x);
                     }
@@ -180,7 +180,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.run_no_interrupt_frames -= 1;
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     if stick_x == 0 {
-                        apply_ground_traction(player);
+                        apply_ground_traction(player, common_data);
                     } else {
                         apply_dash_velocity(player, stick_x);
                     }
@@ -188,9 +188,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     apply_dash_velocity(player, stick_x);
                 } else if is_opposite_run_turn(stick_x, player.facing, common_data) {
-                    enter_turn_run(player);
+                    enter_turn_run(player, common_data);
                 } else {
-                    enter_run_brake(player);
+                    enter_run_brake(player, common_data);
                 }
             }
             MotionState::RunBrake => {
@@ -203,7 +203,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_squat(player);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_ground_traction(player);
+                    apply_ground_traction(player, common_data);
                     let profile_brake_expired = player
                         .profile
                         .max_run_brake_frames
@@ -223,7 +223,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_knee_bend(player, input_facts.normal_jump_input);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_turn_run_velocity(player, stick_x);
+                    apply_turn_run_velocity(player, stick_x, common_data);
                     advance_turn_run_facing(player);
 
                     if player.turn_has_turned
@@ -484,7 +484,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = 0;
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_ground_traction(player);
+                    apply_ground_traction(player, common_data);
                     player.velocity.y = 0;
                     if let Some(action_state) = guard_off_action_state(input_facts) {
                         enter_iasa_state(
@@ -504,7 +504,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 }
             }
             MotionState::KneeBend => {
-                apply_ground_traction(player);
+                apply_ground_traction(player, common_data);
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 if player.motion_frame >= player.profile.jumpsquat_frames {
                     apply_jump_takeoff_velocity(player, stick_x);
@@ -562,7 +562,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     continue;
                 }
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                apply_ground_traction(player);
+                apply_ground_traction(player, common_data);
                 player.velocity.y = 0;
                 if player.motion_frame >= common_data.escapeair_landing_lag_ticks {
                     player.motion_state = MotionState::Wait;
@@ -575,7 +575,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     continue;
                 }
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                apply_ground_traction(player);
+                apply_ground_traction(player, common_data);
                 player.velocity.y = 0;
                 if player.motion_frame >= player.profile.normal_landing_lag_ticks {
                     player.motion_state = MotionState::Wait;
@@ -735,15 +735,15 @@ fn enter_run_from_turn_run(player: &mut PlayerState, common_data: MeleeCommonDat
     player.run_no_interrupt_frames = common_data.run_turn_run_no_interrupt_frames;
 }
 
-fn enter_run_brake(player: &mut PlayerState) {
+fn enter_run_brake(player: &mut PlayerState, common_data: MeleeCommonData) {
     clear_shield_turn(player);
     clear_turn_state(player);
     player.motion_state = MotionState::RunBrake;
     player.motion_frame = 0;
-    apply_ground_traction(player);
+    apply_ground_traction(player, common_data);
 }
 
-fn enter_turn_run(player: &mut PlayerState) {
+fn enter_turn_run(player: &mut PlayerState, common_data: MeleeCommonData) {
     clear_shield_turn(player);
     let accel_mul = player.facing;
     clear_turn_state(player);
@@ -753,7 +753,7 @@ fn enter_turn_run(player: &mut PlayerState) {
     player.turn_run_accel_mul = accel_mul;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
-    apply_ground_traction(player);
+    apply_ground_traction(player, common_data);
 }
 
 fn enter_smash_turn(player: &mut PlayerState, direction: i8) {
@@ -861,7 +861,7 @@ fn arm_turn_dash_after_if_fresh(
     }
 }
 
-fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32) {
+fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
     let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     if accel != 0 && player.turn_run_accel_mul as i32 * accel < 0 {
         player.velocity.x = apply_ground_accel_toward_target(
@@ -872,7 +872,7 @@ fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32) {
             player.profile.ground_max_horizontal_velocity_per_tick,
         );
     } else {
-        apply_ground_traction(player);
+        apply_ground_traction(player, common_data);
     }
 }
 
@@ -1364,8 +1364,12 @@ fn is_opposite_run_turn(stick_x: i32, facing: i8, common_data: MeleeCommonData) 
     stick_x.abs() >= common_data.run_x as i32 && stick_x.signum() == -(facing as i32)
 }
 
-fn apply_ground_traction(player: &mut PlayerState) {
-    player.velocity.x = apply_friction_to_zero(player.velocity.x, player.profile.traction_per_tick);
+fn apply_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData) {
+    let mut traction = player.profile.traction_per_tick;
+    if player.velocity.x.abs() > player.profile.walk_speed_per_tick {
+        traction = traction * common_data.high_speed_ground_friction_multiplier_milli / 1000;
+    }
+    player.velocity.x = apply_friction_to_zero(player.velocity.x, traction);
 }
 
 fn stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {

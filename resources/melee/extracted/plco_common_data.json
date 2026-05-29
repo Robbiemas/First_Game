@@ -175,6 +175,13 @@
       "source_name": "x68",
       "ticks": 3
     },
+    "high_speed_ground_friction_multiplier_milli": {
+      "kind": "milli",
+      "milli": 2000,
+      "offset": 108,
+      "raw": 2.0,
+      "source_name": "x6C"
+    },
     "pass_initial_y_velocity": {
       "kind": "milli",
       "milli": -500,

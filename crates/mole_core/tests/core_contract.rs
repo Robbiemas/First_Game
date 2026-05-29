@@ -455,6 +455,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_force, 3_100);
     assert_eq!(common.escapeair_decay_milli, 900);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
+    assert_eq!(common.high_speed_ground_friction_multiplier_milli, 2_000);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
     assert_eq!(common.platform_pass_y, 84);
     assert_eq!(common.platform_pass_y_tap_window, 3);
@@ -622,6 +623,13 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(escapeair_landing_lag.source_name, "x344");
     assert_eq!(escapeair_landing_lag.offset, 0x344);
 
+    let high_speed_ground_friction_multiplier = sources
+        .iter()
+        .find(|source| source.rust_name == "high_speed_ground_friction_multiplier_milli")
+        .expect("high-speed ground friction multiplier source should be recorded");
+    assert_eq!(high_speed_ground_friction_multiplier.source_name, "x6C");
+    assert_eq!(high_speed_ground_friction_multiplier.offset, 0x6c);
+
     let fallspecial_platform_landing_y = sources
         .iter()
         .find(|source| source.rust_name == "fallspecial_platform_landing_y")
@@ -722,6 +730,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x4c, 16.0);
     put_f32_be(&mut bytes, 0x58, 0.66);
     put_f32_be(&mut bytes, 0x68, 4.0);
+    put_f32_be(&mut bytes, 0x6c, 1.75);
     put_f32_be(&mut bytes, 0x70, 0.81);
     put_i32_be(&mut bytes, 0x74, 4);
     put_f32_be(&mut bytes, 0x78, 0.22);
@@ -772,6 +781,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.dash_late_action_window, 16);
     assert_eq!(common.run_x, 84);
     assert_eq!(common.guard_on_catch_dash_window, 4);
+    assert_eq!(common.high_speed_ground_friction_multiplier_milli, 1_750);
     assert_eq!(common.tap_jump_y, 103);
     assert_eq!(common.tap_jump_window, 4);
     assert_eq!(common.air_jump_backward_x, 28);
@@ -4859,9 +4869,14 @@ fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration(
     assert!(player.grounded);
     assert_eq!(player.motion_state, MotionState::LandingFallSpecial);
     assert!(player.velocity.x > player.profile.traction_per_tick);
+    assert!(player.velocity.x > player.profile.walk_speed_per_tick);
 
     let landing_velocity = player.velocity.x;
-    let expected_after_one_slide_tick = landing_velocity - player.profile.traction_per_tick;
+    let common = world.common_data();
+    let expected_friction = player.profile.traction_per_tick
+        * common.high_speed_ground_friction_multiplier_milli
+        / 1000;
+    let expected_after_one_slide_tick = landing_velocity - expected_friction;
     step_world(&mut world, Frame(5), &neutral);
 
     assert_eq!(
