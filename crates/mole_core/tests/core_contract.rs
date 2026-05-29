@@ -412,6 +412,10 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_decay_percent, 90);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
+    assert_eq!(common.platform_pass_y, 80);
+    assert_eq!(common.platform_pass_y_tap_window, 3);
+    assert_eq!(common.pass_initial_y_velocity, -1_200);
+    assert_eq!(common.platform_drop_delay_ticks, 4);
     assert_eq!(common.guard_on_catch_dash_window, 4);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 1);
 }
@@ -574,6 +578,34 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(fallspecial_platform_landing_y.source_name, "x25C");
     assert_eq!(fallspecial_platform_landing_y.offset, 0x25c);
 
+    let platform_pass_y = sources
+        .iter()
+        .find(|source| source.rust_name == "platform_pass_y")
+        .expect("platform_pass_y common-data source should be recorded");
+    assert_eq!(platform_pass_y.source_name, "x464");
+    assert_eq!(platform_pass_y.offset, 0x464);
+
+    let platform_pass_y_tap_window = sources
+        .iter()
+        .find(|source| source.rust_name == "platform_pass_y_tap_window")
+        .expect("platform_pass_y_tap_window common-data source should be recorded");
+    assert_eq!(platform_pass_y_tap_window.source_name, "x468");
+    assert_eq!(platform_pass_y_tap_window.offset, 0x468);
+
+    let pass_initial_y_velocity = sources
+        .iter()
+        .find(|source| source.rust_name == "pass_initial_y_velocity")
+        .expect("pass_initial_y_velocity common-data source should be recorded");
+    assert_eq!(pass_initial_y_velocity.source_name, "x46C");
+    assert_eq!(pass_initial_y_velocity.offset, 0x46c);
+
+    let platform_drop_delay_ticks = sources
+        .iter()
+        .find(|source| source.rust_name == "platform_drop_delay_ticks")
+        .expect("platform_drop_delay_ticks common-data source should be recorded");
+    assert_eq!(platform_drop_delay_ticks.source_name, "x470");
+    assert_eq!(platform_drop_delay_ticks.offset, 0x470);
+
     let guard_on_catch_dash_window = sources
         .iter()
         .find(|source| source.rust_name == "guard_on_catch_dash_window")
@@ -619,7 +651,7 @@ fn input_common_data_sources_track_melee_field_offsets() {
 
 #[test]
 fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
-    let mut bytes = vec![0_u8; 0x444];
+    let mut bytes = vec![0_u8; 0x474];
 
     put_f32_be(&mut bytes, 0x08, 0.37);
     put_f32_be(&mut bytes, 0x0c, 0.38);
@@ -662,6 +694,10 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x33c, 0.91);
     put_f32_be(&mut bytes, 0x344, 10.0);
     put_f32_be(&mut bytes, 0x430, 2.0);
+    put_f32_be(&mut bytes, 0x464, 0.63);
+    put_f32_be(&mut bytes, 0x468, 5.0);
+    put_f32_be(&mut bytes, 0x46c, -1.25);
+    put_f32_be(&mut bytes, 0x470, 6.0);
 
     let common =
         MeleeCommonData::from_plco_bytes(&bytes).expect("synthetic PlCo slice should extract");
@@ -708,6 +744,10 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.escapeair_decay_percent, 91);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 2);
+    assert_eq!(common.platform_pass_y, 80);
+    assert_eq!(common.platform_pass_y_tap_window, 5);
+    assert_eq!(common.pass_initial_y_velocity, -1_250);
+    assert_eq!(common.platform_drop_delay_ticks, 6);
 }
 
 #[test]

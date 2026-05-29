@@ -115,6 +115,10 @@ pub struct MeleeCommonData {
     pub escapeair_decay_percent: i32,
     pub escapeair_landing_lag_ticks: u8,
     pub fallspecial_platform_landing_y: i8,
+    pub platform_pass_y: i8,
+    pub platform_pass_y_tap_window: u8,
+    pub pass_initial_y_velocity: i32,
+    pub platform_drop_delay_ticks: u8,
     pub dash_early_action_window: u8,
     pub dash_defensive_action_window: u8,
     pub dash_late_action_window: u8,
@@ -168,6 +172,10 @@ impl MeleeCommonData {
         escapeair_decay_percent: 90,
         escapeair_landing_lag_ticks: 10,
         fallspecial_platform_landing_y: -80,
+        platform_pass_y: 80,
+        platform_pass_y_tap_window: 3,
+        pass_initial_y_velocity: -1_200,
+        platform_drop_delay_ticks: 4,
         dash_early_action_window: 1,
         dash_defensive_action_window: 1,
         dash_late_action_window: 15,
@@ -227,6 +235,10 @@ impl MeleeCommonData {
         data.escapeair_decay_percent = read_percent_i32(bytes, 0x33c, "escapeair_decay")?;
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
+        data.platform_pass_y = read_stick_i8(bytes, 0x464, "x464")?;
+        data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
+        data.pass_initial_y_velocity = read_milli_i32(bytes, 0x46c, "x46C")?;
+        data.platform_drop_delay_ticks = read_u8_from_f32(bytes, 0x470, "x470")?;
 
         Ok(data)
     }
@@ -683,6 +695,30 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "escapeair_landing_lag",
         source_name: "x344",
         offset: 0x344,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "platform_pass_y",
+        source_name: "x464",
+        offset: 0x464,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "platform_pass_y_tap_window",
+        source_name: "x468",
+        offset: 0x468,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "pass_initial_y_velocity",
+        source_name: "x46C",
+        offset: 0x46c,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "platform_drop_delay_ticks",
+        source_name: "x470",
+        offset: 0x470,
         provenance: CommonDataProvenance::ProvisionalMole,
     },
 ];
