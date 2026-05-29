@@ -600,6 +600,11 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
 
         player.position.x += player.velocity.x;
 
+        if player.grounded && !has_floor_support(stage, player.position) {
+            enter_fall(player);
+            continue;
+        }
+
         if !player.grounded {
             if player.motion_state == MotionState::EscapeAir {
                 apply_escape_air_decay(player, common_data);

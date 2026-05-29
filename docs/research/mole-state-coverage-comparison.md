@@ -74,7 +74,7 @@ ground-vs-air specials.
 | `KneeBend` | `jumpSquat` | `KneeBend` | Covered conceptually. |
 | `JumpF/JumpB` | Collapsed into `air` after jumpsquat | `JumpF`, `JumpB` | Rust is closer. Pygame cannot distinguish ground jump direction as a state. |
 | `JumpAerialF/B` | Collapsed into `air` | `JumpAerialF`, `JumpAerialB` | Rust is closer. |
-| `Fall/FallF/FallB/FallAerial/FallAerialF/FallAerialB` | Mostly `air` | Mostly `Air` | Missing explicit fall variants. This affects animation, aerial drift state identity, and collision transitions. |
+| `Fall/FallF/FallB/FallAerial/FallAerialF/FallAerialB` | Mostly `air` | Base `Fall` plus generic `Air` | Rust now uses explicit `Fall` for grounded floor-loss, while directional fall and aerial-fall submotion identity still need careful decomp-backed modeling. This affects animation, aerial drift state identity, and collision transitions. |
 | `FallSpecial/F/B` | `fallSpecial` | `FallSpecial` | Base state covered. Forward/back variants missing. |
 | `Squat/SquatWait/SquatRv` | `crouchStart`, `crouching`; no explicit crouch release | `Squat`, `SquatWait`, `SquatRv` | Rust is closer. Crouch release now uses common-data `x94` hysteresis and profile-owned crouch startup/release durations; exact animation data remains a future extraction step. |
 | `Landing` | `landingLag` | `Landing` | Rust now has a general landing state for ordinary airborne contact. Held shield does not skip landing lag; after landing lag finishes, normal grounded shield entry can happen on the next actionable frame. |

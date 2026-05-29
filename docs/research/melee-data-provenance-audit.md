@@ -85,6 +85,9 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `StageProfile` surfaces instead of a simulator-local hardcoded floor snap.
   This keeps air-dodge landing movement deterministic and prepares the collision
   path for platform/drop-through parity.
+- Grounded movement now rechecks `StageProfile` floor support after horizontal
+  translation and enters ordinary `Fall` when the ECB bottom leaves the floor
+  span, instead of carrying grounded state beyond the edge.
 
 ## Active Data Gaps
 

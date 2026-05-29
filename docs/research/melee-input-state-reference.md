@@ -859,10 +859,11 @@ next actionable `Wait` frame may enter `GuardOn` if shield is still held. The
 current four-frame ordinary landing duration comes from
 `FighterProfile::normal_landing_lag_ticks`; the extractor maps it from
 `ftCo_DatAttrs.normal_landing_lag` at `+0xE4` when real character attribute
-bytes are available. Landing-state floor-loss now routes to explicit
-`MotionState::Fall`, matching `ftCo_Landing_Coll -> ft_80084280 ->
-ftCo_Fall_Enter`, instead of preserving `FallSpecial` after the grounded contact
-has already been lost.
+bytes are available. Landing-state floor-loss and ordinary grounded floor-support
+loss after horizontal movement now route to explicit `MotionState::Fall`,
+matching the source collision shape that exits grounded states through
+`ftCo_Fall_Enter` instead of keeping the fighter grounded after support has
+already been lost.
 
 Current Rust core status: airborne landing and air-dodge landing now route
 through a deterministic stage-contact helper instead of a simulator-local

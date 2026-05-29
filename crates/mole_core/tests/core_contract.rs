@@ -4803,6 +4803,29 @@ fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
 }
 
 #[test]
+fn grounded_state_moving_past_floor_edge_enters_fall() {
+    let mut stage = StageProfile::battlefield_test();
+    stage.main_floor = StageSurface {
+        name: "narrow_main_floor",
+        kind: StageSurfaceKind::Solid,
+        left_x: melee_units_f32(-20.5),
+        right_x: melee_units_f32(-19.0),
+        y: 0,
+    };
+    let mut world = World::for_two_players_on_stage(stage);
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+
+    assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+    assert!(world.players()[0].position.x > stage.main_floor.right_x);
+}
+
+#[test]
 fn shield_jump_digital_trigger_on_takeoff_tick_does_not_escape_air() {
     let mut world = World::for_two_players();
     let shield = [
