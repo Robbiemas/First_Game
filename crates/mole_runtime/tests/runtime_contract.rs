@@ -223,6 +223,32 @@ fn render_scene_references_background_and_sprite_asset_paths() {
 }
 
 #[test]
+fn render_scene_draws_translucent_bubble_shield_for_guard_states() {
+    let mut world = World::for_two_players();
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_shield(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+    let frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let shield = scene.player_shields[0].expect("guarding player should expose a shield bubble");
+    let player = scene.players[0];
+
+    assert!(scene.player_shields[1].is_none());
+    assert_eq!(shield.center.x, player.x + player.width as i32 / 2);
+    assert_eq!(shield.center.y, player.y + player.height as i32 / 2);
+    assert!(shield.radius > player.width / 2);
+    assert!(shield.radius < player.height);
+    assert_eq!(shield.color.a, 96);
+}
+
+#[test]
 fn sdl_runtime_launcher_uses_native_play_mode() {
     let launcher = project_asset_root()
         .join("execs")
@@ -326,6 +352,10 @@ fn render_asset_mapping_uses_legacy_animation_identity_without_mechanics() {
     assert_eq!(
         legacy_animation_for_motion_state(MotionState::EscapeAir),
         LegacyAnimationKey::AirDodge
+    );
+    assert_eq!(
+        legacy_animation_for_motion_state(MotionState::Pass),
+        LegacyAnimationKey::Air
     );
 }
 

@@ -5,7 +5,7 @@ use mole_core::{
     MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
     MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile, StageSurfaceKind,
     Vec2, WalkSpeedBucket, World, TICK_RATE_HZ, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE,
-    UCF_SHIELD_DROP_DELTA, UCF_TILT_INTENT_DELTA, UCF_VERSION,
+    UCF_SHIELD_DROP_DELTA, UCF_SHIELD_DROP_MIN_Y, UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -440,6 +440,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.run_x, 64);
     assert_eq!(thresholds.tap_jump_y, 80);
     assert_eq!(thresholds.escape_x, 80);
+    assert_eq!(thresholds.escape_y, 89);
     assert_eq!(thresholds.aerial_neutral_x, 40);
     assert_eq!(thresholds.aerial_neutral_y, 40);
     assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1000);
@@ -452,7 +453,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_decay_percent, 90);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
-    assert_eq!(common.platform_pass_y, 80);
+    assert_eq!(common.platform_pass_y, 84);
     assert_eq!(common.platform_pass_y_tap_window, 3);
     assert_eq!(common.pass_initial_y_velocity, -1_200);
     assert_eq!(common.platform_drop_delay_ticks, 4);
@@ -1110,6 +1111,7 @@ fn ucf_0_84_constants_match_source_units() {
     assert_eq!(UCF_CARDINAL_SNAP_RANGE, 6);
     assert_eq!(UCF_TILT_INTENT_DELTA, 75);
     assert_eq!(UCF_SHIELD_DROP_DELTA, 44);
+    assert_eq!(UCF_SHIELD_DROP_MIN_Y, 78);
 }
 
 #[test]
@@ -3718,6 +3720,136 @@ fn soft_platform_landing_keeps_platform_height_while_grounded() {
         assert!(world.players()[0].grounded);
         assert_eq!(world.players()[0].position.y, platform.y);
     }
+}
+
+#[test]
+fn shield_down_on_soft_platform_enters_pass_not_custom_drop_state() {
+    let mut world = World::for_two_players();
+    let (stage, mut frame) = land_player_one_on_left_platform(&mut world);
+    let platform = stage.soft_platforms[0];
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let shield_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -MeleeCommonData::provisional_mole().platform_pass_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &shield);
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < 180 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+    assert_eq!(world.players()[0].position.y, platform.y);
+
+    step_world(&mut world, Frame(frame), &shield_down);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Pass);
+    assert!(!player.grounded);
+    assert_eq!(
+        player.velocity.y,
+        MeleeCommonData::provisional_mole().pass_initial_y_velocity
+            - player.profile.gravity_per_tick
+    );
+    assert!(player.position.y < platform.y);
+    assert_ne!(format!("{:?}", player.motion_state), "ShieldDrop");
+    assert_ne!(format!("{:?}", player.motion_state), "AxeDrop");
+}
+
+#[test]
+fn shield_hard_down_on_soft_platform_spotdodges_before_pass() {
+    let mut world = World::for_two_players();
+    let (_stage, mut frame) = land_player_one_on_left_platform(&mut world);
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let hard_shield_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -MeleeCommonData::provisional_mole().escape_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &shield);
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < 180 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+
+    step_world(&mut world, Frame(frame), &hard_shield_down);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeN);
+    assert_ne!(world.players()[0].motion_state, MotionState::Pass);
+}
+
+#[test]
+fn pass_from_shield_requires_soft_platform_support() {
+    let mut world = World::for_two_players();
+    let mut frame = 0;
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let shield_pass_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -MeleeCommonData::provisional_mole().platform_pass_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &shield);
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < 20 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+    assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
+
+    step_world(&mut world, Frame(frame), &shield_pass_down);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+    assert!(world.players()[0].grounded);
+    assert_ne!(world.players()[0].motion_state, MotionState::Pass);
+}
+
+#[test]
+fn ucf_shield_drop_fact_enters_pass_without_custom_state() {
+    let mut first = World::for_two_players();
+    let mut second = World::for_two_players();
+    let (stage, frame) = land_player_one_on_left_platform(&mut first);
+    let (second_stage, second_frame) = land_player_one_on_left_platform(&mut second);
+    assert_eq!(stage, second_stage);
+    assert_eq!(frame, second_frame);
+
+    let checksums = run_ucf_assisted_pass_entry(&mut first, frame);
+    let second_checksums = run_ucf_assisted_pass_entry(&mut second, second_frame);
+
+    assert_eq!(checksums, second_checksums);
+    assert_eq!(first.players()[0].motion_state, MotionState::Pass);
+    assert_eq!(format!("{:?}", first.players()[0].motion_state), "Pass");
+    assert_ne!(
+        format!("{:?}", first.players()[0].motion_state),
+        "ShieldDrop"
+    );
+    assert_ne!(format!("{:?}", first.players()[0].motion_state), "AxeDrop");
+    assert!(
+        first.snapshot().players[0]
+            .debug_input_facts
+            .ucf_shield_drop
+    );
 }
 
 #[test]
@@ -6612,6 +6744,89 @@ fn advance_to_air(world: &mut World) {
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+}
+
+fn land_player_one_on_left_platform(world: &mut World) -> (StageProfile, u32) {
+    let stage = world.stage();
+    let platform = stage.soft_platforms[0];
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(world, Frame(frame), &jump);
+    }
+
+    let mut frame = 4;
+    while !world.players()[0].grounded && frame < 120 {
+        step_world(world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert!(world.players()[0].grounded);
+    assert_eq!(world.players()[0].position.y, platform.y);
+
+    while world.players()[0].motion_state != MotionState::Wait && frame < 160 {
+        step_world(world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    (stage, frame)
+}
+
+fn run_ucf_assisted_pass_entry(world: &mut World, start_frame: u32) -> [u64; 7] {
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let shield_ucf_setup = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -80),
+        PlayerInput::neutral(),
+    ];
+    let ucf_shield_drop = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -127)
+            .with_ucf_shield_drop_tilt_intent(true),
+        PlayerInput::neutral(),
+    ];
+    let mut frame = start_frame;
+    let mut checksums = [0; 7];
+
+    step_world(world, Frame(frame), &shield);
+    checksums[0] = world.checksum();
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < start_frame + 20 {
+        step_world(world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+
+    for slot in checksums.iter_mut().take(5).skip(1) {
+        step_world(world, Frame(frame), &shield_ucf_setup);
+        *slot = world.checksum();
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+    assert!(
+        world.input_timers()[0].y_tap
+            >= MeleeCommonData::provisional_mole().platform_pass_y_tap_window
+    );
+
+    step_world(world, Frame(frame), &ucf_shield_drop);
+    checksums[5] = world.checksum();
+    frame += 1;
+    step_world(world, Frame(frame), &ucf_shield_drop);
+    checksums[6] = world.checksum();
+
+    checksums
 }
 
 fn assert_current_action_returns_to_wait_after_frames(

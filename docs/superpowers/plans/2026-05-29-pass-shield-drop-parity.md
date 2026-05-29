@@ -53,7 +53,7 @@
 - Modify: `D:\Mole Game\First_Game\crates\mole_core\tests\core_contract.rs`
 
 - [ ] Write failing tests that assert:
-  - `MeleeCommonData::provisional_mole().platform_pass_y == 80`
+  - `MeleeCommonData::provisional_mole().platform_pass_y == 84`
   - `platform_pass_y_tap_window == 3`
   - `pass_initial_y_velocity == -1200`
   - `platform_drop_delay_ticks == 4`
@@ -120,6 +120,7 @@
   - Expected: fail until pass gating includes support-surface and UCF facts.
 - [ ] Add helper logic:
   - source-shaped non-UCF path: `stick_y <= -platform_pass_y && y_tap < platform_pass_y_tap_window`
+  - the spotdodge threshold must stay harder downward than `platform_pass_y`; if the user hits the spotdodge gate, source priority enters `EscapeN` before `Pass`.
   - UCF-assisted path: `facts.ucf_shield_drop`
   - both require `facts.source_held.lr()` and `StageSurfaceKind::Soft`.
 - [ ] Run focused tests and commit:
@@ -145,4 +146,3 @@
   - unsafe scan prints no matches and exits `1`.
 - [ ] Push:
   - `git push origin handoff/rust-rollback-architecture`
-

@@ -20,7 +20,7 @@ pub use input::{
     MeleeInputConfig, MeleeInputFacts, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MeleeSourceButtonState, PlayerInput,
     WalkSpeedBucket, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA,
-    UCF_TILT_INTENT_DELTA, UCF_VERSION,
+    UCF_SHIELD_DROP_MIN_Y, UCF_TILT_INTENT_DELTA, UCF_VERSION,
 };
 pub use sim::step_world;
 pub use stage::{StageBlastZones, StageProfile, StageSurface, StageSurfaceKind};

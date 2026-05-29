@@ -1,9 +1,9 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
-    collision::{has_floor_support, landing_contact_for_bottom},
+    collision::{floor_surface_for_bottom, has_floor_support, landing_contact_for_bottom},
     state::EXPIRED_INPUT_TIMER,
     Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput,
-    PlayerState, WalkSpeedBucket, World,
+    PlayerState, StageProfile, StageSurfaceKind, WalkSpeedBucket, World,
 };
 
 const AIR_JUMP_BACKWARD_X: i32 =
@@ -33,6 +33,15 @@ const ESCAPE_AIR_LANDING_FALL_SPECIAL_TICKS: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_landing_lag_ticks;
 const FALLSPECIAL_PLATFORM_LANDING_Y: i8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.fallspecial_platform_landing_y;
+const PLATFORM_PASS_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y;
+const PLATFORM_PASS_Y_TAP_WINDOW: u8 =
+    crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y_tap_window;
+const PASS_INITIAL_Y_VELOCITY: i32 =
+    crate::common_data::MeleeCommonData::PROVISIONAL.pass_initial_y_velocity;
+const SHIELD_ROLL_TAP_WINDOW: u8 =
+    crate::common_data::MeleeCommonData::PROVISIONAL.escape_x_tap_window;
+// UCF suppresses main-stick spotdodge for AXE-style rim input above -0.8000.
+const UCF_AXE_SPOT_DODGE_SUPPRESSION_Y: i8 = 102;
 const FALCON_ATTACK_S3_FRAMES: u8 = 29;
 const FALCON_ATTACK_HI3_FRAMES: u8 = 39;
 const FALCON_ATTACK_LW3_FRAMES: u8 = 35;
@@ -90,6 +99,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
         input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
         input_timers[player_index].trigger = input_snapshot.trigger_timer;
         let x_tap_timer = input_timers[player_index].x_tap;
+        let y_tap_timer = input_timers[player_index].y_tap;
         let previous_position = player.position;
 
         match player.motion_state {
@@ -353,7 +363,8 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             | MotionState::AttackAirF
             | MotionState::AttackAirB
             | MotionState::AttackAirHi
-            | MotionState::AttackAirLw => {
+            | MotionState::AttackAirLw
+            | MotionState::Pass => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
             }
             MotionState::GuardOn => {
@@ -363,10 +374,21 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = 0;
                 } else if !input_facts.shield_held {
                     enter_guard_off(player);
-                } else if let Some(action_state) =
-                    guard_on_action_state(player, input_facts, player.facing)
-                {
-                    enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                } else if let Some(action_state) = guard_on_action_state(
+                    player,
+                    input_facts,
+                    player.facing,
+                    stage,
+                    x_tap_timer,
+                    y_tap_timer,
+                    stick_y,
+                ) {
+                    if action_state == MotionState::Pass {
+                        enter_pass(player);
+                        input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
+                    } else {
+                        enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                    }
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     update_shield_turn(player, input_facts);
@@ -383,8 +405,21 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = 0;
                 } else if !input_facts.shield_held {
                     enter_guard_off(player);
-                } else if let Some(action_state) = guard_action_state(input_facts, player.facing) {
-                    enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                } else if let Some(action_state) = guard_action_state(
+                    player,
+                    input_facts,
+                    player.facing,
+                    stage,
+                    x_tap_timer,
+                    y_tap_timer,
+                    stick_y,
+                ) {
+                    if action_state == MotionState::Pass {
+                        enter_pass(player);
+                        input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
+                    } else {
+                        enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                    }
                 } else if input_facts.shield_held {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     update_shield_turn(player, input_facts);
@@ -541,8 +576,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         .max(-player.profile.fall_speed_per_tick);
                 }
 
-                let drop_through_soft_platforms = player.motion_state == MotionState::FallSpecial
-                    && fall_special_skips_soft_platforms(stick_y);
+                let drop_through_soft_platforms = player.motion_state == MotionState::Pass
+                    || (player.motion_state == MotionState::FallSpecial
+                        && fall_special_skips_soft_platforms(stick_y));
                 if let Some(contact) = landing_contact_for_bottom(
                     stage,
                     previous_position,
@@ -880,6 +916,16 @@ fn enter_guard_off(player: &mut PlayerState) {
     player.velocity.y = 0;
 }
 
+fn enter_pass(player: &mut PlayerState) {
+    clear_guard_state(player);
+    clear_turn_state(player);
+    player.motion_state = MotionState::Pass;
+    player.motion_frame = 0;
+    player.grounded = false;
+    player.fast_falling = false;
+    player.velocity.y = PASS_INITIAL_Y_VELOCITY;
+}
+
 fn enter_action_state(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
     clear_guard_state(player);
     clear_turn_state(player);
@@ -971,6 +1017,7 @@ fn enter_iasa_state(
             enter_guard(player);
         }
         MotionState::GuardOff => enter_guard_off(player),
+        MotionState::Pass => enter_pass(player),
         MotionState::KneeBend => enter_knee_bend(player, jump_input),
         MotionState::Dash => enter_dash(player, player.facing),
         MotionState::Squat => enter_squat(player),
@@ -1441,9 +1488,15 @@ fn guard_on_action_state(
     player: &mut PlayerState,
     facts: MeleeInputFacts,
     facing: i8,
+    stage: StageProfile,
+    x_tap_timer: u8,
+    y_tap_timer: u8,
+    stick_y: i8,
 ) -> Option<MotionState> {
-    if facts.spot_dodge {
-        return Some(MotionState::EscapeN);
+    if let Some(spot_dodge_state) =
+        guard_spot_dodge_state(player, facts, stage, x_tap_timer, stick_y)
+    {
+        return Some(spot_dodge_state);
     }
 
     if facts.roll_direction != 0 {
@@ -1465,12 +1518,26 @@ fn guard_on_action_state(
         return Some(MotionState::Catch);
     }
 
-    facts.jump_pressed.then_some(MotionState::KneeBend)
+    if facts.jump_pressed {
+        return Some(MotionState::KneeBend);
+    }
+
+    guard_platform_pass_state(player, facts, stage, y_tap_timer, stick_y)
 }
 
-fn guard_action_state(facts: MeleeInputFacts, facing: i8) -> Option<MotionState> {
-    if facts.spot_dodge {
-        return Some(MotionState::EscapeN);
+fn guard_action_state(
+    player: &PlayerState,
+    facts: MeleeInputFacts,
+    facing: i8,
+    stage: StageProfile,
+    x_tap_timer: u8,
+    y_tap_timer: u8,
+    stick_y: i8,
+) -> Option<MotionState> {
+    if let Some(spot_dodge_state) =
+        guard_spot_dodge_state(player, facts, stage, x_tap_timer, stick_y)
+    {
+        return Some(spot_dodge_state);
     }
 
     if facts.roll_direction != 0 {
@@ -1485,7 +1552,65 @@ fn guard_action_state(facts: MeleeInputFacts, facing: i8) -> Option<MotionState>
         return Some(MotionState::Catch);
     }
 
-    facts.jump_pressed.then_some(MotionState::KneeBend)
+    if facts.jump_pressed {
+        return Some(MotionState::KneeBend);
+    }
+
+    guard_platform_pass_state(player, facts, stage, y_tap_timer, stick_y)
+}
+
+fn guard_spot_dodge_state(
+    player: &PlayerState,
+    facts: MeleeInputFacts,
+    stage: StageProfile,
+    x_tap_timer: u8,
+    stick_y: i8,
+) -> Option<MotionState> {
+    if facts.cstick_spot_dodge {
+        return Some(MotionState::EscapeN);
+    }
+
+    if facts.main_stick_spot_dodge
+        && !ucf_suppresses_spot_dodge_for_pass(player, facts, stage, x_tap_timer, stick_y)
+    {
+        return Some(MotionState::EscapeN);
+    }
+
+    None
+}
+
+fn ucf_suppresses_spot_dodge_for_pass(
+    player: &PlayerState,
+    facts: MeleeInputFacts,
+    stage: StageProfile,
+    x_tap_timer: u8,
+    stick_y: i8,
+) -> bool {
+    facts.ucf_shield_drop
+        && x_tap_timer >= SHIELD_ROLL_TAP_WINDOW
+        && stick_y > -UCF_AXE_SPOT_DODGE_SUPPRESSION_Y
+        && grounded_on_soft_platform(player, stage)
+}
+
+fn guard_platform_pass_state(
+    player: &PlayerState,
+    facts: MeleeInputFacts,
+    stage: StageProfile,
+    y_tap_timer: u8,
+    stick_y: i8,
+) -> Option<MotionState> {
+    if !facts.source_held.lr() || !grounded_on_soft_platform(player, stage) {
+        return None;
+    }
+
+    let source_pass_gate = stick_y <= -PLATFORM_PASS_Y && y_tap_timer < PLATFORM_PASS_Y_TAP_WINDOW;
+    (source_pass_gate || facts.ucf_shield_drop).then_some(MotionState::Pass)
+}
+
+fn grounded_on_soft_platform(player: &PlayerState, stage: StageProfile) -> bool {
+    player.grounded
+        && floor_surface_for_bottom(stage, player.position)
+            .is_some_and(|surface| surface.kind == StageSurfaceKind::Soft)
 }
 
 fn guard_off_action_state(facts: MeleeInputFacts) -> Option<MotionState> {

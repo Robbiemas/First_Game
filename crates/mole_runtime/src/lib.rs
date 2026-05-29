@@ -330,6 +330,12 @@ impl RenderColor {
         b: 87,
         a: 255,
     };
+    pub const SHIELD_BUBBLE: Self = Self {
+        r: 94,
+        g: 192,
+        b: 255,
+        a: 96,
+    };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -338,6 +344,13 @@ pub struct RenderRect {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    pub color: RenderColor,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderCircle {
+    pub center: RenderPoint,
+    pub radius: u32,
     pub color: RenderColor,
 }
 
@@ -363,6 +376,7 @@ pub struct RenderScene {
     pub players: [RenderRect; 2],
     pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
+    pub player_shields: [Option<RenderCircle>; 2],
 }
 
 impl RenderScene {
@@ -384,6 +398,24 @@ impl RenderScene {
             ),
         ];
         let visual = DolphinMoleVisualProfile::default();
+        let players = [
+            player_rect(
+                frame,
+                0,
+                transform,
+                player_sprites[0],
+                visual,
+                player_colors[0],
+            ),
+            player_rect(
+                frame,
+                1,
+                transform,
+                player_sprites[1],
+                visual,
+                player_colors[1],
+            ),
+        ];
 
         Self {
             background: RenderColor::BACKGROUND,
@@ -400,29 +432,16 @@ impl RenderScene {
             transform,
             stage: stage_surfaces[0],
             stage_surfaces,
-            players: [
-                player_rect(
-                    frame,
-                    0,
-                    transform,
-                    player_sprites[0],
-                    visual,
-                    player_colors[0],
-                ),
-                player_rect(
-                    frame,
-                    1,
-                    transform,
-                    player_sprites[1],
-                    visual,
-                    player_colors[1],
-                ),
-            ],
+            players,
             player_ecbs: [
                 player_ecb(frame, 0, transform, player_sprites[0], visual),
                 player_ecb(frame, 1, transform, player_sprites[1], visual),
             ],
             player_sprites,
+            player_shields: [
+                player_shield(frame.player_motion_states[0], players[0]),
+                player_shield(frame.player_motion_states[1], players[1]),
+            ],
         }
     }
 }
@@ -563,6 +582,24 @@ fn player_rect(
         height,
         color,
     }
+}
+
+fn player_shield(motion_state: MotionState, player: RenderRect) -> Option<RenderCircle> {
+    if !matches!(
+        motion_state,
+        MotionState::GuardOn | MotionState::Guard | MotionState::GuardOff
+    ) {
+        return None;
+    }
+
+    Some(RenderCircle {
+        center: RenderPoint {
+            x: player.x + player.width as i32 / 2,
+            y: player.y + player.height as i32 / 2,
+        },
+        radius: player.width.max(player.height) * 58 / 100,
+        color: RenderColor::SHIELD_BUBBLE,
+    })
 }
 
 fn render_stage_surfaces(

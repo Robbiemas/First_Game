@@ -541,6 +541,9 @@ fn draw_sdl_scene(
             draw_sdl_rect(canvas, player)?;
         }
     }
+    for shield in scene.player_shields.into_iter().flatten() {
+        draw_sdl_circle(canvas, shield)?;
+    }
     for ecb in scene.player_ecbs {
         draw_sdl_polygon(canvas, ecb)?;
     }
@@ -638,6 +641,29 @@ fn draw_sdl_polygon(canvas: &mut WindowCanvas, polygon: RenderPolygon) -> Result
         let end = points[(index + 1) % points.len()];
         draw_sdl_line(canvas, start.x, start.y, end.x, end.y, polygon.color)?;
     }
+    Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_sdl_circle(
+    canvas: &mut WindowCanvas,
+    circle: mole_runtime::RenderCircle,
+) -> Result<(), String> {
+    canvas.set_blend_mode(BlendMode::Blend);
+    canvas.set_draw_color(sdl_color(circle.color));
+    let radius = circle.radius as i32;
+    let radius_squared = radius * radius;
+
+    for dy in -radius..=radius {
+        let half_width = ((radius_squared - dy * dy) as f32).sqrt().round() as i32;
+        canvas
+            .draw_line(
+                Point::new(circle.center.x - half_width, circle.center.y + dy),
+                Point::new(circle.center.x + half_width, circle.center.y + dy),
+            )
+            .map_err(|error| error.to_string())?;
+    }
+
     Ok(())
 }
 

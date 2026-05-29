@@ -95,6 +95,8 @@ pub const UCF_CARDINAL_AXIS: i8 = 80;
 pub const UCF_CARDINAL_SNAP_RANGE: i8 = 6;
 pub const UCF_TILT_INTENT_DELTA: i16 = 75;
 pub const UCF_SHIELD_DROP_DELTA: i16 = 44;
+// UCF's sdrop-up precheck uses -0.6125 on the Melee float stick scale.
+pub const UCF_SHIELD_DROP_MIN_Y: i8 = 78;
 const UCF_PAD_BUFFER_SIZE: usize = 4;
 const UCF_PAD_BUFFER_MASK: usize = UCF_PAD_BUFFER_SIZE - 1;
 
@@ -542,6 +544,8 @@ pub struct MeleeInputFacts {
     pub dash_direction: i8,
     pub ucf_dashback_direction: i8,
     pub ucf_shield_drop: bool,
+    pub main_stick_spot_dodge: bool,
+    pub cstick_spot_dodge: bool,
     pub crouch: bool,
     pub tap_jump: bool,
     pub button_jump_pressed: bool,
@@ -612,7 +616,8 @@ impl MeleeInputSnapshot {
             ucf_dashback_direction
         };
         let ucf_shield_drop = self.ucf_shield_drop_tilt_intent
-            && (self.lstick.1 as i16) <= -threshold_abs(thresholds.escape_y);
+            && (self.lstick.1 as i16) <= -threshold_abs(UCF_SHIELD_DROP_MIN_Y)
+            && is_ucf_shield_drop_rim_coord(self.lstick);
         let tilt_direction = (
             axis_direction(self.lstick.0, thresholds.tilt_x),
             axis_direction(self.lstick.1, thresholds.tilt_y),
@@ -703,7 +708,10 @@ impl MeleeInputSnapshot {
         } else {
             trigger_analog_shield
         };
-        let spot_dodge = shield_spot_dodge(self.lstick, self.cstick, self.y_tap_timer, thresholds);
+        let main_stick_spot_dodge =
+            shield_main_stick_spot_dodge(self.lstick, self.y_tap_timer, thresholds);
+        let cstick_spot_dodge = shield_cstick_spot_dodge(self.cstick, thresholds);
+        let spot_dodge = main_stick_spot_dodge || cstick_spot_dodge;
         let roll_direction =
             shield_roll_direction(self.lstick, self.cstick, self.x_tap_timer, thresholds);
 
@@ -717,6 +725,8 @@ impl MeleeInputSnapshot {
             dash_direction,
             ucf_dashback_direction,
             ucf_shield_drop,
+            main_stick_spot_dodge,
+            cstick_spot_dodge,
             crouch: (self.lstick.1 as i16) <= -threshold_abs(thresholds.crouch_y),
             tap_jump,
             button_jump_pressed,
@@ -1349,6 +1359,23 @@ fn ucf_axis_delta_exceeds(previous: i8, current: i8, threshold: i16) -> bool {
     delta * delta > threshold * threshold
 }
 
+fn is_ucf_shield_drop_rim_coord(stick: (i8, i8)) -> bool {
+    let x = ucf_rim_axis_coord(stick.0);
+    let y = ucf_rim_axis_coord(stick.1);
+    x * x + y * y > 80 * 80
+}
+
+fn ucf_rim_axis_coord(axis: i8) -> i32 {
+    let abs_axis = (axis as i16).abs() as i32;
+    let denominator = if axis < 0 { 128 } else { 127 };
+    let numerator = abs_axis * 80;
+    let mut coord = numerator / denominator;
+    if numerator != 0 && numerator % denominator == 0 {
+        coord -= 1;
+    }
+    coord + 2
+}
+
 fn clean_axis_to_i8(value: u8, deadzone: i8) -> i8 {
     let axis = gamecube_axis_to_i8(value);
     if (axis as i16).abs() <= threshold_abs(deadzone) {
@@ -1564,17 +1591,17 @@ fn aerial_vertical_angle_exceeds(stick: (i8, i8), tan_milli: i32) -> bool {
     abs_y * 1000 > abs_x * tan_milli
 }
 
-fn shield_spot_dodge(
+fn shield_main_stick_spot_dodge(
     lstick: (i8, i8),
-    cstick: (i8, i8),
     y_tap_timer: u8,
     thresholds: MeleeInputThresholds,
 ) -> bool {
-    let main_down = y_tap_timer < thresholds.escape_y_tap_window
-        && (lstick.1 as i16) <= -threshold_abs(thresholds.escape_y);
-    let cstick_down = (cstick.1 as i16) <= -threshold_abs(thresholds.escape_y);
+    y_tap_timer < thresholds.escape_y_tap_window
+        && (lstick.1 as i16) <= -threshold_abs(thresholds.escape_y)
+}
 
-    main_down || cstick_down
+fn shield_cstick_spot_dodge(cstick: (i8, i8), thresholds: MeleeInputThresholds) -> bool {
+    (cstick.1 as i16) <= -threshold_abs(thresholds.escape_y)
 }
 
 fn shield_roll_direction(

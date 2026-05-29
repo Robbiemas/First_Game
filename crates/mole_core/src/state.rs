@@ -421,6 +421,7 @@ pub enum MotionState {
     FallSpecial,
     LandingFallSpecial,
     Landing,
+    Pass,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -708,6 +709,7 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::JumpF => 46,
         MotionState::JumpB => 47,
         MotionState::Landing => 48,
+        MotionState::Pass => 49,
     }
 }
 
