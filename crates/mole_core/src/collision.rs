@@ -66,7 +66,7 @@ pub fn landing_contact_for_bottom_with_floor_skip(
     floor_skip_surface: Option<u8>,
     drop_through_soft_platforms: bool,
 ) -> Option<StageLandingContact> {
-    if current_bottom.y > previous_bottom.y {
+    if current_bottom.y >= previous_bottom.y {
         return None;
     }
 

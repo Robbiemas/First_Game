@@ -2294,7 +2294,7 @@ fn grounded_jump_waits_through_falcon_jumpsquat_before_takeoff() {
     step_world(&mut world, Frame(3), &jump);
 
     assert!(!world.players()[0].grounded);
-    assert!(world.players()[0].position.y > start_y);
+    assert_eq!(world.players()[0].position.y, start_y);
     assert!(world.players()[0].velocity.y > 0);
 }
 
@@ -2350,7 +2350,7 @@ fn releasing_jump_during_jumpsquat_selects_short_hop_velocity() {
 }
 
 #[test]
-fn ground_jump_first_airborne_tick_uses_falcon_jump_force_before_gravity() {
+fn ground_jump_first_movement_tick_uses_falcon_jump_force_before_gravity() {
     let mut full_hop = World::for_two_players();
     let mut short_hop = World::for_two_players();
     let profile = FighterProfile::falcon_like();
@@ -2367,6 +2367,8 @@ fn ground_jump_first_airborne_tick_uses_falcon_jump_force_before_gravity() {
         step_world(&mut full_hop, Frame(frame), &jump);
         step_world(&mut short_hop, Frame(frame), &neutral);
     }
+    step_world(&mut full_hop, Frame(4), &jump);
+    step_world(&mut short_hop, Frame(4), &neutral);
 
     assert_eq!(
         full_hop.players()[0].position.y - start_y,
@@ -2383,6 +2385,41 @@ fn ground_jump_first_airborne_tick_uses_falcon_jump_force_before_gravity() {
     assert_eq!(
         short_hop.players()[0].velocity.y,
         profile.short_hop_jump_force_per_tick - profile.gravity_per_tick
+    );
+}
+
+#[test]
+fn ground_jump_takeoff_state_change_keeps_bottom_vertex_on_floor_until_next_physics_tick() {
+    let mut world = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
+    let start_y = world.players()[0].position.y;
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].position.y, start_y);
+    assert_eq!(
+        world.players()[0].velocity.y,
+        profile.full_hop_jump_force_per_tick
+    );
+
+    step_world(&mut world, Frame(4), &neutral);
+
+    assert_eq!(
+        world.players()[0].position.y - start_y,
+        profile.full_hop_jump_force_per_tick
+    );
+    assert_eq!(
+        world.players()[0].velocity.y,
+        profile.full_hop_jump_force_per_tick - profile.gravity_per_tick
     );
 }
 
@@ -3309,7 +3346,7 @@ fn fresh_digital_trigger_first_airborne_frame_enters_escape_air() {
     let air_dodge = [
         PlayerInput::neutral()
             .with_right_trigger_digital(true)
-            .with_left_stick(80, -80),
+            .with_left_stick(80, 0),
         PlayerInput::neutral(),
     ];
 
@@ -3322,7 +3359,7 @@ fn fresh_digital_trigger_first_airborne_frame_enters_escape_air() {
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert!(world.players()[0].velocity.x > 0);
-    assert!(world.players()[0].velocity.y < 0);
+    assert_eq!(world.players()[0].velocity.y, 0);
 }
 
 #[test]
@@ -4417,7 +4454,12 @@ fn air_dodge_landing_uses_existing_melee_states_not_wavedash_state() {
     }
     step_world(&mut world, Frame(4), &diagonal_air_dodge);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert!(world.players()[0].grounded);
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
     assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
 
     let mut frame = 5;
@@ -4528,7 +4570,7 @@ fn shield_jump_first_airborne_fresh_other_digital_trigger_enters_escape_air() {
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
             .with_right_trigger_digital(true)
-            .with_left_stick(80, -80),
+            .with_left_stick(80, 0),
         PlayerInput::neutral(),
     ];
 
@@ -4542,7 +4584,7 @@ fn shield_jump_first_airborne_fresh_other_digital_trigger_enters_escape_air() {
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert!(world.players()[0].velocity.x > 0);
-    assert!(world.players()[0].velocity.y < 0);
+    assert_eq!(world.players()[0].velocity.y, 0);
 }
 
 #[test]
@@ -4562,7 +4604,7 @@ fn shield_jump_first_airborne_fresh_same_trigger_digital_enters_escape_air() {
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
             .with_left_trigger_digital(true)
-            .with_left_stick(80, -80),
+            .with_left_stick(80, 0),
         PlayerInput::neutral(),
     ];
 
@@ -4576,7 +4618,7 @@ fn shield_jump_first_airborne_fresh_same_trigger_digital_enters_escape_air() {
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert!(world.players()[0].velocity.x > 0);
-    assert!(world.players()[0].velocity.y < 0);
+    assert_eq!(world.players()[0].velocity.y, 0);
 }
 
 #[test]
@@ -4596,7 +4638,7 @@ fn shield_jump_first_airborne_air_dodge_beats_aerial_attack() {
         PlayerInput::neutral()
             .with_attack(true)
             .with_right_trigger_digital(true)
-            .with_left_stick(80, -80),
+            .with_left_stick(80, 0),
         PlayerInput::neutral(),
     ];
 
@@ -4991,7 +5033,7 @@ fn air_dodge_beats_aerial_attack_and_aerial_attack_beats_air_jump() {
         PlayerInput::neutral()
             .with_attack(true)
             .with_right_trigger_digital(true)
-            .with_left_stick(90, -80),
+            .with_left_stick(90, 0),
         PlayerInput::neutral(),
     ];
     let attack_with_jump = [

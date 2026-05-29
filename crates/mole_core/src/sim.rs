@@ -104,6 +104,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
         let x_tap_timer = input_timers[player_index].x_tap;
         let y_tap_timer = input_timers[player_index].y_tap;
         let previous_position = player.position;
+        let mut skip_position_update_this_tick = false;
 
         match player.motion_state {
             MotionState::Wait => {
@@ -479,6 +480,10 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_frame = 0;
                     player.fast_falling = false;
                     player.jumps_remaining = player.profile.max_jumps;
+                    // Melee's first Jump physics call seeds the state without
+                    // translating the fighter. The bottom ECB vertex remains
+                    // the canonical position until the next physics tick.
+                    skip_position_update_this_tick = true;
                 } else if let Some(action_state) = knee_bend_action_state(input_facts, stick_y) {
                     enter_action_state(player, action_state, stick_x);
                 } else {
@@ -553,6 +558,10 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
 
         if player.motion_state != MotionState::Run {
             player.run_no_interrupt_frames = 0;
+        }
+
+        if skip_position_update_this_tick {
+            continue;
         }
 
         player.position.x += player.velocity.x;
