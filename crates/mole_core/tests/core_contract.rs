@@ -4558,6 +4558,48 @@ fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration(
 }
 
 #[test]
+fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
+    let mut stage = StageProfile::battlefield_test();
+    stage.main_floor = StageSurface {
+        name: "narrow_main_floor",
+        kind: StageSurfaceKind::Solid,
+        left_x: melee_units_f32(-20.5),
+        right_x: melee_units_f32(-19.0),
+        y: 0,
+    };
+    let mut world = World::for_two_players_on_stage(stage);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let down_forward_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(80, -127),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &down_forward_air_dodge);
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
+
+    let mut frame = 5;
+    while world.players()[0].motion_state == MotionState::LandingFallSpecial && frame < 20 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+}
+
+#[test]
 fn shield_jump_digital_trigger_on_takeoff_tick_does_not_escape_air() {
     let mut world = World::for_two_players();
     let shield = [

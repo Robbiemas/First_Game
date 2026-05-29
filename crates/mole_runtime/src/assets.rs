@@ -233,6 +233,7 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::JumpAerialF
         | MotionState::JumpAerialB
         | MotionState::Air
+        | MotionState::Fall
         | MotionState::Pass
         | MotionState::AttackAirN
         | MotionState::AttackAirF

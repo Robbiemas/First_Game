@@ -213,14 +213,14 @@
       "label": "Air umbrella",
       "pos": [7, 5],
       "status": "mismatch",
-      "notes": "Rust still uses Air as an umbrella fall/drift state instead of explicit Fall, FallF, and FallB; fast-fall velocity now follows the profile-owned Melee path."
+      "notes": "Rust still has some legacy Air umbrella entry points; source-shaped fall-off from landing now routes through explicit Fall."
     },
     {
       "id": "Fall",
       "label": "Fall",
       "pos": [7, 6],
-      "status": "missing",
-      "notes": "Not currently represented separately; folded into Air."
+      "status": "partial",
+      "notes": "Rust has explicit Fall for landing-state ground loss via ftCo_Fall_Enter; FallF/FallB animation-state splitting remains pending."
     },
     {
       "id": "FallF",
@@ -644,6 +644,14 @@
       "status": "partial"
     },
     {
+      "from": "Fall",
+      "to": "Landing",
+      "input": "ground/platform collision from explicit fall",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Explicit Fall shares the airborne physics/contact path used by the previous Air umbrella."
+    },
+    {
       "from": "EscapeAir",
       "to": "FallSpecial",
       "input": "escape-air animation completes without landing",
@@ -673,12 +681,28 @@
       "status": "partial"
     },
     {
+      "from": "Landing",
+      "to": "Fall",
+      "input": "floor contact is lost during landing collision",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Matches ftCo_Landing_Coll -> ft_80084280 -> ftCo_Fall_Enter when ground collision is no longer valid."
+    },
+    {
       "from": "LandingFallSpecial",
       "to": "Wait",
       "input": "fall-special landing lag completes",
       "frames": "landing-fall-special lag window",
       "status": "partial",
       "notes": "Slide now uses fixed Falcon ground traction each 60 Hz tick until common-data landing lag returns control."
+    },
+    {
+      "from": "LandingFallSpecial",
+      "to": "Fall",
+      "input": "floor contact is lost during fall-special landing lag",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Rust now leaves the grounded slide through explicit Fall rather than returning to FallSpecial."
     }
   ]
 }

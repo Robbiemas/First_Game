@@ -409,6 +409,7 @@ pub enum MotionState {
     JumpF,
     JumpB,
     Air,
+    Fall,
     JumpAerialF,
     JumpAerialB,
     GuardOn,
@@ -537,9 +538,23 @@ impl World {
     }
 
     pub fn for_two_players_with_profiles(profiles: [FighterProfile; PLAYER_COUNT]) -> Self {
+        Self::for_two_players_on_stage_with_profiles(StageProfile::battlefield_test(), profiles)
+    }
+
+    pub fn for_two_players_on_stage(stage: StageProfile) -> Self {
+        Self::for_two_players_on_stage_with_profiles(
+            stage,
+            [FighterProfile::FALCON_LIKE; PLAYER_COUNT],
+        )
+    }
+
+    pub fn for_two_players_on_stage_with_profiles(
+        stage: StageProfile,
+        profiles: [FighterProfile; PLAYER_COUNT],
+    ) -> Self {
         Self {
             frame: Frame(0),
-            stage: StageProfile::battlefield_test(),
+            stage,
             players: [
                 PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
                 PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
@@ -713,6 +728,7 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::JumpB => 47,
         MotionState::Landing => 48,
         MotionState::Pass => 49,
+        MotionState::Fall => 50,
     }
 }
 

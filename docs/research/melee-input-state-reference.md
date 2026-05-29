@@ -812,7 +812,10 @@ Only after animation completion does the Python bridge enter `fallSpecial`,
 where gravity resumes.
 Landing out of either `airDodge` or `fallSpecial` enters `landingFallSpecial`,
 preserves horizontal slide under traction, and uses a separate provisional
-landing duration instead of Captain Falcon's four-frame empty landing lag. The
+landing duration instead of Captain Falcon's four-frame empty landing lag. Rust
+now applies ground traction with the same fixed deceleration shape as
+`ftCommon_ApplyFrictionGround`, rather than multiplying the slide velocity each
+tick. The
 decomp path enters this landing state with `allow_interrupt = false`, so a held
 L/R trigger from the air dodge cannot route through the grounded guard helper
 while `landingFallSpecial` is active, including the frame where the landing state
@@ -837,7 +840,10 @@ next actionable `Wait` frame may enter `GuardOn` if shield is still held. The
 current four-frame ordinary landing duration comes from
 `FighterProfile::normal_landing_lag_ticks`; the extractor maps it from
 `ftCo_DatAttrs.normal_landing_lag` at `+0xE4` when real character attribute
-bytes are available.
+bytes are available. Landing-state floor-loss now routes to explicit
+`MotionState::Fall`, matching `ftCo_Landing_Coll -> ft_80084280 ->
+ftCo_Fall_Enter`, instead of preserving `FallSpecial` after the grounded contact
+has already been lost.
 
 Current Rust core status: airborne landing and air-dodge landing now route
 through a deterministic stage-contact helper instead of a simulator-local

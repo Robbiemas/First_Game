@@ -493,6 +493,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 }
             }
             MotionState::Air
+            | MotionState::Fall
             | MotionState::JumpF
             | MotionState::JumpB
             | MotionState::JumpAerialF
@@ -520,9 +521,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             }
             MotionState::LandingFallSpecial => {
                 if !has_floor_support(stage, player.position) {
-                    player.grounded = false;
-                    player.motion_state = MotionState::FallSpecial;
-                    player.motion_frame = 0;
+                    enter_fall(player);
                     continue;
                 }
                 player.motion_frame = player.motion_frame.saturating_add(1);
@@ -535,9 +534,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             }
             MotionState::Landing => {
                 if !has_floor_support(stage, player.position) {
-                    player.grounded = false;
-                    player.motion_state = MotionState::Air;
-                    player.motion_frame = 0;
+                    enter_fall(player);
                     continue;
                 }
                 player.motion_frame = player.motion_frame.saturating_add(1);
@@ -1077,6 +1074,13 @@ fn enter_fall_special(player: &mut PlayerState) {
     player.motion_frame = 0;
     player.escape_air_iasa_timer = 0;
     player.fast_falling = false;
+}
+
+fn enter_fall(player: &mut PlayerState) {
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 0;
+    player.grounded = false;
+    player.escape_air_iasa_timer = 0;
 }
 
 fn enter_landing_fall_special(player: &mut PlayerState) {
