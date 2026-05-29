@@ -4141,6 +4141,56 @@ fn fall_special_accepts_air_jump_like_source_iasa() {
 }
 
 #[test]
+fn fall_special_after_air_dodge_applies_source_air_drift() {
+    let profile = FighterProfile {
+        jump_horizontal_initial_velocity_per_tick: 0,
+        air_drift_stick_accel_per_tick: 40,
+        air_drift_base_accel_per_tick: 20,
+        air_drift_max_velocity_per_tick: 1_120,
+        air_friction_per_tick: 10,
+        air_max_horizontal_velocity_per_tick: 1_120,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let up_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(0, 127),
+        PlayerInput::neutral(),
+    ];
+    let drift_right = [
+        PlayerInput::neutral().with_left_stick(100, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    for frame in 4..8 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(8), &up_air_dodge);
+
+    let escape_air_end = 8 + MeleeCommonData::provisional_mole().escapeair_animation_ticks as u32;
+    for frame in 9..=escape_air_end {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::FallSpecial);
+    assert_eq!(world.players()[0].velocity.x, 0);
+
+    step_world(&mut world, Frame(escape_air_end + 1), &drift_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::FallSpecial);
+    assert_eq!(world.players()[0].velocity.x, 60);
+}
+
+#[test]
 fn aerial_jump_enters_jump_aerial_forward_state() {
     let mut world = World::for_two_players();
     let jump = [

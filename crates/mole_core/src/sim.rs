@@ -517,6 +517,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_air_jump(player, stick_x);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
+                    apply_air_drift(player, stick_x);
                 }
             }
             MotionState::LandingFallSpecial => {

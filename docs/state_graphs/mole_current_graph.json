@@ -248,7 +248,7 @@
       "label": "FallSpecial",
       "pos": [10, 6],
       "status": "partial",
-      "notes": "Rust has base special fall; forward/back variants are not explicit."
+      "notes": "Rust has base special fall with air-jump IASA and normal air drift after EscapeAir; forward/back variants and other x340 mobility entry paths are not explicit."
     },
     {
       "id": "FallSpecialF",

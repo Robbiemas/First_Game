@@ -801,7 +801,12 @@ duration are still provisional stand-ins until exact animation data,
 `ftCo_800CB870` aerial jump. The Rust core now models the non-item air-jump part
 by spending the remaining aerial jump from `FallSpecial` and entering
 `JumpAerialF`/`JumpAerialB` through the same source-shaped aerial-jump entry
-helper used from ordinary airborne state.
+helper used from ordinary airborne state. It also applies normal profile-owned
+air drift while `FallSpecial` continues after air dodge, matching the
+`xC != 0` branch of `ftCo_FallSpecial_Phys` entered by
+`ftCo_80096900(..., 1, 1, false, p_ftCommonData->x340,
+p_ftCommonData->x344)`. Exact `x340` mobility handling for other special-fall
+entry paths remains pending because those source paths are not represented yet.
 The playable Python layer mirrors the same source shape for live controller
 testing: `airDodge` uses the two-axis `escapeair_deadzone` check, applies one
 fixed-force vector along the stick angle, decays stored self-velocity on the
