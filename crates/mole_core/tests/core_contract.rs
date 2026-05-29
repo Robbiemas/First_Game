@@ -3874,6 +3874,48 @@ fn shield_down_on_soft_platform_enters_pass_not_custom_drop_state() {
 }
 
 #[test]
+fn world_common_data_drives_platform_pass_gate_and_velocity() {
+    let common = MeleeCommonData {
+        platform_pass_y: 50,
+        platform_pass_y_tap_window: 3,
+        pass_initial_y_velocity: -1_600,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let (stage, mut frame) = land_player_one_on_left_platform(&mut world);
+    let platform = stage.soft_platforms[0];
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let shield_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -common.platform_pass_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &shield);
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < 180 {
+        step_world(&mut world, Frame(frame), &shield);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+    assert_eq!(world.players()[0].position.y, platform.y);
+
+    step_world(&mut world, Frame(frame), &shield_down);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Pass);
+    assert_eq!(
+        player.velocity.y,
+        common.pass_initial_y_velocity - player.profile.gravity_per_tick
+    );
+}
+
+#[test]
 fn shield_hard_down_on_soft_platform_spotdodges_before_pass() {
     let mut world = World::for_two_players();
     let (_stage, mut frame) = land_player_one_on_left_platform(&mut world);
@@ -4347,6 +4389,35 @@ fn aerial_jump_with_hard_back_stick_enters_jump_aerial_back_state() {
     assert_eq!(world.players()[0].jumps_remaining, 0);
     assert!(world.players()[0].velocity.x < 0);
     assert!(world.players()[0].velocity.y > 0);
+}
+
+#[test]
+fn world_common_data_drives_aerial_jump_backward_threshold() {
+    let common = MeleeCommonData {
+        air_jump_backward_x: 100,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let soft_back_double_jump = [
+        PlayerInput::neutral()
+            .with_jump(true)
+            .with_left_stick(-80, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jump);
+    step_world(&mut world, Frame(1), &jump);
+    step_world(&mut world, Frame(2), &jump);
+    step_world(&mut world, Frame(3), &jump);
+    step_world(&mut world, Frame(4), &neutral);
+    step_world(&mut world, Frame(5), &soft_back_double_jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
 }
 
 #[test]
@@ -7663,6 +7734,43 @@ fn fresh_down_tap_while_falling_fast_falls_once() {
     );
     assert_eq!(
         fast_fall.players()[0].position.y - position_before_held_down,
+        -profile.fast_fall_speed_per_tick
+    );
+}
+
+#[test]
+fn world_common_data_drives_fast_fall_gate() {
+    let common = MeleeCommonData {
+        fast_fall_y: 40,
+        fast_fall_window: 3,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let profile = FighterProfile::falcon_like();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let soft_down = [
+        PlayerInput::neutral().with_left_stick(0, -50),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jump);
+
+    let mut frame = 1;
+    while world.players()[0].velocity.y >= 0 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+        assert!(frame < 120);
+    }
+
+    step_world(&mut world, Frame(frame), &soft_down);
+
+    assert!(world.players()[0].fast_falling);
+    assert_eq!(
+        world.players()[0].velocity.y,
         -profile.fast_fall_speed_per_tick
     );
 }

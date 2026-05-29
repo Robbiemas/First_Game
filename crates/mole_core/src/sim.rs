@@ -9,25 +9,10 @@ use crate::{
     StageProfile, StageSurfaceKind, WalkSpeedBucket, World,
 };
 
-const AIR_JUMP_BACKWARD_X: i32 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.air_jump_backward_x as i32;
-const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.smash_y;
-const FAST_FALL_STICK_THRESHOLD: i8 = -80;
-const FAST_FALL_TAP_WINDOW: u8 = 2;
 const ATTACK_ACTIVE_TICKS: u8 = 12;
 const SHIELD_TURN_FRAMES: u8 = 5;
 const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
-const DASH_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_x as i32;
-const DASH_TAP_WINDOW: u8 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_tap_window;
-const RUN_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.run_x as i32;
-const PLATFORM_PASS_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y;
-const PLATFORM_PASS_Y_TAP_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y_tap_window;
-const PASS_INITIAL_Y_VELOCITY: i32 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.pass_initial_y_velocity;
-const SHIELD_ROLL_TAP_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escape_x_tap_window;
 // UCF suppresses main-stick spotdodge for AXE-style rim input above -0.8000.
 const UCF_AXE_SPOT_DODGE_SUPPRESSION_Y: i8 = 102;
 const FALCON_ATTACK_S3_FRAMES: u8 = 29;
@@ -46,16 +31,6 @@ const FALCON_ESCAPE_F_FRAMES: u8 = 31;
 const FALCON_ESCAPE_B_FRAMES: u8 = 31;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
 const GUARD_ON_TICKS: u8 = 4;
-const DASH_EARLY_ACTION_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.dash_early_action_window;
-const DASH_DEFENSIVE_ACTION_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.dash_defensive_action_window;
-const DASH_LATE_ACTION_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.dash_late_action_window;
-const GUARD_ON_CATCH_DASH_WINDOW: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.guard_on_catch_dash_window;
-const RUN_TURN_RUN_NO_INTERRUPT_FRAMES: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.run_turn_run_no_interrupt_frames;
 const GUARD_OFF_FRAMES: u8 = 15;
 const FALCON_ATTACK_HI3_IASA: u8 = 38;
 const FALCON_ATTACK_LW3_IASA: u8 = 35;
@@ -133,10 +108,18 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 }
             }
             MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
-                let walk_forward_dash =
-                    fresh_walk_forward_dash_direction(input_facts, x_tap_timer, player.facing);
-                let walk_smash_turn =
-                    fresh_walk_smash_turn_direction(input_facts, x_tap_timer, player.facing);
+                let walk_forward_dash = fresh_walk_forward_dash_direction(
+                    input_facts,
+                    x_tap_timer,
+                    player.facing,
+                    common_data,
+                );
+                let walk_smash_turn = fresh_walk_smash_turn_direction(
+                    input_facts,
+                    x_tap_timer,
+                    player.facing,
+                    common_data,
+                );
 
                 if !player.grounded {
                     player.motion_state = MotionState::Air;
@@ -167,13 +150,13 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     player.motion_state = MotionState::Air;
                     player.motion_frame = 0;
                 } else if let Some(action_state) =
-                    dash_action_state(input_facts, player.motion_frame, player.facing)
+                    dash_action_state(input_facts, player.motion_frame, player.facing, common_data)
                 {
                     enter_action_state(player, action_state, stick_x);
                 } else if input_facts.smash_turn_direction(player.facing) != 0 {
                     enter_smash_turn(player, input_facts.smash_turn_direction(player.facing));
                 } else if input_facts.shield_held {
-                    enter_guard_from_run(player);
+                    enter_guard_from_run(player, common_data);
                 } else if input_facts.normal_jump_pressed {
                     enter_knee_bend(player, input_facts.normal_jump_input);
                 } else {
@@ -184,7 +167,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         apply_dash_velocity(player, stick_x);
                     }
                     if player.motion_frame >= player.profile.dash_frames {
-                        exit_dash(player, stick_x, input_facts.walk_speed_bucket);
+                        exit_dash(player, stick_x, input_facts.walk_speed_bucket, common_data);
                     }
                 }
             }
@@ -195,7 +178,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else if let Some(action_state) = run_action_state(input_facts) {
                     enter_action_state(player, action_state, stick_x);
                 } else if input_facts.shield_held {
-                    enter_guard_from_run(player);
+                    enter_guard_from_run(player, common_data);
                 } else if input_facts.normal_jump_pressed {
                     enter_knee_bend(player, input_facts.normal_jump_input);
                 } else if player.run_no_interrupt_frames > 0 {
@@ -206,10 +189,10 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     } else {
                         apply_dash_velocity(player, stick_x);
                     }
-                } else if is_same_direction_run(stick_x, player.facing) {
+                } else if is_same_direction_run(stick_x, player.facing, common_data) {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     apply_dash_velocity(player, stick_x);
-                } else if is_opposite_run_turn(stick_x, player.facing) {
+                } else if is_opposite_run_turn(stick_x, player.facing, common_data) {
                     enter_turn_run(player);
                 } else {
                     enter_run_brake(player);
@@ -250,9 +233,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
 
                     if player.turn_has_turned
                         && player.velocity.x * player.facing as i32 > 0
-                        && is_same_direction_run(stick_x, player.facing)
+                        && is_same_direction_run(stick_x, player.facing, common_data)
                     {
-                        enter_run_from_turn_run(player);
+                        enter_run_from_turn_run(player, common_data);
                     } else if player.velocity.x == 0 && stick_x == 0 {
                         player.motion_state = MotionState::Wait;
                         player.motion_frame = 0;
@@ -280,10 +263,17 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     } else if input_facts.normal_jump_pressed {
                         enter_knee_bend(player, input_facts.normal_jump_input);
                     } else {
-                        arm_turn_dash_after_if_fresh(player, stick_x, x_tap_timer, input_facts);
+                        arm_turn_dash_after_if_fresh(
+                            player,
+                            stick_x,
+                            x_tap_timer,
+                            input_facts,
+                            common_data,
+                        );
                         if player.turn_just_turned
                             && player.turn_dash_after_direction != 0
-                            && stick_x * player.turn_facing_after as i32 >= DASH_STICK_THRESHOLD
+                            && stick_x * player.turn_facing_after as i32
+                                >= common_data.dash_x as i32
                         {
                             enter_dash(player, player.turn_facing_after);
                             input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
@@ -349,6 +339,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         input_facts.normal_jump_input,
                         stick_x,
                         stage,
+                        common_data,
                     );
                 } else if player.motion_frame >= grounded_action_total_frames(player) {
                     player.motion_state = MotionState::Wait;
@@ -376,14 +367,17 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else if let Some(action_state) = guard_on_action_state(
                     player,
                     input_facts,
-                    player.facing,
-                    stage,
-                    x_tap_timer,
-                    y_tap_timer,
-                    stick_y,
+                    GuardInputContext {
+                        facing: player.facing,
+                        stage,
+                        x_tap_timer,
+                        y_tap_timer,
+                        stick_y,
+                        common_data,
+                    },
                 ) {
                     if action_state == MotionState::Pass {
-                        enter_pass(player, stage);
+                        enter_pass(player, stage, common_data);
                         input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
                     } else {
                         enter_iasa_state(
@@ -392,6 +386,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                             input_facts.jump_input,
                             stick_x,
                             stage,
+                            common_data,
                         );
                     }
                 } else {
@@ -413,14 +408,17 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 } else if let Some(action_state) = guard_action_state(
                     player,
                     input_facts,
-                    player.facing,
-                    stage,
-                    x_tap_timer,
-                    y_tap_timer,
-                    stick_y,
+                    GuardInputContext {
+                        facing: player.facing,
+                        stage,
+                        x_tap_timer,
+                        y_tap_timer,
+                        stick_y,
+                        common_data,
+                    },
                 ) {
                     if action_state == MotionState::Pass {
-                        enter_pass(player, stage);
+                        enter_pass(player, stage, common_data);
                         input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
                     } else {
                         enter_iasa_state(
@@ -429,6 +427,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                             input_facts.jump_input,
                             stick_x,
                             stage,
+                            common_data,
                         );
                     }
                 } else if input_facts.shield_held {
@@ -452,6 +451,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                             input_facts.jump_input,
                             stick_x,
                             stage,
+                            common_data,
                         );
                     } else if player.motion_frame >= GUARD_OFF_FRAMES {
                         player.motion_state = MotionState::Wait;
@@ -466,7 +466,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     apply_jump_takeoff_velocity(player, stick_x);
                     player.velocity.y = ground_jump_vertical_velocity(player);
                     player.grounded = false;
-                    player.motion_state = ground_jump_motion_state(player, stick_x);
+                    player.motion_state = ground_jump_motion_state(player, stick_x, common_data);
                     player.motion_frame = 0;
                     player.fast_falling = false;
                     player.jumps_remaining = player.profile.max_jumps;
@@ -474,7 +474,9 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     // translating the fighter. The bottom ECB vertex remains
                     // the canonical position until the next physics tick.
                     skip_position_update_this_tick = true;
-                } else if let Some(action_state) = knee_bend_action_state(input_facts, stick_y) {
+                } else if let Some(action_state) =
+                    knee_bend_action_state(input_facts, stick_y, common_data)
+                {
                     enter_action_state(player, action_state, stick_x);
                 } else {
                     if input_facts.short_hop_released_for(player.jump_input) {
@@ -504,7 +506,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             }
             MotionState::FallSpecial => {
                 if input_facts.normal_jump_pressed && player.jumps_remaining > 0 {
-                    enter_air_jump(player, stick_x);
+                    enter_air_jump(player, stick_x, common_data);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     apply_air_drift(player, stick_x);
@@ -566,8 +568,8 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     enter_landing_fall_special(player);
                 }
             } else {
-                let fast_fall_tap = stick_y <= FAST_FALL_STICK_THRESHOLD
-                    && input_timers[player_index].y_tap < FAST_FALL_TAP_WINDOW;
+                let fast_fall_tap = stick_y <= -common_data.fast_fall_y
+                    && input_timers[player_index].y_tap < common_data.fast_fall_window;
                 let starts_fast_fall =
                     !player.fast_falling && player.velocity.y < 0 && fast_fall_tap;
                 if starts_fast_fall {
@@ -679,9 +681,9 @@ fn enter_run(player: &mut PlayerState) {
     player.run_no_interrupt_frames = 0;
 }
 
-fn enter_run_from_turn_run(player: &mut PlayerState) {
+fn enter_run_from_turn_run(player: &mut PlayerState, common_data: MeleeCommonData) {
     enter_run(player);
-    player.run_no_interrupt_frames = RUN_TURN_RUN_NO_INTERRUPT_FRAMES;
+    player.run_no_interrupt_frames = common_data.run_turn_run_no_interrupt_frames;
 }
 
 fn enter_run_brake(player: &mut PlayerState) {
@@ -800,9 +802,10 @@ fn arm_turn_dash_after_if_fresh(
     stick_x: i32,
     x_tap_timer: u8,
     facts: MeleeInputFacts,
+    common_data: MeleeCommonData,
 ) {
-    if stick_x * player.turn_facing_after as i32 >= DASH_STICK_THRESHOLD
-        && (x_tap_timer < DASH_TAP_WINDOW
+    if stick_x * player.turn_facing_after as i32 >= common_data.dash_x as i32
+        && (x_tap_timer < common_data.dash_tap_window
             || facts.ucf_dashback_direction == player.turn_facing_after)
     {
         player.turn_dash_after_direction = player.turn_facing_after;
@@ -866,8 +869,8 @@ fn enter_guard(player: &mut PlayerState) {
     enter_guard_on(player, 0);
 }
 
-fn enter_guard_from_run(player: &mut PlayerState) {
-    enter_guard_on(player, GUARD_ON_CATCH_DASH_WINDOW);
+fn enter_guard_from_run(player: &mut PlayerState, common_data: MeleeCommonData) {
+    enter_guard_on(player, common_data.guard_on_catch_dash_window);
 }
 
 fn enter_guard_on(player: &mut PlayerState, catch_dash_window: u8) {
@@ -926,14 +929,14 @@ fn enter_guard_off(player: &mut PlayerState) {
     player.velocity.y = 0;
 }
 
-fn enter_pass(player: &mut PlayerState, stage: StageProfile) {
+fn enter_pass(player: &mut PlayerState, stage: StageProfile, common_data: MeleeCommonData) {
     clear_guard_state(player);
     clear_turn_state(player);
     player.motion_state = MotionState::Pass;
     player.motion_frame = 0;
     player.grounded = false;
     player.fast_falling = false;
-    player.velocity.y = PASS_INITIAL_Y_VELOCITY;
+    player.velocity.y = common_data.pass_initial_y_velocity;
     player.floor_skip_surface =
         floor_surface_index_for_bottom(stage, player.position).map(|(index, _)| index);
 }
@@ -1024,13 +1027,14 @@ fn enter_iasa_state(
     jump_input: MeleeJumpInput,
     stick_x: i32,
     stage: StageProfile,
+    common_data: MeleeCommonData,
 ) {
     match motion_state {
         MotionState::Guard => {
             enter_guard(player);
         }
         MotionState::GuardOff => enter_guard_off(player),
-        MotionState::Pass => enter_pass(player, stage),
+        MotionState::Pass => enter_pass(player, stage, common_data),
         MotionState::KneeBend => enter_knee_bend(player, jump_input),
         MotionState::Dash => enter_dash(player, player.facing),
         MotionState::Squat => enter_squat(player),
@@ -1121,21 +1125,26 @@ fn enter_air_special(player: &mut PlayerState, motion_state: MotionState, stick_
     }
 }
 
-fn ground_jump_motion_state(player: &PlayerState, stick_x: i32) -> MotionState {
-    if stick_x * player.facing as i32 > -AIR_JUMP_BACKWARD_X {
+fn ground_jump_motion_state(
+    player: &PlayerState,
+    stick_x: i32,
+    common_data: MeleeCommonData,
+) -> MotionState {
+    if stick_x * player.facing as i32 > -(common_data.air_jump_backward_x as i32) {
         MotionState::JumpF
     } else {
         MotionState::JumpB
     }
 }
 
-fn enter_air_jump(player: &mut PlayerState, stick_x: i32) {
+fn enter_air_jump(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
     player.floor_skip_surface = None;
-    player.motion_state = if stick_x * player.facing as i32 > -AIR_JUMP_BACKWARD_X {
-        MotionState::JumpAerialF
-    } else {
-        MotionState::JumpAerialB
-    };
+    player.motion_state =
+        if stick_x * player.facing as i32 > -(common_data.air_jump_backward_x as i32) {
+            MotionState::JumpAerialF
+        } else {
+            MotionState::JumpAerialB
+        };
     player.motion_frame = 0;
     player.velocity.x = stick_scaled_velocity(
         stick_x,
@@ -1173,7 +1182,7 @@ fn apply_airborne_iasa_or_drift(
             air_attack_state_from_direction(input_facts.air_attack_direction, player.facing),
         );
     } else if input_facts.normal_jump_pressed && player.jumps_remaining > 0 {
-        enter_air_jump(player, stick_x);
+        enter_air_jump(player, stick_x, common_data);
     } else {
         apply_air_drift(player, stick_x);
     }
@@ -1243,8 +1252,13 @@ fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32) {
     );
 }
 
-fn exit_dash(player: &mut PlayerState, stick_x: i32, walk_bucket: WalkSpeedBucket) {
-    if is_same_direction_run(stick_x, player.facing) {
+fn exit_dash(
+    player: &mut PlayerState,
+    stick_x: i32,
+    walk_bucket: WalkSpeedBucket,
+    common_data: MeleeCommonData,
+) {
+    if is_same_direction_run(stick_x, player.facing, common_data) {
         enter_run(player);
     } else if stick_x != 0 {
         enter_walk_after_dash(player, stick_x, walk_bucket);
@@ -1271,12 +1285,12 @@ fn enter_wait_from_walk(player: &mut PlayerState) {
     player.velocity.x = 0;
 }
 
-fn is_same_direction_run(stick_x: i32, facing: i8) -> bool {
-    stick_x.abs() >= RUN_STICK_THRESHOLD && stick_x.signum() == facing as i32
+fn is_same_direction_run(stick_x: i32, facing: i8, common_data: MeleeCommonData) -> bool {
+    stick_x.abs() >= common_data.run_x as i32 && stick_x.signum() == facing as i32
 }
 
-fn is_opposite_run_turn(stick_x: i32, facing: i8) -> bool {
-    stick_x.abs() >= RUN_STICK_THRESHOLD && stick_x.signum() == -(facing as i32)
+fn is_opposite_run_turn(stick_x: i32, facing: i8, common_data: MeleeCommonData) -> bool {
+    stick_x.abs() >= common_data.run_x as i32 && stick_x.signum() == -(facing as i32)
 }
 
 fn apply_ground_traction(player: &mut PlayerState) {
@@ -1452,41 +1466,59 @@ fn walk_action_state(facts: MeleeInputFacts) -> Option<MotionState> {
     grounded_attack_state_from_source_order(facts)
 }
 
-fn fresh_walk_forward_dash_direction(facts: MeleeInputFacts, x_tap_timer: u8, facing: i8) -> i8 {
-    if is_fresh_walk_dash_tap(x_tap_timer) || facts.ucf_dashback_direction != 0 {
+fn fresh_walk_forward_dash_direction(
+    facts: MeleeInputFacts,
+    x_tap_timer: u8,
+    facing: i8,
+    common_data: MeleeCommonData,
+) -> i8 {
+    if is_fresh_walk_dash_tap(x_tap_timer, common_data) || facts.ucf_dashback_direction != 0 {
         facts.forward_dash_direction(facing)
     } else {
         0
     }
 }
 
-fn fresh_walk_smash_turn_direction(facts: MeleeInputFacts, x_tap_timer: u8, facing: i8) -> i8 {
-    if is_fresh_walk_dash_tap(x_tap_timer) || facts.ucf_dashback_direction != 0 {
+fn fresh_walk_smash_turn_direction(
+    facts: MeleeInputFacts,
+    x_tap_timer: u8,
+    facing: i8,
+    common_data: MeleeCommonData,
+) -> i8 {
+    if is_fresh_walk_dash_tap(x_tap_timer, common_data) || facts.ucf_dashback_direction != 0 {
         facts.smash_turn_direction(facing)
     } else {
         0
     }
 }
 
-fn is_fresh_walk_dash_tap(x_tap_timer: u8) -> bool {
-    x_tap_timer < DASH_TAP_WINDOW
+fn is_fresh_walk_dash_tap(x_tap_timer: u8, common_data: MeleeCommonData) -> bool {
+    x_tap_timer < common_data.dash_tap_window
 }
 
-fn dash_action_state(facts: MeleeInputFacts, motion_frame: u8, facing: i8) -> Option<MotionState> {
+fn dash_action_state(
+    facts: MeleeInputFacts,
+    motion_frame: u8,
+    facing: i8,
+    common_data: MeleeCommonData,
+) -> Option<MotionState> {
     if facts.special_pressed && matches!(facts.special_direction, (1 | -1, 0)) {
         return Some(MotionState::SpecialS);
     }
     if facts.shield_held && facts.attack_pressed {
         return Some(MotionState::CatchDash);
     }
-    if motion_frame < DASH_EARLY_ACTION_WINDOW && dash_early_side_smash_input(facts, facing) {
+    if motion_frame < common_data.dash_early_action_window
+        && dash_early_side_smash_input(facts, facing)
+    {
         return Some(MotionState::AttackS4);
     }
-    if motion_frame < DASH_DEFENSIVE_ACTION_WINDOW && facts.shield_held {
+    if motion_frame < common_data.dash_defensive_action_window && facts.shield_held {
         return Some(MotionState::EscapeF);
     }
-    let in_late_dash_attack_window =
-        (DASH_EARLY_ACTION_WINDOW..DASH_LATE_ACTION_WINDOW).contains(&motion_frame);
+    let in_late_dash_attack_window = (common_data.dash_early_action_window
+        ..common_data.dash_late_action_window)
+        .contains(&motion_frame);
     (in_late_dash_attack_window && facts.attack_pressed).then_some(MotionState::AttackDash)
 }
 
@@ -1506,6 +1538,16 @@ fn run_action_state(facts: MeleeInputFacts) -> Option<MotionState> {
         return Some(MotionState::CatchDash);
     }
     facts.attack_pressed.then_some(MotionState::AttackDash)
+}
+
+#[derive(Clone, Copy)]
+struct GuardInputContext {
+    facing: i8,
+    stage: StageProfile,
+    x_tap_timer: u8,
+    y_tap_timer: u8,
+    stick_y: i8,
+    common_data: MeleeCommonData,
 }
 
 fn turn_action_state(facts: MeleeInputFacts) -> Option<MotionState> {
@@ -1542,20 +1584,14 @@ fn grounded_attack_state_from_source_order(facts: MeleeInputFacts) -> Option<Mot
 fn guard_on_action_state(
     player: &mut PlayerState,
     facts: MeleeInputFacts,
-    facing: i8,
-    stage: StageProfile,
-    x_tap_timer: u8,
-    y_tap_timer: u8,
-    stick_y: i8,
+    context: GuardInputContext,
 ) -> Option<MotionState> {
-    if let Some(spot_dodge_state) =
-        guard_spot_dodge_state(player, facts, stage, x_tap_timer, stick_y)
-    {
+    if let Some(spot_dodge_state) = guard_spot_dodge_state(player, facts, context) {
         return Some(spot_dodge_state);
     }
 
     if facts.roll_direction != 0 {
-        return if facts.roll_direction == facing {
+        return if facts.roll_direction == context.facing {
             Some(MotionState::EscapeF)
         } else {
             Some(MotionState::EscapeB)
@@ -1577,26 +1613,20 @@ fn guard_on_action_state(
         return Some(MotionState::KneeBend);
     }
 
-    guard_platform_pass_state(player, facts, stage, y_tap_timer, stick_y)
+    guard_platform_pass_state(player, facts, context)
 }
 
 fn guard_action_state(
     player: &PlayerState,
     facts: MeleeInputFacts,
-    facing: i8,
-    stage: StageProfile,
-    x_tap_timer: u8,
-    y_tap_timer: u8,
-    stick_y: i8,
+    context: GuardInputContext,
 ) -> Option<MotionState> {
-    if let Some(spot_dodge_state) =
-        guard_spot_dodge_state(player, facts, stage, x_tap_timer, stick_y)
-    {
+    if let Some(spot_dodge_state) = guard_spot_dodge_state(player, facts, context) {
         return Some(spot_dodge_state);
     }
 
     if facts.roll_direction != 0 {
-        return if facts.roll_direction == facing {
+        return if facts.roll_direction == context.facing {
             Some(MotionState::EscapeF)
         } else {
             Some(MotionState::EscapeB)
@@ -1611,23 +1641,19 @@ fn guard_action_state(
         return Some(MotionState::KneeBend);
     }
 
-    guard_platform_pass_state(player, facts, stage, y_tap_timer, stick_y)
+    guard_platform_pass_state(player, facts, context)
 }
 
 fn guard_spot_dodge_state(
     player: &PlayerState,
     facts: MeleeInputFacts,
-    stage: StageProfile,
-    x_tap_timer: u8,
-    stick_y: i8,
+    context: GuardInputContext,
 ) -> Option<MotionState> {
     if facts.cstick_spot_dodge {
         return Some(MotionState::EscapeN);
     }
 
-    if facts.main_stick_spot_dodge
-        && !ucf_suppresses_spot_dodge_for_pass(player, facts, stage, x_tap_timer, stick_y)
-    {
+    if facts.main_stick_spot_dodge && !ucf_suppresses_spot_dodge_for_pass(player, facts, context) {
         return Some(MotionState::EscapeN);
     }
 
@@ -1637,28 +1663,25 @@ fn guard_spot_dodge_state(
 fn ucf_suppresses_spot_dodge_for_pass(
     player: &PlayerState,
     facts: MeleeInputFacts,
-    stage: StageProfile,
-    x_tap_timer: u8,
-    stick_y: i8,
+    context: GuardInputContext,
 ) -> bool {
     facts.ucf_shield_drop
-        && x_tap_timer >= SHIELD_ROLL_TAP_WINDOW
-        && stick_y > -UCF_AXE_SPOT_DODGE_SUPPRESSION_Y
-        && grounded_on_soft_platform(player, stage)
+        && context.x_tap_timer >= context.common_data.escape_x_tap_window
+        && context.stick_y > -UCF_AXE_SPOT_DODGE_SUPPRESSION_Y
+        && grounded_on_soft_platform(player, context.stage)
 }
 
 fn guard_platform_pass_state(
     player: &PlayerState,
     facts: MeleeInputFacts,
-    stage: StageProfile,
-    y_tap_timer: u8,
-    stick_y: i8,
+    context: GuardInputContext,
 ) -> Option<MotionState> {
-    if !facts.source_held.lr() || !grounded_on_soft_platform(player, stage) {
+    if !facts.source_held.lr() || !grounded_on_soft_platform(player, context.stage) {
         return None;
     }
 
-    let source_pass_gate = stick_y <= -PLATFORM_PASS_Y && y_tap_timer < PLATFORM_PASS_Y_TAP_WINDOW;
+    let source_pass_gate = context.stick_y <= -context.common_data.platform_pass_y
+        && context.y_tap_timer < context.common_data.platform_pass_y_tap_window;
     (source_pass_gate || facts.ucf_shield_drop).then_some(MotionState::Pass)
 }
 
@@ -1675,7 +1698,11 @@ fn guard_off_action_state(facts: MeleeInputFacts) -> Option<MotionState> {
         .or_else(|| facts.jump_pressed.then_some(MotionState::KneeBend))
 }
 
-fn knee_bend_action_state(facts: MeleeInputFacts, stick_y: i8) -> Option<MotionState> {
+fn knee_bend_action_state(
+    facts: MeleeInputFacts,
+    stick_y: i8,
+    common_data: MeleeCommonData,
+) -> Option<MotionState> {
     if facts.special_pressed && facts.special_direction == (0, 1) {
         return Some(MotionState::SpecialHi);
     }
@@ -1684,7 +1711,7 @@ fn knee_bend_action_state(facts: MeleeInputFacts, stick_y: i8) -> Option<MotionS
         return Some(MotionState::Catch);
     }
 
-    let attack_up_smash = facts.attack_pressed && stick_y >= JUMP_CANCEL_UP_SMASH_Y;
+    let attack_up_smash = facts.attack_pressed && stick_y >= common_data.smash_y;
     if facts.cstick_smash_direction == (0, 1) || attack_up_smash {
         return Some(MotionState::AttackHi4);
     }

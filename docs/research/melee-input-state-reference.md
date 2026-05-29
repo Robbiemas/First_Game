@@ -301,8 +301,10 @@ normalized trigger thresholds use byte trigger scale (`0..255`), frame windows
 become integer ticks, `escapeair_force` becomes milli-units, and
 `escapeair_decay` becomes percent. `World` now carries `MeleeCommonData`, mixes
 it into rollback checksums, and uses it for input tap thresholds, input-fact
-thresholds, and the EscapeAir/FallSpecial common-data slice. This means a future
-clean `PlCo.dat` extraction can change those gameplay values through
+thresholds, fast-fall gates, aerial-jump forward/back selection, shield
+platform-pass gates, pass/drop-through initial velocity, dash action windows,
+run thresholds, and the EscapeAir/FallSpecial common-data slice. This means a
+future clean `PlCo.dat` extraction can change those gameplay values through
 rollback-owned world data instead of simulator-local constants. The remaining
 unit-parity work is moving more of the physics layer from provisional fixed
 point values toward Melee's source movement units.
@@ -690,16 +692,16 @@ main-stick X times a jump horizontal velocity attribute, clamped by a horizontal
 jump max. Ground jump takeoff now enters `MotionState::JumpF` or
 `MotionState::JumpB` from the source predicate
 `lstick.x * facing_dir > -p_ftCommonData->x78`, rather than collapsing directly
-to generic `Air`. The current constants are still provisional Falcon-profile
-values until the exact character attributes are extracted. Once airborne, normal air
-drift uses acceleration/friction toward the held-stick target instead of
+to generic `Air`. Once airborne, normal air drift uses acceleration/friction
+toward the held-stick target instead of
 snapping horizontal velocity directly to stick X, so jump momentum is preserved
 and decays through physics. A fresh aerial jump now enters `JumpAerialF` or
 `JumpAerialB` rather than staying in generic `Air`: source
 `ftCo_JumpAerial_Enter_Basic` chooses the forward state unless
 `lstick.x * facing_dir <= -p_ftCommonData->x78`, then applies air-jump
-horizontal and vertical velocity. The Rust core mirrors that state split with a
-provisional `air_jump_backward_x` value mapped to common-data `x78`.
+horizontal and vertical velocity. The Rust core mirrors that state split through
+world-owned common-data `air_jump_backward_x`/`x78`, while the jump force and
+air-drift values remain profile-owned.
 The `KneeBend` IASA slice now mirrors the source priority we can model without
 items: up special first, then catch/grab, then up smash, and only then
 short-hop release/takeoff. The core contract suite pins digital trigger not
@@ -722,6 +724,9 @@ routes to normal `Catch`. Run/dash-style shield entry seeds a small provisional
 window routes to `CatchDash`, matching the source helper `ftCo_800D8B9C` before
 the normal `ftCo_Catch_CheckInput` path. The exact `x68` value and GuardOn
 animation duration remain provisional until common-data/animation extraction.
+Shield platform pass now reads its down-stick gate and tap-window from
+world-owned common-data `x464`/`x468`, and `Pass` entry uses common-data `x46C`
+for the initial drop-through vertical velocity.
 
 `GuardOff` is not a generic `Wait` state. In the decomp, `GuardOff_IASA` first
 tries an offensive ladder only when `mv.co.guard.x1C` is set; after that gated
@@ -977,8 +982,9 @@ Current Rust bridge status: the deterministic `World` stores per-player
 fast-fall tap timers, and each player stores whether they are already
 fast-falling. The Rust core now rejects held-down ascent, rejects down held
 before falling as a buffered fast fall, and consumes a fresh down tap once while
-the player is airborne and descending. When fast fall is active, Rust now mirrors
-`ftCommon_FallFast` by setting vertical velocity to
+the player is airborne and descending. The down-stick gate and tap-window come
+from world-owned common-data `x88`/`x8C`. When fast fall is active, Rust now
+mirrors `ftCommon_FallFast` by setting vertical velocity to
 `-profile.fast_fall_speed_per_tick` instead of applying an extra gravity impulse.
 
 Normal fall physics also needs to stay additive. The Rust bridge applies

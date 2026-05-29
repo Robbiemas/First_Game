@@ -35,6 +35,8 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   inside Rust core state.
 - `World` now carries `MeleeCommonData`, mixes it into rollback checksums, and
   uses that world-owned data for input tap thresholds, input-fact thresholds,
+  fast-fall gates, aerial-jump forward/back selection, shield platform-pass
+  gates, pass/drop-through initial velocity, dash action windows, run thresholds,
   and the EscapeAir/FallSpecial common-data slice. This turns the existing
   `PlCo.dat` extractor seam into data the deterministic simulation can actually
   consume once clean bytes are available.
