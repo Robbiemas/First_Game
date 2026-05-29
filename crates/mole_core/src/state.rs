@@ -107,6 +107,7 @@ pub struct FighterProfile {
     pub jumpsquat_frames: u8,
     pub dash_frames: u8,
     pub standing_turn_direction_change_frames: u8,
+    pub standing_turn_total_frames: u8,
     pub normal_landing_lag_ticks: u8,
 }
 
@@ -149,6 +150,7 @@ impl FighterProfile {
         jumpsquat_frames: 4,
         dash_frames: 15,
         standing_turn_direction_change_frames: 5,
+        standing_turn_total_frames: 11,
         normal_landing_lag_ticks: 4,
     };
 
@@ -745,6 +747,7 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_u8(hash, profile.jumpsquat_frames);
     mix_u8(hash, profile.dash_frames);
     mix_u8(hash, profile.standing_turn_direction_change_frames);
+    mix_u8(hash, profile.standing_turn_total_frames);
     mix_u8(hash, profile.normal_landing_lag_ticks);
 }
 

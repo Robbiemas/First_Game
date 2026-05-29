@@ -137,6 +137,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.dash_frames, 15);
     assert_eq!(profile.max_run_brake_frames, None);
     assert_eq!(profile.standing_turn_direction_change_frames, 5);
+    assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
 }
 
@@ -204,6 +205,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
     assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_260);
     assert_eq!(profile.standing_turn_direction_change_frames, 7);
+    assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.normal_landing_lag_ticks, 5);
 }
 
@@ -4872,6 +4874,23 @@ fn turn_returns_to_wait_after_falcon_turn_frames() {
     step_world(&mut world, Frame(0), &soft_left);
 
     assert_current_action_returns_to_wait_after_frames(&mut world, 0, MotionState::Turn, 11);
+}
+
+#[test]
+fn standing_turn_total_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        standing_turn_total_frames: 7,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let soft_left = [
+        PlayerInput::neutral().with_left_stick(-40, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &soft_left);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 0, MotionState::Turn, 7);
 }
 
 #[test]

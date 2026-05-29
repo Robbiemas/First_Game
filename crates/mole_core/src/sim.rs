@@ -11,7 +11,6 @@ const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIO
 const FAST_FALL_STICK_THRESHOLD: i8 = -80;
 const FAST_FALL_TAP_WINDOW: u8 = 2;
 const ATTACK_ACTIVE_TICKS: u8 = 12;
-const FALCON_TURN_FRAMES: u8 = 11;
 const SHIELD_TURN_FRAMES: u8 = 5;
 const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
@@ -292,7 +291,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     }
 
                     if player.motion_state == MotionState::Turn
-                        && player.motion_frame >= FALCON_TURN_FRAMES
+                        && player.motion_frame >= player.profile.standing_turn_total_frames
                     {
                         player.motion_state = MotionState::Wait;
                         player.motion_frame = 0;

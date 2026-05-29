@@ -428,12 +428,13 @@ The compact Turn IASA slice now accepts grounded side/down/up special, catch,
 and attack inputs before shield or jump, matching the decomp's state-local
 callback shape. Neutral B is intentionally not accepted during `Turn`: the
 decomp's `ftCo_Turn_IASA` calls side-B, down-B, and up-B checkers, but does not
-call the neutral-special checker. `Turn` also returns to `Wait` after the local
-11-frame Falcon/profile duration; exact animation-data extraction still needs
-to replace that provisional count. Basic standing turn now keeps the old facing
-until the profile-owned `frames_to_change_direction_on_standing_turn` point
-(default Falcon-like frame 5), while smash-turn enters with `frames_to_turn = 0`
-and flips on the next Turn update rather than at entry.
+call the neutral-special checker. `Turn` also returns to `Wait` after
+`FighterProfile::standing_turn_total_frames`; the fallback Falcon-like value is
+11 frames until exact animation-data extraction replaces it. Basic standing turn
+now keeps the old facing until the profile-owned
+`frames_to_change_direction_on_standing_turn` point (default Falcon-like frame
+5), while smash-turn enters with `frames_to_turn = 0` and flips on the next Turn
+update rather than at entry.
 Rust now stores Melee-shaped turn state in rollback: target facing,
 `has_turned`, one-frame `just_turned`, frames-to-turn, dash-out intent, and the
 A/B latch. Offensive `Turn_IASA` entries before the flip use target facing,
@@ -917,6 +918,10 @@ RunBrake can now consume extracted `max_run_brake_frames` while leaving the
 fallback profile uncapped until real Captain Falcon attributes are available.
 Basic standing-turn facing timing now reads the profile-owned
 `frames_to_change_direction_on_standing_turn` field.
+The full standing-turn lifetime now reads
+`FighterProfile::standing_turn_total_frames` instead of a simulator-local Falcon
+constant; the value is still a fallback action-frame count until animation data
+is extracted.
 Ordinary grounded `Landing` now also consumes profile-owned
 `normal_landing_lag` instead of a simulator constant.
 

@@ -61,6 +61,9 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `dash_run_terminal_velocity`.
 - Basic standing-turn direction-change timing is profile-owned through
   `ftCo_DatAttrs.frames_to_change_direction_on_standing_turn`.
+- Standing-turn total duration is now profile-owned through
+  `FighterProfile::standing_turn_total_frames`; the fallback Falcon-like value
+  remains an animation-data placeholder until exact action data is extracted.
 - Run-brake max duration can now be profile-owned through
   `ftCo_DatAttrs.max_run_brake_frames`; the fallback profile keeps this unset
   until real Captain Falcon attribute bytes are available.
@@ -77,15 +80,16 @@ These should not be hand-tuned:
   extracted Captain Falcon `ftCo_DatAttrs` bytes into
   `FighterProfile::from_ftco_dat_attrs_bytes` once `PlCa.dat` data is available.
 - Animation durations and IASA frames currently stored as `FALCON_*` constants:
-  replace with extracted action/animation data.
+  replace with extracted action/animation data. Standing turn has a profile
+  field now, but its fallback value is still not extracted from animation data.
 - Escape-air force, decay, deadzones, landing lag, and related common-data
   values: replace through `PlCo.dat` extraction.
 - The default public `FighterProfile::FALCON_LIKE` values are still a fallback
   until extracted Captain Falcon bytes are available; the profile shape now has
   extraction slots for horizontal jump, air jump, max jumps, air drift
   attributes, optional run-brake max frames, standing-turn direction-change
-  timing, and ordinary landing lag, instead of leaving those values as mechanics
-  constants.
+  timing, standing-turn total frames, and ordinary landing lag, instead of
+  leaving those values as mechanics constants.
 
 ## Working Rule
 
