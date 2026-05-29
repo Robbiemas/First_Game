@@ -6,7 +6,6 @@ use crate::{
     PlayerState, WalkSpeedBucket, World,
 };
 
-const GROUND_Y: i32 = 0;
 const AIR_JUMP_BACKWARD_X: i32 =
     crate::common_data::MeleeCommonData::PROVISIONAL.air_jump_backward_x as i32;
 const JUMP_CANCEL_UP_SMASH_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.smash_y;
@@ -511,47 +510,48 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
 
         player.position.x += player.velocity.x;
 
-        if player.grounded {
-            player.position.y = GROUND_Y;
-        } else if player.motion_state == MotionState::EscapeAir {
-            apply_escape_air_decay(player);
-            player.position.y += player.velocity.y;
+        if !player.grounded {
+            if player.motion_state == MotionState::EscapeAir {
+                apply_escape_air_decay(player);
+                player.position.y += player.velocity.y;
 
-            if let Some(contact) =
-                landing_contact_for_bottom(stage, previous_position, player.position, false)
-            {
-                land_player_on_contact(player, contact.y);
-                enter_landing_fall_special(player);
-            }
-        } else {
-            let fast_fall_tap = stick_y <= FAST_FALL_STICK_THRESHOLD
-                && input_timers[player_index].y_tap < FAST_FALL_TAP_WINDOW;
-            let starts_fast_fall = !player.fast_falling && player.velocity.y < 0 && fast_fall_tap;
-            if starts_fast_fall {
-                player.fast_falling = true;
-                input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
-            }
-            if player.fast_falling {
-                player.velocity.y = -player.profile.fast_fall_speed_per_tick;
-            }
-            player.position.y += player.velocity.y;
-            if !player.fast_falling {
-                player.velocity.y = (player.velocity.y - player.profile.gravity_per_tick)
-                    .max(-player.profile.fall_speed_per_tick);
-            }
-
-            if let Some(contact) =
-                landing_contact_for_bottom(stage, previous_position, player.position, false)
-            {
-                let landing_state = player.motion_state;
-                land_player_on_contact(player, contact.y);
-                if matches!(
-                    landing_state,
-                    MotionState::EscapeAir | MotionState::FallSpecial
-                ) {
+                if let Some(contact) =
+                    landing_contact_for_bottom(stage, previous_position, player.position, false)
+                {
+                    land_player_on_contact(player, contact.y);
                     enter_landing_fall_special(player);
-                } else {
-                    enter_landing(player);
+                }
+            } else {
+                let fast_fall_tap = stick_y <= FAST_FALL_STICK_THRESHOLD
+                    && input_timers[player_index].y_tap < FAST_FALL_TAP_WINDOW;
+                let starts_fast_fall =
+                    !player.fast_falling && player.velocity.y < 0 && fast_fall_tap;
+                if starts_fast_fall {
+                    player.fast_falling = true;
+                    input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
+                }
+                if player.fast_falling {
+                    player.velocity.y = -player.profile.fast_fall_speed_per_tick;
+                }
+                player.position.y += player.velocity.y;
+                if !player.fast_falling {
+                    player.velocity.y = (player.velocity.y - player.profile.gravity_per_tick)
+                        .max(-player.profile.fall_speed_per_tick);
+                }
+
+                if let Some(contact) =
+                    landing_contact_for_bottom(stage, previous_position, player.position, false)
+                {
+                    let landing_state = player.motion_state;
+                    land_player_on_contact(player, contact.y);
+                    if matches!(
+                        landing_state,
+                        MotionState::EscapeAir | MotionState::FallSpecial
+                    ) {
+                        enter_landing_fall_special(player);
+                    } else {
+                        enter_landing(player);
+                    }
                 }
             }
         }

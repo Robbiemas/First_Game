@@ -3601,6 +3601,36 @@ fn ordinary_airborne_contact_can_land_on_soft_platform() {
 }
 
 #[test]
+fn soft_platform_landing_keeps_platform_height_while_grounded() {
+    let mut world = World::for_two_players();
+    let stage = world.stage();
+    let platform = stage.soft_platforms[0];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+
+    let mut frame = 4;
+    while !world.players()[0].grounded && frame < 120 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].position.y, platform.y);
+
+    for frame in frame..frame + 3 {
+        step_world(&mut world, Frame(frame), &neutral);
+        assert!(world.players()[0].grounded);
+        assert_eq!(world.players()[0].position.y, platform.y);
+    }
+}
+
+#[test]
 fn held_shield_does_not_skip_ordinary_landing_lag() {
     let mut world = World::for_two_players();
     let shield = [
