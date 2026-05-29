@@ -143,7 +143,7 @@ Dash and run acceleration now use the same profile-owned `dash_run_acceleration_
 
 Turn state now tracks Melee-shaped `has_turned`, one-frame `just_turned`, frames-to-turn, dash-out intent, and A/B latch data in rollback state. Fresh opposite smash-turn is handled as part of the dash check before crouch, does not flip facing on entry, can dash out on the actual turn frame, and can replay latched A/B on that frame.
 
-`EscapeAir` physics now follows the source shape more closely during its action phase: it decays its own self-velocity and skips ordinary falling gravity until it becomes `FallSpecial`. The current decay percentage is still a provisional stand-in for `ftCommonData.escapeair_decay`.
+`EscapeAir` physics now follows the source shape more closely during its action phase: it decays its own self-velocity and skips ordinary falling gravity until it becomes `FallSpecial`. The current decay multiplier is still a provisional stand-in for `ftCommonData.escapeair_decay` until raw common data is extracted.
 
 The air-dodge vector now also follows the source shape: stick values inside `escapeair_deadzone` create no self-velocity, and non-deadzone input applies a fixed `escapeair_force` along the stick angle instead of scaling x/y independently. The current deadzone and force values are provisional until `PlCo.dat` extraction.
 

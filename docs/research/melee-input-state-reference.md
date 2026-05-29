@@ -314,6 +314,10 @@ point values toward Melee's source movement units.
 `PlCo.dat`: source `ftCo_EscapeAir_Anim` leaves `EscapeAir` only when animation
 frames are exhausted, so the exact total duration must come from submotion /
 animation data rather than the `x334` common-data timer.
+For the current bootstrap, `tools/extract_melee_resources.py` can read
+user-provided `resources/melee/raw/PlCo.dat` and `resources/melee/raw/PlCa.dat`
+and emit JSON snapshots under `resources/melee/extracted` without committing raw
+game data.
 
 ## Grounded State Priority
 

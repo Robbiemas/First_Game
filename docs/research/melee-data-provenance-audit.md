@@ -21,6 +21,13 @@ layouts, field offsets, and DAT filename references such as `PlCo.dat` and
 can be copied now, while exact table values must either come from an extractor
 fed by real DAT bytes or remain explicitly marked as data gaps.
 
+The repo now has a temporary resource bootstrap at `resources/melee`: raw
+user-provided DAT files go in `resources/melee/raw` and are ignored by git, while
+`tools/extract_melee_resources.py` writes small reviewable JSON snapshots into
+`resources/melee/extracted`. The extractor follows the HSD DAT root-node layout:
+`PlCo.dat` resolves `ftLoadCommonData -> CommonAttributes`, and `PlCa.dat`
+resolves `ftDataCaptain -> ftCo_DatAttrs`.
+
 ## Current Decomp-Shaped Logic
 
 - Ground jump takeoff follows `ftCo_Jump.c`: full hop and short hop select
