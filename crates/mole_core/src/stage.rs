@@ -32,6 +32,15 @@ pub struct StageProfile {
 }
 
 impl StageProfile {
+    pub fn collision_surfaces(self) -> [StageSurface; 4] {
+        [
+            self.main_floor,
+            self.soft_platforms[0],
+            self.soft_platforms[1],
+            self.soft_platforms[2],
+        ]
+    }
+
     pub fn battlefield_test() -> Self {
         Self {
             name: "battlefield_test",

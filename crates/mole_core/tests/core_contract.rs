@@ -56,6 +56,18 @@ fn default_stage_is_battlefield_sized_in_core_units() {
 }
 
 #[test]
+fn battlefield_stage_exposes_ordered_collision_surfaces() {
+    let stage = StageProfile::battlefield_test();
+    let surfaces = stage.collision_surfaces();
+
+    assert_eq!(surfaces.len(), 4);
+    assert_eq!(surfaces[0], stage.main_floor);
+    assert_eq!(surfaces[1], stage.soft_platforms[0]);
+    assert_eq!(surfaces[2], stage.soft_platforms[1]);
+    assert_eq!(surfaces[3], stage.soft_platforms[2]);
+}
+
+#[test]
 fn default_two_player_spawns_are_separated_in_battlefield_units() {
     let world = World::for_two_players();
 
