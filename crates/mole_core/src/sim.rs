@@ -1419,8 +1419,8 @@ fn air_accel_for_velocity(
 }
 
 fn apply_escape_air_decay(player: &mut PlayerState, common_data: MeleeCommonData) {
-    player.velocity.x = player.velocity.x * common_data.escapeair_decay_percent / 100;
-    player.velocity.y = player.velocity.y * common_data.escapeair_decay_percent / 100;
+    player.velocity.x = player.velocity.x * common_data.escapeair_decay_milli / 1000;
+    player.velocity.y = player.velocity.y * common_data.escapeair_decay_milli / 1000;
 }
 
 fn escape_air_velocity(stick_x: i32, stick_y: i32, common_data: MeleeCommonData) -> (i32, i32) {

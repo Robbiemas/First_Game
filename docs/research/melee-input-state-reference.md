@@ -301,8 +301,8 @@ big-endian common-data offsets. The extractor reads real source field types
 normalized stick thresholds use the signed-byte stick scale (`-128..127`),
 normalized trigger thresholds use byte trigger scale (`0..255`), frame windows
 become integer ticks, `escapeair_force` becomes milli-units, and
-`escapeair_decay` becomes percent. `World` now carries `MeleeCommonData`, mixes
-it into rollback checksums, and uses it for input tap thresholds, input-fact
+`escapeair_decay` becomes a milli fixed-point multiplier. `World` now carries
+`MeleeCommonData`, mixes it into rollback checksums, and uses it for input tap thresholds, input-fact
 thresholds, fast-fall gates, aerial-jump forward/back selection, shield
 platform-pass gates, pass/drop-through initial velocity, dash action windows,
 run thresholds, and the EscapeAir/FallSpecial common-data slice. This means a
@@ -806,7 +806,7 @@ survives contact under landing traction. This matches the source callback shape
 in `ftCo_EscapeAir_Phys`. Rust now keeps the common-data deadzone as two fields
 (`escapeair_deadzone_x` at `0x32C` and
 `escapeair_deadzone_y` at `0x330`) instead of collapsing the source `Vec2` into
-one scalar. The force, animation duration, decay percentage, and landing
+one scalar. The force, animation duration, decay multiplier, and landing
 duration are still provisional stand-ins until exact animation data,
 `escapeair_force`, `escapeair_decay`, and `x344` behavior are extracted from
 `PlCo.dat` / animation data.

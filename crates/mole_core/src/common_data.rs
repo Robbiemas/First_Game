@@ -113,7 +113,7 @@ pub struct MeleeCommonData {
     pub escapeair_deadzone_x: i8,
     pub escapeair_deadzone_y: i8,
     pub escapeair_force: i32,
-    pub escapeair_decay_percent: i32,
+    pub escapeair_decay_milli: i32,
     pub escapeair_landing_lag_ticks: u8,
     pub fallspecial_platform_landing_y: i8,
     pub platform_pass_y: i8,
@@ -171,7 +171,7 @@ impl MeleeCommonData {
         escapeair_deadzone_x: 20,
         escapeair_deadzone_y: 20,
         escapeair_force: 800,
-        escapeair_decay_percent: 90,
+        escapeair_decay_milli: 900,
         escapeair_landing_lag_ticks: 10,
         fallspecial_platform_landing_y: -80,
         platform_pass_y: 84,
@@ -235,7 +235,7 @@ impl MeleeCommonData {
 
         data.escapeair_iasa_timer_ticks = read_u8_from_i32(bytes, 0x334, "x334")?;
         data.escapeair_force = read_milli_i32(bytes, 0x338, "escapeair_force")?;
-        data.escapeair_decay_percent = read_percent_i32(bytes, 0x33c, "escapeair_decay")?;
+        data.escapeair_decay_milli = read_milli_i32(bytes, 0x33c, "escapeair_decay")?;
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
         data.platform_pass_y = read_stick_i8(bytes, 0x464, "x464")?;
@@ -347,14 +347,6 @@ fn read_trigger_u8(
 ) -> Result<u8, CommonDataExtractError> {
     let value = round_f32_to_i32(read_f32(bytes, offset, field)? * 255.0, field, offset)?;
     range_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
-}
-
-fn read_percent_i32(
-    bytes: &[u8],
-    offset: usize,
-    field: &'static str,
-) -> Result<i32, CommonDataExtractError> {
-    round_f32_to_i32(read_f32(bytes, offset, field)? * 100.0, field, offset)
 }
 
 fn read_milli_i32(
@@ -683,7 +675,7 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ProvisionalMole,
     },
     CommonDataFieldSource {
-        rust_name: "escapeair_decay_percent",
+        rust_name: "escapeair_decay_milli",
         source_name: "escapeair_decay",
         offset: 0x33c,
         provenance: CommonDataProvenance::ProvisionalMole,

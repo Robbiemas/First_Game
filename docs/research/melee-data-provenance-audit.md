@@ -92,6 +92,9 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   Melee's `1.0` stick magnitude for jump horizontal velocity, air drift, and
   dash/run acceleration targets. This keeps extracted `ftCo_DatAttrs` values in
   Melee units instead of percent-style `100` scaling.
+- Extracted `escapeair_decay` now stays as a milli fixed-point multiplier in
+  `MeleeCommonData`, so air-dodge self-velocity decay can preserve source float
+  precision instead of rounding the common-data field to whole percent steps.
 
 ## Active Data Gaps
 

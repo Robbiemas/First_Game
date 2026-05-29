@@ -452,7 +452,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_deadzone_x, 20);
     assert_eq!(common.escapeair_deadzone_y, 20);
     assert_eq!(common.escapeair_force, 800);
-    assert_eq!(common.escapeair_decay_percent, 90);
+    assert_eq!(common.escapeair_decay_milli, 900);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
     assert_eq!(common.platform_pass_y, 84);
@@ -609,8 +609,8 @@ fn input_common_data_sources_track_melee_field_offsets() {
 
     let escapeair_decay = sources
         .iter()
-        .find(|source| source.rust_name == "escapeair_decay_percent")
-        .expect("escapeair_decay_percent common-data source should be recorded");
+        .find(|source| source.rust_name == "escapeair_decay_milli")
+        .expect("escapeair_decay_milli common-data source should be recorded");
     assert_eq!(escapeair_decay.source_name, "escapeair_decay");
     assert_eq!(escapeair_decay.offset, 0x33c);
 
@@ -793,13 +793,41 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.escapeair_iasa_timer_ticks, 15);
     assert_eq!(common.escapeair_animation_ticks, 20);
     assert_eq!(common.escapeair_force, 812);
-    assert_eq!(common.escapeair_decay_percent, 91);
+    assert_eq!(common.escapeair_decay_milli, 910);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 2);
     assert_eq!(common.platform_pass_y, 80);
     assert_eq!(common.platform_pass_y_tap_window, 5);
     assert_eq!(common.pass_initial_y_velocity, -1_250);
     assert_eq!(common.platform_drop_delay_ticks, 6);
+}
+
+#[test]
+fn extracted_escapeair_decay_preserves_milli_precision_in_velocity_path() {
+    let mut bytes = synthetic_plco_common_data_bytes();
+    put_f32_be(&mut bytes, 0x338, 1.2);
+    put_f32_be(&mut bytes, 0x33c, 0.915);
+    let common =
+        MeleeCommonData::from_plco_bytes(&bytes).expect("synthetic PlCo slice should extract");
+    let mut world = World::for_two_players_with_common_data(common);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let right_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &right_air_dodge);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_eq!(world.players()[0].velocity.x, 1_098);
 }
 
 #[test]
@@ -826,6 +854,59 @@ fn put_f32_be(bytes: &mut [u8], offset: usize, value: f32) {
 
 fn put_i32_be(bytes: &mut [u8], offset: usize, value: i32) {
     bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+}
+
+fn synthetic_plco_common_data_bytes() -> Vec<u8> {
+    let mut bytes = vec![0_u8; 0x474];
+
+    put_f32_be(&mut bytes, 0x08, 0.37);
+    put_f32_be(&mut bytes, 0x0c, 0.38);
+    put_f32_be(&mut bytes, 0x10, 0.12);
+    put_f32_be(&mut bytes, 0x14, 0.31);
+    put_f32_be(&mut bytes, 0x18, 0.55);
+    put_f32_be(&mut bytes, 0x20, std::f32::consts::FRAC_PI_4);
+    put_f32_be(&mut bytes, 0x24, 0.21);
+    put_f32_be(&mut bytes, 0x28, 0.31);
+    put_f32_be(&mut bytes, 0x2c, 0.52);
+    put_f32_be(&mut bytes, 0x30, 0.74);
+    put_f32_be(&mut bytes, 0x34, 0.24);
+    put_f32_be(&mut bytes, 0x3c, 0.82);
+    put_i32_be(&mut bytes, 0x40, 5);
+    put_f32_be(&mut bytes, 0x44, 6.0);
+    put_f32_be(&mut bytes, 0x48, 7.0);
+    put_f32_be(&mut bytes, 0x4c, 16.0);
+    put_f32_be(&mut bytes, 0x58, 0.66);
+    put_f32_be(&mut bytes, 0x68, 4.0);
+    put_f32_be(&mut bytes, 0x70, 0.81);
+    put_i32_be(&mut bytes, 0x74, 4);
+    put_f32_be(&mut bytes, 0x78, 0.22);
+    put_f32_be(&mut bytes, 0x7c, 0.41);
+    put_f32_be(&mut bytes, 0x88, 0.83);
+    put_i32_be(&mut bytes, 0x8c, 2);
+    put_f32_be(&mut bytes, 0x90, 0.35);
+    put_f32_be(&mut bytes, 0x94, 0.28);
+    put_f32_be(&mut bytes, 0x98, 0.25);
+    put_f32_be(&mut bytes, 0xac, 0.26);
+    put_f32_be(&mut bytes, 0xdc, 0.43);
+    put_f32_be(&mut bytes, 0xe0, 0.44);
+    put_f32_be(&mut bytes, 0x25c, -0.62);
+    put_f32_be(&mut bytes, 0x314, 0.84);
+    put_i32_be(&mut bytes, 0x318, 3);
+    put_f32_be(&mut bytes, 0x31c, 0.85);
+    put_i32_be(&mut bytes, 0x320, 4);
+    put_f32_be(&mut bytes, 0x32c, 0.20);
+    put_f32_be(&mut bytes, 0x330, 0.25);
+    put_i32_be(&mut bytes, 0x334, 15);
+    put_f32_be(&mut bytes, 0x338, 0.812);
+    put_f32_be(&mut bytes, 0x33c, 0.91);
+    put_f32_be(&mut bytes, 0x344, 10.0);
+    put_f32_be(&mut bytes, 0x430, 2.0);
+    put_f32_be(&mut bytes, 0x464, 0.63);
+    put_f32_be(&mut bytes, 0x468, 5.0);
+    put_f32_be(&mut bytes, 0x46c, -1.25);
+    put_f32_be(&mut bytes, 0x470, 6.0);
+
+    bytes
 }
 
 #[test]
@@ -3469,7 +3550,7 @@ fn escape_air_uses_fixed_force_along_stick_angle() {
     step_world(&mut diagonal, Frame(4), &diagonal_air_dodge);
 
     let common = MeleeCommonData::provisional_mole();
-    let force = common.escapeair_force * common.escapeair_decay_percent / 100;
+    let force = common.escapeair_force * common.escapeair_decay_milli / 1000;
     assert_eq!(right.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(right.players()[0].velocity.x, force);
     assert_eq!(right.players()[0].velocity.y, 0);
@@ -3505,7 +3586,7 @@ fn escape_air_self_velocity_decays_on_entry_frame() {
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(
         world.players()[0].velocity.x,
-        common.escapeair_force * common.escapeair_decay_percent / 100
+        common.escapeair_force * common.escapeair_decay_milli / 1000
     );
 }
 
@@ -3516,7 +3597,7 @@ fn world_common_data_drives_escape_air_force_timer_and_decay() {
         escapeair_deadzone_x: 10,
         escapeair_deadzone_y: 10,
         escapeair_force: 1_200,
-        escapeair_decay_percent: 50,
+        escapeair_decay_milli: 500,
         ..MeleeCommonData::provisional_mole()
     };
     let mut world = World::for_two_players_with_common_data(common);
@@ -3631,7 +3712,7 @@ fn escape_air_self_velocity_decays_during_action_phase() {
     assert!(world.players()[0].velocity.x < first_escape_velocity);
     assert_eq!(
         world.players()[0].velocity.x,
-        first_escape_velocity * MeleeCommonData::provisional_mole().escapeair_decay_percent / 100
+        first_escape_velocity * MeleeCommonData::provisional_mole().escapeair_decay_milli / 1000
     );
 }
 
