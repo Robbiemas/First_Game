@@ -541,9 +541,8 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         .max(-player.profile.fall_speed_per_tick);
                 }
 
-                let drop_through_soft_platforms =
-                    player.motion_state == MotionState::FallSpecial
-                        && fall_special_skips_soft_platforms(stick_y);
+                let drop_through_soft_platforms = player.motion_state == MotionState::FallSpecial
+                    && fall_special_skips_soft_platforms(stick_y);
                 if let Some(contact) = landing_contact_for_bottom(
                     stage,
                     previous_position,
