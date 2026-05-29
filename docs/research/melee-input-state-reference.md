@@ -284,11 +284,12 @@ while timer `3` is already outside. This matches checks such as
 tap jump's `< x74`.
 
 Numeric provenance status: the local decomp tree contains the `ftCommonData`
-layout and code use sites, but not the extracted `PlCo.dat` data table that
-defines the actual field values. Current Rust constants remain centralized
-provisional Mole defaults until a real `PlCo.dat` is supplied and extracted;
-do not treat a hard-coded threshold as Melee-proven unless it is documented
-with the source offset and extracted data source.
+layout and code use sites. The current bootstrap also has reviewable extracted
+JSON snapshots under `resources/melee/extracted`, generated from local
+`PlCo.dat` and `PlCa.dat` bytes that remain ignored by git. Current Rust
+constants are mixed: the air-dodge common-data slice and Falcon movement profile
+are now DAT-backed, while broader input thresholds should still be treated as
+provisional unless documented with source offset and extracted data source.
 
 Implementation status: `crates/mole_core/src/common_data.rs` now owns the
 current provisional threshold values through `MeleeCommonData::provisional_mole`,
@@ -305,19 +306,19 @@ become integer ticks, `escapeair_force` becomes milli-units, and
 `MeleeCommonData`, mixes it into rollback checksums, and uses it for input tap thresholds, input-fact
 thresholds, fast-fall gates, aerial-jump forward/back selection, shield
 platform-pass gates, pass/drop-through initial velocity, dash action windows,
-run thresholds, and the EscapeAir/FallSpecial common-data slice. This means a
-future clean `PlCo.dat` extraction can change those gameplay values through
-rollback-owned world data instead of simulator-local constants. The remaining
-unit-parity work is moving more of the physics layer from provisional fixed
-point values toward Melee's source movement units.
+run thresholds, and the EscapeAir/FallSpecial common-data slice. This means
+extracted `PlCo.dat` values can change gameplay through rollback-owned world
+data instead of simulator-local constants. The remaining unit-parity work is
+moving the rest of the physics and input layer from provisional fixed-point
+values toward Melee's source movement units.
 `escapeair_animation_ticks` is intentionally provisional and not extracted from
 `PlCo.dat`: source `ftCo_EscapeAir_Anim` leaves `EscapeAir` only when animation
 frames are exhausted, so the exact total duration must come from submotion /
 animation data rather than the `x334` common-data timer.
-For the current bootstrap, `tools/extract_melee_resources.py` can read
+For the current bootstrap, `tools/extract_melee_resources.py` reads
 user-provided `resources/melee/raw/PlCo.dat` and `resources/melee/raw/PlCa.dat`
-and emit JSON snapshots under `resources/melee/extracted` without committing raw
-game data.
+and emits JSON snapshots under `resources/melee/extracted` without committing
+raw game data.
 
 ## Grounded State Priority
 
@@ -810,10 +811,10 @@ survives contact under landing traction. This matches the source callback shape
 in `ftCo_EscapeAir_Phys`. Rust now keeps the common-data deadzone as two fields
 (`escapeair_deadzone_x` at `0x32C` and
 `escapeair_deadzone_y` at `0x330`) instead of collapsing the source `Vec2` into
-one scalar. The force, animation duration, decay multiplier, and landing
-duration are still provisional stand-ins until exact animation data,
-`escapeair_force`, `escapeair_decay`, and `x344` behavior are extracted from
-`PlCo.dat` / animation data.
+one scalar. The force, decay multiplier, action timer, and landing-fallspecial
+lag now use the extracted `PlCo.dat` bootstrap values; the total air-dodge
+animation duration remains provisional until exact submotion/animation data is
+extracted.
 `FallSpecial` after air dodge is not input-sealed in source:
 `ftCo_FallSpecial_IASA` allows item/parasol hooks, item pickup, and
 `ftCo_800CB870` aerial jump. The Rust core now models the non-item air-jump part
@@ -953,14 +954,14 @@ horizontal velocity by roughly 27%. Ordinary airborne drift now follows the
 `air_drift_stick_mul`, same-side input adds `aerial_drift_base`, target velocity
 scales `air_drift_max`, and `aerial_friction` is used for neutral input or
 target overshoot. The
-`FighterProfile::from_ftco_dat_attrs_bytes` byte-level path can read those
-fields once a local `PlCa.dat`/`ftDataCaptain` attribute block is available.
+`FighterProfile::from_ftco_dat_attrs_bytes` byte-level path reads those fields
+from the local `PlCa.dat`/`ftDataCaptain` bootstrap snapshot.
 Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
 `inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
 `dash_run_acceleration_b` is added by input side, and the run target scales from
 `dash_run_terminal_velocity` rather than always clamping to full run speed.
-RunBrake can now consume extracted `max_run_brake_frames` while leaving the
-fallback profile uncapped until real Captain Falcon attributes are available.
+RunBrake now consumes extracted `max_run_brake_frames` from the Captain Falcon
+bootstrap profile.
 Basic standing-turn facing timing now reads the profile-owned
 `frames_to_change_direction_on_standing_turn` field.
 The full standing-turn lifetime now reads

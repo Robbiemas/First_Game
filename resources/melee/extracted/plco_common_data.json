@@ -1,0 +1,333 @@
+{
+  "fields": {
+    "aerial_neutral_x": {
+      "kind": "stick",
+      "offset": 220,
+      "raw": 0.25,
+      "source_name": "xDC",
+      "stick_byte": 32
+    },
+    "aerial_neutral_y": {
+      "kind": "stick",
+      "offset": 224,
+      "raw": 0.25,
+      "source_name": "xE0",
+      "stick_byte": 32
+    },
+    "aerial_vertical_angle_tan_milli": {
+      "kind": "radian_tangent_milli",
+      "milli": 1192,
+      "offset": 32,
+      "raw": 0.8726646304130554,
+      "source_name": "x20_radians"
+    },
+    "air_jump_backward_x": {
+      "kind": "stick",
+      "offset": 120,
+      "raw": 0.125,
+      "source_name": "x78",
+      "stick_byte": 16
+    },
+    "crouch_release_y": {
+      "kind": "stick",
+      "offset": 148,
+      "raw": 0.625,
+      "source_name": "x94",
+      "stick_byte": 79
+    },
+    "crouch_y": {
+      "kind": "stick",
+      "offset": 144,
+      "raw": 0.6875,
+      "source_name": "x90",
+      "stick_byte": 87
+    },
+    "dash_defensive_action_window": {
+      "kind": "f32_ticks",
+      "offset": 72,
+      "raw": 3.0,
+      "source_name": "x48",
+      "ticks": 3
+    },
+    "dash_early_action_window": {
+      "kind": "f32_ticks",
+      "offset": 68,
+      "raw": 4.0,
+      "source_name": "x44",
+      "ticks": 4
+    },
+    "dash_late_action_window": {
+      "kind": "f32_ticks",
+      "offset": 76,
+      "raw": 20.0,
+      "source_name": "x4C",
+      "ticks": 20
+    },
+    "dash_tap_window": {
+      "kind": "i32_ticks",
+      "offset": 64,
+      "raw": 2,
+      "source_name": "x40",
+      "ticks": 2
+    },
+    "dash_x": {
+      "kind": "stick",
+      "offset": 60,
+      "raw": 0.800000011920929,
+      "source_name": "x3C",
+      "stick_byte": 102
+    },
+    "escape_x": {
+      "kind": "stick",
+      "offset": 796,
+      "raw": 0.699999988079071,
+      "source_name": "x31C",
+      "stick_byte": 89
+    },
+    "escape_x_tap_window": {
+      "kind": "i32_ticks",
+      "offset": 800,
+      "raw": 4,
+      "source_name": "x320",
+      "ticks": 4
+    },
+    "escape_y": {
+      "kind": "stick",
+      "offset": 788,
+      "raw": -0.699999988079071,
+      "source_name": "x314",
+      "stick_byte": -89
+    },
+    "escape_y_tap_window": {
+      "kind": "i32_ticks",
+      "offset": 792,
+      "raw": 4,
+      "source_name": "x318",
+      "ticks": 4
+    },
+    "escapeair_deadzone_x": {
+      "kind": "stick",
+      "offset": 812,
+      "raw": 0.25,
+      "source_name": "escapeair_deadzone.x",
+      "stick_byte": 32
+    },
+    "escapeair_deadzone_y": {
+      "kind": "stick",
+      "offset": 816,
+      "raw": 0.25,
+      "source_name": "escapeair_deadzone.y",
+      "stick_byte": 32
+    },
+    "escapeair_decay_milli": {
+      "kind": "milli",
+      "milli": 900,
+      "offset": 828,
+      "raw": 0.8999999761581421,
+      "source_name": "escapeair_decay"
+    },
+    "escapeair_force": {
+      "kind": "milli",
+      "milli": 3100,
+      "offset": 824,
+      "raw": 3.0999999046325684,
+      "source_name": "escapeair_force"
+    },
+    "escapeair_iasa_timer_ticks": {
+      "kind": "i32_ticks",
+      "offset": 820,
+      "raw": 3,
+      "source_name": "x334",
+      "ticks": 3
+    },
+    "escapeair_landing_lag_ticks": {
+      "kind": "f32_ticks",
+      "offset": 836,
+      "raw": 10.0,
+      "source_name": "x344",
+      "ticks": 10
+    },
+    "fallspecial_platform_landing_y": {
+      "kind": "stick",
+      "offset": 604,
+      "raw": -0.5600000023841858,
+      "source_name": "x25C",
+      "stick_byte": -71
+    },
+    "fast_fall_window": {
+      "kind": "i32_ticks",
+      "offset": 140,
+      "raw": 4,
+      "source_name": "x8C",
+      "ticks": 4
+    },
+    "fast_fall_y": {
+      "kind": "stick",
+      "offset": 136,
+      "raw": 0.6625000238418579,
+      "source_name": "x88",
+      "stick_byte": 84
+    },
+    "guard_on_catch_dash_window": {
+      "kind": "f32_ticks",
+      "offset": 104,
+      "raw": 3.0,
+      "source_name": "x68",
+      "ticks": 3
+    },
+    "pass_initial_y_velocity": {
+      "kind": "milli",
+      "milli": -500,
+      "offset": 1132,
+      "raw": -0.5,
+      "source_name": "x46C"
+    },
+    "platform_drop_delay_ticks": {
+      "kind": "f32_ticks",
+      "offset": 1136,
+      "raw": 2.0,
+      "source_name": "x470",
+      "ticks": 2
+    },
+    "platform_pass_y": {
+      "kind": "stick",
+      "offset": 1124,
+      "raw": 0.6600000262260437,
+      "source_name": "x464",
+      "stick_byte": 84
+    },
+    "platform_pass_y_tap_window": {
+      "kind": "f32_ticks",
+      "offset": 1128,
+      "raw": 6.0,
+      "source_name": "x468",
+      "ticks": 6
+    },
+    "run_turn_run_no_interrupt_frames": {
+      "kind": "f32_ticks",
+      "offset": 1072,
+      "raw": 10.0,
+      "source_name": "x430",
+      "ticks": 10
+    },
+    "run_x": {
+      "kind": "stick",
+      "offset": 88,
+      "raw": 0.625,
+      "source_name": "x58_someLStickXThreshold",
+      "stick_byte": 79
+    },
+    "tap_jump_release_y": {
+      "kind": "stick",
+      "offset": 124,
+      "raw": 0.30000001192092896,
+      "source_name": "tap_jump_release_threshold",
+      "stick_byte": 38
+    },
+    "tap_jump_window": {
+      "kind": "i32_ticks",
+      "offset": 116,
+      "raw": 4,
+      "source_name": "x74",
+      "ticks": 4
+    },
+    "tap_jump_y": {
+      "kind": "stick",
+      "offset": 112,
+      "raw": 0.6625000238418579,
+      "source_name": "tap_jump_threshold",
+      "stick_byte": 84
+    },
+    "tap_x_threshold": {
+      "kind": "stick",
+      "offset": 8,
+      "raw": 0.25,
+      "source_name": "x8_someStickThreshold",
+      "stick_byte": 32
+    },
+    "tap_y_threshold": {
+      "kind": "stick",
+      "offset": 12,
+      "raw": 0.25,
+      "source_name": "xC",
+      "stick_byte": 32
+    },
+    "tilt_x": {
+      "kind": "stick",
+      "offset": 152,
+      "raw": 0.25,
+      "source_name": "x98",
+      "stick_byte": 32
+    },
+    "tilt_y": {
+      "kind": "stick",
+      "offset": 172,
+      "raw": 0.25,
+      "source_name": "attackhi3_stick_threshold_y",
+      "stick_byte": 32
+    },
+    "trigger_deadzone": {
+      "kind": "trigger",
+      "offset": 16,
+      "raw": 0.30000001192092896,
+      "source_name": "x10",
+      "trigger_byte": 77
+    },
+    "trigger_timer_threshold": {
+      "kind": "trigger",
+      "offset": 24,
+      "raw": 0.25,
+      "source_name": "x18",
+      "trigger_byte": 64
+    },
+    "turn_x": {
+      "kind": "stick",
+      "offset": 52,
+      "raw": -0.25,
+      "source_name": "x34",
+      "stick_byte": -32
+    },
+    "walk_fast_x": {
+      "kind": "stick",
+      "offset": 48,
+      "raw": 0.5,
+      "source_name": "x30",
+      "stick_byte": 64
+    },
+    "walk_middle_x": {
+      "kind": "stick",
+      "offset": 44,
+      "raw": 0.800000011920929,
+      "source_name": "x2C",
+      "stick_byte": 102
+    },
+    "walk_slow_x": {
+      "kind": "stick",
+      "offset": 40,
+      "raw": 0.4000000059604645,
+      "source_name": "x28",
+      "stick_byte": 51
+    },
+    "walk_x": {
+      "kind": "stick",
+      "offset": 36,
+      "raw": 0.18000000715255737,
+      "source_name": "x24",
+      "stick_byte": 23
+    },
+    "z_shield_analog": {
+      "kind": "trigger",
+      "offset": 20,
+      "raw": 0.3499999940395355,
+      "source_name": "x14",
+      "trigger_byte": 89
+    }
+  },
+  "source": {
+    "common_attributes_offset": 40896,
+    "file": "resources/melee/raw/PlCo.dat",
+    "format": "HSD DAT, big-endian floats/ints",
+    "ft_load_common_data_offset": 60632,
+    "symbol": "ftLoadCommonData"
+  }
+}

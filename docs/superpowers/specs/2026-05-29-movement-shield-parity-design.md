@@ -44,8 +44,10 @@ cases. Z-lightshield synthesis must not count as a digital air-dodge press.
 `EscapeAir` should own the air-dodge self-velocity vector, deadzone check,
 decay, no-gravity action phase, IASA/action timer, and transition into
 `FallSpecial`. Values already represented in `MeleeCommonData` should be used
-from that data seam, with provenance recorded. Missing exact values should remain
-explicitly provisional until a real `PlCo.dat` extraction source is available.
+from that data seam, with provenance recorded. The current bootstrap now has
+extracted `PlCo.dat` values for the air-dodge deadzone, force, decay,
+`x334` timer, and `x344` landing lag; missing animation/submotion values should
+remain explicitly provisional until extracted from the proper source.
 
 `LandingFallSpecial` should preserve horizontal slide, apply grounded traction,
 block normal grounded actions until its lag expires, and return to `Wait` only

@@ -156,26 +156,26 @@ impl FighterProfile {
         action_frames: FighterActionFrames::FALCON_LIKE,
         walk_target_speed_per_stick: 6,
         walk_initial_accel_per_stick: 1,
-        walk_accel_per_tick: 20,
+        walk_accel_per_tick: 100,
         walk_friction_per_tick: 72,
         walk_speed_per_tick: 850,
         run_speed_per_tick: 2_300,
         initial_dash_speed_per_tick: 2_000,
-        dash_run_accel_stick_per_tick: 10,
-        dash_run_accel_base_per_tick: 150,
-        max_run_brake_frames: None,
+        dash_run_accel_stick_per_tick: 150,
+        dash_run_accel_base_per_tick: 10,
+        max_run_brake_frames: Some(30),
         traction_per_tick: 80,
-        ground_max_horizontal_velocity_per_tick: 2_300,
-        ground_to_air_jump_momentum_milli: 800,
-        jump_horizontal_initial_velocity_per_tick: 400,
-        jump_horizontal_max_velocity_per_tick: 1_000,
-        air_jump_horizontal_velocity_per_tick: 400,
+        ground_max_horizontal_velocity_per_tick: 3_000,
+        ground_to_air_jump_momentum_milli: 750,
+        jump_horizontal_initial_velocity_per_tick: 950,
+        jump_horizontal_max_velocity_per_tick: 2_100,
+        air_jump_horizontal_velocity_per_tick: 900,
         max_jumps: 1,
         air_drift_stick_accel_per_tick: 40,
         air_drift_base_accel_per_tick: 20,
         air_drift_max_velocity_per_tick: 1_120,
         air_friction_per_tick: 10,
-        air_max_horizontal_velocity_per_tick: 1_120,
+        air_max_horizontal_velocity_per_tick: 3_000,
         gravity_per_tick: 130,
         fall_speed_per_tick: 2_900,
         fast_fall_speed_per_tick: 3_500,
@@ -189,7 +189,7 @@ impl FighterProfile {
         standing_height_units: 22_667,
         jumpsquat_frames: 4,
         dash_frames: 15,
-        standing_turn_direction_change_frames: 5,
+        standing_turn_direction_change_frames: 6,
         standing_turn_total_frames: 11,
         normal_landing_lag_ticks: 4,
     };
@@ -247,7 +247,7 @@ impl FighterProfile {
         )?;
         profile.air_jump_horizontal_velocity_per_tick =
             read_profile_milli_i32(bytes, 0x54, "air_jump_h_multiplier")?;
-        profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?;
+        profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?.saturating_sub(1);
         profile.gravity_per_tick = read_profile_milli_i32(bytes, 0x5c, "grav")?;
         profile.fall_speed_per_tick = read_profile_milli_i32(bytes, 0x60, "terminal_vel")?;
         profile.air_drift_stick_accel_per_tick =

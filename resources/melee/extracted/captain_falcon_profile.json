@@ -1,0 +1,243 @@
+{
+  "fields": {
+    "aerial_drift_base": {
+      "kind": "milli",
+      "milli": 20,
+      "offset": 104,
+      "raw": 0.019999999552965164,
+      "source_name": "aerial_drift_base"
+    },
+    "aerial_friction": {
+      "kind": "milli",
+      "milli": 10,
+      "offset": 112,
+      "raw": 0.009999999776482582,
+      "source_name": "aerial_friction"
+    },
+    "air_drift_max": {
+      "kind": "milli",
+      "milli": 1120,
+      "offset": 108,
+      "raw": 1.1200000047683716,
+      "source_name": "air_drift_max"
+    },
+    "air_drift_stick_mul": {
+      "kind": "milli",
+      "milli": 40,
+      "offset": 100,
+      "raw": 0.03999999910593033,
+      "source_name": "air_drift_stick_mul"
+    },
+    "air_jump_h_multiplier": {
+      "kind": "milli",
+      "milli": 900,
+      "offset": 84,
+      "raw": 0.8999999761581421,
+      "source_name": "air_jump_h_multiplier"
+    },
+    "air_jump_v_multiplier": {
+      "kind": "milli",
+      "milli": 900,
+      "offset": 80,
+      "raw": 0.8999999761581421,
+      "source_name": "air_jump_v_multiplier"
+    },
+    "air_max_horizontal_velocity": {
+      "kind": "milli",
+      "milli": 3000,
+      "offset": 120,
+      "raw": 3.0,
+      "source_name": "air_max_horizontal_velocity"
+    },
+    "dash_initial_velocity": {
+      "kind": "milli",
+      "milli": 2000,
+      "offset": 28,
+      "raw": 2.0,
+      "source_name": "dash_initial_velocity"
+    },
+    "dash_run_acceleration_a": {
+      "kind": "milli",
+      "milli": 150,
+      "offset": 32,
+      "raw": 0.15000000596046448,
+      "source_name": "dash_run_acceleration_a"
+    },
+    "dash_run_acceleration_b": {
+      "kind": "milli",
+      "milli": 10,
+      "offset": 36,
+      "raw": 0.009999999776482582,
+      "source_name": "dash_run_acceleration_b"
+    },
+    "dash_run_terminal_velocity": {
+      "kind": "milli",
+      "milli": 2300,
+      "offset": 40,
+      "raw": 2.299999952316284,
+      "source_name": "dash_run_terminal_velocity"
+    },
+    "fast_fall_velocity": {
+      "kind": "milli",
+      "milli": 3500,
+      "offset": 116,
+      "raw": 3.5,
+      "source_name": "fast_fall_velocity"
+    },
+    "fast_walk_threshold": {
+      "kind": "milli",
+      "milli": 660,
+      "offset": 20,
+      "raw": 0.659600019454956,
+      "source_name": "fast_walk_threshold"
+    },
+    "frames_to_change_direction_on_standing_turn": {
+      "kind": "f32_ticks",
+      "offset": 132,
+      "raw": 6.0,
+      "source_name": "frames_to_change_direction_on_standing_turn",
+      "ticks": 6
+    },
+    "grav": {
+      "kind": "milli",
+      "milli": 130,
+      "offset": 92,
+      "raw": 0.12999999523162842,
+      "source_name": "grav"
+    },
+    "ground_max_horizontal_velocity": {
+      "kind": "milli",
+      "milli": 3000,
+      "offset": 52,
+      "raw": 3.0,
+      "source_name": "ground_max_horizontal_velocity"
+    },
+    "ground_to_air_jump_momentum_multiplier": {
+      "kind": "milli",
+      "milli": 750,
+      "offset": 68,
+      "raw": 0.75,
+      "source_name": "ground_to_air_jump_momentum_multiplier"
+    },
+    "hop_v_initial_velocity": {
+      "kind": "milli",
+      "milli": 1900,
+      "offset": 76,
+      "raw": 1.899999976158142,
+      "source_name": "hop_v_initial_velocity"
+    },
+    "jump_h_initial_velocity": {
+      "kind": "milli",
+      "milli": 950,
+      "offset": 60,
+      "raw": 0.949999988079071,
+      "source_name": "jump_h_initial_velocity"
+    },
+    "jump_h_max_velocity": {
+      "kind": "milli",
+      "milli": 2100,
+      "offset": 72,
+      "raw": 2.0999999046325684,
+      "source_name": "jump_h_max_velocity"
+    },
+    "jump_startup_time": {
+      "kind": "f32_ticks",
+      "offset": 56,
+      "raw": 4.0,
+      "source_name": "jump_startup_time",
+      "ticks": 4
+    },
+    "jump_v_initial_velocity": {
+      "kind": "milli",
+      "milli": 3100,
+      "offset": 64,
+      "raw": 3.0999999046325684,
+      "source_name": "jump_v_initial_velocity"
+    },
+    "max_jumps": {
+      "kind": "i32_ticks",
+      "offset": 88,
+      "raw": 2,
+      "source_name": "max_jumps",
+      "ticks": 2
+    },
+    "max_run_brake_frames": {
+      "kind": "f32_ticks",
+      "offset": 48,
+      "raw": 30.0,
+      "source_name": "max_run_brake_frames",
+      "ticks": 30
+    },
+    "mid_walk_threshold": {
+      "kind": "milli",
+      "milli": 407,
+      "offset": 16,
+      "raw": 0.40700000524520874,
+      "source_name": "mid_walk_threshold"
+    },
+    "normal_landing_lag": {
+      "kind": "f32_ticks",
+      "offset": 228,
+      "raw": 4.0,
+      "source_name": "normal_landing_lag",
+      "ticks": 4
+    },
+    "run_animation_scaling": {
+      "kind": "milli",
+      "milli": 2330,
+      "offset": 44,
+      "raw": 2.3299999237060547,
+      "source_name": "run_animation_scaling"
+    },
+    "slow_walk_max_velocity": {
+      "kind": "milli",
+      "milli": 165,
+      "offset": 12,
+      "raw": 0.16500000655651093,
+      "source_name": "slow_walk_max_velocity"
+    },
+    "terminal_vel": {
+      "kind": "milli",
+      "milli": 2900,
+      "offset": 96,
+      "raw": 2.9000000953674316,
+      "source_name": "terminal_vel"
+    },
+    "traction_per_tick": {
+      "kind": "milli",
+      "milli": 80,
+      "offset": 24,
+      "raw": 0.07999999821186066,
+      "source_name": "gr_friction"
+    },
+    "walk_accel": {
+      "kind": "milli",
+      "milli": 100,
+      "offset": 4,
+      "raw": 0.10000000149011612,
+      "source_name": "walk_accel"
+    },
+    "walk_initial_velocity": {
+      "kind": "milli",
+      "milli": 150,
+      "offset": 0,
+      "raw": 0.15000000596046448,
+      "source_name": "walk_initial_velocity"
+    },
+    "walk_max_vel": {
+      "kind": "milli",
+      "milli": 850,
+      "offset": 8,
+      "raw": 0.8500000238418579,
+      "source_name": "walk_max_vel"
+    }
+  },
+  "source": {
+    "file": "resources/melee/raw/PlCa.dat",
+    "format": "HSD DAT, big-endian floats/ints",
+    "ft_data_offset": 39428,
+    "ftco_dat_attrs_len": 388,
+    "ftco_dat_attrs_offset": 14164,
+    "symbol": "ftDataCaptain"
+  }
+}

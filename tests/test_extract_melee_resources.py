@@ -3,6 +3,7 @@ from pathlib import Path
 
 from tools.extract_melee_resources import (
     DatExtractError,
+    PROJECT_ROOT,
     extract_captain_profile_from_plca,
     extract_common_data_from_plco,
 )
@@ -88,9 +89,12 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x470, 6.0)
 
     dat = make_dat("ftLoadCommonData", data_block, ftload_offset)
-    extracted = extract_common_data_from_plco(dat, source_path=Path("PlCo.dat"))
+    extracted = extract_common_data_from_plco(
+        dat, source_path=PROJECT_ROOT / "resources" / "melee" / "raw" / "PlCo.dat"
+    )
 
     assert extracted["source"]["symbol"] == "ftLoadCommonData"
+    assert extracted["source"]["file"] == "resources/melee/raw/PlCo.dat"
     assert extracted["source"]["common_attributes_offset"] == common_offset
     assert extracted["fields"]["escapeair_force"]["milli"] == 3100
     assert extracted["fields"]["escapeair_decay_milli"]["milli"] == 915
@@ -102,8 +106,8 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     ftdata_offset = 0x60
     attrs_offset = 0x100
     attrs_end = 0x280
-    data_block[ftdata_offset + 0x10 : ftdata_offset + 0x14] = be32(attrs_end)
-    data_block[ftdata_offset + 0x14 : ftdata_offset + 0x18] = be32(attrs_offset)
+    data_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
+    data_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
 
     put_f32(data_block, attrs_offset + 0x18, 0.08)
     put_f32(data_block, attrs_offset + 0x1C, 2.0)

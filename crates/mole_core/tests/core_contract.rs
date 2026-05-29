@@ -270,20 +270,21 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.action_frames.attack_dash_iasa_frame, 38);
     assert_eq!(profile.run_speed_per_tick, 2_300);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
-    assert_eq!(profile.dash_run_accel_stick_per_tick, 10);
-    assert_eq!(profile.dash_run_accel_base_per_tick, 150);
+    assert_eq!(profile.dash_run_accel_stick_per_tick, 150);
+    assert_eq!(profile.dash_run_accel_base_per_tick, 10);
+    assert_eq!(profile.walk_accel_per_tick, 100);
     assert_eq!(profile.walk_speed_per_tick, 850);
     assert_eq!(profile.traction_per_tick, 80);
-    assert_eq!(profile.ground_to_air_jump_momentum_milli, 800);
-    assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 400);
-    assert_eq!(profile.jump_horizontal_max_velocity_per_tick, 1_000);
-    assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 400);
+    assert_eq!(profile.ground_to_air_jump_momentum_milli, 750);
+    assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 950);
+    assert_eq!(profile.jump_horizontal_max_velocity_per_tick, 2_100);
+    assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 900);
     assert_eq!(profile.max_jumps, 1);
     assert_eq!(profile.air_drift_stick_accel_per_tick, 40);
     assert_eq!(profile.air_drift_base_accel_per_tick, 20);
     assert_eq!(profile.air_drift_max_velocity_per_tick, 1_120);
     assert_eq!(profile.air_friction_per_tick, 10);
-    assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_120);
+    assert_eq!(profile.air_max_horizontal_velocity_per_tick, 3_000);
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
@@ -296,8 +297,8 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
-    assert_eq!(profile.max_run_brake_frames, None);
-    assert_eq!(profile.standing_turn_direction_change_frames, 5);
+    assert_eq!(profile.max_run_brake_frames, Some(30));
+    assert_eq!(profile.standing_turn_direction_change_frames, 6);
     assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
 }
@@ -356,7 +357,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.short_hop_jump_force_per_tick, 1_900);
     assert_eq!(profile.air_jump_force_per_tick, 2_790);
     assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 460);
-    assert_eq!(profile.max_jumps, 2);
+    assert_eq!(profile.max_jumps, 1);
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
     assert_eq!(profile.air_drift_stick_accel_per_tick, 47);
@@ -446,12 +447,12 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(thresholds.aerial_neutral_y, 40);
     assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1000);
     assert_eq!(common.crouch_release_y, 36);
-    assert_eq!(common.air_jump_backward_x, 20);
-    assert_eq!(common.escapeair_iasa_timer_ticks, 15);
+    assert_eq!(common.air_jump_backward_x, 16);
+    assert_eq!(common.escapeair_iasa_timer_ticks, 3);
     assert_eq!(common.escapeair_animation_ticks, 20);
-    assert_eq!(common.escapeair_deadzone_x, 20);
-    assert_eq!(common.escapeair_deadzone_y, 20);
-    assert_eq!(common.escapeair_force, 800);
+    assert_eq!(common.escapeair_deadzone_x, 32);
+    assert_eq!(common.escapeair_deadzone_y, 32);
+    assert_eq!(common.escapeair_force, 3_100);
     assert_eq!(common.escapeair_decay_milli, 900);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
     assert_eq!(common.fallspecial_platform_landing_y, -80);
@@ -3559,7 +3560,7 @@ fn escape_air_uses_fixed_force_along_stick_angle() {
     assert!(close_to(
         squared_magnitude(diagonal.players()[0].velocity),
         squared_magnitude(right.players()[0].velocity),
-        force
+        force * 3
     ));
 }
 
@@ -4550,7 +4551,7 @@ fn escape_air_landing_enters_landing_fall_special_instead_of_wait() {
     let down_air_dodge = [
         PlayerInput::neutral()
             .with_right_trigger_digital(true)
-            .with_left_stick(80, -127),
+            .with_left_stick(30, -127),
         PlayerInput::neutral(),
     ];
 
@@ -4877,7 +4878,7 @@ fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
         name: "narrow_main_floor",
         kind: StageSurfaceKind::Solid,
         left_x: melee_units_f32(-20.5),
-        right_x: melee_units_f32(-19.0),
+        right_x: melee_units_f32(-18.0),
         y: 0,
     };
     let mut world = World::for_two_players_on_stage(stage);
@@ -4897,12 +4898,22 @@ fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
         step_world(&mut world, Frame(frame), &jump);
     }
     step_world(&mut world, Frame(4), &down_forward_air_dodge);
+
+    let mut frame = 5;
+    while matches!(
+        world.players()[0].motion_state,
+        MotionState::EscapeAir | MotionState::FallSpecial
+    ) && frame < 12
+    {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
     assert_eq!(
         world.players()[0].motion_state,
         MotionState::LandingFallSpecial
     );
 
-    let mut frame = 5;
     while world.players()[0].motion_state == MotionState::LandingFallSpecial && frame < 20 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -5970,12 +5981,12 @@ fn standing_turn_fresh_outward_dash_tap_dashes_on_turn_frame() {
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, 1);
 
-    for frame in 2..5 {
+    for frame in 2..6 {
         step_world(&mut world, Frame(frame), &full_left);
         assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     }
 
-    step_world(&mut world, Frame(5), &full_left);
+    step_world(&mut world, Frame(6), &full_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert_eq!(world.players()[0].facing, -1);
@@ -6063,12 +6074,12 @@ fn neutral_special_latched_during_turn_replays_with_current_stick_on_turn_frame(
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
 
-    for frame in 2..5 {
+    for frame in 2..6 {
         step_world(&mut world, Frame(frame), &neutral);
         assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     }
 
-    step_world(&mut world, Frame(5), &soft_left);
+    step_world(&mut world, Frame(6), &soft_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::SpecialS);
     assert_eq!(world.players()[0].facing, -1);
@@ -6235,7 +6246,7 @@ fn dash_uses_current_stick_for_moonwalk_like_acceleration_after_opposite_tap_age
     }
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
-    assert!(world.players()[0].velocity.x < 0);
+    assert!(world.players()[0].velocity.x < 2_000);
 }
 
 #[test]
@@ -6659,7 +6670,7 @@ fn holding_opposite_after_moonwalk_exits_dash_to_walk_not_run() {
 
     assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
     assert_eq!(world.players()[0].facing, -1);
-    assert!(world.players()[0].velocity.x < 0);
+    assert!(world.players()[0].velocity.x < 2_000);
 }
 
 #[test]

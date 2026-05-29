@@ -203,6 +203,13 @@ def field_value(block: bytes, field: Field) -> dict[str, object]:
     return result
 
 
+def source_path_for_json(source_path: Path) -> str:
+    try:
+        return source_path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return source_path.as_posix()
+
+
 def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, object]:
     symbol, ftload_offset = find_root(dat, lambda name: name == "ftLoadCommonData", "ftLoadCommonData")
     common_offset = read_u32(dat, 0x20 + ftload_offset)
@@ -213,7 +220,7 @@ def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, ob
     block = dat[0x20 + common_offset : 0x20 + data_block_size]
     return {
         "source": {
-            "file": str(source_path),
+            "file": source_path_for_json(source_path),
             "symbol": symbol,
             "ft_load_common_data_offset": ftload_offset,
             "common_attributes_offset": common_offset,
@@ -226,17 +233,18 @@ def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, ob
 def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
     symbol, ftdata_offset = find_root(dat, lambda name: name == "ftDataCaptain", "ftDataCaptain")
     header_offset = 0x20 + ftdata_offset
-    attrs_end = read_u32(dat, header_offset + 0x10)
-    attrs_offset = read_u32(dat, header_offset + 0x14)
-    if attrs_offset >= attrs_end:
-        raise DatExtractError("ftCo_DatAttrs range is empty or reversed")
+    attrs_offset = read_u32(dat, header_offset)
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
-    if attrs_end > data_block_size:
-        raise DatExtractError("ftCo_DatAttrs range extends beyond data block")
+    attrs_end = read_u32(dat, header_offset + 4)
+    if attrs_end <= attrs_offset or attrs_end > data_block_size:
+        attrs_end = data_block_size
+    required_len = attrs_offset + max(field.offset for field in PROFILE_FIELDS) + 4
+    if required_len > attrs_end:
+        raise DatExtractError("ftDataCaptain.x0 does not cover required ftCo_DatAttrs fields")
     attrs = dat[0x20 + attrs_offset : 0x20 + attrs_end]
     return {
         "source": {
-            "file": str(source_path),
+            "file": source_path_for_json(source_path),
             "symbol": symbol,
             "ft_data_offset": ftdata_offset,
             "ftco_dat_attrs_offset": attrs_offset,

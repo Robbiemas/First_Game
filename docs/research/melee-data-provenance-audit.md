@@ -16,17 +16,17 @@ Available under `D:\Mole Game\.research`:
 
 The local `doldecomp-melee` checkout currently provides source code, struct
 layouts, field offsets, and DAT filename references such as `PlCo.dat` and
-`PlCa.dat`. A workspace search did not find extracted `PlCo.dat`, `PlCa.dat`, or
-`ftDataCaptain` data files in the local research folders. That means source logic
-can be copied now, while exact table values must either come from an extractor
-fed by real DAT bytes or remain explicitly marked as data gaps.
+`PlCa.dat`. The local research folders do not vendor extracted DAT files, but a
+local Melee 1.02 disc image was used to extract `PlCo.dat` and `PlCa.dat` into
+the ignored `resources/melee/raw` folder. Reviewable JSON snapshots generated
+from those local bytes are checked in under `resources/melee/extracted`.
 
 The repo now has a temporary resource bootstrap at `resources/melee`: raw
 user-provided DAT files go in `resources/melee/raw` and are ignored by git, while
 `tools/extract_melee_resources.py` writes small reviewable JSON snapshots into
 `resources/melee/extracted`. The extractor follows the HSD DAT root-node layout:
 `PlCo.dat` resolves `ftLoadCommonData -> CommonAttributes`, and `PlCa.dat`
-resolves `ftDataCaptain -> ftCo_DatAttrs`.
+resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`.
 
 ## Current Decomp-Shaped Logic
 
@@ -45,11 +45,11 @@ resolves `ftDataCaptain -> ftCo_DatAttrs`.
   fast-fall gates, aerial-jump forward/back selection, crouch entry/release
   gates, shield platform-pass gates, pass/drop-through initial velocity, dash
   action windows, run thresholds, and the EscapeAir/FallSpecial common-data
-  slice. This turns the existing `PlCo.dat` extractor seam into data the
-  deterministic simulation can actually consume once clean bytes are available.
+  slice. The EscapeAir/FallSpecial subset now consumes extracted `PlCo.dat`
+  bootstrap values rather than guessed Mole constants.
 - `MeleeCommonData::from_plco_bytes` now extracts the run/run-brake stick
   threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
-  reads the provisional value through `MeleeCommonData` instead of a local
+  reads the centralized value through `MeleeCommonData` instead of a local
   hardcoded constant.
 - `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
@@ -83,9 +83,9 @@ resolves `ftDataCaptain -> ftCo_DatAttrs`.
   read through `FighterActionFrames`, which is carried by `FighterProfile` and
   mixed into the rollback checksum. The Falcon-like values are still fallback
   frame-data values until extracted action data is available.
-- Run-brake max duration can now be profile-owned through
-  `ftCo_DatAttrs.max_run_brake_frames`; the fallback profile keeps this unset
-  until real Captain Falcon attribute bytes are available.
+- Run-brake max duration now comes from extracted Captain Falcon
+  `ftCo_DatAttrs.max_run_brake_frames` in both the default Falcon-like profile
+  and the generated DAT-backed profile path.
 - Ordinary `Landing` duration is profile-owned through
   `ftCo_DatAttrs.normal_landing_lag` instead of a simulation constant.
 - Landing state selection now uses a Rust-owned stage-contact helper over
@@ -102,6 +102,12 @@ resolves `ftDataCaptain -> ftCo_DatAttrs`.
 - Extracted `escapeair_decay` now stays as a milli fixed-point multiplier in
   `MeleeCommonData`, so air-dodge self-velocity decay can preserve source float
   precision instead of rounding the common-data field to whole percent steps.
+- The default Falcon-like movement profile now uses the generated Captain
+  Falcon bootstrap values for walk acceleration, dash/run acceleration, run
+  brake frames, ground/air horizontal velocity caps, jump horizontal velocity,
+  air-jump horizontal velocity, standing-turn direction-change timing, and
+  landing lag. The DAT `max_jumps` value is treated as Melee's total jump count;
+  Rust stores the remaining aerial jumps after a grounded jump.
 
 ## Active Data Gaps
 
@@ -109,25 +115,20 @@ These should not be hand-tuned:
 
 - Full Melee collision parity still needs ledges, walls, ceilings, cliff catch,
   pass-through platform timing, and source-accurate collision callbacks.
-- `MeleeCommonData::PROVISIONAL` values: replace with `PlCo.dat` extraction via
-  `MeleeCommonData::from_plco_bytes`.
-- `FighterProfile::FALCON_LIKE` character attributes: replace by feeding
-  extracted Captain Falcon `ftCo_DatAttrs` bytes into
-  `FighterProfile::from_ftco_dat_attrs_bytes` once `PlCa.dat` data is available.
+- `MeleeCommonData::PROVISIONAL` still has broad input thresholds that should be
+  replaced or verified field-by-field against `PlCo.dat`; the air-dodge subset
+  is now extracted.
+- `FighterProfile::FALCON_LIKE` still needs extracted action/submotion data for
+  animation-specific durations and IASA. Core movement attributes now use the
+  generated Captain Falcon bootstrap values.
 - Animation durations and IASA frames currently stored as `FALCON_*` constants:
   replace with extracted action/animation data. Standing turn, Attack1,
   AttackDash, GuardOn, GuardOff, spotdodge, rolls, crouch startup, and crouch
   release now have profile-owned fields, but their fallback values are still not
   extracted from animation/action data.
-- Escape-air force, decay, deadzones, landing lag, and related common-data
-  values: replace through `PlCo.dat` extraction.
-- The default public `FighterProfile::FALCON_LIKE` values are still a fallback
-  until extracted Captain Falcon bytes are available; the profile shape now has
-  extraction slots for horizontal jump, air jump, max jumps, air drift
-  attributes, optional run-brake max frames, standing-turn direction-change
-  timing, standing-turn total frames, Attack1/AttackDash action frames,
-  defensive/crouch action-frame durations, and ordinary landing lag, instead of
-  leaving those values as mechanics constants.
+- Exact air-dodge animation length still needs submotion/animation extraction;
+  `x334` is the source action timer and must not be used as the total animation
+  duration.
 
 ## Working Rule
 
