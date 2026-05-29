@@ -3975,6 +3975,70 @@ fn fall_special_holding_down_skips_soft_platform_until_main_floor() {
 }
 
 #[test]
+fn fall_special_platform_gate_is_deterministic_from_input_snapshots() {
+    let mut left = World::for_two_players();
+    let mut right = World::for_two_players();
+    let stage = left.stage();
+    let platform = stage.soft_platforms[0];
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let up_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(0, 127),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let down = [
+        PlayerInput::neutral().with_left_stick(
+            0,
+            MeleeCommonData::provisional_mole().fallspecial_platform_landing_y,
+        ),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut left, Frame(frame), &jump);
+        step_world(&mut right, Frame(frame), &jump);
+        assert_eq!(left.checksum(), right.checksum());
+    }
+
+    let mut frame = 4;
+    while left.players()[0].position.y <= platform.y && frame < 60 {
+        step_world(&mut left, Frame(frame), &neutral);
+        step_world(&mut right, Frame(frame), &neutral);
+        assert_eq!(left.checksum(), right.checksum());
+        frame += 1;
+    }
+
+    assert!(left.players()[0].position.y > platform.y);
+    step_world(&mut left, Frame(frame), &up_air_dodge);
+    step_world(&mut right, Frame(frame), &up_air_dodge);
+    assert_eq!(left.checksum(), right.checksum());
+    frame += 1;
+
+    while left.players()[0].motion_state != MotionState::FallSpecial && frame < 80 {
+        step_world(&mut left, Frame(frame), &neutral);
+        step_world(&mut right, Frame(frame), &neutral);
+        assert_eq!(left.checksum(), right.checksum());
+        frame += 1;
+    }
+
+    while !left.players()[0].grounded && frame < 220 {
+        step_world(&mut left, Frame(frame), &down);
+        step_world(&mut right, Frame(frame), &down);
+        assert_eq!(left.checksum(), right.checksum());
+        frame += 1;
+    }
+
+    assert!(left.players()[0].grounded);
+    assert_eq!(left.players()[0].position.y, stage.main_floor.y);
+    assert_eq!(left.snapshot(), right.snapshot());
+}
+
+#[test]
 fn air_dodge_landing_uses_existing_melee_states_not_wavedash_state() {
     let mut world = World::for_two_players();
     let jump = [
