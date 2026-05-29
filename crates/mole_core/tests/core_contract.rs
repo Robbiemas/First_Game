@@ -1,6 +1,6 @@
 use mole_core::{
     input_common_data_field_sources, melee_units, melee_units_f32, step_world,
-    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterProfile,
+    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
     FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
     MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
     MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile, StageSurfaceKind,
@@ -107,6 +107,8 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     let profile = FighterProfile::falcon_like();
 
     assert_eq!(profile.reference_character, "captain_falcon");
+    assert_eq!(profile.action_frames.attack1_total_frames, 21);
+    assert_eq!(profile.action_frames.attack1_iasa_frame, 16);
     assert_eq!(profile.run_speed_per_tick, 2_300);
     assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
     assert_eq!(profile.dash_run_accel_stick_per_tick, 10);
@@ -6261,6 +6263,54 @@ fn grounded_action_states_end_after_falcon_total_frames() {
         MotionState::SpecialN,
         99,
     );
+}
+
+#[test]
+fn attack1_total_duration_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            attack1_total_frames: 9,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jab);
+
+    assert_current_action_returns_to_wait_after_frames(&mut world, 0, MotionState::Attack1, 9);
+}
+
+#[test]
+fn attack1_iasa_uses_profile_action_frames() {
+    let profile = FighterProfile {
+        action_frames: FighterActionFrames {
+            attack1_iasa_frame: 3,
+            ..FighterActionFrames::falcon_like()
+        },
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jab);
+    step_world(&mut world, Frame(1), &neutral);
+    step_world(&mut world, Frame(2), &neutral);
+    step_world(&mut world, Frame(3), &jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
 }
 
 #[test]

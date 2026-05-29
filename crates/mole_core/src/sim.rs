@@ -30,7 +30,6 @@ const ESCAPE_AIR_DECAY_PERCENT: i32 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_decay_percent;
 const ESCAPE_AIR_LANDING_FALL_SPECIAL_TICKS: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_landing_lag_ticks;
-const FALCON_ATTACK1_FRAMES: u8 = 21;
 const FALCON_ATTACK_S3_FRAMES: u8 = 29;
 const FALCON_ATTACK_HI3_FRAMES: u8 = 39;
 const FALCON_ATTACK_LW3_FRAMES: u8 = 35;
@@ -59,7 +58,6 @@ const GUARD_ON_CATCH_DASH_WINDOW: u8 =
 const RUN_TURN_RUN_NO_INTERRUPT_FRAMES: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.run_turn_run_no_interrupt_frames;
 const GUARD_OFF_FRAMES: u8 = 15;
-const FALCON_ATTACK1_IASA: u8 = 16;
 const FALCON_ATTACK_DASH_IASA: u8 = 38;
 const FALCON_ATTACK_HI3_IASA: u8 = 38;
 const FALCON_ATTACK_LW3_IASA: u8 = 35;
@@ -339,7 +337,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.velocity.x = 0;
                 if let Some(next_state) = grounded_action_iasa_state(player, input_facts) {
                     enter_iasa_state(player, next_state, input_facts.normal_jump_input, stick_x);
-                } else if player.motion_frame >= grounded_action_total_frames(player.motion_state) {
+                } else if player.motion_frame >= grounded_action_total_frames(player) {
                     player.motion_state = MotionState::Wait;
                     player.motion_frame = 0;
                 }
@@ -881,8 +879,8 @@ fn enter_action_state(player: &mut PlayerState, motion_state: MotionState, stick
     player.velocity.y = 0;
 }
 
-fn grounded_action_total_frames(motion_state: MotionState) -> u8 {
-    match motion_state {
+fn grounded_action_total_frames(player: &PlayerState) -> u8 {
+    match player.motion_state {
         MotionState::SpecialN => FALCON_SPECIAL_N_FRAMES,
         MotionState::SpecialS => FALCON_SPECIAL_S_FRAMES,
         MotionState::SpecialHi => FALCON_SPECIAL_HI_FRAMES,
@@ -892,7 +890,7 @@ fn grounded_action_total_frames(motion_state: MotionState) -> u8 {
         MotionState::EscapeB => FALCON_ESCAPE_B_FRAMES,
         MotionState::Catch => FALCON_CATCH_FRAMES,
         MotionState::CatchDash => FALCON_CATCH_DASH_FRAMES,
-        MotionState::Attack1 => FALCON_ATTACK1_FRAMES,
+        MotionState::Attack1 => player.profile.action_frames.attack1_total_frames,
         MotionState::AttackDash => FALCON_ATTACK_DASH_FRAMES,
         MotionState::AttackS3 => FALCON_ATTACK_S3_FRAMES,
         MotionState::AttackHi3 => FALCON_ATTACK_HI3_FRAMES,
@@ -908,7 +906,7 @@ fn grounded_action_iasa_state(
     player: &PlayerState,
     input_facts: MeleeInputFacts,
 ) -> Option<MotionState> {
-    if player.motion_frame < grounded_action_iasa_frame(player.motion_state)? {
+    if player.motion_frame < grounded_action_iasa_frame(player)? {
         return None;
     }
 
@@ -935,10 +933,10 @@ fn grounded_action_iasa_state(
         })
 }
 
-fn grounded_action_iasa_frame(motion_state: MotionState) -> Option<u8> {
-    match motion_state {
+fn grounded_action_iasa_frame(player: &PlayerState) -> Option<u8> {
+    match player.motion_state {
         MotionState::SpecialN => Some(FALCON_SPECIAL_N_IASA),
-        MotionState::Attack1 => Some(FALCON_ATTACK1_IASA),
+        MotionState::Attack1 => Some(player.profile.action_frames.attack1_iasa_frame),
         MotionState::AttackDash => Some(FALCON_ATTACK_DASH_IASA),
         MotionState::AttackHi3 => Some(FALCON_ATTACK_HI3_IASA),
         MotionState::AttackLw3 => Some(FALCON_ATTACK_LW3_IASA),

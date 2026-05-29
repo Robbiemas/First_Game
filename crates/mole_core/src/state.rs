@@ -70,8 +70,26 @@ impl fmt::Display for FighterProfileExtractError {
 impl std::error::Error for FighterProfileExtractError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FighterActionFrames {
+    pub attack1_total_frames: u8,
+    pub attack1_iasa_frame: u8,
+}
+
+impl FighterActionFrames {
+    pub const FALCON_LIKE: Self = Self {
+        attack1_total_frames: 21,
+        attack1_iasa_frame: 16,
+    };
+
+    pub const fn falcon_like() -> Self {
+        Self::FALCON_LIKE
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FighterProfile {
     pub reference_character: &'static str,
+    pub action_frames: FighterActionFrames,
     pub walk_target_speed_per_stick: i32,
     pub walk_initial_accel_per_stick: i32,
     pub walk_accel_per_tick: i32,
@@ -114,6 +132,7 @@ pub struct FighterProfile {
 impl FighterProfile {
     pub const FALCON_LIKE: Self = Self {
         reference_character: "captain_falcon",
+        action_frames: FighterActionFrames::FALCON_LIKE,
         walk_target_speed_per_stick: 6,
         walk_initial_accel_per_stick: 1,
         walk_accel_per_tick: 20,
@@ -708,6 +727,7 @@ fn mix_u64(hash: &mut u64, value: u64) {
 fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.walk_target_speed_per_stick);
     mix_i32(hash, profile.walk_initial_accel_per_stick);
+    mix_fighter_action_frames(hash, profile.action_frames);
     mix_i32(hash, profile.walk_accel_per_tick);
     mix_i32(hash, profile.walk_friction_per_tick);
     mix_i32(hash, profile.walk_speed_per_tick);
@@ -749,6 +769,11 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_u8(hash, profile.standing_turn_direction_change_frames);
     mix_u8(hash, profile.standing_turn_total_frames);
     mix_u8(hash, profile.normal_landing_lag_ticks);
+}
+
+fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames) {
+    mix_u8(hash, action_frames.attack1_total_frames);
+    mix_u8(hash, action_frames.attack1_iasa_frame);
 }
 
 fn mix_i32(hash: &mut u64, value: i32) {
