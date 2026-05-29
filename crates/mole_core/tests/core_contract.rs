@@ -2120,6 +2120,17 @@ fn same_start_and_inputs_produce_same_checksum() {
 }
 
 #[test]
+fn common_data_participates_in_checksum_for_rollback() {
+    let base = World::for_two_players_with_common_data(MeleeCommonData::provisional_mole());
+    let altered = World::for_two_players_with_common_data(MeleeCommonData {
+        escapeair_force: 1_234,
+        ..MeleeCommonData::provisional_mole()
+    });
+
+    assert_ne!(base.checksum(), altered.checksum());
+}
+
+#[test]
 fn world_owns_melee_input_timers_for_rollback() {
     let mut world = World::for_two_players();
     let neutral = PlayerInput::neutral();
@@ -3457,6 +3468,67 @@ fn escape_air_self_velocity_decays_on_entry_frame() {
         world.players()[0].velocity.x,
         common.escapeair_force * common.escapeair_decay_percent / 100
     );
+}
+
+#[test]
+fn world_common_data_drives_escape_air_force_timer_and_decay() {
+    let common = MeleeCommonData {
+        escapeair_iasa_timer_ticks: 7,
+        escapeair_deadzone_x: 10,
+        escapeair_deadzone_y: 10,
+        escapeair_force: 1_200,
+        escapeair_decay_percent: 50,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let right_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(4), &right_air_dodge);
+
+    assert_eq!(world.common_data(), common);
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_eq!(world.players()[0].escape_air_iasa_timer, 7);
+    assert_eq!(world.players()[0].velocity.x, 600);
+
+    step_world(&mut world, Frame(5), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_eq!(world.players()[0].velocity.x, 300);
+}
+
+#[test]
+fn world_common_data_drives_tap_timer_thresholds_for_dash() {
+    let common = MeleeCommonData {
+        tap_x_threshold: 100,
+        dash_x: 80,
+        walk_fast_x: 90,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(90, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
 }
 
 #[test]

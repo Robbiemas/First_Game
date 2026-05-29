@@ -19,12 +19,6 @@ const C_STICK_X_SHIFT: u32 = 32;
 const C_STICK_Y_SHIFT: u32 = 40;
 const LEFT_TRIGGER_ANALOG_SHIFT: u32 = 48;
 const RIGHT_TRIGGER_ANALOG_SHIFT: u32 = 56;
-const CORE_TRIGGER_THRESHOLD: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.trigger_threshold;
-const CORE_TRIGGER_TIMER_THRESHOLD: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.trigger_timer_threshold;
-const CORE_TAP_X_THRESHOLD: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.tap_x_threshold;
-const CORE_TAP_Y_THRESHOLD: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.tap_y_threshold;
 pub const NO_GROUNDED_SPECIAL_DIRECTION: (i8, i8) = (0, -2);
 const STICK_BYTE_MASK: u64 = 0xff;
 const USED_BITS: u64 = ATTACK_BIT
@@ -400,9 +394,12 @@ pub struct MeleeInputConfig {
     pub trigger_deadzone: u8,
 }
 
+const DEFAULT_MELEE_INPUT_CONFIG: MeleeInputConfig =
+    crate::common_data::MeleeCommonData::PROVISIONAL.input_config();
+
 impl Default for MeleeInputConfig {
     fn default() -> Self {
-        crate::common_data::MeleeCommonData::provisional_mole().input_config()
+        DEFAULT_MELEE_INPUT_CONFIG
     }
 }
 
@@ -450,23 +447,32 @@ impl MeleeInputTimers {
     }
 
     pub fn update(self, previous: PlayerInput, current: PlayerInput) -> Self {
+        self.update_with_config(previous, current, MeleeInputConfig::default())
+    }
+
+    pub fn update_with_config(
+        self,
+        previous: PlayerInput,
+        current: PlayerInput,
+        config: MeleeInputConfig,
+    ) -> Self {
         Self {
             x_tap: update_axis_tap_timer(
                 self.x_tap,
                 previous.stick_x(),
                 current.stick_x(),
-                CORE_TAP_X_THRESHOLD,
+                config.tap_x_threshold,
             ),
             y_tap: update_axis_tap_timer(
                 self.y_tap,
                 previous.stick_y(),
                 current.stick_y(),
-                CORE_TAP_Y_THRESHOLD,
+                config.tap_y_threshold,
             ),
             trigger: update_binary_timer(
                 self.trigger,
-                previous.trigger_timer_active(),
-                current.trigger_timer_active(),
+                previous.trigger_timer_active_with_config(config),
+                current.trigger_timer_active_with_config(config),
             ),
         }
     }
@@ -1138,6 +1144,10 @@ impl PlayerInput {
         self.bits & SHIELD_BIT != 0 || self.trigger_active()
     }
 
+    pub const fn shield_with_config(self, config: MeleeInputConfig) -> bool {
+        self.bits & SHIELD_BIT != 0 || self.trigger_active_with_config(config)
+    }
+
     pub const fn explicit_shield(self) -> bool {
         self.bits & SHIELD_BIT != 0
     }
@@ -1207,17 +1217,25 @@ impl PlayerInput {
     }
 
     pub const fn trigger_active(self) -> bool {
+        self.trigger_active_with_config(DEFAULT_MELEE_INPUT_CONFIG)
+    }
+
+    pub const fn trigger_active_with_config(self, config: MeleeInputConfig) -> bool {
         self.left_trigger_digital()
             || self.right_trigger_digital()
-            || self.left_trigger_analog() >= CORE_TRIGGER_THRESHOLD
-            || self.right_trigger_analog() >= CORE_TRIGGER_THRESHOLD
+            || self.left_trigger_analog() >= config.trigger_threshold
+            || self.right_trigger_analog() >= config.trigger_threshold
     }
 
     pub const fn trigger_timer_active(self) -> bool {
+        self.trigger_timer_active_with_config(DEFAULT_MELEE_INPUT_CONFIG)
+    }
+
+    pub const fn trigger_timer_active_with_config(self, config: MeleeInputConfig) -> bool {
         self.left_trigger_digital()
             || self.right_trigger_digital()
-            || self.left_trigger_analog() >= CORE_TRIGGER_TIMER_THRESHOLD
-            || self.right_trigger_analog() >= CORE_TRIGGER_TIMER_THRESHOLD
+            || self.left_trigger_analog() >= config.trigger_timer_threshold
+            || self.right_trigger_analog() >= config.trigger_timer_threshold
     }
 
     pub fn melee_snapshot(
@@ -1225,7 +1243,16 @@ impl PlayerInput {
         previous: PlayerInput,
         timers: MeleeInputTimers,
     ) -> MeleeInputSnapshot {
-        let updated_timers = timers.update(previous, self);
+        self.melee_snapshot_with_config(previous, timers, MeleeInputConfig::default())
+    }
+
+    pub fn melee_snapshot_with_config(
+        self,
+        previous: PlayerInput,
+        timers: MeleeInputTimers,
+        config: MeleeInputConfig,
+    ) -> MeleeInputSnapshot {
+        let updated_timers = timers.update_with_config(previous, self, config);
         let held = self.gamecube_buttons();
         let previous_held = previous.gamecube_buttons();
         let changed = previous_held.bits() ^ held.bits();
@@ -1235,14 +1262,14 @@ impl PlayerInput {
         let right_trigger = self.right_trigger_analog();
         let previous_left_trigger = previous.left_trigger_analog();
         let previous_right_trigger = previous.right_trigger_analog();
-        let left_trigger_analog_held = left_trigger >= CORE_TRIGGER_THRESHOLD;
-        let right_trigger_analog_held = right_trigger >= CORE_TRIGGER_THRESHOLD;
+        let left_trigger_analog_held = left_trigger >= config.trigger_threshold;
+        let right_trigger_analog_held = right_trigger >= config.trigger_threshold;
         let left_trigger_analog_pressed =
-            left_trigger_analog_held && previous_left_trigger < CORE_TRIGGER_THRESHOLD;
+            left_trigger_analog_held && previous_left_trigger < config.trigger_threshold;
         let right_trigger_analog_pressed =
-            right_trigger_analog_held && previous_right_trigger < CORE_TRIGGER_THRESHOLD;
-        let shield_held = self.shield();
-        let previous_shield_held = previous.shield();
+            right_trigger_analog_held && previous_right_trigger < config.trigger_threshold;
+        let shield_held = self.shield_with_config(config);
+        let previous_shield_held = previous.shield_with_config(config);
 
         MeleeInputSnapshot {
             lstick: (self.stick_x(), self.stick_y()),

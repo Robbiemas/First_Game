@@ -5,8 +5,8 @@ use crate::{
         landing_contact_for_bottom, landing_contact_for_bottom_with_floor_skip,
     },
     state::EXPIRED_INPUT_TIMER,
-    Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput,
-    PlayerState, StageProfile, StageSurfaceKind, WalkSpeedBucket, World,
+    Frame, MeleeCommonData, MeleeInputFacts, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
+    StageProfile, StageSurfaceKind, WalkSpeedBucket, World,
 };
 
 const AIR_JUMP_BACKWARD_X: i32 =
@@ -21,21 +21,6 @@ const TURN_LATCH_SPECIAL: u8 = 0x02;
 const DASH_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_x as i32;
 const DASH_TAP_WINDOW: u8 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_tap_window;
 const RUN_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.run_x as i32;
-const ESCAPE_AIR_DEADZONE_X: i8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_deadzone_x;
-const ESCAPE_AIR_DEADZONE_Y: i8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_deadzone_y;
-const ESCAPE_AIR_FORCE: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_force;
-const ESCAPE_AIR_IASA_TIMER_TICKS: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_iasa_timer_ticks;
-const ESCAPE_AIR_ANIMATION_TICKS: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_animation_ticks;
-const ESCAPE_AIR_DECAY_PERCENT: i32 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_decay_percent;
-const ESCAPE_AIR_LANDING_FALL_SPECIAL_TICKS: u8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_landing_lag_ticks;
-const FALLSPECIAL_PLATFORM_LANDING_Y: i8 =
-    crate::common_data::MeleeCommonData::PROVISIONAL.fallspecial_platform_landing_y;
 const PLATFORM_PASS_Y: i8 = crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y;
 const PLATFORM_PASS_Y_TAP_WINDOW: u8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.platform_pass_y_tap_window;
@@ -85,6 +70,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
     let mut input_timers = *world.input_timers();
     let mut last_input_facts = [MeleeInputFacts::default(); 2];
     let stage = world.stage();
+    let common_data = world.common_data();
 
     for (player_index, ((player, input), previous_input)) in world
         .players_mut()
@@ -95,8 +81,12 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
     {
         let stick_x = input.stick_x() as i32;
         let stick_y = input.stick_y();
-        let input_snapshot = input.melee_snapshot(previous_input, input_timers[player_index]);
-        let input_facts = input_snapshot.facts(MeleeInputThresholds::default());
+        let input_snapshot = input.melee_snapshot_with_config(
+            previous_input,
+            input_timers[player_index],
+            common_data.input_config(),
+        );
+        let input_facts = input_snapshot.facts(common_data.input_thresholds());
         last_input_facts[player_index] = input_facts;
         input_timers[player_index].x_tap = input_snapshot.x_tap_timer;
         input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
@@ -499,16 +489,16 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             | MotionState::JumpAerialF
             | MotionState::JumpAerialB => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y);
+                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y, common_data);
             }
             MotionState::Pass => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y);
+                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y, common_data);
             }
             MotionState::EscapeAir => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 player.escape_air_iasa_timer = player.escape_air_iasa_timer.saturating_sub(1);
-                if player.motion_frame >= ESCAPE_AIR_ANIMATION_TICKS {
+                if player.motion_frame >= common_data.escapeair_animation_ticks {
                     enter_fall_special(player);
                 }
             }
@@ -528,7 +518,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 apply_ground_traction(player);
                 player.velocity.y = 0;
-                if player.motion_frame >= ESCAPE_AIR_LANDING_FALL_SPECIAL_TICKS {
+                if player.motion_frame >= common_data.escapeair_landing_lag_ticks {
                     player.motion_state = MotionState::Wait;
                     player.motion_frame = 0;
                 }
@@ -566,7 +556,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
 
         if !player.grounded {
             if player.motion_state == MotionState::EscapeAir {
-                apply_escape_air_decay(player);
+                apply_escape_air_decay(player, common_data);
                 player.position.y += player.velocity.y;
 
                 if let Some(contact) =
@@ -597,7 +587,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     .then_some(player.floor_skip_surface)
                     .flatten();
                 let drop_through_soft_platforms = player.motion_state == MotionState::FallSpecial
-                    && fall_special_skips_soft_platforms(stick_y);
+                    && fall_special_skips_soft_platforms(stick_y, common_data);
                 if let Some(contact) = landing_contact_for_bottom_with_floor_skip(
                     stage,
                     previous_position,
@@ -1055,19 +1045,24 @@ fn enter_iasa_state(
     }
 }
 
-fn enter_escape_air(player: &mut PlayerState, stick_x: i32, stick_y: i8) {
+fn enter_escape_air(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stick_y: i8,
+    common_data: MeleeCommonData,
+) {
     player.floor_skip_surface = None;
     player.motion_state = MotionState::EscapeAir;
     player.motion_frame = 0;
-    player.escape_air_iasa_timer = ESCAPE_AIR_IASA_TIMER_TICKS;
+    player.escape_air_iasa_timer = common_data.escapeair_iasa_timer_ticks;
     player.fast_falling = false;
-    let (velocity_x, velocity_y) = escape_air_velocity(stick_x, stick_y as i32);
+    let (velocity_x, velocity_y) = escape_air_velocity(stick_x, stick_y as i32, common_data);
     player.velocity.x = velocity_x;
     player.velocity.y = velocity_y;
 }
 
-fn fall_special_skips_soft_platforms(stick_y: i8) -> bool {
-    stick_y <= FALLSPECIAL_PLATFORM_LANDING_Y
+fn fall_special_skips_soft_platforms(stick_y: i8, common_data: MeleeCommonData) -> bool {
+    stick_y <= common_data.fallspecial_platform_landing_y
 }
 
 fn enter_fall_special(player: &mut PlayerState) {
@@ -1162,6 +1157,7 @@ fn apply_airborne_iasa_or_drift(
     input_facts: MeleeInputFacts,
     stick_x: i32,
     stick_y: i8,
+    common_data: MeleeCommonData,
 ) {
     if input_facts.special_pressed {
         enter_air_special(
@@ -1170,7 +1166,7 @@ fn apply_airborne_iasa_or_drift(
             stick_x,
         );
     } else if input_facts.air_dodge_pressed {
-        enter_escape_air(player, stick_x, stick_y);
+        enter_escape_air(player, stick_x, stick_y, common_data);
     } else if input_facts.air_attack_pressed {
         enter_air_attack(
             player,
@@ -1331,35 +1327,36 @@ fn air_accel_for_velocity(
     accel
 }
 
-fn apply_escape_air_decay(player: &mut PlayerState) {
-    player.velocity.x = player.velocity.x * ESCAPE_AIR_DECAY_PERCENT / 100;
-    player.velocity.y = player.velocity.y * ESCAPE_AIR_DECAY_PERCENT / 100;
+fn apply_escape_air_decay(player: &mut PlayerState, common_data: MeleeCommonData) {
+    player.velocity.x = player.velocity.x * common_data.escapeair_decay_percent / 100;
+    player.velocity.y = player.velocity.y * common_data.escapeair_decay_percent / 100;
 }
 
-fn escape_air_velocity(stick_x: i32, stick_y: i32) -> (i32, i32) {
-    if stick_x.abs() < ESCAPE_AIR_DEADZONE_X as i32 && stick_y.abs() < ESCAPE_AIR_DEADZONE_Y as i32
+fn escape_air_velocity(stick_x: i32, stick_y: i32, common_data: MeleeCommonData) -> (i32, i32) {
+    if stick_x.abs() < common_data.escapeair_deadzone_x as i32
+        && stick_y.abs() < common_data.escapeair_deadzone_y as i32
     {
         return (0, 0);
     }
 
     if stick_y == 0 {
-        return (stick_x.signum() * ESCAPE_AIR_FORCE, 0);
+        return (stick_x.signum() * common_data.escapeair_force, 0);
     }
     if stick_x == 0 {
-        return (0, stick_y.signum() * ESCAPE_AIR_FORCE);
+        return (0, stick_y.signum() * common_data.escapeair_force);
     }
 
     let magnitude = scaled_vector_magnitude(stick_x, stick_y);
     (
-        fixed_force_component(stick_x, magnitude),
-        fixed_force_component(stick_y, magnitude),
+        fixed_force_component(stick_x, magnitude, common_data.escapeair_force),
+        fixed_force_component(stick_y, magnitude, common_data.escapeair_force),
     )
 }
 
-fn fixed_force_component(axis: i32, scaled_magnitude: i64) -> i32 {
+fn fixed_force_component(axis: i32, scaled_magnitude: i64, force: i32) -> i32 {
     const SCALE: i64 = 1024;
-    let component = (axis.abs() as i64 * ESCAPE_AIR_FORCE as i64 * SCALE + scaled_magnitude / 2)
-        / scaled_magnitude;
+    let component =
+        (axis.abs() as i64 * force as i64 * SCALE + scaled_magnitude / 2) / scaled_magnitude;
     component as i32 * axis.signum()
 }
 

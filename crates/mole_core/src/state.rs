@@ -1,7 +1,8 @@
 use crate::{
     stage::{StageProfile, StageSurface, StageSurfaceKind},
     time::Frame,
-    MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput, PlayerInput,
+    MeleeCommonData, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput,
+    PlayerInput,
 };
 use std::fmt;
 
@@ -526,6 +527,7 @@ pub struct WorldSnapshot {
 pub struct World {
     frame: Frame,
     stage: StageProfile,
+    common_data: MeleeCommonData,
     players: [PlayerState; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
@@ -541,6 +543,14 @@ impl World {
         Self::for_two_players_on_stage_with_profiles(StageProfile::battlefield_test(), profiles)
     }
 
+    pub fn for_two_players_with_common_data(common_data: MeleeCommonData) -> Self {
+        Self::for_two_players_on_stage_with_profiles_and_common_data(
+            StageProfile::battlefield_test(),
+            [FighterProfile::FALCON_LIKE; PLAYER_COUNT],
+            common_data,
+        )
+    }
+
     pub fn for_two_players_on_stage(stage: StageProfile) -> Self {
         Self::for_two_players_on_stage_with_profiles(
             stage,
@@ -552,9 +562,22 @@ impl World {
         stage: StageProfile,
         profiles: [FighterProfile; PLAYER_COUNT],
     ) -> Self {
+        Self::for_two_players_on_stage_with_profiles_and_common_data(
+            stage,
+            profiles,
+            MeleeCommonData::provisional_mole(),
+        )
+    }
+
+    pub fn for_two_players_on_stage_with_profiles_and_common_data(
+        stage: StageProfile,
+        profiles: [FighterProfile; PLAYER_COUNT],
+        common_data: MeleeCommonData,
+    ) -> Self {
         Self {
             frame: Frame(0),
             stage,
+            common_data,
             players: [
                 PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
                 PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
@@ -575,6 +598,10 @@ impl World {
 
     pub const fn stage(&self) -> StageProfile {
         self.stage
+    }
+
+    pub const fn common_data(&self) -> MeleeCommonData {
+        self.common_data
     }
 
     pub const fn players(&self) -> &[PlayerState; PLAYER_COUNT] {
@@ -617,7 +644,11 @@ impl World {
         let previous = *self.previous_inputs.get(player_index)?;
         let timers = *self.input_timers.get(player_index)?;
 
-        Some(current_input.melee_snapshot(previous, timers))
+        Some(current_input.melee_snapshot_with_config(
+            previous,
+            timers,
+            self.common_data.input_config(),
+        ))
     }
 
     pub fn snapshot(&self) -> WorldSnapshot {
@@ -635,6 +666,7 @@ impl World {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         mix_u32(&mut hash, self.frame.0);
         mix_stage_profile(&mut hash, self.stage);
+        mix_common_data(&mut hash, self.common_data);
         for player in self.players {
             mix_fighter_profile(&mut hash, player.profile);
             mix_i32(&mut hash, player.position.x);
@@ -789,6 +821,62 @@ fn stage_surface_kind_id(kind: StageSurfaceKind) -> u8 {
         StageSurfaceKind::Solid => 0,
         StageSurfaceKind::Soft => 1,
     }
+}
+
+fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
+    mix_u8(hash, common.tap_x_threshold as u8);
+    mix_u8(hash, common.tap_y_threshold as u8);
+    mix_u8(hash, common.trigger_threshold);
+    mix_u8(hash, common.trigger_timer_threshold);
+    mix_u8(hash, common.main_stick_deadzone as u8);
+    mix_u8(hash, common.c_stick_deadzone as u8);
+    mix_u8(hash, common.trigger_deadzone);
+    mix_u8(hash, common.z_shield_analog);
+    mix_u8(hash, common.walk_x as u8);
+    mix_u8(hash, common.walk_slow_x as u8);
+    mix_u8(hash, common.walk_middle_x as u8);
+    mix_u8(hash, common.walk_fast_x as u8);
+    mix_u8(hash, common.dash_x as u8);
+    mix_u8(hash, common.dash_tap_window);
+    mix_u8(hash, common.turn_x as u8);
+    mix_u8(hash, common.tilt_x as u8);
+    mix_u8(hash, common.tilt_y as u8);
+    mix_u8(hash, common.smash_y as u8);
+    mix_u8(hash, common.crouch_y as u8);
+    mix_u8(hash, common.tap_jump_y as u8);
+    mix_u8(hash, common.tap_jump_window);
+    mix_u8(hash, common.tap_jump_release_y as u8);
+    mix_u8(hash, common.fast_fall_y as u8);
+    mix_u8(hash, common.fast_fall_window);
+    mix_u8(hash, common.c_stick as u8);
+    mix_u8(hash, common.aerial_neutral_x as u8);
+    mix_u8(hash, common.aerial_neutral_y as u8);
+    mix_i32(hash, common.aerial_vertical_angle_tan_milli);
+    mix_u8(hash, common.air_jump_backward_x as u8);
+    mix_u8(hash, common.escape_x as u8);
+    mix_u8(hash, common.escape_x_tap_window);
+    mix_u8(hash, common.escape_y as u8);
+    mix_u8(hash, common.escape_y_tap_window);
+    mix_u8(hash, common.special_side_x as u8);
+    mix_u8(hash, common.special_vertical_y as u8);
+    mix_u8(hash, common.escapeair_iasa_timer_ticks);
+    mix_u8(hash, common.escapeair_animation_ticks);
+    mix_u8(hash, common.escapeair_deadzone_x as u8);
+    mix_u8(hash, common.escapeair_deadzone_y as u8);
+    mix_i32(hash, common.escapeair_force);
+    mix_i32(hash, common.escapeair_decay_percent);
+    mix_u8(hash, common.escapeair_landing_lag_ticks);
+    mix_u8(hash, common.fallspecial_platform_landing_y as u8);
+    mix_u8(hash, common.platform_pass_y as u8);
+    mix_u8(hash, common.platform_pass_y_tap_window);
+    mix_i32(hash, common.pass_initial_y_velocity);
+    mix_u8(hash, common.platform_drop_delay_ticks);
+    mix_u8(hash, common.dash_early_action_window);
+    mix_u8(hash, common.dash_defensive_action_window);
+    mix_u8(hash, common.dash_late_action_window);
+    mix_u8(hash, common.run_x as u8);
+    mix_u8(hash, common.guard_on_catch_dash_window);
+    mix_u8(hash, common.run_turn_run_no_interrupt_frames);
 }
 
 fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {

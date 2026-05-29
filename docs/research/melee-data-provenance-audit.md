@@ -33,6 +33,11 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `-fast_fall_velocity`.
 - Current/previous input snapshots, tap timers, and checksums are rollback-owned
   inside Rust core state.
+- `World` now carries `MeleeCommonData`, mixes it into rollback checksums, and
+  uses that world-owned data for input tap thresholds, input-fact thresholds,
+  and the EscapeAir/FallSpecial common-data slice. This turns the existing
+  `PlCo.dat` extractor seam into data the deterministic simulation can actually
+  consume once clean bytes are available.
 - `MeleeCommonData::from_plco_bytes` now extracts the run/run-brake stick
   threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
   reads the provisional value through `MeleeCommonData` instead of a local

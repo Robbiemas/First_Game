@@ -299,9 +299,12 @@ big-endian common-data offsets. The extractor reads real source field types
 normalized stick thresholds use the signed-byte stick scale (`-128..127`),
 normalized trigger thresholds use byte trigger scale (`0..255`), frame windows
 become integer ticks, `escapeair_force` becomes milli-units, and
-`escapeair_decay` becomes percent. This extraction path is the replacement
-point for provisional constants once a clean `PlCo.dat` is available; the next
-unit-parity step is moving more of the physics layer from provisional fixed
+`escapeair_decay` becomes percent. `World` now carries `MeleeCommonData`, mixes
+it into rollback checksums, and uses it for input tap thresholds, input-fact
+thresholds, and the EscapeAir/FallSpecial common-data slice. This means a future
+clean `PlCo.dat` extraction can change those gameplay values through
+rollback-owned world data instead of simulator-local constants. The remaining
+unit-parity work is moving more of the physics layer from provisional fixed
 point values toward Melee's source movement units.
 `escapeair_animation_ticks` is intentionally provisional and not extracted from
 `PlCo.dat`: source `ftCo_EscapeAir_Anim` leaves `EscapeAir` only when animation
