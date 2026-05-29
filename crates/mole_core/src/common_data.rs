@@ -114,6 +114,7 @@ pub struct MeleeCommonData {
     pub escapeair_force: i32,
     pub escapeair_decay_percent: i32,
     pub escapeair_landing_lag_ticks: u8,
+    pub fallspecial_platform_landing_y: i8,
     pub dash_early_action_window: u8,
     pub dash_defensive_action_window: u8,
     pub dash_late_action_window: u8,
@@ -166,6 +167,7 @@ impl MeleeCommonData {
         escapeair_force: 800,
         escapeair_decay_percent: 90,
         escapeair_landing_lag_ticks: 10,
+        fallspecial_platform_landing_y: -80,
         dash_early_action_window: 1,
         dash_defensive_action_window: 1,
         dash_late_action_window: 15,
@@ -211,6 +213,7 @@ impl MeleeCommonData {
         data.tilt_y = read_stick_i8(bytes, 0xac, "attackhi3_stick_threshold_y")?;
         data.aerial_neutral_x = read_stick_i8(bytes, 0xdc, "xDC")?;
         data.aerial_neutral_y = read_stick_i8(bytes, 0xe0, "xE0")?;
+        data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
         data.escape_y = read_stick_i8(bytes, 0x314, "x314")?;
         data.escape_y_tap_window = read_u8_from_i32(bytes, 0x318, "x318")?;
         data.escape_x = read_stick_i8(bytes, 0x31c, "x31C")?;
@@ -671,7 +674,7 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ProvisionalMole,
     },
     CommonDataFieldSource {
-        rust_name: "landing_fallspecial_collision",
+        rust_name: "fallspecial_platform_landing_y",
         source_name: "x25C",
         offset: 0x25c,
         provenance: CommonDataProvenance::ProvisionalMole,

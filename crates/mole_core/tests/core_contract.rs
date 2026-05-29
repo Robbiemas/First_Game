@@ -411,6 +411,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.escapeair_force, 800);
     assert_eq!(common.escapeair_decay_percent, 90);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
+    assert_eq!(common.fallspecial_platform_landing_y, -80);
     assert_eq!(common.guard_on_catch_dash_window, 4);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 1);
 }
@@ -566,6 +567,13 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(escapeair_landing_lag.source_name, "x344");
     assert_eq!(escapeair_landing_lag.offset, 0x344);
 
+    let fallspecial_platform_landing_y = sources
+        .iter()
+        .find(|source| source.rust_name == "fallspecial_platform_landing_y")
+        .expect("fallspecial_platform_landing_y common-data source should be recorded");
+    assert_eq!(fallspecial_platform_landing_y.source_name, "x25C");
+    assert_eq!(fallspecial_platform_landing_y.offset, 0x25c);
+
     let guard_on_catch_dash_window = sources
         .iter()
         .find(|source| source.rust_name == "guard_on_catch_dash_window")
@@ -642,6 +650,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0xac, 0.26);
     put_f32_be(&mut bytes, 0xdc, 0.43);
     put_f32_be(&mut bytes, 0xe0, 0.44);
+    put_f32_be(&mut bytes, 0x25c, -0.62);
     put_f32_be(&mut bytes, 0x314, 0.84);
     put_i32_be(&mut bytes, 0x318, 3);
     put_f32_be(&mut bytes, 0x31c, 0.85);
@@ -686,6 +695,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.tilt_y, 33);
     assert_eq!(common.aerial_neutral_x, 55);
     assert_eq!(common.aerial_neutral_y, 56);
+    assert_eq!(common.fallspecial_platform_landing_y, -79);
     assert_eq!(common.escape_y, 107);
     assert_eq!(common.escape_y_tap_window, 3);
     assert_eq!(common.escape_x, 108);
