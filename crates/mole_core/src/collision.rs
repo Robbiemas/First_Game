@@ -50,12 +50,31 @@ pub fn landing_contact_for_bottom(
     current_bottom: Vec2,
     drop_through_soft_platforms: bool,
 ) -> Option<StageLandingContact> {
+    landing_contact_for_bottom_with_floor_skip(
+        stage,
+        previous_bottom,
+        current_bottom,
+        None,
+        drop_through_soft_platforms,
+    )
+}
+
+pub fn landing_contact_for_bottom_with_floor_skip(
+    stage: StageProfile,
+    previous_bottom: Vec2,
+    current_bottom: Vec2,
+    floor_skip_surface: Option<u8>,
+    drop_through_soft_platforms: bool,
+) -> Option<StageLandingContact> {
     if current_bottom.y > previous_bottom.y {
         return None;
     }
 
     let mut best = None;
-    for surface in stage.collision_surfaces() {
+    for (surface_index, surface) in stage.collision_surfaces().into_iter().enumerate() {
+        if floor_skip_surface == Some(surface_index as u8) {
+            continue;
+        }
         if drop_through_soft_platforms && surface.kind == StageSurfaceKind::Soft {
             continue;
         }
@@ -84,7 +103,19 @@ pub fn has_floor_support(stage: StageProfile, bottom: Vec2) -> bool {
 }
 
 pub fn floor_surface_for_bottom(stage: StageProfile, bottom: Vec2) -> Option<StageSurface> {
-    stage.collision_surfaces().into_iter().find(|surface| {
-        bottom.y == surface.y && bottom.x >= surface.left_x && bottom.x <= surface.right_x
-    })
+    floor_surface_index_for_bottom(stage, bottom).map(|(_, surface)| surface)
+}
+
+pub(crate) fn floor_surface_index_for_bottom(
+    stage: StageProfile,
+    bottom: Vec2,
+) -> Option<(u8, StageSurface)> {
+    stage
+        .collision_surfaces()
+        .into_iter()
+        .enumerate()
+        .find(|(_, surface)| {
+            bottom.y == surface.y && bottom.x >= surface.left_x && bottom.x <= surface.right_x
+        })
+        .map(|(index, surface)| (index as u8, surface))
 }

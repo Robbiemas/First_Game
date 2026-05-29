@@ -450,6 +450,7 @@ pub struct PlayerState {
     pub jump_input: MeleeJumpInput,
     pub short_hop: bool,
     pub escape_air_iasa_timer: u8,
+    pub floor_skip_surface: Option<u8>,
 }
 
 impl PlayerState {
@@ -483,6 +484,7 @@ impl PlayerState {
             jump_input: MeleeJumpInput::None,
             short_hop: false,
             escape_air_iasa_timer: 0,
+            floor_skip_surface: None,
         }
     }
 }
@@ -645,6 +647,7 @@ impl World {
             mix_u8(&mut hash, jump_input_id(player.jump_input));
             mix_u8(&mut hash, player.short_hop as u8);
             mix_u8(&mut hash, player.escape_air_iasa_timer);
+            mix_u8(&mut hash, player.floor_skip_surface.unwrap_or(u8::MAX));
         }
         for input in self.previous_inputs {
             mix_u64(&mut hash, input.bits());

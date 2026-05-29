@@ -1,11 +1,12 @@
 use mole_core::{
-    input_common_data_field_sources, melee_units, melee_units_f32, step_world,
-    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
-    FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
-    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
-    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile, StageSurfaceKind,
-    Vec2, WalkSpeedBucket, World, TICK_RATE_HZ, UCF_CARDINAL_AXIS, UCF_CARDINAL_SNAP_RANGE,
-    UCF_SHIELD_DROP_DELTA, UCF_SHIELD_DROP_MIN_Y, UCF_TILT_INTENT_DELTA, UCF_VERSION,
+    input_common_data_field_sources, landing_contact_for_bottom_with_floor_skip, melee_units,
+    melee_units_f32, step_world, CommonDataExtractError, CommonDataProvenance, EcbDiamond,
+    FighterActionFrames, FighterProfile, FighterProfileExtractError, Frame, GameCubeButtonState,
+    GameCubePadStatus, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
+    MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile,
+    StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ, UCF_CARDINAL_AXIS,
+    UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_SHIELD_DROP_MIN_Y, UCF_TILT_INTENT_DELTA,
+    UCF_VERSION,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -3853,6 +3854,152 @@ fn ucf_shield_drop_fact_enters_pass_without_custom_state() {
 }
 
 #[test]
+fn pass_state_accepts_airborne_action_inputs_in_source_order() {
+    let mut special = World::for_two_players();
+    let special_frame = enter_pass_from_left_platform(&mut special);
+    step_world(
+        &mut special,
+        Frame(special_frame),
+        &[
+            PlayerInput::neutral()
+                .with_special(true)
+                .with_attack(true)
+                .with_right_trigger_digital(true)
+                .with_jump(true)
+                .with_left_stick(80, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(special.players()[0].motion_state, MotionState::SpecialAirS);
+
+    let mut air_dodge = World::for_two_players();
+    let air_dodge_frame = enter_pass_from_left_platform(&mut air_dodge);
+    step_world(
+        &mut air_dodge,
+        Frame(air_dodge_frame),
+        &[
+            PlayerInput::neutral().with_right_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(air_dodge.players()[0].motion_state, MotionState::EscapeAir);
+
+    let mut aerial = World::for_two_players();
+    let aerial_frame = enter_pass_from_left_platform(&mut aerial);
+    step_world(
+        &mut aerial,
+        Frame(aerial_frame),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(aerial.players()[0].motion_state, MotionState::AttackAirN);
+
+    let mut air_jump = World::for_two_players();
+    let air_jump_frame = enter_pass_from_left_platform(&mut air_jump);
+    let jumps_before = air_jump.players()[0].jumps_remaining;
+    step_world(
+        &mut air_jump,
+        Frame(air_jump_frame),
+        &[
+            PlayerInput::neutral().with_jump(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(air_jump.players()[0].motion_state, MotionState::JumpAerialF);
+    assert_eq!(air_jump.players()[0].jumps_remaining, jumps_before - 1);
+}
+
+#[test]
+fn pass_state_applies_normal_air_drift_without_action() {
+    let mut world = World::for_two_players();
+    let frame = enter_pass_from_left_platform(&mut world);
+    let velocity_before = world.players()[0].velocity.x;
+
+    step_world(
+        &mut world,
+        Frame(frame),
+        &[
+            PlayerInput::neutral().with_left_stick(80, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Pass);
+    assert!(world.players()[0].velocity.x > velocity_before);
+}
+
+#[test]
+fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
+    let stage = StageProfile {
+        name: "stacked_soft_platforms",
+        main_floor: StageSurface {
+            name: "main_floor",
+            kind: StageSurfaceKind::Solid,
+            left_x: -20_000,
+            right_x: 20_000,
+            y: 0,
+        },
+        soft_platforms: [
+            StageSurface {
+                name: "upper_soft",
+                kind: StageSurfaceKind::Soft,
+                left_x: -20_000,
+                right_x: 20_000,
+                y: 20_000,
+            },
+            StageSurface {
+                name: "lower_soft",
+                kind: StageSurfaceKind::Soft,
+                left_x: -20_000,
+                right_x: 20_000,
+                y: 10_000,
+            },
+            StageSurface {
+                name: "side_soft",
+                kind: StageSurfaceKind::Soft,
+                left_x: 30_000,
+                right_x: 40_000,
+                y: 15_000,
+            },
+        ],
+        blast_zones: World::for_two_players().stage().blast_zones,
+    };
+
+    let contact = landing_contact_for_bottom_with_floor_skip(
+        stage,
+        Vec2 { x: 0, y: 21_000 },
+        Vec2 { x: 0, y: 9_000 },
+        Some(1),
+        false,
+    )
+    .expect("floor skip should still allow landing on a different soft platform");
+
+    assert_eq!(contact.surface.name, "lower_soft");
+}
+
+#[test]
+fn pass_entry_records_and_clears_source_floor_skip() {
+    let mut world = World::for_two_players();
+    let frame = enter_pass_from_left_platform(&mut world);
+
+    assert_eq!(world.players()[0].floor_skip_surface, Some(1));
+
+    step_world(
+        &mut world,
+        Frame(frame),
+        &[
+            PlayerInput::neutral().with_right_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_eq!(world.players()[0].floor_skip_surface, None);
+}
+
+#[test]
 fn held_shield_does_not_skip_ordinary_landing_lag() {
     let mut world = World::for_two_players();
     let shield = [
@@ -6775,6 +6922,34 @@ fn land_player_one_on_left_platform(world: &mut World) -> (StageProfile, u32) {
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     (stage, frame)
+}
+
+fn enter_pass_from_left_platform(world: &mut World) -> u32 {
+    let (_stage, mut frame) = land_player_one_on_left_platform(world);
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let shield_down = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_stick(0, -MeleeCommonData::provisional_mole().platform_pass_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(world, Frame(frame), &shield);
+    frame += 1;
+    while world.players()[0].motion_state != MotionState::Guard && frame < 180 {
+        step_world(world, Frame(frame), &shield);
+        frame += 1;
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+
+    step_world(world, Frame(frame), &shield_down);
+    frame += 1;
+    assert_eq!(world.players()[0].motion_state, MotionState::Pass);
+
+    frame
 }
 
 fn run_ucf_assisted_pass_entry(world: &mut World, start_frame: u32) -> [u64; 7] {

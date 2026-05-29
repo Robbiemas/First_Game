@@ -8,8 +8,8 @@ mod time;
 mod units;
 
 pub use collision::{
-    floor_surface_for_bottom, has_floor_support, landing_contact_for_bottom, EcbDiamond,
-    StageLandingContact,
+    floor_surface_for_bottom, has_floor_support, landing_contact_for_bottom,
+    landing_contact_for_bottom_with_floor_skip, EcbDiamond, StageLandingContact,
 };
 pub use common_data::{
     input_common_data_field_sources, CommonDataExtractError, CommonDataFieldSource,

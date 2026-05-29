@@ -1,6 +1,9 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
-    collision::{floor_surface_for_bottom, has_floor_support, landing_contact_for_bottom},
+    collision::{
+        floor_surface_for_bottom, floor_surface_index_for_bottom, has_floor_support,
+        landing_contact_for_bottom, landing_contact_for_bottom_with_floor_skip,
+    },
     state::EXPIRED_INPUT_TIMER,
     Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput,
     PlayerState, StageProfile, StageSurfaceKind, WalkSpeedBucket, World,
@@ -349,7 +352,13 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 player.velocity.x = 0;
                 if let Some(next_state) = grounded_action_iasa_state(player, input_facts) {
-                    enter_iasa_state(player, next_state, input_facts.normal_jump_input, stick_x);
+                    enter_iasa_state(
+                        player,
+                        next_state,
+                        input_facts.normal_jump_input,
+                        stick_x,
+                        stage,
+                    );
                 } else if player.motion_frame >= grounded_action_total_frames(player) {
                     player.motion_state = MotionState::Wait;
                     player.motion_frame = 0;
@@ -363,8 +372,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             | MotionState::AttackAirF
             | MotionState::AttackAirB
             | MotionState::AttackAirHi
-            | MotionState::AttackAirLw
-            | MotionState::Pass => {
+            | MotionState::AttackAirLw => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
             }
             MotionState::GuardOn => {
@@ -384,10 +392,16 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     stick_y,
                 ) {
                     if action_state == MotionState::Pass {
-                        enter_pass(player);
+                        enter_pass(player, stage);
                         input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
                     } else {
-                        enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                        enter_iasa_state(
+                            player,
+                            action_state,
+                            input_facts.jump_input,
+                            stick_x,
+                            stage,
+                        );
                     }
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
@@ -415,10 +429,16 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     stick_y,
                 ) {
                     if action_state == MotionState::Pass {
-                        enter_pass(player);
+                        enter_pass(player, stage);
                         input_timers[player_index].y_tap = EXPIRED_INPUT_TIMER;
                     } else {
-                        enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                        enter_iasa_state(
+                            player,
+                            action_state,
+                            input_facts.jump_input,
+                            stick_x,
+                            stage,
+                        );
                     }
                 } else if input_facts.shield_held {
                     player.motion_frame = player.motion_frame.saturating_add(1);
@@ -435,7 +455,13 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     apply_ground_traction(player);
                     player.velocity.y = 0;
                     if let Some(action_state) = guard_off_action_state(input_facts) {
-                        enter_iasa_state(player, action_state, input_facts.jump_input, stick_x);
+                        enter_iasa_state(
+                            player,
+                            action_state,
+                            input_facts.jump_input,
+                            stick_x,
+                            stage,
+                        );
                     } else if player.motion_frame >= GUARD_OFF_FRAMES {
                         player.motion_state = MotionState::Wait;
                         player.motion_frame = 0;
@@ -467,27 +493,11 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             | MotionState::JumpAerialF
             | MotionState::JumpAerialB => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                if input_facts.special_pressed {
-                    enter_air_special(
-                        player,
-                        air_special_state_from_direction(input_facts.air_special_direction),
-                        stick_x,
-                    );
-                } else if input_facts.air_dodge_pressed {
-                    enter_escape_air(player, stick_x, stick_y);
-                } else if input_facts.air_attack_pressed {
-                    enter_air_attack(
-                        player,
-                        air_attack_state_from_direction(
-                            input_facts.air_attack_direction,
-                            player.facing,
-                        ),
-                    );
-                } else if input_facts.normal_jump_pressed && player.jumps_remaining > 0 {
-                    enter_air_jump(player, stick_x);
-                } else {
-                    apply_air_drift(player, stick_x);
-                }
+                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y);
+            }
+            MotionState::Pass => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y);
             }
             MotionState::EscapeAir => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
@@ -576,13 +586,16 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                         .max(-player.profile.fall_speed_per_tick);
                 }
 
-                let drop_through_soft_platforms = player.motion_state == MotionState::Pass
-                    || (player.motion_state == MotionState::FallSpecial
-                        && fall_special_skips_soft_platforms(stick_y));
-                if let Some(contact) = landing_contact_for_bottom(
+                let floor_skip_surface = (player.motion_state == MotionState::Pass)
+                    .then_some(player.floor_skip_surface)
+                    .flatten();
+                let drop_through_soft_platforms = player.motion_state == MotionState::FallSpecial
+                    && fall_special_skips_soft_platforms(stick_y);
+                if let Some(contact) = landing_contact_for_bottom_with_floor_skip(
                     stage,
                     previous_position,
                     player.position,
+                    floor_skip_surface,
                     drop_through_soft_platforms,
                 ) {
                     let landing_state = player.motion_state;
@@ -916,7 +929,7 @@ fn enter_guard_off(player: &mut PlayerState) {
     player.velocity.y = 0;
 }
 
-fn enter_pass(player: &mut PlayerState) {
+fn enter_pass(player: &mut PlayerState, stage: StageProfile) {
     clear_guard_state(player);
     clear_turn_state(player);
     player.motion_state = MotionState::Pass;
@@ -924,6 +937,8 @@ fn enter_pass(player: &mut PlayerState) {
     player.grounded = false;
     player.fast_falling = false;
     player.velocity.y = PASS_INITIAL_Y_VELOCITY;
+    player.floor_skip_surface =
+        floor_surface_index_for_bottom(stage, player.position).map(|(index, _)| index);
 }
 
 fn enter_action_state(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
@@ -1011,13 +1026,14 @@ fn enter_iasa_state(
     motion_state: MotionState,
     jump_input: MeleeJumpInput,
     stick_x: i32,
+    stage: StageProfile,
 ) {
     match motion_state {
         MotionState::Guard => {
             enter_guard(player);
         }
         MotionState::GuardOff => enter_guard_off(player),
-        MotionState::Pass => enter_pass(player),
+        MotionState::Pass => enter_pass(player, stage),
         MotionState::KneeBend => enter_knee_bend(player, jump_input),
         MotionState::Dash => enter_dash(player, player.facing),
         MotionState::Squat => enter_squat(player),
@@ -1033,6 +1049,7 @@ fn enter_iasa_state(
 }
 
 fn enter_escape_air(player: &mut PlayerState, stick_x: i32, stick_y: i8) {
+    player.floor_skip_surface = None;
     player.motion_state = MotionState::EscapeAir;
     player.motion_frame = 0;
     player.escape_air_iasa_timer = ESCAPE_AIR_IASA_TIMER_TICKS;
@@ -1072,6 +1089,7 @@ fn land_player_on_contact(player: &mut PlayerState, y: i32) {
     player.jumps_remaining = player.profile.max_jumps;
     player.jump_input = Default::default();
     player.short_hop = false;
+    player.floor_skip_surface = None;
 }
 
 fn enter_landing(player: &mut PlayerState) {
@@ -1085,6 +1103,7 @@ fn enter_landing(player: &mut PlayerState) {
 }
 
 fn enter_air_special(player: &mut PlayerState, motion_state: MotionState, stick_x: i32) {
+    player.floor_skip_surface = None;
     player.motion_state = motion_state;
     player.motion_frame = 0;
     player.fast_falling = false;
@@ -1102,6 +1121,7 @@ fn ground_jump_motion_state(player: &PlayerState, stick_x: i32) -> MotionState {
 }
 
 fn enter_air_jump(player: &mut PlayerState, stick_x: i32) {
+    player.floor_skip_surface = None;
     player.motion_state = if stick_x * player.facing as i32 > -AIR_JUMP_BACKWARD_X {
         MotionState::JumpAerialF
     } else {
@@ -1118,8 +1138,35 @@ fn enter_air_jump(player: &mut PlayerState, stick_x: i32) {
 }
 
 fn enter_air_attack(player: &mut PlayerState, motion_state: MotionState) {
+    player.floor_skip_surface = None;
     player.motion_state = motion_state;
     player.motion_frame = 0;
+}
+
+fn apply_airborne_iasa_or_drift(
+    player: &mut PlayerState,
+    input_facts: MeleeInputFacts,
+    stick_x: i32,
+    stick_y: i8,
+) {
+    if input_facts.special_pressed {
+        enter_air_special(
+            player,
+            air_special_state_from_direction(input_facts.air_special_direction),
+            stick_x,
+        );
+    } else if input_facts.air_dodge_pressed {
+        enter_escape_air(player, stick_x, stick_y);
+    } else if input_facts.air_attack_pressed {
+        enter_air_attack(
+            player,
+            air_attack_state_from_direction(input_facts.air_attack_direction, player.facing),
+        );
+    } else if input_facts.normal_jump_pressed && player.jumps_remaining > 0 {
+        enter_air_jump(player, stick_x);
+    } else {
+        apply_air_drift(player, stick_x);
+    }
 }
 
 fn enter_ground_escape(player: &mut PlayerState, motion_state: MotionState) {
