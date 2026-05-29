@@ -17,7 +17,7 @@ const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
 const DASH_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_x as i32;
 const DASH_TAP_WINDOW: u8 = crate::common_data::MeleeCommonData::PROVISIONAL.dash_tap_window;
-const RUN_STICK_THRESHOLD: i32 = 64;
+const RUN_STICK_THRESHOLD: i32 = crate::common_data::MeleeCommonData::PROVISIONAL.run_x as i32;
 const ESCAPE_AIR_DEADZONE_X: i8 =
     crate::common_data::MeleeCommonData::PROVISIONAL.escapeair_deadzone_x;
 const ESCAPE_AIR_DEADZONE_Y: i8 =

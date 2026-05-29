@@ -275,6 +275,7 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(thresholds.z_shield_analog, 49);
     assert_eq!(common.dash_early_action_window, 1);
     assert_eq!(common.dash_late_action_window, 15);
+    assert_eq!(common.run_x, 64);
     assert_eq!(thresholds.tap_jump_y, 80);
     assert_eq!(thresholds.escape_x, 80);
     assert_eq!(thresholds.aerial_neutral_x, 40);
@@ -477,6 +478,13 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("dash_late_action_window common-data source should be recorded");
     assert_eq!(dash_late_action_window.source_name, "x4C");
     assert_eq!(dash_late_action_window.offset, 0x4c);
+
+    let run_x = sources
+        .iter()
+        .find(|source| source.rust_name == "run_x")
+        .expect("run_x common-data source should be recorded");
+    assert_eq!(run_x.source_name, "x58_someLStickXThreshold");
+    assert_eq!(run_x.offset, 0x58);
 }
 
 #[test]
@@ -499,6 +507,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x44, 6.0);
     put_f32_be(&mut bytes, 0x48, 7.0);
     put_f32_be(&mut bytes, 0x4c, 16.0);
+    put_f32_be(&mut bytes, 0x58, 0.66);
     put_f32_be(&mut bytes, 0x68, 4.0);
     put_f32_be(&mut bytes, 0x70, 0.81);
     put_i32_be(&mut bytes, 0x74, 4);
@@ -542,6 +551,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.dash_early_action_window, 6);
     assert_eq!(common.dash_defensive_action_window, 7);
     assert_eq!(common.dash_late_action_window, 16);
+    assert_eq!(common.run_x, 84);
     assert_eq!(common.guard_on_catch_dash_window, 4);
     assert_eq!(common.tap_jump_y, 103);
     assert_eq!(common.tap_jump_window, 4);

@@ -117,6 +117,7 @@ pub struct MeleeCommonData {
     pub dash_early_action_window: u8,
     pub dash_defensive_action_window: u8,
     pub dash_late_action_window: u8,
+    pub run_x: i8,
     pub guard_on_catch_dash_window: u8,
     pub run_turn_run_no_interrupt_frames: u8,
 }
@@ -168,6 +169,7 @@ impl MeleeCommonData {
         dash_early_action_window: 1,
         dash_defensive_action_window: 1,
         dash_late_action_window: 15,
+        run_x: 64,
         guard_on_catch_dash_window: 4,
         run_turn_run_no_interrupt_frames: 1,
     };
@@ -196,6 +198,7 @@ impl MeleeCommonData {
         data.dash_early_action_window = read_u8_from_f32(bytes, 0x44, "x44")?;
         data.dash_defensive_action_window = read_u8_from_f32(bytes, 0x48, "x48")?;
         data.dash_late_action_window = read_u8_from_f32(bytes, 0x4c, "x4C")?;
+        data.run_x = read_stick_i8(bytes, 0x58, "x58_someLStickXThreshold")?;
         data.guard_on_catch_dash_window = read_u8_from_f32(bytes, 0x68, "x68")?;
         data.tap_jump_y = read_stick_i8(bytes, 0x70, "tap_jump_threshold")?;
         data.tap_jump_window = read_u8_from_i32(bytes, 0x74, "x74")?;
@@ -515,6 +518,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "dash_late_action_window",
         source_name: "x4C",
         offset: 0x4c,
+        provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "run_x",
+        source_name: "x58_someLStickXThreshold",
+        offset: 0x58,
         provenance: CommonDataProvenance::ProvisionalMole,
     },
     CommonDataFieldSource {

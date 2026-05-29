@@ -33,6 +33,10 @@ fed by real DAT bytes or remain explicitly marked as data gaps.
   `-fast_fall_velocity`.
 - Current/previous input snapshots, tap timers, and checksums are rollback-owned
   inside Rust core state.
+- `MeleeCommonData::from_plco_bytes` now extracts the run/run-brake stick
+  threshold `x58_someLStickXThreshold`; the simulator's run and TurnRun routing
+  reads the provisional value through `MeleeCommonData` instead of a local
+  hardcoded constant.
 - `FighterProfile::from_ftco_dat_attrs_bytes` can now read one-to-one
   `ftCo_DatAttrs` fields from a big-endian character attribute byte slice:
   `walk_accel`, `walk_max_vel`, `gr_friction`, `dash_initial_velocity`,

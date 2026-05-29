@@ -290,8 +290,9 @@ with the source offset and extracted data source.
 
 Implementation status: `crates/mole_core/src/common_data.rs` now owns the
 current provisional threshold values through `MeleeCommonData::provisional_mole`,
-including the walk bucket fields `x28`, `x2C`, and `x30`, exposes source-offset
-metadata through `input_common_data_field_sources`, and has a tested
+including the walk bucket fields `x28`, `x2C`, and `x30` plus the run/run-brake
+threshold `x58`, exposes source-offset metadata through
+`input_common_data_field_sources`, and has a tested
 `MeleeCommonData::from_plco_bytes` extractor for the known
 big-endian common-data offsets. The extractor reads real source field types
 (`float`, `int`, and `Vec2`) and converts them into the current Rust core units:
@@ -457,7 +458,9 @@ opposite-side hold exits to the appropriate `WalkSlow`/`WalkMiddle`/`WalkFast`
 state instead of becoming a new dash or run. Current Rust `Run` state status:
 neutral stick enters
 `MotionState::RunBrake`, and full opposite stick enters `MotionState::TurnRun`
-while applying traction instead of opposite run acceleration on the entry tick.
+using `MeleeCommonData::run_x` / `x58_someLStickXThreshold` instead of a local
+simulator threshold, while applying traction instead of opposite run
+acceleration on the entry tick.
 `TurnRun` now keeps Melee-shaped rollback state for the old-facing
 `accel_mul`: entering TurnRun does not flip facing immediately, physics only
 accepts opposite acceleration while `accel_mul * accel < 0`, and facing flips

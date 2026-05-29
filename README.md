@@ -125,7 +125,7 @@ UCF intent bits are also carried inside rollback-owned `PlayerInput`, so future 
 
 Input timer windows now use Melee-style exclusive common-data limits: a window of `3` accepts timers `0`, `1`, and `2`, and rejects timer `3`. Dash/smash-turn, tap-jump, roll, and spotdodge facts all use that same strict boundary shape.
 
-Input thresholds now route through `MeleeCommonData::provisional_mole()` in `mole_core`, with source-offset metadata exposed by `input_common_data_field_sources()`. The current numeric values are still Mole defaults, but fields like dash `x3C`, dash window `x40`, tap jump `0x70`, spotdodge `0x314`, and roll `0x31C` are now named in one place so we can swap in extracted `PlCo.dat` values cleanly instead of changing mechanics code by hand.
+Input thresholds now route through `MeleeCommonData::provisional_mole()` in `mole_core`, with source-offset metadata exposed by `input_common_data_field_sources()`. The current numeric values are still Mole defaults, but fields like dash `x3C`, dash window `x40`, run/run-brake `x58`, tap jump `0x70`, spotdodge `0x314`, and roll `0x31C` are now named in one place so we can swap in extracted `PlCo.dat` values cleanly instead of changing mechanics code by hand.
 
 Aerial attack direction has the same source-shaped split: `xDC` and `xE0` now drive Aerial neutral-zone and fresh C-stick aerial edge detection, while `x20_radians` is represented as a deterministic fixed-point angle gate until the exact DAT value is extracted.
 
