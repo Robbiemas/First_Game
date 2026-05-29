@@ -5,10 +5,15 @@ Date: 2026-05-29
 ## Purpose
 
 Bring the Rust-authoritative core to a feel-testable movement baseline before
-building combat. The first priority is wavedash-critical behavior: ground to air
-transition through jumpsquat, first-airborne air dodge, EscapeAir physics,
-FallSpecial handoff, LandingFallSpecial, and collision/landing behavior that
-lets those states feel coherent on the Battlefield-like stage.
+building combat. The first priority is the Melee mechanics that make wavedashing
+possible: ground to air transition through jumpsquat, first-airborne air dodge,
+EscapeAir physics, FallSpecial handoff, LandingFallSpecial, and
+collision/landing behavior that lets those states feel coherent on the
+Battlefield-like stage.
+
+Wavedashing must remain an emergent outcome of existing Melee mechanics. Do not
+add a `Wavedash` motion state, input command, shortcut, or custom wavedash-only
+physics path.
 
 Combat systems such as hitboxes, hurtboxes, damage, knockback, hitlag, shield
 stun, grab boxes, and move callbacks are explicitly out of scope for this design.
@@ -17,19 +22,20 @@ feel are testable.
 
 ## Order Of Work
 
-1. Wavedash-critical movement parity.
+1. Air-dodge landing movement parity for the mechanics that produce wavedashing.
 2. Ground, platform, and ECB collision needed for movement feel.
 3. Defensive shield movement: GuardOn, Guard, GuardOff, rolls, spotdodge, shield
    jump, shield drop, and platform drop.
 4. Data extraction seams for values still marked provisional.
 5. Combat loop systems after movement and shield feel are validated.
 
-## Wavedash-Critical Movement
+## Air-Dodge Landing Movement
 
 The Rust core already has the required broad states: `KneeBend`, `JumpF`,
 `JumpB`, `JumpAerialF`, `JumpAerialB`, `Air`, `EscapeAir`, `FallSpecial`,
 `Landing`, and `LandingFallSpecial`. The next work should tighten their source
-shape rather than add a new gameplay layer.
+shape rather than add a new gameplay layer. A wavedash should be visible only as
+the natural result of these states plus collision and traction.
 
 `KneeBend` must continue to block air dodge. A fresh digital L/R press should
 only become `EscapeAir` after the fighter is airborne, including shield jump
@@ -61,7 +67,7 @@ those contacts can be added without changing architecture.
 
 ## Shield And Defensive Movement
 
-After wavedash-critical flow is stable, shield work should cover state-local
+After air-dodge landing flow is stable, shield work should cover state-local
 defensive behavior:
 
 - `GuardOn` startup and transition into `Guard`.
@@ -102,6 +108,8 @@ Required test themes:
 
 - Air dodge cannot start during `KneeBend`.
 - First-airborne fresh digital L/R enters `EscapeAir`.
+- No test or implementation should introduce a `Wavedash` state; tests should
+  prove the constituent Melee states and resulting slide.
 - Z and analog shield do not trigger air dodge.
 - Air dodge vector uses deadzone plus fixed-force direction.
 - EscapeAir decay/no-gravity/action-phase behavior is deterministic.
@@ -117,8 +125,8 @@ workspace/runtime verification gate already used on this branch.
 
 ## Runtime Feel Testing
 
-Once wavedash-critical tests pass, the SDL3 runtime should expose the result in
-the existing visual layer with Dolphin Mole sprite cues, diamond ECB overlay,
+Once the air-dodge landing tests pass, the SDL3 runtime should expose the result
+in the existing visual layer with Dolphin Mole sprite cues, diamond ECB overlay,
 stage surfaces, and debug logging. This runtime pass should not move gameplay
 authority out of Rust; it is only for playtesting and observing Rust-owned
 state.
