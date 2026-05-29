@@ -1,7 +1,8 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
-    state::EXPIRED_INPUT_TIMER, Frame, MeleeInputFacts, MeleeInputThresholds, MeleeJumpInput,
-    MotionState, PlayerInput, PlayerState, WalkSpeedBucket, World,
+    collision::landing_contact_for_bottom, state::EXPIRED_INPUT_TIMER, Frame, MeleeInputFacts,
+    MeleeInputThresholds, MeleeJumpInput, MotionState, PlayerInput, PlayerState, WalkSpeedBucket,
+    World,
 };
 
 const GROUND_Y: i32 = 0;
@@ -69,6 +70,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
     let previous_inputs = *world.previous_inputs();
     let mut input_timers = *world.input_timers();
     let mut last_input_facts = [MeleeInputFacts::default(); 2];
+    let stage = world.stage();
 
     for (player_index, ((player, input), previous_input)) in world
         .players_mut()
@@ -86,6 +88,7 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
         input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
         input_timers[player_index].trigger = input_snapshot.trigger_timer;
         let x_tap_timer = input_timers[player_index].x_tap;
+        let previous_position = player.position;
 
         match player.motion_state {
             MotionState::Wait => {
@@ -501,14 +504,10 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
             apply_escape_air_decay(player);
             player.position.y += player.velocity.y;
 
-            if player.position.y <= GROUND_Y {
-                player.position.y = GROUND_Y;
-                player.velocity.y = 0;
-                player.grounded = true;
-                player.fast_falling = false;
-                player.jumps_remaining = player.profile.max_jumps;
-                player.jump_input = Default::default();
-                player.short_hop = false;
+            if let Some(contact) =
+                landing_contact_for_bottom(stage, previous_position, player.position, false)
+            {
+                land_player_on_contact(player, contact.y);
                 enter_landing_fall_special(player);
             }
         } else {
@@ -528,15 +527,11 @@ pub fn step_world(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
                     .max(-player.profile.fall_speed_per_tick);
             }
 
-            if player.position.y <= GROUND_Y {
+            if let Some(contact) =
+                landing_contact_for_bottom(stage, previous_position, player.position, false)
+            {
                 let landing_state = player.motion_state;
-                player.position.y = GROUND_Y;
-                player.velocity.y = 0;
-                player.grounded = true;
-                player.fast_falling = false;
-                player.jumps_remaining = player.profile.max_jumps;
-                player.jump_input = Default::default();
-                player.short_hop = false;
+                land_player_on_contact(player, contact.y);
                 if matches!(
                     landing_state,
                     MotionState::EscapeAir | MotionState::FallSpecial
@@ -996,6 +991,16 @@ fn enter_landing_fall_special(player: &mut PlayerState) {
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
+}
+
+fn land_player_on_contact(player: &mut PlayerState, y: i32) {
+    player.position.y = y;
+    player.velocity.y = 0;
+    player.grounded = true;
+    player.fast_falling = false;
+    player.jumps_remaining = player.profile.max_jumps;
+    player.jump_input = Default::default();
+    player.short_hop = false;
 }
 
 fn enter_landing(player: &mut PlayerState) {
