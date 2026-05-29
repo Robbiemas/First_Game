@@ -125,6 +125,65 @@ fn ecb_diamond_uses_four_midpoint_vertices() {
 }
 
 #[test]
+fn vertical_stage_contact_lands_on_main_floor_when_crossing_downward() {
+    let stage = StageProfile::battlefield_test();
+    let contact = mole_core::landing_contact_for_bottom(
+        stage,
+        Vec2 { x: 0, y: 2_000 },
+        Vec2 { x: 0, y: -500 },
+        false,
+    )
+    .expect("downward crossing should contact main floor");
+
+    assert_eq!(contact.surface.name, "main_floor");
+    assert_eq!(contact.surface.kind, StageSurfaceKind::Solid);
+    assert_eq!(contact.y, 0);
+}
+
+#[test]
+fn vertical_stage_contact_lands_on_soft_platform_when_enabled() {
+    let stage = StageProfile::battlefield_test();
+    let platform = stage.soft_platforms[2];
+    let contact = mole_core::landing_contact_for_bottom(
+        stage,
+        Vec2 {
+            x: 0,
+            y: platform.y + 2_000,
+        },
+        Vec2 {
+            x: 0,
+            y: platform.y - 500,
+        },
+        false,
+    )
+    .expect("downward crossing should contact top platform");
+
+    assert_eq!(contact.surface.name, "top_platform");
+    assert_eq!(contact.surface.kind, StageSurfaceKind::Soft);
+    assert_eq!(contact.y, platform.y);
+}
+
+#[test]
+fn vertical_stage_contact_ignores_soft_platform_when_dropping_through() {
+    let stage = StageProfile::battlefield_test();
+    let platform = stage.soft_platforms[2];
+    let contact = mole_core::landing_contact_for_bottom(
+        stage,
+        Vec2 {
+            x: 0,
+            y: platform.y + 2_000,
+        },
+        Vec2 {
+            x: 0,
+            y: platform.y - 500,
+        },
+        true,
+    );
+
+    assert!(contact.is_none());
+}
+
+#[test]
 fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     let profile = FighterProfile::falcon_like();
 
