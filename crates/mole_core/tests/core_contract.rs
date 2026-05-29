@@ -135,6 +135,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
+    assert_eq!(profile.standing_turn_direction_change_frames, 5);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
 }
 
@@ -167,6 +168,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x70, 0.011);
     put_f32_be(&mut bytes, 0x74, 3.5);
     put_f32_be(&mut bytes, 0x78, 1.26);
+    put_f32_be(&mut bytes, 0x84, 7.0);
     put_f32_be(&mut bytes, 0xe4, 5.0);
 
     let profile = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
@@ -198,6 +200,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.air_friction_per_tick, 11);
     assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
     assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_260);
+    assert_eq!(profile.standing_turn_direction_change_frames, 7);
     assert_eq!(profile.normal_landing_lag_ticks, 5);
 }
 
@@ -4697,7 +4700,11 @@ fn soft_opposite_stick_from_wait_enters_turn_not_walk() {
 
 #[test]
 fn standing_turn_delays_facing_flip_until_profile_flip_frame() {
-    let mut world = World::for_two_players();
+    let profile = FighterProfile {
+        standing_turn_direction_change_frames: 2,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
     let soft_left = [
         PlayerInput::neutral().with_left_stick(-40, 0),
         PlayerInput::neutral(),
@@ -4709,12 +4716,11 @@ fn standing_turn_delays_facing_flip_until_profile_flip_frame() {
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, 1);
 
-    for frame in 1..5 {
-        step_world(&mut world, Frame(frame), &neutral);
-        assert_eq!(world.players()[0].facing, 1);
-    }
+    step_world(&mut world, Frame(1), &neutral);
 
-    step_world(&mut world, Frame(5), &neutral);
+    assert_eq!(world.players()[0].facing, 1);
+
+    step_world(&mut world, Frame(2), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, -1);

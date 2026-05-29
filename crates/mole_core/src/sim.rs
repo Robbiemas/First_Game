@@ -12,7 +12,6 @@ const FAST_FALL_STICK_THRESHOLD: i8 = -80;
 const FAST_FALL_TAP_WINDOW: u8 = 2;
 const ATTACK_ACTIVE_TICKS: u8 = 12;
 const FALCON_TURN_FRAMES: u8 = 11;
-const FALCON_STANDING_TURN_FACING_FLIP_FRAME: u8 = 5;
 const SHIELD_TURN_FRAMES: u8 = 5;
 const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
@@ -667,7 +666,10 @@ fn enter_standing_turn(player: &mut PlayerState, direction: i8) {
     player.turn_facing_after = direction;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
-    player.turn_frames_to_turn = FALCON_STANDING_TURN_FACING_FLIP_FRAME.saturating_sub(1);
+    player.turn_frames_to_turn = player
+        .profile
+        .standing_turn_direction_change_frames
+        .saturating_sub(1);
     player.turn_dash_after_direction = 0;
     player.turn_latched_buttons = 0;
     player.velocity.x = 0;

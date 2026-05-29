@@ -430,8 +430,9 @@ decomp's `ftCo_Turn_IASA` calls side-B, down-B, and up-B checkers, but does not
 call the neutral-special checker. `Turn` also returns to `Wait` after the local
 11-frame Falcon/profile duration; exact animation-data extraction still needs
 to replace that provisional count. Basic standing turn now keeps the old facing
-until the local frame-5 flip point, while smash-turn enters with
-`frames_to_turn = 0` and flips on the next Turn update rather than at entry.
+until the profile-owned `frames_to_change_direction_on_standing_turn` point
+(default Falcon-like frame 5), while smash-turn enters with `frames_to_turn = 0`
+and flips on the next Turn update rather than at entry.
 Rust now stores Melee-shaped turn state in rollback: target facing,
 `has_turned`, one-frame `just_turned`, frames-to-turn, dash-out intent, and the
 A/B latch. Offensive `Turn_IASA` entries before the flip use target facing,
@@ -475,8 +476,8 @@ contract for source ordering, not a final data value.
 available, but forward or soft stick does not immediately cancel back to Run or
 walk. The simplified Rust dash/run/turn physics still needs the full Melee
 acceleration model, exact common-data thresholds, exact TurnRun animation-script
-timing, exact Turn facing-flip and animation-duration data extraction, and the
-rest of dash/run/turn IASA transitions.
+timing, exact Turn animation-duration data extraction, and the rest of
+dash/run/turn IASA transitions.
 
 The current rules are:
 
@@ -906,6 +907,8 @@ Dash and run acceleration now follow the shared `getAccelAndTarget` helper from
 `inlines.h`: `dash_run_acceleration_a` is scaled by main-stick X,
 `dash_run_acceleration_b` is added by input side, and the run target scales from
 `dash_run_terminal_velocity` rather than always clamping to full run speed.
+Basic standing-turn facing timing now reads the profile-owned
+`frames_to_change_direction_on_standing_turn` field.
 Ordinary grounded `Landing` now also consumes profile-owned
 `normal_landing_lag` instead of a simulator constant.
 

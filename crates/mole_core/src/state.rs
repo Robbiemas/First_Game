@@ -105,6 +105,7 @@ pub struct FighterProfile {
     pub standing_height_units: i32,
     pub jumpsquat_frames: u8,
     pub dash_frames: u8,
+    pub standing_turn_direction_change_frames: u8,
     pub normal_landing_lag_ticks: u8,
 }
 
@@ -145,6 +146,7 @@ impl FighterProfile {
         standing_height_units: 22_667,
         jumpsquat_frames: 4,
         dash_frames: 15,
+        standing_turn_direction_change_frames: 5,
         normal_landing_lag_ticks: 4,
     };
 
@@ -210,6 +212,8 @@ impl FighterProfile {
             read_profile_milli_i32(bytes, 0x74, "fast_fall_velocity")?;
         profile.air_max_horizontal_velocity_per_tick =
             read_profile_milli_i32(bytes, 0x78, "air_max_horizontal_velocity")?;
+        profile.standing_turn_direction_change_frames =
+            read_profile_u8_from_f32(bytes, 0x84, "frames_to_change_direction_on_standing_turn")?;
         profile.normal_landing_lag_ticks =
             read_profile_u8_from_f32(bytes, 0xe4, "normal_landing_lag")?;
 
@@ -726,6 +730,7 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.standing_height_units);
     mix_u8(hash, profile.jumpsquat_frames);
     mix_u8(hash, profile.dash_frames);
+    mix_u8(hash, profile.standing_turn_direction_change_frames);
     mix_u8(hash, profile.normal_landing_lag_ticks);
 }
 
