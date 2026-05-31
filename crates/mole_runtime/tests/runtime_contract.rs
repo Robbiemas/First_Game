@@ -1,18 +1,28 @@
 use std::path::Path;
 
 use mole_core::{
-    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MotionState,
-    PlayerInput, Vec2, WalkSpeedBucket, World,
+    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
+    MotionState, PlayerInput, Vec2, WalkSpeedBucket, World, UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
+    compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, parse_wup_report, project_asset_root, DebugOverlay,
-    DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout, InputSource,
-    LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor, RenderFrame, RenderRect,
-    RenderScene, RenderTransform, ReplayCapture, UdpRuntimeConfig, UdpRuntimeStats, WupInputMapper,
-    WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    native_replay_path, parse_wup_report, project_asset_root, slippi_core_report_path,
+    ControllerInputTraceLog, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog,
+    InputReadout, InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue,
+    PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform,
+    ReplayCapture, SlippiCoreComparisonConfig, UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig,
+    WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
+
+fn source_shield_trigger() -> u8 {
+    MeleeCommonData::provisional_mole().z_shield_analog
+}
+
+fn trigger_raw_from_origin(origin: u8, offset: u8) -> u8 {
+    origin.saturating_add(offset)
+}
 
 #[test]
 fn fixed_step_clock_emits_one_tick_for_one_sixtieth_second() {
@@ -58,7 +68,458 @@ fn runtime_step_uses_input_source_output_for_authoritative_gameplay() {
     let inputs = mole_runtime::step_world_from_input_source(&mut world, &mut source, Frame(0));
 
     assert_eq!(inputs[0].stick_x(), 64);
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkMiddle);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
+}
+
+fn minimal_slippi_export(frame_player: &str) -> String {
+    format!(
+        r#"{{
+  "schema_version": 1,
+  "source": {{"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"}},
+  "settings": {{"stage_id": 31, "players": {{"0": {{"controller_fix": "UCF"}}}}}},
+  "metadata": {{"start_at": "2026-05-31T00:00:00Z", "last_frame": 0}},
+  "export": {{"first_frame": 0, "last_frame": 0, "frame_count": 1}},
+  "frames": [
+    {{"frame": 0, "players": {{"0": {frame_player}}}}}
+  ]
+}}"#
+    )
+}
+
+#[test]
+fn slippi_core_comparison_accepts_matching_wait_frame_from_default_world() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 14,
+            "position": [1.5, 2.25],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.5, "y": -1.25}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.frames_compared, 1);
+    assert!(comparison.first_state_mismatch.is_none());
+    assert!(comparison.report_markdown().contains("State mismatches: 0"));
+}
+
+#[test]
+fn slippi_action_state_182_reports_guard_reflect_not_guard_off() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 182,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let mismatch = comparison
+        .first_state_mismatch
+        .expect("default world should not already be in GuardReflect");
+
+    assert_eq!(mismatch.expected_slippi_state_id, 182);
+    assert_eq!(mismatch.expected_motion_state, MotionState::GuardReflect);
+    assert!(comparison.report_markdown().contains("GuardReflect (182)"));
+}
+
+#[test]
+fn slippi_action_state_181_is_supported_as_guard_set_off() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 181,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.unsupported_state_count, 0);
+    let mismatch = comparison
+        .first_state_mismatch
+        .expect("default world should not already be in GuardSetOff");
+    assert_eq!(mismatch.expected_slippi_state_id, 181);
+    assert_eq!(mismatch.expected_motion_state, MotionState::GuardSetOff);
+    assert!(comparison.report_markdown().contains("GuardSetOff (181)"));
+}
+
+#[test]
+fn slippi_common_action_state_19_reports_turn_run() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 19,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert!(comparison.report_markdown().contains("TurnRun (19)"));
+}
+
+#[test]
+fn slippi_common_action_state_22_reports_run_direct_not_run_brake() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 22,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let report = comparison.report_markdown();
+
+    assert!(report.contains("RunDirect (22)"));
+    assert!(!report.contains("RunBrake (22)"));
+}
+
+#[test]
+fn slippi_common_action_state_23_reports_run_brake_not_turn_run() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 23,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let report = comparison.report_markdown();
+
+    assert!(report.contains("RunBrake (23)"));
+    assert!(!report.contains("TurnRun (23)"));
+}
+
+#[test]
+fn slippi_fallspecial_directional_states_map_to_exact_motion_states() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 36,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let mismatch = comparison
+        .first_state_mismatch
+        .expect("default world should not already be in FallSpecialF");
+
+    assert_eq!(mismatch.expected_slippi_state_id, 36);
+    assert_eq!(mismatch.expected_motion_state, MotionState::FallSpecialF);
+    assert!(comparison.report_markdown().contains("FallSpecialF (36)"));
+}
+
+#[test]
+fn slippi_core_comparison_reports_first_state_mismatch() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 127, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 14,
+            "position": [1.5, 2.25],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.5, "y": -1.25}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let mismatch = comparison
+        .first_state_mismatch
+        .expect("hard stick should diverge from expected Wait");
+
+    assert_eq!(mismatch.frame, Frame(0));
+    assert_eq!(mismatch.player_index, 0);
+    assert_eq!(mismatch.expected_motion_state, MotionState::Wait);
+    assert_eq!(mismatch.actual_motion_state, MotionState::Dash);
+    assert_eq!(mismatch.expected_position, Vec2 { x: 1_500, y: 2_250 });
+    assert_eq!(mismatch.expected_air_velocity_x, 500);
+    assert_eq!(mismatch.expected_velocity_y, -1_250);
+    assert!(comparison
+        .report_markdown()
+        .contains("First State Mismatch"));
+    assert!(comparison
+        .report_markdown()
+        .contains("Position: Melee (1500, 2250)"));
+    assert!(comparison
+        .report_markdown()
+        .contains("Air velocity X: Melee 500"));
+}
+
+#[test]
+fn slippi_core_comparison_applies_exported_ucf_dashback_amendment() {
+    let export = r#"{
+  "schema_version": 1,
+  "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+  "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+  "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 1},
+  "export": {"first_frame": 0, "last_frame": 1, "frame_count": 2},
+  "frames": [
+    {
+      "frame": 0,
+      "players": {
+        "0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": -40, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {"action_state_id": 18, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}
+        }
+      }
+    },
+    {
+      "frame": 1,
+      "players": {
+        "0": {
+          "pre": {
+            "action_state_id": 18,
+            "facing": 1.0,
+            "rust_player_input": {
+              "stick_x": -102, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0,
+              "ucf_dashback_amendment": true
+            }
+          },
+          "post": {"action_state_id": 20, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}
+        }
+      }
+    }
+  ]
+}"#;
+
+    let comparison = compare_slippi_export_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.state_mismatch_count, 0);
+    assert_eq!(comparison.ucf_players, [true, false]);
+    assert_eq!(comparison.ucf_dashback_amendment_frames, [1, 0]);
+    assert!(comparison
+        .report_markdown()
+        .contains("Replay controller fixes: P1 UCF, P2 vanilla/unknown"));
+    assert!(comparison
+        .report_markdown()
+        .contains("UCF dashback amendment frames consumed: P1 1, P2 0"));
+}
+
+#[test]
+fn slippi_core_comparison_accepts_negative_pregame_entry_frames() {
+    let export = r#"{
+      "schema_version": 1,
+      "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+      "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+      "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 0},
+      "export": {
+        "first_frame": -123,
+        "last_frame": -123,
+        "frame_count": 1,
+        "included_negative_frames": true
+      },
+      "frames": [
+        {"frame": -123, "players": {"0": {
+          "pre": {
+            "action_state_id": 322,
+            "position": [-38.8, 35.2],
+            "facing": 1.0,
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 322,
+            "action_state_counter": -1,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }}}
+      ]
+    }"#;
+
+    let comparison = compare_slippi_export_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("negative Slippi pre-game frame should parse");
+
+    assert_eq!(comparison.frames_compared, 1);
+    assert_eq!(comparison.unsupported_state_count, 0);
+}
+
+#[test]
+fn slippi_match_start_comparison_replays_entry_frames_without_pre_state_seeding() {
+    let export = r#"{
+      "schema_version": 1,
+      "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+      "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+      "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 0},
+      "export": {
+        "first_frame": -123,
+        "last_frame": -118,
+        "frame_count": 6,
+        "included_negative_frames": true
+      },
+      "frames": [
+        {"frame": -123, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 322, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}},
+        {"frame": -122, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 322, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}},
+        {"frame": -121, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 322, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}},
+        {"frame": -120, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 322, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}},
+        {"frame": -119, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 322, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}},
+        {"frame": -118, "players": {"0": {"pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0}}, "post": {"action_state_id": 323, "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}}}}
+      ]
+    }"#;
+
+    let comparison = compare_slippi_export_from_match_start_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("match-start export should parse and compare");
+
+    assert_eq!(comparison.frames_compared, 6);
+    assert_eq!(comparison.player_frames_compared[0], 6);
+    assert_eq!(comparison.unsupported_state_count, 0);
+    assert!(comparison.first_state_mismatch.is_none());
+    assert!(comparison
+        .report_markdown()
+        .contains("sequential Slippi match-start"));
+}
+
+#[test]
+fn slippi_core_report_path_uses_local_debug_slippi_directory() {
+    let path = slippi_core_report_path(Path::new("replays/Game_Example.slp"));
+
+    assert_eq!(
+        path,
+        Path::new("debug")
+            .join("slippi")
+            .join("Game_Example.core.report.md")
+    );
 }
 
 #[test]
@@ -88,10 +549,7 @@ fn render_frame_consumes_core_snapshot_boundary() {
     let mut render_frame = RenderFrame::from_snapshot(core_snapshot);
 
     assert_eq!(render_frame.frame, core_snapshot.frame);
-    assert_eq!(
-        render_frame.player_motion_states[0],
-        MotionState::WalkMiddle
-    );
+    assert_eq!(render_frame.player_motion_states[0], MotionState::WalkSlow);
     assert_eq!(
         render_frame.player_state_frames[0],
         core_snapshot.players[0].state_frame
@@ -249,7 +707,7 @@ fn render_scene_draws_translucent_bubble_shield_for_guard_states() {
 }
 
 #[test]
-fn motion_visual_changes_keep_bottom_ecb_vertex_as_character_position() {
+fn motion_visual_changes_keep_sprite_anchor_at_character_position() {
     let world = World::for_two_players();
     let base_frame = RenderFrame::from_world(&world);
     let standing_scene = RenderScene::from_frame(&base_frame, 960, 540);
@@ -262,9 +720,6 @@ fn motion_visual_changes_keep_bottom_ecb_vertex_as_character_position() {
     air_dodge_frame.player_motion_states[0] = MotionState::EscapeAir;
     let air_dodge_scene = RenderScene::from_frame(&air_dodge_frame, 960, 540);
 
-    assert_bottom_ecb_vertex_is_character_position(&standing_scene, 0);
-    assert_bottom_ecb_vertex_is_character_position(&dash_scene, 0);
-    assert_bottom_ecb_vertex_is_character_position(&air_dodge_scene, 0);
     assert_eq!(
         dash_scene.player_contact_points[0],
         standing_scene.player_contact_points[0]
@@ -273,18 +728,35 @@ fn motion_visual_changes_keep_bottom_ecb_vertex_as_character_position() {
         air_dodge_scene.player_contact_points[0],
         standing_scene.player_contact_points[0]
     );
-    assert_eq!(
-        dash_scene.player_ecbs[0].points[2],
-        standing_scene.player_ecbs[0].points[2]
-    );
-    assert_eq!(
-        air_dodge_scene.player_ecbs[0].points[2],
-        standing_scene.player_ecbs[0].points[2]
-    );
     assert!(dash_scene.players[0].width > dash_scene.players[0].height);
     assert!(air_dodge_scene.players[0].width > air_dodge_scene.players[0].height);
     assert!(dash_scene.players[0].height < standing_scene.players[0].height);
     assert!(air_dodge_scene.players[0].height < standing_scene.players[0].height);
+}
+
+#[test]
+fn render_scene_draws_core_owned_active_ecb() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::EscapeAir;
+    player.motion_frame = 2;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    player.ecb_bottom_offset_y = 2_790;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(frame.player_ecbs[0].bottom, Vec2 { x: 1_000, y: 3_568 });
+    assert_eq!(
+        scene.player_ecbs[0].points[2],
+        scene.transform.world_to_screen(frame.player_ecbs[0].bottom)
+    );
+    assert_ne!(
+        scene.player_ecbs[0].points[2],
+        scene.player_contact_points[0]
+    );
 }
 
 #[test]
@@ -297,8 +769,23 @@ fn sdl_runtime_launcher_uses_native_play_mode() {
 
     assert!(text.contains(".local\\SDL3"));
     assert!(text.contains("--features \"sdl wup\""));
-    assert!(text.contains("-- --sdl --play"));
+    assert!(text.contains("-- --sdl --play --input-trace"));
+    assert!(!text.contains("--no-ucf"));
     assert!(!text.contains("--frames 600"));
+}
+
+#[test]
+fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
+    let launcher = project_asset_root()
+        .join("execs")
+        .join("Run SDL3 Runtime Vanilla No UCF.cmd");
+    let text =
+        std::fs::read_to_string(&launcher).expect("vanilla SDL3 launcher should be readable");
+
+    assert!(text.contains(".local\\SDL3"));
+    assert!(text.contains("--features \"sdl wup\""));
+    assert!(text.contains("-- --sdl --play --input-trace --no-ucf"));
+    assert!(text.contains("Open State Graphs.cmd"));
 }
 
 #[test]
@@ -342,13 +829,6 @@ fn render_scene_exposes_legacy_sprite_cues_without_replacing_rect_fallback() {
     assert!(scene.player_sprites[1].flip_x);
     assert_eq!(scene.players[0].width, 54);
     assert_eq!(scene.players[0].height, 119);
-}
-
-fn assert_bottom_ecb_vertex_is_character_position(scene: &RenderScene, player_index: usize) {
-    let contact = scene.player_contact_points[player_index];
-    let ecb = scene.player_ecbs[player_index];
-
-    assert_eq!(ecb.points[2], contact);
 }
 
 #[test]
@@ -445,7 +925,7 @@ fn debug_overlay_reports_each_player_motion_state_for_play_window() {
 
     assert_eq!(
         overlay.player_state_lines,
-        ["P1 WALKMIDDLE F0".to_string(), "P2 DASH F0".to_string(),]
+        ["P1 WALKSLOW F0".to_string(), "P2 DASH F0".to_string(),]
     );
 }
 
@@ -464,7 +944,7 @@ fn frame_debug_log_reports_input_state_physics_ecb_and_render_transform() {
 
     assert!(line.contains("\"frame\":1"));
     assert!(line.contains("\"p1_bits\":"));
-    assert!(line.contains("\"motion_state\":\"WalkMiddle\""));
+    assert!(line.contains("\"motion_state\":\"WalkSlow\""));
     assert!(line.contains("\"velocity_x\":"));
     assert!(line.contains("\"ecb\":["));
     assert!(line.contains("\"render_transform\":"));
@@ -893,7 +1373,7 @@ fn wup_input_mapper_uses_first_connected_raw_sample_as_console_origin() {
             pad: GameCubePadStatus {
                 stick_x: 255,
                 stick_y: 0,
-                left_trigger: 72,
+                left_trigger: trigger_raw_from_origin(7, source_shield_trigger()),
                 buttons: GameCubeButtonState::empty(),
                 ..GameCubePadStatus::neutral()
             },
@@ -903,9 +1383,9 @@ fn wup_input_mapper_uses_first_connected_raw_sample_as_console_origin() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].stick_x(), 124);
-    assert_eq!(moved[0].stick_y(), -125);
-    assert_eq!(moved[0].left_trigger_analog(), 65);
+    assert_eq!(moved[0].stick_x(), 89);
+    assert_eq!(moved[0].stick_y(), -90);
+    assert_eq!(moved[0].left_trigger_analog(), source_shield_trigger());
     assert_eq!(moved[0].right_trigger_analog(), 0);
     assert!(moved[0].shield());
 }
@@ -996,10 +1476,10 @@ fn wup_input_mapper_preserves_native_gate_distance_after_origin() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].stick_x(), 101);
-    assert_eq!(moved[0].stick_y(), -105);
-    assert_eq!(moved[0].c_stick_x(), -107);
-    assert_eq!(moved[0].c_stick_y(), 102);
+    assert_eq!(moved[0].stick_x(), 88);
+    assert_eq!(moved[0].stick_y(), -91);
+    assert_eq!(moved[0].c_stick_x(), -91);
+    assert_eq!(moved[0].c_stick_y(), 87);
 }
 
 #[test]
@@ -1035,8 +1515,8 @@ fn wup_input_mapper_preserves_c_stick_and_dpad_in_player_input() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].c_stick_x(), -107);
-    assert_eq!(moved[0].c_stick_y(), 102);
+    assert_eq!(moved[0].c_stick_x(), -91);
+    assert_eq!(moved[0].c_stick_y(), 87);
     assert!(moved[0].dpad_left());
     assert!(moved[0].dpad_up());
 }
@@ -1063,7 +1543,7 @@ fn wup_input_mapper_preserves_split_triggers_in_player_input() {
         WupPort {
             connected: true,
             pad: GameCubePadStatus {
-                left_trigger: 72,
+                left_trigger: trigger_raw_from_origin(7, source_shield_trigger()),
                 right_trigger: 205,
                 buttons: GameCubeButtonState::empty().with_r(true),
                 ..GameCubePadStatus::neutral()
@@ -1074,7 +1554,7 @@ fn wup_input_mapper_preserves_split_triggers_in_player_input() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].left_trigger_analog(), 65);
+    assert_eq!(moved[0].left_trigger_analog(), source_shield_trigger());
     assert_eq!(moved[0].right_trigger_analog(), 201);
     assert!(!moved[0].left_trigger_digital());
     assert!(moved[0].right_trigger_digital());
@@ -1243,7 +1723,7 @@ fn wup_input_mapper_feeds_console_origin_pads_through_melee_processor() {
                 stick_y: 0,
                 c_stick_x: 255,
                 c_stick_y: 0,
-                left_trigger: 72,
+                left_trigger: trigger_raw_from_origin(7, source_shield_trigger()),
                 right_trigger: 4,
                 buttons: GameCubeButtonState::empty().with_a(true),
             },
@@ -1257,25 +1737,25 @@ fn wup_input_mapper_feeds_console_origin_pads_through_melee_processor() {
     let moved_p1 = moved[0].expect("connected port should produce player one snapshot");
 
     assert_eq!(moved_p1.prev_lstick, (0, 0));
-    assert_eq!(moved_p1.lstick, (124, -125));
-    assert_eq!(moved_p1.cstick, (127, -128));
-    assert_eq!(moved_p1.left_trigger, 65);
+    assert_eq!(moved_p1.lstick, (89, -90));
+    assert_eq!(moved_p1.cstick, (89, -90));
+    assert_eq!(moved_p1.left_trigger, source_shield_trigger());
     assert_eq!(moved_p1.right_trigger, 0);
     assert!(moved_p1.pressed.a());
     assert!(moved_p1.shield_pressed);
     assert_eq!(moved_p1.x_tap_timer, 0);
-    assert_eq!(moved_p1.trigger_timer, 0xfe);
+    assert_eq!(moved_p1.trigger_timer, 0);
 
     let held = mapper.map_ports_to_melee_snapshots(moved_ports);
     let held_p1 = held[0].expect("connected port should produce player one snapshot");
 
-    assert_eq!(held_p1.prev_lstick, (124, -125));
-    assert_eq!(held_p1.lstick, (124, -125));
+    assert_eq!(held_p1.prev_lstick, (89, -90));
+    assert_eq!(held_p1.lstick, (89, -84));
     assert!(held_p1.held.a());
     assert!(!held_p1.pressed.a());
     assert!(!held_p1.shield_pressed);
     assert_eq!(held_p1.x_tap_timer, 1);
-    assert_eq!(held_p1.trigger_timer, 0xfe);
+    assert_eq!(held_p1.trigger_timer, 1);
 }
 
 #[test]
@@ -1322,7 +1802,126 @@ fn wup_input_mapper_applies_ucf_cardinals_after_console_origin() {
 }
 
 #[test]
-fn wup_input_mapper_carries_ucf_tilt_intent_facts_from_native_history() {
+fn wup_input_mapper_can_disable_ucf_preprocessing() {
+    let mut mapper = WupInputMapper::new(WupInputConfig { ucf_enabled: false });
+    mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 128,
+                stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+
+    let snapshots = mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 209,
+                stick_y: 133,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    let p1 = snapshots[0].expect("connected port should produce player one snapshot");
+
+    assert_eq!(p1.lstick, (81, 0));
+}
+
+#[test]
+fn wup_input_mapper_applies_native_hsd_stick_clamp_even_when_ucf_disabled() {
+    let mut mapper = WupInputMapper::new(WupInputConfig { ucf_enabled: false });
+    mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 128,
+                stick_y: 128,
+                c_stick_x: 128,
+                c_stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+
+    let snapshots = mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 255,
+                stick_y: 255,
+                c_stick_x: 0,
+                c_stick_y: 0,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    let p1 = snapshots[0].expect("connected port should produce player one snapshot");
+
+    assert_eq!(p1.lstick, (89, 89));
+    assert_eq!(p1.cstick, (-89, -89));
+}
+
+#[test]
+fn wup_input_mapper_leaves_non_ucf_cardinal_cross_axis_for_vanilla_deadzone_cleanup() {
+    let mut mapper = WupInputMapper::default();
+    mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 128,
+                stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+
+    let snapshots = mapper.map_ports_to_melee_snapshots([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 231,
+                stick_y: 150,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    let p1 = snapshots[0].expect("connected port should produce player one snapshot");
+    let facts = p1.facts(Default::default());
+
+    assert_eq!(p1.lstick, (103, 0));
+    assert_eq!(facts.horizontal_smash_direction, 1);
+    assert_eq!(facts.dash_direction, 1);
+}
+
+#[test]
+fn wup_input_mapper_outputs_vanilla_dash_snapshot_after_ucf_preprocessing() {
     let mut mapper = WupInputMapper::default();
     mapper.map_ports_to_melee_snapshots([
         WupPort {
@@ -1368,9 +1967,211 @@ fn wup_input_mapper_carries_ucf_tilt_intent_facts_from_native_history() {
         WupPort::default(),
     ]);
     let p1 = dash[0].expect("connected port should produce player one snapshot");
+    let facts = p1.facts(Default::default());
 
-    assert!(p1.ucf_x_tilt_intent);
-    assert_eq!(p1.facts(Default::default()).ucf_dashback_direction, 1);
+    assert_eq!(p1.lstick, (127, 0));
+    assert_eq!(facts.dash_direction, 1);
+}
+
+#[test]
+fn wup_input_mapper_carries_ucf_dashback_amendment_into_player_input() {
+    let mut mapper = WupInputMapper::default();
+    mapper.map_ports([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 128,
+                stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    mapper.map_ports([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 88,
+                stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+
+    let amended = mapper.map_ports([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 0,
+                stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+
+    assert_eq!(amended[0].stick_x(), -127);
+    assert_ne!(amended[0].bits() & UCF_DASHBACK_AMENDMENT_BIT, 0);
+}
+
+#[test]
+fn wup_input_mapper_trace_exposes_raw_origin_native_ucf_and_core_input() {
+    let mut mapper = WupInputMapper::default();
+    let neutral_ports = [
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 131,
+                stick_y: 125,
+                c_stick_x: 128,
+                c_stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ];
+    mapper.map_ports_to_input_trace(neutral_ports);
+
+    let moved_ports = [
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 255,
+                stick_y: 125,
+                c_stick_x: 128,
+                c_stick_y: 128,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ];
+
+    let trace = mapper.map_ports_to_input_trace(moved_ports);
+    let p1 = trace.players[0].expect("connected controller should have a trace row");
+
+    assert!(trace.ucf_enabled);
+    assert_eq!(trace.adapter_ports, [true, false, false, false]);
+    assert_eq!(p1.source_port, 0);
+    assert_eq!(p1.raw.stick_x, 255);
+    assert_eq!(p1.origin.stick_x, 131);
+    assert_eq!(p1.origin_adjusted.stick_x, 252);
+    assert_eq!(p1.native.stick_x, 252);
+    assert_eq!(p1.ucf.stick_x, 255);
+    assert_eq!(p1.snapshot.lstick, (127, 0));
+    assert_eq!(p1.input.stick_x(), 127);
+    assert_eq!(trace.inputs[0].stick_x(), 127);
+    assert!(p1.dashback_amendment);
+    assert!(trace.inputs[0].ucf_dashback_amendment());
+}
+
+#[test]
+fn controller_input_trace_log_joins_wup_stages_with_core_state_and_facts() {
+    let mut mapper = WupInputMapper::default();
+    let neutral_ports = [
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus::neutral(),
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ];
+    mapper.map_ports_to_input_trace(neutral_ports);
+    let dash_ports = [
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus {
+                stick_x: 232,
+                buttons: GameCubeButtonState::empty(),
+                ..GameCubePadStatus::neutral()
+            },
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ];
+    let trace = mapper.map_ports_to_input_trace(dash_ports);
+    let mut world = World::for_two_players();
+    let before = RenderFrame::from_world(&world);
+
+    step_world(&mut world, Frame(0), &trace.inputs);
+    let after = RenderFrame::from_world(&world);
+    let line =
+        ControllerInputTraceLog::from_wup_trace(Frame(0), &trace, &before, &after).to_json_line();
+
+    assert!(line.contains("\"frame\":0"));
+    assert!(line.contains("\"ucf_enabled\":true"));
+    assert!(line.contains("\"raw\":{\"stick_x\":232"));
+    assert!(line.contains("\"origin\":{\"stick_x\":128"));
+    assert!(line.contains("\"native\":{\"stick_x\":232"));
+    assert!(line.contains("\"ucf\":{\"stick_x\":255"));
+    assert!(line.contains("\"input\":{\"bits\":"));
+    assert!(line.contains("\"stick_x\":127"));
+    assert!(line.contains("\"x_tap_timer\":0"));
+    assert!(line.contains("\"dash_direction\":1"));
+    assert!(line.contains("\"before\":{\"frame\":0"));
+    assert!(line.contains("\"after\":{\"frame\":1"));
+    assert!(line.contains("\"motion_state\":\"Dash\""));
+    assert!(line.contains("\"velocity_x\":"));
+    assert!(line.contains("\"core_facts\":{"));
+    assert!(line.contains("\"checksum\":"));
+}
+
+#[test]
+fn input_trace_writer_creates_jsonl_file_in_requested_directory() {
+    let dir = std::env::temp_dir().join(format!(
+        "mole-runtime-input-trace-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos()
+    ));
+    let mut writer =
+        InputTraceWriter::create_in_dir(&dir).expect("input trace writer should open a JSONL file");
+    let mut mapper = WupInputMapper::default();
+    let trace = mapper.map_ports_to_input_trace([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus::neutral(),
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let log = ControllerInputTraceLog::from_wup_trace(Frame(0), &trace, &frame, &frame);
+
+    writer
+        .write_line(&log)
+        .expect("input trace writer should write a JSON line");
+
+    let text = std::fs::read_to_string(writer.path()).expect("trace file should be readable");
+    assert!(writer.path().starts_with(&dir));
+    assert!(writer
+        .path()
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("trace filename should be utf-8")
+        .starts_with("controller-input-trace-"));
+    assert!(text.ends_with('\n'));
+    assert!(text.contains("\"input_backend\":\"wup\""));
 }
 
 #[test]
@@ -1548,10 +2349,10 @@ fn input_readout_stream_json_can_include_melee_snapshot_facts() {
             connected: true,
             pad: GameCubePadStatus {
                 stick_x: 255,
-                stick_y: 0,
+                stick_y: 125,
                 c_stick_x: 255,
                 c_stick_y: 0,
-                left_trigger: 72,
+                left_trigger: trigger_raw_from_origin(7, source_shield_trigger()),
                 right_trigger: 4,
                 buttons: GameCubeButtonState::empty().with_x(true),
             },
@@ -1564,18 +2365,15 @@ fn input_readout_stream_json_can_include_melee_snapshot_facts() {
     let line = InputReadout::from_wup_ports_with_melee_snapshots(moved_ports, melee).to_json_line();
 
     assert!(line.contains("\"melee\":{"));
-    assert!(line.contains("\"ucf_version\":\"0.84\""));
-    assert!(line.contains("\"lstick_x\":124"));
-    assert!(line.contains("\"lstick_y\":-125"));
+    assert!(line.contains("\"lstick_x\":127"));
+    assert!(line.contains("\"lstick_y\":0"));
     assert!(line.contains("\"prev_lstick_x\":0"));
     assert!(line.contains("\"x_tap_timer\":0"));
-    assert!(line.contains("\"trigger_timer\":254"));
-    assert!(line.contains("\"trigger_timer\":254,\"left_trigger\":65,\"right_trigger\":0,"));
+    assert!(line.contains("\"trigger_timer\":0"));
+    assert!(line.contains("\"trigger_timer\":0,\"left_trigger\":89,\"right_trigger\":0,"));
     assert!(line.contains("\"tilt_direction_x\":1"));
     assert!(line.contains("\"horizontal_smash_direction\":1"));
     assert!(line.contains("\"dash_direction\":1"));
-    assert!(line.contains("\"ucf_x_tilt_intent\":true"));
-    assert!(line.contains("\"ucf_dashback_direction\":1"));
     assert!(line.contains("\"tap_jump\":false"));
     assert!(line.contains("\"button_jump_pressed\":true"));
     assert!(line.contains("\"button_jump_held\":true"));
@@ -1593,12 +2391,12 @@ fn input_readout_stream_json_can_include_melee_snapshot_facts() {
     assert!(line.contains("\"source_a_pressed\":false"));
     assert!(line.contains("\"source_z_held\":false"));
     assert!(line.contains("\"source_z_pressed\":false"));
-    assert!(line.contains("\"fast_fall\":true"));
+    assert!(line.contains("\"fast_fall\":false"));
     assert!(line.contains("\"attack_pressed\":false"));
     assert!(line.contains("\"neutral_attack_pressed\":false"));
     assert!(line.contains("\"smash_attack_direction_x\":0"));
     assert!(line.contains("\"shield_pressed\":true"));
-    assert!(line.contains("\"analog_shield\":65"));
+    assert!(line.contains("\"analog_shield\":89"));
     assert!(line.contains("\"analog_shield_pressed\":true"));
     assert!(line.contains("\"digital_shield_pressed\":false"));
     assert!(line.contains("\"air_dodge_pressed\":false"));
@@ -1606,8 +2404,8 @@ fn input_readout_stream_json_can_include_melee_snapshot_facts() {
     assert!(line.contains("\"right_trigger_analog_held\":false"));
     assert!(line.contains("\"left_trigger_analog_pressed\":true"));
     assert!(line.contains("\"right_trigger_analog_pressed\":false"));
-    assert!(line.contains("\"cstick_x\":127"));
-    assert!(line.contains("\"cstick_y\":-128"));
+    assert!(line.contains("\"cstick_x\":89"));
+    assert!(line.contains("\"cstick_y\":-90"));
     assert!(line.contains("\"cstick_smash_direction_x\":1"));
     assert!(line.contains("\"cstick_smash_direction_y\":0"));
 }

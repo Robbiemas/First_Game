@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo Manual endpoint calibration is deprecated.
 echo Native WUP input now uses GameCube-style origin capture plus Rust/UCF input cleanup.

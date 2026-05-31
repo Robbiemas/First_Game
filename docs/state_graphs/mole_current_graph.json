@@ -21,272 +21,1529 @@
       "path": "crates/mole_runtime/tests/runtime_contract.rs"
     },
     {
+      "label": "Generated Falcon action-table ECB samples",
+      "path": "crates/mole_core/src/generated/falcon_ecb.rs"
+    },
+    {
+      "label": "Falcon ECB coverage ledger",
+      "path": "docs/state_graphs/parity_reports/falcon_ecb_coverage.json"
+    },
+    {
       "label": "Local state coverage comparison",
       "path": "docs/research/mole-state-coverage-comparison.md"
     }
   ],
   "nodes": [
     {
+      "id": "EntryEnd",
+      "label": "EntryEnd",
+      "pos": [
+        4,
+        -1
+      ],
+      "status": "partial",
+      "notes": "Timer schedule follows x6C0 and exits into Fall, matching the Slippi negative-frame state order before player-controlled movement.",
+      "source_refs": [
+        {
+          "label": "Melee EntryEnd source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C6B6C / ftCo_EntryEnd_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust EntryEnd simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_entry_end / advance_entry_end"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_end_ticks",
+        "global_common_values.entry_and_respawn.entry_collision_landing_lag_ticks"
+      ],
+      "known_gaps": [
+        "ftColl_8007B760 x6C8 handoff is recorded but not fully modeled."
+      ]
+    },
+    {
+      "id": "EntryStart",
+      "label": "EntryStart",
+      "pos": [
+        4,
+        -2
+      ],
+      "status": "partial",
+      "notes": "Timer schedule follows x6BC and the source same-frame decrement from Entry_Anim. ECB coverage maps EntryStart through ftCo_SM_EntryStart/action-table slot 238. Visual/accessory platform interpolation is not yet authoritative.",
+      "source_refs": [
+        {
+          "label": "Melee EntryStart source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C6408 / ftCo_EntryStart_Anim / ftCo_EntryStart_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust EntryStart simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_entry_start / advance_entry_start"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_start_ticks",
+        "global_common_values.entry_and_respawn.entry_initial_scale_y_milli"
+      ],
+      "known_gaps": [
+        "Y interpolation and accessory collision offset remain pending."
+      ]
+    },
+    {
+      "id": "Entry",
+      "label": "Entry",
+      "pos": [
+        4,
+        -3
+      ],
+      "status": "partial",
+      "notes": "Slippi/Battlefield match-start constructor now spawns players on neutral spawn points in ftCo_MS_Entry with Player_GetUnk4C-style 5-frame stagger. Entry platform Y interpolation is still pending co_attrs/trophy-scale extraction.",
+      "source_refs": [
+        {
+          "label": "Melee Entry source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C61B0 / ftCo_Entry_Anim"
+        },
+        {
+          "label": "Slippi neutral spawn ASM",
+          "path": ".research/slippi-ssbm-asm/External/NeutralSpawn/NeutralSpawn.asm",
+          "function": "SetSpawn"
+        },
+        {
+          "label": "Melee entry stagger source",
+          "path": ".research/doldecomp-melee/src/melee/gm/gm_16AE.c",
+          "function": "fn_8016D8AC / Player_SetUnk4C"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Entry motion state",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::Entry / World::for_slippi_battlefield_singles_match_start"
+        },
+        {
+          "label": "Rust Entry timer simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "advance_entry"
+        },
+        {
+          "label": "Entry spawn/timer contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "slippi_battlefield_match_start_uses_entry_spawns_and_source_stagger"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_start_ticks"
+      ],
+      "known_gaps": [
+        "EntryStart/EntryEnd vertical platform interpolation still needs decomp-shaped model scale/accessory extraction."
+      ]
+    },
+    {
       "id": "Wait",
       "label": "Wait",
-      "pos": [4, 0],
+      "pos": [
+        4,
+        0
+      ],
       "status": "aligned",
-      "notes": "Rust-owned grounded neutral state."
+      "notes": "Rust-owned grounded neutral state.",
+      "source_refs": [
+        {
+          "label": "Melee Wait source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Wait.c",
+          "function": "ftCo_Wait_Enter / ftCo_Wait_IASA / ftCo_Wait_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Wait simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "GroundState::Wait branch / apply_ground_friction"
+        },
+        {
+          "label": "Wait and grounded transition contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.walk_x",
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.traction_per_tick"
+      ],
+      "known_gaps": []
     },
     {
       "id": "WalkSlow",
       "label": "WalkSlow",
-      "pos": [0, 1],
+      "pos": [
+        0,
+        1
+      ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts."
+      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_Enter / ftCo_Walk_IASA / ftCo_Walk_Phys"
+        },
+        {
+          "label": "Melee walk bucket helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust walk simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_walk / apply_walk_velocity"
+        },
+        {
+          "label": "Walk bucket contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.walk_x",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "captain_falcon_values.walk_and_run.walk_initial_velocity",
+        "captain_falcon_values.walk_and_run.walk_accel",
+        "captain_falcon_values.walk_and_run.walk_max_vel",
+        "captain_falcon_values.walk_and_run.slow_walk_max_velocity",
+        "captain_falcon_values.walk_and_run.mid_walk_threshold",
+        "captain_falcon_values.walk_and_run.fast_walk_threshold"
+      ],
+      "known_gaps": []
     },
     {
       "id": "WalkMiddle",
       "label": "WalkMiddle",
-      "pos": [1, 1],
+      "pos": [
+        1,
+        1
+      ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts."
+      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_Enter / ftCo_Walk_IASA / ftCo_Walk_Phys"
+        },
+        {
+          "label": "Melee walk bucket helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust walk simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_walk / apply_walk_velocity"
+        },
+        {
+          "label": "Walk bucket contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.walk_x",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "captain_falcon_values.walk_and_run.walk_initial_velocity",
+        "captain_falcon_values.walk_and_run.walk_accel",
+        "captain_falcon_values.walk_and_run.walk_max_vel",
+        "captain_falcon_values.walk_and_run.slow_walk_max_velocity",
+        "captain_falcon_values.walk_and_run.mid_walk_threshold",
+        "captain_falcon_values.walk_and_run.fast_walk_threshold"
+      ],
+      "known_gaps": []
     },
     {
       "id": "WalkFast",
       "label": "WalkFast",
-      "pos": [2, 1],
+      "pos": [
+        2,
+        1
+      ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState below dash threshold; analog speed remains profile-driven."
+      "notes": "Explicit Rust MotionState below dash threshold; analog speed remains profile-driven.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_Enter / ftCo_Walk_IASA / ftCo_Walk_Phys"
+        },
+        {
+          "label": "Melee walk bucket helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust walk simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_walk / apply_walk_velocity"
+        },
+        {
+          "label": "Walk-to-dash contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.walk_x",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
+        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "captain_falcon_values.walk_and_run.walk_initial_velocity",
+        "captain_falcon_values.walk_and_run.walk_accel",
+        "captain_falcon_values.walk_and_run.walk_max_vel",
+        "captain_falcon_values.walk_and_run.slow_walk_max_velocity",
+        "captain_falcon_values.walk_and_run.mid_walk_threshold",
+        "captain_falcon_values.walk_and_run.fast_walk_threshold",
+        "global_common_values.grounded_locomotion.dash_x"
+      ],
+      "known_gaps": []
     },
     {
       "id": "Turn",
       "label": "Turn",
-      "pos": [3, 1],
+      "pos": [
+        3,
+        1
+      ],
       "status": "partial",
-      "notes": "Rust has a standing turn state and dash-out tests; exact Melee frame data still needs deeper coverage."
+      "notes": "Rust has a standing turn state, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, and same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn. Exact broader Turn frame data still needs deeper coverage.",
+      "source_refs": [
+        {
+          "label": "Melee Turn source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Enter / ftCo_Turn_IASA / ftCo_Turn_Phys"
+        },
+        {
+          "label": "Melee fighter callback order",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        },
+        {
+          "label": "UCF 0.84 dashback source hook",
+          "path": ".research/ucf/src/dashback/dashback.cpp",
+          "function": "Interrupt_AS_Turn+0x4C hook"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust turn helpers",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_smash_turn / enter_standing_turn / apply_ground_traction / dash-out branch"
+        },
+        {
+          "label": "Turn and dash-back contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.turn_x",
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.dash_and_turn.frames_to_change_direction_on_standing_turn"
+      ],
+      "physics": [
+        "Rust now models the input-callback-then-physics order for movement paths entering Turn: Wait, Walk, and Dash transitions stage Turn friction in the same frame.",
+        "Dash->Turn applies Dash IASA x54 first, then Turn's general grounded ft_80084F3C friction before position and gr_vel commit.",
+        "Walk/Wait carried gr_vel entering Turn receives the same Turn friction before any next-frame dash-out."
+      ],
+      "known_gaps": []
     },
     {
       "id": "Dash",
       "label": "Dash",
-      "pos": [4, 1],
+      "pos": [
+        4,
+        1
+      ],
       "status": "aligned",
-      "notes": "Rust owns fresh dash tap facts, initial dash, and dash-dance-style opposite tap behavior."
+      "notes": "Rust owns extracted PlCo dash facts: x0/x4 deadzones, x8/xC tap thresholds, x3C dash threshold, x40 tap window, x44/x48/x4C IASA windows, x54 Dash IASA velocity decay, source-shaped entry delta, tap-start early-Dash gating, non-run Dash completion to Wait, and moonwalk-like payload/relay tests without a Moonwalk state. Grounded horizontal movement now stages source-shaped gr_vel, xE4_ground_accel_1, and xE8_ground_accel_2 equivalents: xE4 contributes to same-frame translation and ground velocity, while Dash-entry xE8 commits after translation.",
+      "source_refs": [
+        {
+          "label": "Melee Dash source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter / ftCo_Dash_IASA / ftCo_Dash_Phys"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_dash / stage_dash_entry_ground_accel2 / commit_ground_velocity / apply_dash_velocity / exit_dash"
+        },
+        {
+          "label": "Dash and moonwalk contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "global_common_values.grounded_locomotion.dash_early_action_window",
+        "global_common_values.grounded_locomotion.dash_defensive_action_window",
+        "global_common_values.grounded_locomotion.dash_late_action_window",
+        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
+        "captain_falcon_values.dash_and_turn.dash_initial_velocity",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_b",
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity"
+      ],
+      "known_gaps": [
+        "Human moonwalk feel is still short/not chainable in playtest; ledger should isolate whether remaining gap is input timing, stick path capture, Dash live accel, follow-up state timing, or another decomp update-order path."
+      ]
     },
     {
       "id": "Squat",
       "label": "Squat",
-      "pos": [5, 1],
+      "pos": [
+        5,
+        1
+      ],
       "status": "partial",
-      "notes": "Rust has explicit crouch startup and profile-owned startup duration; exact animation data still needs extraction."
+      "notes": "Rust has explicit crouch startup, profile-owned startup duration, and source-style platform-pass arming through the shared Pass gate/countdown. Exact animation data still needs extraction."
+    },
+    {
+      "id": "Pass",
+      "label": "Pass",
+      "pos": [
+        5,
+        2
+      ],
+      "status": "partial",
+      "notes": "Rust common drop-through platform state. Guard/GuardOn/GuardReflect enter through the held-shield pass gate; Squat arms platform_pass_pending/platform_pass_timer before entering the same Pass state. Pass seeds source x46C vertical velocity, then the shared airborne fall step applies gravity before translation, matching ftCo_Pass_Phys -> ft_80084DB0. Pass animation completion now enters Fall at the generated Falcon action 209 frame count, matching ftCo_Pass_Anim -> ftCo_Fall_Enter while continuing through the ordinary airborne path for that frame.",
+      "source_refs": [
+        {
+          "label": "Melee Pass source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_80099F1C / ftCo_80099F9C / ftCo_8009A080 / ftCo_8009A228 / ftCo_Pass_Anim"
+        },
+        {
+          "label": "Melee Squat pass route",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Squat.c",
+          "function": "ftCo_Squat_IASA_inline"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Pass simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::Pass branch / platform_pass_gate / arm_squat_platform_pass / enter_pass"
+        },
+        {
+          "label": "Rust platform pass contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "pass_animation_completion_enters_fall / platform pass contracts"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_209",
+        "global_common_values.platform_and_air.fallspecial_platform_landing_y",
+        "global_common_values.platform_and_air.platform_pass_y",
+        "global_common_values.platform_and_air.platform_pass_y_tap_window",
+        "global_common_values.platform_and_air.pass_initial_y_velocity",
+        "global_common_values.platform_and_air.platform_drop_delay_ticks"
+      ],
+      "known_gaps": [
+        "Pass state exists for the common movement path; character-special routes that call ftCo_8009A184 remain future per-character work."
+      ]
     },
     {
       "id": "GuardOn",
       "label": "GuardOn",
-      "pos": [6, 1],
+      "pos": [
+        6,
+        1
+      ],
       "status": "partial",
       "notes": "Rust has explicit shield startup; shield hit/setoff and powershield families remain incomplete."
     },
     {
       "id": "KneeBend",
       "label": "KneeBend",
-      "pos": [7, 1],
+      "pos": [
+        7,
+        1
+      ],
       "status": "partial",
-      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, profile-owned full/short hop takeoff forces, and the Melee-shaped first jump tick that changes state without translating the bottom ECB vertex."
+      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, profile-owned full/short hop takeoff forces, and source-shaped grounded-to-air order: grounded IASA entries into KneeBend now run ftCo_KneeBend_Phys/ft_80084F3C on the same frame, while takeoff scales the prior grounded self_vel/gr_vel without an extra takeoff-frame friction tick. KneeBend_Anim enters JumpF/JumpB, same-frame Jump_IASA may accept fresh airborne actions, and the first Jump physics tick skips ordinary air drift/gravity. ECB coverage maps KneeBend through ftCo_SM_Kneebend/action-table slot 15; Captain Falcon's DAT points that slot at the Landing figatree bytes, but the decomp motion-state identity remains KneeBend."
     },
     {
       "id": "Run",
       "label": "Run",
-      "pos": [4, 2],
+      "pos": [
+        4,
+        2
+      ],
       "status": "partial",
-      "notes": "Rust has sustained run and no-interrupt windows; remaining run exits need continued Melee parity review."
+      "notes": "Rust has sustained run with extracted x58 run threshold, extracted x38 Run-to-TurnRun threshold, and x430 TurnRun no-interrupt window; remaining run exits need continued Melee parity review.",
+      "source_refs": [
+        {
+          "label": "Melee Run source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_Enter / ftCo_Run_IASA / ftCo_Run_Phys"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Run simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "GroundState::Run branch / apply_run_accel"
+        },
+        {
+          "label": "Run and run-exit contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.turn_run_x",
+        "global_common_values.grounded_locomotion.run_x",
+        "global_common_values.grounded_locomotion.run_accel_taper_milli",
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
+        "captain_falcon_values.walk_and_run.run_animation_scaling",
+        "captain_falcon_values.walk_and_run.ground_max_horizontal_velocity"
+      ],
+      "known_gaps": [
+        "Run exits remain marked partial until deeper Melee parity review covers every release/turn/brake timing path."
+      ]
     },
     {
       "id": "RunDirect",
       "label": "RunDirect",
-      "pos": [3, 2],
-      "status": "missing",
-      "notes": "Not currently represented as a separate Rust MotionState."
+      "pos": [
+        3,
+        2
+      ],
+      "status": "partial",
+      "notes": "Rust represents RunDirect as a distinct MotionState for Slippi diagnostics, checksums, visuals, and Captain Falcon ECB lookup. The source RunDirect IASA handoff into Run and release fallback to Wait are now modeled for injected/diagnostic RunDirect state identity; a normal gameplay entry path into RunDirect has not been found in the local decomp.",
+      "source_refs": [
+        {
+          "label": "Melee RunDirect source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunDirect.c",
+          "function": "ftCo_RunDirect_*"
+        },
+        {
+          "label": "Melee common motion-state table",
+          "path": ".research/doldecomp-melee/src/melee/ft/ftmotionstates.c",
+          "function": "ftCo_MS_RunDirect"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust motion state identity",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::RunDirect / motion_state_id"
+        },
+        {
+          "label": "Rust RunDirect IASA simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::RunDirect branch"
+        },
+        {
+          "label": "RunDirect callback contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "run_direct_*"
+        },
+        {
+          "label": "Slippi diagnostic action mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_13",
+        "falcon_ecb_coverage.motion_state.RunDirect"
+      ],
+      "known_gaps": [
+        "No normal source path that enters RunDirect was found by searching ftCo_MS_RunDirect, RunDirect, and numeric state-table references in the local decomp.",
+        "The RunDirect-specific mv.ca.specials.grav gate is treated as eligible only for the injected/diagnostic state identity until a real source entry initializes that motion var."
+      ]
     },
     {
       "id": "SquatWait",
       "label": "SquatWait",
-      "pos": [5, 2],
+      "pos": [
+        5,
+        2
+      ],
       "status": "partial",
       "notes": "Rust has explicit held crouch with source-shaped x94 release hysteresis and dash-before-release priority."
     },
     {
       "id": "Guard",
       "label": "Guard",
-      "pos": [6, 2],
+      "pos": [
+        6,
+        2
+      ],
       "status": "partial",
       "notes": "Steady shield exists with jump, grab, roll, spotdodge, and release paths under Rust tests."
     },
     {
       "id": "JumpF",
       "label": "JumpF",
-      "pos": [7, 2],
+      "pos": [
+        7,
+        2
+      ],
       "status": "partial",
-      "notes": "Rust has explicit forward ground jump state, Falcon-profile takeoff velocity, and anchored first tick; broader Fall/FallF/FallB state split is still pending."
+      "notes": "Rust has explicit forward ground jump state, Falcon-profile takeoff velocity, first-tick takeoff translation without first-tick Jump gravity, and generated action-frame completion into Fall. The following Fall state now owns active FallF/FallB ECB pose selection from velocity."
     },
     {
       "id": "JumpB",
       "label": "JumpB",
-      "pos": [8, 2],
+      "pos": [
+        8,
+        2
+      ],
       "status": "partial",
-      "notes": "Rust has explicit backward ground jump state, Falcon-profile takeoff velocity, and anchored first tick; broader Fall/FallF/FallB state split is still pending."
+      "notes": "Rust has explicit backward ground jump state, Falcon-profile takeoff velocity, first-tick takeoff translation without first-tick Jump gravity, and generated action-frame completion into Fall. The following Fall state now owns active FallF/FallB ECB pose selection from velocity."
     },
     {
       "id": "RunBrake",
       "label": "RunBrake",
-      "pos": [2, 3],
+      "pos": [
+        2,
+        3
+      ],
       "status": "partial",
-      "notes": "Explicit Rust state applies traction and can honor extracted profile max_run_brake_frames; fallback profile leaves exact Falcon DAT value unset."
+      "notes": "Explicit Rust state applies source-shaped run ground traction, honors extracted Captain Falcon max_run_brake_frames == 30, and covers jump/squat IASA interrupts. Source RunBrake animation command-vars can pause the animation around PlCo x42C and gate a later TurnRun branch; those command-var paths remain partial.",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_Enter / ftCo_RunBrake_IASA / ftCo_RunBrake_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust RunBrake simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::RunBrake branch / apply_run_ground_traction"
+        },
+        {
+          "label": "Run brake contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "captain_falcon_values.walk_and_run.max_run_brake_frames"
+      ],
+      "known_gaps": [
+        "RunBrake animation command-var pause around PlCo x42C and command-var-gated TurnRun behavior remain partial."
+      ]
     },
     {
       "id": "TurnRun",
       "label": "TurnRun",
-      "pos": [4, 3],
+      "pos": [
+        4,
+        3
+      ],
       "status": "partial",
-      "notes": "Rust preserves old-facing behavior while velocity crosses zero; still needs frame-perfect reference checks."
+      "notes": "Rust preserves old-facing behavior while velocity crosses zero. Run IASA enters TurnRun through the extracted PlCo x38 threshold, then applies the source-shaped TurnRun_Phys path on the entry tick, so opposite acceleration is accepted through the stored old-facing accel_mul before facing flips at the velocity crossing. Exact animation command pause and completion timing still need frame-perfect reference checks.",
+      "source_refs": [
+        {
+          "label": "Melee TurnRun source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_Enter / ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust TurnRun simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::TurnRun branch / enter_turn_run / apply_turn_run_velocity"
+        },
+        {
+          "label": "TurnRun contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "run_opposite_stick_enters_turn_run_with_source_turnrun_phys_on_entry_tick / turn_run_*"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.turn_run_x",
+        "global_common_values.grounded_locomotion.run_turn_run_no_interrupt_frames",
+        "global_common_values.grounded_locomotion.run_x",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_b",
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity"
+      ],
+      "known_gaps": [
+        "TurnRun is still partial until animation command pause and completion timing have frame-perfect reference checks."
+      ]
     },
     {
       "id": "SquatRv",
       "label": "SquatRv",
-      "pos": [5, 3],
+      "pos": [
+        5,
+        3
+      ],
       "status": "partial",
       "notes": "Rust has explicit crouch release with profile-owned release duration; exact animation data still needs extraction."
     },
     {
       "id": "GuardOff",
       "label": "GuardOff",
-      "pos": [6, 3],
+      "pos": [
+        6,
+        3
+      ],
       "status": "partial",
       "notes": "Rust has explicit shield release with action tests; exact Melee timing remains under review."
     },
     {
       "id": "GuardSetOff",
       "label": "GuardSetOff",
-      "pos": [7, 3],
-      "status": "missing",
-      "notes": "Shield hitstun/setoff family is not implemented yet."
+      "pos": [
+        7,
+        3
+      ],
+      "status": "partial",
+      "notes": "Rust now represents GuardSetOff as a distinct MotionState for Slippi diagnostics, checksums, visuals, and Captain Falcon ECB lookup. Exact shield-hit entry math, hitlag callbacks, SDI behavior, and GuardSetOff animation exit routing remain pending until the hitbox/shield system is implemented.",
+      "source_refs": [
+        {
+          "label": "Melee GuardSetOff source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+          "function": "ftCo_80092F2C / ftCo_GuardSetOff_*"
+        },
+        {
+          "label": "Melee common motion-state table",
+          "path": ".research/doldecomp-melee/src/melee/ft/ftmotionstates.c",
+          "function": "ftCo_MS_GuardSetOff"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust motion state identity",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::GuardSetOff / motion_state_id"
+        },
+        {
+          "label": "Rust GuardSetOff simulation placeholder",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::GuardSetOff branch"
+        },
+        {
+          "label": "Slippi diagnostic action mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_40",
+        "falcon_ecb_coverage.motion_state.GuardSetOff"
+      ],
+      "known_gaps": [
+        "Shield-hit entry and setoff physics are not yet wired because hurtboxes/hitboxes/knockback/hitlag are still future systems.",
+        "GuardSetOff_Anim exits through source guard helpers based on guard mv data that Rust does not model yet."
+      ]
     },
     {
       "id": "GuardReflect",
       "label": "GuardReflect",
-      "pos": [8, 3],
-      "status": "missing",
-      "notes": "Powershield/reflect common-state family is not implemented yet."
+      "pos": [
+        8,
+        3
+      ],
+      "status": "partial",
+      "notes": "Rust implements the dash fresh-digital-L/R entry slice as GuardReflect with the extracted x2A0 input window and Dash IASA x54 fall-through velocity decay. ECB coverage maps GuardReflect through ftCo_SM_GuardOn/action-table slot 37. Shield-hit reflect/setoff behavior and full animation/hurtbox details remain pending.",
+      "source_refs": [
+        {
+          "label": "Melee Dash guard-reflect source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_80091AD8 / ftCo_800939B4"
+        },
+        {
+          "label": "Melee GuardReflect IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_GuardReflect.c",
+          "function": "ftCo_GuardReflect_IASA"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust GuardReflect state",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::GuardReflect"
+        },
+        {
+          "label": "Rust Dash to GuardReflect branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "dash_action_state / enter_guard_reflect / enter_dash_iasa_action_state"
+        },
+        {
+          "label": "GuardReflect contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "dash_fresh_digital_lr_enters_guard_reflect_with_source_x54_decay / guard_reflect_with_held_lr_can_pass_through_soft_platform"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.shield_and_defense.guard_reflect_input_window",
+        "global_common_values.grounded_locomotion.dash_velocity_decay_milli"
+      ],
+      "known_gaps": [
+        "Shield-hit reflect behavior is still missing."
+      ]
     },
     {
       "id": "EscapeN",
       "label": "EscapeN",
-      "pos": [5, 4],
+      "pos": [
+        5,
+        4
+      ],
       "status": "partial",
       "notes": "Rust spotdodge state exists; detailed intangibility/action windows are still coarse."
     },
     {
       "id": "EscapeF",
       "label": "EscapeF",
-      "pos": [6, 4],
+      "pos": [
+        6,
+        4
+      ],
       "status": "partial",
       "notes": "Rust forward roll state exists; detailed displacement/windows are still coarse."
     },
     {
       "id": "EscapeB",
       "label": "EscapeB",
-      "pos": [7, 4],
+      "pos": [
+        7,
+        4
+      ],
       "status": "partial",
       "notes": "Rust backward roll state exists; detailed displacement/windows are still coarse."
     },
     {
       "id": "JumpAerialF",
       "label": "JumpAerialF",
-      "pos": [8, 4],
+      "pos": [
+        8,
+        4
+      ],
       "status": "partial",
-      "notes": "Rust double-jump forward state exists and uses a profile-owned air-jump force; broader aerial physics still needs Falcon parity work."
+      "notes": "Rust double-jump forward state exists and uses profile-owned air-jump force with native +127 full-stick scaling; broader aerial physics still needs Falcon parity work."
     },
     {
       "id": "JumpAerialB",
       "label": "JumpAerialB",
-      "pos": [9, 4],
+      "pos": [
+        9,
+        4
+      ],
       "status": "partial",
-      "notes": "Rust double-jump backward state exists and uses a profile-owned air-jump force; broader aerial physics still needs Falcon parity work."
-    },
-    {
-      "id": "Air",
-      "label": "Air umbrella",
-      "pos": [7, 5],
-      "status": "mismatch",
-      "notes": "Rust still has some legacy Air umbrella entry points; source-shaped fall-off from landing now routes through explicit Fall."
+      "notes": "Rust double-jump backward state exists and uses profile-owned air-jump force with native -128 full-stick scaling; broader aerial physics still needs Falcon parity work."
     },
     {
       "id": "Fall",
       "label": "Fall",
-      "pos": [7, 6],
+      "pos": [
+        7,
+        6
+      ],
       "status": "partial",
-      "notes": "Rust has explicit Fall for landing-state ground loss via ftCo_Fall_Enter; FallF/FallB animation-state splitting remains pending."
+      "notes": "Rust now uses explicit Fall for generic airborne fall-through instead of the old Air umbrella. This matches ftCo_Fall_Enter for ground-to-air loss and post-Jump animation completion as the target state. Active ECB/render pose selection now follows the ftCo_Fall_Anim_Inner shape: self horizontal velocity over Falcon air_drift_max is compared against PlCo x444, gated by x448, then FallF/FallB samples are selected without changing the canonical Rust MotionState.",
+      "source_refs": [
+        {
+          "label": "Melee Fall source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Fall.c",
+          "function": "ftCo_Fall_Enter / ftCo_Fall_IASA / ftCo_Fall_Phys / ftCo_Fall_Coll"
+        },
+        {
+          "label": "Melee Jump animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Jump.c",
+          "function": "ftCo_Jump_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Fall entry",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_fall"
+        },
+        {
+          "label": "Rust active fall pose selection",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "active_pose_motion_state"
+        },
+        {
+          "label": "Rust Air umbrella removal test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "airborne_wait_falls_through_explicit_fall_state_not_air_umbrella"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.fall_animation_drift_threshold_milli",
+        "global_common_values.fall_animation_blend_milli",
+        "captain_falcon_values.air_drift_max"
+      ],
+      "known_gaps": [
+        "The real ftAnim submotion blend metadata and blend accumulator are not fully modeled yet; this slice applies the same directional selection to active ECB/render snapshots."
+      ]
     },
     {
       "id": "FallF",
       "label": "FallF",
-      "pos": [8, 6],
-      "status": "missing",
-      "notes": "Not currently represented separately; folded into Air."
+      "pos": [
+        8,
+        6
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallF MotionState and generated Captain Falcon action-table ECB samples. Base Fall can now select these samples as the active ECB/render pose when ftCo_Fall_Anim_Inner's velocity threshold says the forward submotion is active, without entering FallF as a gameplay state."
     },
     {
       "id": "FallB",
       "label": "FallB",
-      "pos": [9, 6],
-      "status": "missing",
-      "notes": "Not currently represented separately; folded into Air."
+      "pos": [
+        9,
+        6
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallB MotionState and generated Captain Falcon action-table ECB samples. Base Fall can now select these samples as the active ECB/render pose when ftCo_Fall_Anim_Inner's velocity threshold says the backward submotion is active, without entering FallB as a gameplay state."
     },
     {
       "id": "EscapeAir",
       "label": "EscapeAir",
-      "pos": [10, 5],
+      "pos": [
+        10,
+        5
+      ],
       "status": "partial",
-      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity during EscapeAir, and FallSpecial/LandingFallSpecial exits."
+      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity during EscapeAir, ground-to-air ECB bottom locking, generated Falcon action-table ECB samples, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits.",
+      "source_refs": [
+        {
+          "label": "Melee ECB JObj source setup",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80081B38"
+        },
+        {
+          "label": "Melee JObj ECB loader",
+          "path": ".research/doldecomp-melee/src/melee/mp/mpcoll.c",
+          "function": "mpColl_LoadECB_JObj"
+        },
+        {
+          "label": "Melee FigaTree animation source",
+          "path": ".research/doldecomp-melee/src/melee/lb/lbanim.h",
+          "function": "FigaTree / FigaTrack"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust EscapeAir simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_escape_air / MotionState::EscapeAir branch / action_sample_frame_count_for_motion_state"
+        },
+        {
+          "label": "Melee DAT extractor",
+          "path": "tools/extract_melee_resources.py",
+          "function": "extract_captain_action_ecb_samples"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "The full Slippi replay still diverges before the local EscapeAir landing slice, so earlier JumpAerialF/position history and remaining collision callbacks still need source-shaped parity."
+      ]
     },
     {
       "id": "FallSpecial",
       "label": "FallSpecial",
-      "pos": [10, 6],
+      "pos": [
+        10,
+        6
+      ],
       "status": "partial",
-      "notes": "Rust has base special fall with air-jump IASA and normal air drift after EscapeAir; forward/back variants and other x340 mobility entry paths are not explicit."
+      "notes": "Rust has base special fall with air-jump IASA, normal air drift after EscapeAir, and generated action state 26 per-frame ECB samples for landing probes and debug rendering. FallSpecial can now select FallSpecialF/B active ECB poses through the same ftCo_Fall_Anim_Inner-shaped velocity threshold used by ordinary Fall; other x340 mobility entry paths remain partial."
     },
     {
       "id": "FallSpecialF",
       "label": "FallSpecialF",
-      "pos": [11, 6],
-      "status": "missing",
-      "notes": "Not currently represented as a separate Rust MotionState."
+      "pos": [
+        11,
+        6
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallSpecialF MotionState, Slippi state mapping, legacy visual cue, airborne landing handling, and generated Captain Falcon action-table ECB samples. Base FallSpecial can now select this as an active ECB/render pose through the ftCo_Fall_Anim_Inner-shaped velocity threshold.",
+      "source_refs": [
+        {
+          "label": "Melee FallSpecial source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_FallSpecial.c",
+          "function": "ftCo_FallSpecial_Anim / ftCo_FallSpecial_Phys / ftCo_FallSpecial_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Slippi diagnostic mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "known_gaps": [
+        "Do not enter this by local shortcut; keep gameplay state canonical while modeling the remaining source animation blend details."
+      ]
     },
     {
       "id": "FallSpecialB",
       "label": "FallSpecialB",
-      "pos": [12, 6],
-      "status": "missing",
-      "notes": "Not currently represented as a separate Rust MotionState."
+      "pos": [
+        12,
+        6
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallSpecialB MotionState, Slippi state mapping, legacy visual cue, airborne landing handling, and generated Captain Falcon action-table ECB samples. Base FallSpecial can now select this as an active ECB/render pose through the ftCo_Fall_Anim_Inner-shaped velocity threshold.",
+      "source_refs": [
+        {
+          "label": "Melee FallSpecial source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_FallSpecial.c",
+          "function": "ftCo_FallSpecial_Anim / ftCo_FallSpecial_Phys / ftCo_FallSpecial_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Slippi diagnostic mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "known_gaps": [
+        "Do not enter this by local shortcut; keep gameplay state canonical while modeling the remaining source animation blend details."
+      ]
     },
     {
       "id": "Landing",
       "label": "Landing",
-      "pos": [7, 7],
+      "pos": [
+        7,
+        7
+      ],
       "status": "partial",
       "notes": "Rust has general landing state, but collision and landing-lag details still need parity tuning."
     },
     {
       "id": "LandingFallSpecial",
       "label": "LandingFallSpecial",
-      "pos": [10, 7],
+      "pos": [
+        10,
+        7
+      ],
       "status": "partial",
-      "notes": "Rust preserves EscapeAir/FallSpecial horizontal slide, applies Falcon ground friction as fixed traction toward zero, and returns after common-data landing lag; no Wavedash state exists."
+      "notes": "Rust preserves EscapeAir/FallSpecial horizontal slide, applies Falcon ground friction as fixed traction toward zero, and returns after common-data landing lag; no Wavedash state exists. ECB coverage maps LandingFallSpecial through its exact ftCo_SM_LandingFallSpecial submotion record, and active ECB/render pose now scales the shared 30-frame Landing figatree across the x344 landing-lag window using the source ftCo_LandingFallSpecial_Enter animation-rate formula. Falcon's DAT points that record at the same landing figatree bytes as ordinary Landing, but the motion-state identity remains distinct.",
+      "source_refs": [
+        {
+          "label": "Melee Landing source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Landing.c",
+          "function": "ftCo_LandingFallSpecial_Enter / ftCo_Landing_Anim / ftCo_Landing_IASA"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust landing-fall-special simulation",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_fall_special / LandingFallSpecial branch"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Rust active ECB pose timing",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "landing_fall_special_pose_sample_frame"
+        }
+      ],
+      "known_gaps": [
+        "LandingFallSpecial non-airdodge entry paths with allow_interrupt=true or non-x344 landing lag still need source-backed state storage before being treated as complete."
+      ]
+    },
+    {
+      "id": "SpecialSStart",
+      "label": "SpecialSStart",
+      "pos": [
+        11,
+        4
+      ],
+      "status": "partial",
+      "notes": "Rust now enters Captain side-B through the decomp start state instead of the old coarse SpecialS shortcut. ECB coverage maps this state to Captain action-table slot 303 / PlyCaptain5K_Share_ACTION_SpecialSStart_figatree. Hit-confirm transition into SpecialS, cmd_vars, GFX callbacks, and exact miss animation completion remain pending.",
+      "source_refs": [
+        {
+          "label": "Captain side special enter",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCaptain/ftCa_SpecialS.c",
+          "function": "ftCa_SpecialS_Enter / ftCa_SpecialSStart_Anim / ftCa_SpecialS_OnDetect"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust side special start entry",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "special_state_from_direction / walk_special_state_from_direction / dash_action_state"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "SpecialS hit-confirm state is represented but not reachable until hitboxes/detection exist."
+      ]
+    },
+    {
+      "id": "SpecialS",
+      "label": "SpecialS",
+      "pos": [
+        12,
+        4
+      ],
+      "status": "partial",
+      "notes": "Captain side-B hit-confirm state exists as a Rust MotionState and ECB coverage maps it to action-table slot 304. The hit-detection branch from SpecialSStart is still pending because hitboxes/hurtboxes are not implemented yet.",
+      "source_refs": [
+        {
+          "label": "Captain side special hit-confirm",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCaptain/ftCa_SpecialS.c",
+          "function": "ftCa_SpecialS_OnDetect / onDetectGround / ftCa_SpecialS_*"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust motion state identity",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::SpecialS"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Slippi diagnostic action mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_304",
+        "falcon_ecb_coverage.motion_state.SpecialS"
+      ],
+      "known_gaps": [
+        "Hit-confirm transition from SpecialSStart is not reachable until fighter/item detection callbacks and hitbox/hurtbox ownership exist."
+      ]
+    },
+    {
+      "id": "SpecialAirSStart",
+      "label": "SpecialAirSStart",
+      "pos": [
+        11,
+        5
+      ],
+      "status": "partial",
+      "notes": "Rust now enters aerial Captain side-B through the decomp start state. ECB coverage maps this state to Captain action-table slot 305 / PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree. The exact aerial start gravity cmd_var branch and miss landing-lag/fall handoff remain pending.",
+      "source_refs": [
+        {
+          "label": "Captain aerial side special enter",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCaptain/ftCa_SpecialS.c",
+          "function": "ftCa_SpecialAirS_Enter / ftCa_SpecialAirSStart_Anim / ftCa_SpecialAirSStart_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial special selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "air_special_state_from_direction / enter_air_special"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "SpecialAirS hit-confirm and miss landing-lag handoff are not complete."
+      ]
+    },
+    {
+      "id": "SpecialAirS",
+      "label": "SpecialAirS",
+      "pos": [
+        12,
+        5
+      ],
+      "status": "partial",
+      "notes": "Captain aerial side-B hit-confirm state exists as a Rust MotionState and ECB coverage maps it to action-table slot 306. The aerial hit-detection branch from SpecialAirSStart is still pending because hitboxes/hurtboxes are not implemented yet.",
+      "source_refs": [
+        {
+          "label": "Captain aerial side special hit-confirm",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCaptain/ftCa_SpecialS.c",
+          "function": "ftCa_SpecialS_OnDetect / onDetectAir / ftCa_SpecialAirS_*"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust motion state identity",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "MotionState::SpecialAirS"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Slippi diagnostic action mapping",
+          "path": "crates/mole_runtime/src/slippi_diagnostic.rs",
+          "function": "slippi_action_state_to_motion"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_306",
+        "falcon_ecb_coverage.motion_state.SpecialAirS"
+      ],
+      "known_gaps": [
+        "Aerial hit-confirm transition from SpecialAirSStart is not reachable until fighter/item detection callbacks and hitbox/hurtbox ownership exist."
+      ]
+    },
+    {
+      "id": "LandingAirN",
+      "label": "LandingAirN",
+      "pos": [
+        6,
+        9
+      ],
+      "status": "partial",
+      "notes": "Rust enters the exact neutral-aerial landing state from AttackAirN ground contact, maps generated Falcon action-table ECB samples from action 73, and gates IASA with extracted Falcon landingairn_lag.",
+      "source_refs": [
+        {
+          "label": "Melee LandingAir source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial landing selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_from_airborne"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+      ]
+    },
+    {
+      "id": "LandingAirF",
+      "label": "LandingAirF",
+      "pos": [
+        7,
+        9
+      ],
+      "status": "partial",
+      "notes": "Rust enters the exact forward-aerial landing state from AttackAirF ground contact, maps generated Falcon action-table ECB samples from action 74, and gates IASA with extracted Falcon landingairf_lag.",
+      "source_refs": [
+        {
+          "label": "Melee LandingAir source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial landing selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_from_airborne"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+      ]
+    },
+    {
+      "id": "LandingAirB",
+      "label": "LandingAirB",
+      "pos": [
+        8,
+        9
+      ],
+      "status": "partial",
+      "notes": "Rust enters the exact back-aerial landing state from AttackAirB ground contact, maps generated Falcon action-table ECB samples from action 75, and gates IASA with extracted Falcon landingairb_lag.",
+      "source_refs": [
+        {
+          "label": "Melee LandingAir source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial landing selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_from_airborne"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+      ]
+    },
+    {
+      "id": "LandingAirHi",
+      "label": "LandingAirHi",
+      "pos": [
+        9,
+        9
+      ],
+      "status": "partial",
+      "notes": "Rust enters the exact up-aerial landing state from AttackAirHi ground contact, maps generated Falcon action-table ECB samples from action 76, and gates IASA with extracted Falcon landingairhi_lag.",
+      "source_refs": [
+        {
+          "label": "Melee LandingAir source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial landing selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_from_airborne"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+      ]
+    },
+    {
+      "id": "LandingAirLw",
+      "label": "LandingAirLw",
+      "pos": [
+        10,
+        9
+      ],
+      "status": "partial",
+      "notes": "Rust enters the exact down-aerial landing state from AttackAirLw ground contact, maps generated Falcon action-table ECB samples from action 77, and gates IASA with extracted Falcon landingairlw_lag.",
+      "source_refs": [
+        {
+          "label": "Melee LandingAir source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust aerial landing selector",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_landing_from_airborne"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+      ]
     },
     {
       "id": "ShieldTurn",
       "label": "ShieldTurn tuning aid",
-      "pos": [4, 4],
+      "pos": [
+        4,
+        4
+      ],
       "status": "intentional",
       "notes": "Intentional non-Melee helper behavior stored on Guard/GuardOn rather than as a Rust MotionState."
+    },
+    {
+      "id": "FallAerial",
+      "label": "FallAerial",
+      "pos": [
+        7,
+        8
+      ],
+      "status": "partial",
+      "notes": "Rust now enters FallAerial when a JumpAerialF/B action sample completes, matching ftCo_JumpAerial_Anim calling ftCo_FallAerial_Enter. The state also has generated Captain Falcon action-table ECB samples, and active ECB/render pose selection can choose FallAerialF/B from the ftCo_Fall_Anim_Inner-shaped velocity threshold without changing the canonical MotionState.",
+      "source_refs": [
+        {
+          "label": "Melee FallAerial source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_FallAerial.c",
+          "function": "ftCo_FallAerial_Enter / ftCo_FallAerial_Anim"
+        },
+        {
+          "label": "Melee JumpAerial animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_JumpAerial.c",
+          "function": "ftCo_JumpAerial_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust FallAerial entry",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_fall_aerial"
+        },
+        {
+          "label": "FallAerial contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "aerial_jump_animation_completion_enters_fall_aerial_not_base_fall"
+        },
+        {
+          "label": "Generated Rust ECB table",
+          "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+          "function": "falcon_ecb_samples_for_motion_state"
+        },
+        {
+          "label": "Rust active fall pose selection",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "active_pose_motion_state"
+        }
+      ],
+      "known_gaps": [
+        "Exact ftCo_FallAerial_Anim submotion blending metadata still needs the real ftAnim accumulator path; active ECB/render selection is source-shaped but not a full animation system yet."
+      ]
+    },
+    {
+      "id": "FallAerialF",
+      "label": "FallAerialF",
+      "pos": [
+        8,
+        8
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallAerialF MotionState and generated Captain Falcon action-table ECB samples. Base FallAerial can now select this as an active ECB/render pose through the ftCo_Fall_Anim_Inner-shaped velocity threshold, without entering FallAerialF as a gameplay state.",
+      "source_refs": [
+        {
+          "label": "Melee FallAerial source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_FallAerial.c",
+          "function": "ftCo_FallAerial_Enter / ftCo_FallAerial_Anim"
+        }
+      ],
+      "known_gaps": [
+        "Do not enter this by local shortcut; keep gameplay state canonical while modeling the remaining source animation blend details."
+      ]
+    },
+    {
+      "id": "FallAerialB",
+      "label": "FallAerialB",
+      "pos": [
+        9,
+        8
+      ],
+      "status": "partial",
+      "notes": "Rust has an exact FallAerialB MotionState and generated Captain Falcon action-table ECB samples. Base FallAerial can now select this as an active ECB/render pose through the ftCo_Fall_Anim_Inner-shaped velocity threshold, without entering FallAerialB as a gameplay state.",
+      "source_refs": [
+        {
+          "label": "Melee FallAerial source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_FallAerial.c",
+          "function": "ftCo_FallAerial_Enter / ftCo_FallAerial_Anim"
+        }
+      ],
+      "known_gaps": [
+        "Do not enter this by local shortcut; keep gameplay state canonical while modeling the remaining source animation blend details."
+      ]
     }
   ],
   "edges": [
+    {
+      "from": "EntryEnd",
+      "to": "Fall",
+      "label": "x6C0 countdown expires",
+      "status": "partial",
+      "notes": "Rust exits to Fall on the x6C0 schedule; the optional x6C8 collision handoff is recorded as a remaining gap.",
+      "input": "no player IASA",
+      "frames": "x6C0 countdown reaches zero"
+    },
+    {
+      "from": "EntryStart",
+      "to": "EntryEnd",
+      "label": "x6BC countdown expires",
+      "status": "aligned",
+      "notes": "EntryStart_Anim decrements x6BC and calls ftCo_800C6B6C when it reaches zero.",
+      "input": "no player IASA",
+      "frames": "x6BC countdown reaches zero"
+    },
+    {
+      "from": "Entry",
+      "to": "EntryStart",
+      "label": "timer reaches zero",
+      "status": "aligned",
+      "notes": "Entry_Anim checks timer 0, enters EntryStart, then decrements the newly seeded x6BC timer on the same source frame.",
+      "input": "match-start Entry timer",
+      "frames": "Player_GetUnk4C countdown reaches zero"
+    },
     {
       "from": "Wait",
       "to": "WalkSlow",
@@ -317,14 +1574,140 @@
       "input": "control stick X crosses dash threshold inside tap window",
       "frames": "fresh X tap frame",
       "status": "aligned",
-      "notes": "Rust consumes rollback-owned input facts and UCF-cleaned dash direction."
+      "notes": "Rust consumes rollback-owned vanilla Melee facts after adapter-owned UCF preprocessing. Dash entry stages the initial delta as xE8-equivalent ground acceleration, so the transition frame commits ground velocity without translating from that delta.",
+      "source_refs": [
+        {
+          "label": "Melee Wait IASA to Dash",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Wait.c",
+          "function": "ftCo_Wait_IASA"
+        },
+        {
+          "label": "Melee Dash entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Wait-to-Dash transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "wait_input_priority / enter_dash"
+        },
+        {
+          "label": "Dash entry contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "captain_falcon_values.dash_and_turn.dash_initial_velocity"
+      ],
+      "physics": [
+        "fresh X tap fact",
+        "dash threshold crossing",
+        "source-shaped initial dash delta staged as xE8"
+      ],
+      "known_gaps": []
     },
     {
       "from": "Wait",
       "to": "Turn",
       "input": "opposite horizontal stick below dash/tap requirement",
       "frames": "current frame",
-      "status": "partial"
+      "status": "aligned",
+      "notes": "Rust preserves carried gr_vel into Wait, routes fresh opposite dash input through Turn, and applies same-frame Turn_Phys friction before gr_vel commit.",
+      "source_refs": [
+        {
+          "label": "Melee Wait IASA to Turn",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Wait.c",
+          "function": "ftCo_Wait_IASA"
+        },
+        {
+          "label": "Melee Turn input check",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_CheckInput / ftCo_Turn_Enter_Basic"
+        },
+        {
+          "label": "Melee Turn physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Wait-to-Turn transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "smash_turn / standing_turn branches / apply_ground_traction"
+        },
+        {
+          "label": "Wait-carried Turn contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "walk_rollout_frame_routes_opposite_dash_through_turn_physics_before_dash_entry"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.turn_x",
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.traction_per_tick"
+      ],
+      "physics": [
+        "Wait can carry gr_vel from a previous grounded state",
+        "Wait IASA changes to Turn before Fighter_procUpdate",
+        "same-frame Turn_Phys stages xE4 friction before gr_vel commit"
+      ],
+      "known_gaps": []
+    },
+    {
+      "from": "Turn",
+      "to": "Dash",
+      "input": "outward dash-threshold stick after Turn dash arm; optional UCF dashback amendment can fire on the source Turn hook frame",
+      "frames": "vanilla just-turned frame or UCF source hook frame",
+      "status": "aligned",
+      "notes": "Vanilla follows ftCo_Turn_IASA/fn_800C9C2C: fresh outward xsmash arms dash-out and Dash enters on just_turned if the stick is still held. UCF 0.84 dashback remains adapter-owned for the raw two-frame x delta and toggle, then the rollback input amendment applies the source Turn hook without creating a new movement state. Slippi replay export now writes that same adapter-owned bit for UCF-tagged players before the core oracle runs.",
+      "source_refs": [
+        {
+          "label": "Melee Turn dash arm",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_IASA / fn_800C9C2C"
+        },
+        {
+          "label": "UCF 0.84 dashback source hook",
+          "path": ".research/ucf/src/dashback/dashback.cpp",
+          "function": "Interrupt_AS_Turn+0x4C hook"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Turn dash hook",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "apply_ucf_dashback_turn_hook / arm_turn_dash_after_if_fresh"
+        },
+        {
+          "label": "Adapter UCF dashback tests",
+          "path": "crates/mole_input/tests/ucf_contract.rs"
+        },
+        {
+          "label": "Runtime WUP amendment test",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs"
+        },
+        {
+          "label": "Core Turn hook contract test",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "captain_falcon_values.dash_and_turn.frames_to_change_direction_on_standing_turn"
+      ],
+      "physics": [
+        "source Turn action-state flags",
+        "adapter-owned UCF raw x delta > 75",
+        "x tap timer and dash threshold remain vanilla facts"
+      ],
+      "known_gaps": []
     },
     {
       "from": "Wait",
@@ -353,85 +1736,410 @@
       "to": "Wait",
       "input": "release stick or leave walk condition",
       "frames": "current frame",
-      "status": "aligned"
+      "status": "aligned",
+      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry."
     },
     {
       "from": "WalkMiddle",
       "to": "Wait",
       "input": "release stick or leave walk condition",
       "frames": "current frame",
-      "status": "aligned"
+      "status": "aligned",
+      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry."
     },
     {
       "from": "WalkFast",
       "to": "Wait",
       "input": "release stick or leave walk condition",
       "frames": "current frame",
-      "status": "aligned"
+      "status": "aligned",
+      "notes": "Preserves full-speed walk carry for opposite-dash moonwalk setup."
     },
     {
       "from": "WalkFast",
       "to": "Dash",
       "input": "fresh forward X tap while walking",
       "frames": "inside X tap window",
-      "status": "aligned"
+      "status": "aligned",
+      "source_refs": [
+        {
+          "label": "Melee Walk IASA to Dash",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_IASA"
+        },
+        {
+          "label": "Melee Dash entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust WalkFast-to-Dash transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "walk_input_priority / enter_dash"
+        },
+        {
+          "label": "Walk-to-dash contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "captain_falcon_values.dash_and_turn.dash_initial_velocity"
+      ],
+      "physics": [
+        "fresh forward dash tap while walking",
+        "walk bucket exits through dash priority",
+        "carried gr_vel feeds Dash xE8 entry staging"
+      ],
+      "known_gaps": []
     },
     {
       "from": "WalkFast",
       "to": "Turn",
       "input": "fresh opposite X tap / smash turn",
       "frames": "inside X tap window",
-      "status": "partial"
+      "status": "aligned",
+      "notes": "Rust routes fresh opposite walk input through the source Dash_CheckInput-shaped smash turn path, then applies same-frame Turn friction before any next-frame dash-out.",
+      "source_refs": [
+        {
+          "label": "Melee Walk IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_IASA"
+        },
+        {
+          "label": "Melee Dash input check",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_CheckInput"
+        },
+        {
+          "label": "Melee Turn physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Phys"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Walk-to-Turn transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "walk_smash_turn branch / enter_smash_turn / apply_ground_traction"
+        },
+        {
+          "label": "Walk-to-Turn contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "walk_state_fresh_opposite_dash_tap_enters_turn"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.traction_per_tick"
+      ],
+      "physics": [
+        "fresh opposite X tap during Walk",
+        "ftCo_Dash_CheckInput enters Turn rather than clearing gr_vel",
+        "same-frame Turn_Phys stages xE4 friction before gr_vel commit",
+        "next-frame Turn dash-out stages the new dash delta through xE8"
+      ],
+      "known_gaps": []
     },
     {
       "from": "Dash",
       "to": "Run",
       "input": "dash animation completes while run-zone stick is held",
       "frames": "after Falcon dash frames; 15f reference",
-      "status": "aligned"
-    },
-    {
-      "from": "Dash",
-      "to": "WalkFast",
-      "input": "dash animation completes with walk-zone stick held",
-      "frames": "after Falcon dash frames",
-      "status": "partial"
+      "status": "aligned",
+      "notes": "Run-zone comparison uses extracted PlCo x58 == 79; carried gr_vel remains the base velocity for Run physics.",
+      "source_refs": [
+        {
+          "label": "Melee Dash completion to Run",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_IASA / ftCo_Dash_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash-to-Run handoff",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "exit_dash / enter_run"
+        },
+        {
+          "label": "Dash-to-run contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.run_x",
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
+        "captain_falcon_values.walk_and_run.run_animation_scaling"
+      ],
+      "physics": [
+        "dash animation completion",
+        "same-facing run-zone stick held",
+        "terminal run velocity target"
+      ],
+      "known_gaps": []
     },
     {
       "from": "Dash",
       "to": "Wait",
-      "input": "dash animation completes with no walk/run input",
+      "input": "dash animation completes without same-facing run handoff",
       "frames": "after Falcon dash frames",
-      "status": "aligned"
+      "status": "aligned",
+      "notes": "Non-run completion preserves carried gr_vel; held opposite or walk-zone stick is resolved by Wait's next-frame priority and grounded friction stages through xE4-equivalent acceleration.",
+      "source_refs": [
+        {
+          "label": "Melee Dash completion to Wait",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Anim / ftCo_Dash_IASA"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash-to-Wait fallback",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "exit_dash / GroundState::Wait"
+        },
+        {
+          "label": "Non-run dash completion contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_late_action_window",
+        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
+        "captain_falcon_values.dash_and_turn.dash_initial_velocity"
+      ],
+      "physics": [
+        "dash animation completion without run handoff",
+        "carried gr_vel",
+        "xE4-equivalent friction staging",
+        "next-frame Wait priority resolves held intent"
+      ],
+      "known_gaps": []
     },
     {
       "from": "Dash",
       "to": "Turn",
       "input": "opposite fresh dash/smash-turn input during initial dash",
-      "frames": "during Dash before run transition",
+      "frames": "after the tap-start early Dash branch",
       "status": "aligned",
-      "notes": "Dash dancing is Rust-owned and currently feels good in playtest."
+      "notes": "Fresh opposite tap enters the turn/dash-back path after the early tap-start Dash branch. Rust now applies source x54 Dash IASA velocity decay, then same-frame Turn_Phys/ft_80084F3C friction before committing gr_vel. Aged or sub-smash bottom-gate opposite stick stays in Dash and can drive moonwalk-like backward velocity through live-stick xE4-equivalent acceleration. Chained relay is tested before Falcon dash resolves.",
+      "source_refs": [
+        {
+          "label": "Melee Dash IASA to Turn",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_IASA"
+        },
+        {
+          "label": "Melee Turn same-frame physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Phys"
+        },
+        {
+          "label": "Melee fighter callback order",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash-to-Turn transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "dash opposite input branch / enter_smash_turn / apply_ground_traction"
+        },
+        {
+          "label": "Dash-back and moonwalk contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_x",
+        "global_common_values.grounded_locomotion.dash_tap_window",
+        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_b"
+      ],
+      "physics": [
+        "fresh opposite dash/smash-turn input",
+        "tap-start early Dash gate",
+        "Dash IASA x54 fall-through velocity decay before Turn carries gr_vel",
+        "Fighter_procUpdate uses the new Turn_Phys phys_cb in the same frame, so ft_80084F3C stages xE4 friction before gr_vel commit",
+        "live Dash xE4-equivalent acceleration when opposite input ages or stays below dashback path"
+      ],
+      "known_gaps": [
+        "Moonwalk gap remains documentation-only here: follow-up chain feel needs a later source-backed investigation, not tuning in this tooling pass."
+      ]
     },
     {
       "from": "Dash",
       "to": "KneeBend",
       "input": "jump pressed during allowed dash window",
       "frames": "dash action window",
-      "status": "partial"
+      "status": "partial",
+      "source_refs": [
+        {
+          "label": "Melee Dash jump branch",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_IASA"
+        },
+        {
+          "label": "Melee KneeBend source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_KneeBend.c",
+          "function": "ftCo_KneeBend_Enter"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash jump branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "dash jump action window / enter_kneebend"
+        },
+        {
+          "label": "Dash jump contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.dash_early_action_window",
+        "global_common_values.grounded_locomotion.dash_defensive_action_window",
+        "captain_falcon_values.jump_and_air.jump_startup_time"
+      ],
+      "physics": [
+        "dash action window",
+        "jump input priority",
+        "jump squat startup"
+      ],
+      "known_gaps": []
+    },
+    {
+      "from": "Dash",
+      "to": "GuardReflect",
+      "input": "fresh digital L/R bottom-out while trigger timer is inside x2A0",
+      "frames": "dash IASA current frame",
+      "status": "partial",
+      "notes": "Implemented for the source dash branch: fresh native digital L/R enters GuardReflect and still applies the Dash IASA x54 ground-velocity decay before the frame's physics/commit path continues.",
+      "source_refs": [
+        {
+          "label": "Melee Dash digital L/R guard-reflect branch",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_80091AD8 / ftCo_Dash_IASA"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Dash GuardReflect branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "dash_action_state / enter_dash_iasa_action_state"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.shield_and_defense.guard_reflect_input_window",
+        "global_common_values.grounded_locomotion.dash_velocity_decay_milli"
+      ],
+      "physics": [
+        "fresh digital trigger edge",
+        "x2A0 trigger timer gate",
+        "x54 Dash IASA fall-through gr_vel decay"
+      ],
+      "known_gaps": [
+        "GuardReflect hit/reflect behavior still needs the shield-hit source path."
+      ]
     },
     {
       "from": "Run",
       "to": "TurnRun",
-      "input": "hard opposite stick after run can accept turn",
+      "input": "opposite stick at PlCo x38 after run can accept turn",
       "frames": "current frame after no-interrupt window",
-      "status": "partial"
+      "status": "partial",
+      "source_refs": [
+        {
+          "label": "Melee Run to TurnRun",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_IASA"
+        },
+        {
+          "label": "Melee TurnRun source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_Enter"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Run-to-TurnRun transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "run opposite input branch / enter_turn_run"
+        },
+        {
+          "label": "Run turnaround contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.turn_run_x",
+        "global_common_values.grounded_locomotion.run_turn_run_no_interrupt_frames",
+        "global_common_values.grounded_locomotion.run_x"
+      ],
+      "physics": [
+        "opposite stick at x38 after run no-interrupt window",
+        "same-frame TurnRun_Phys entry tick",
+        "old-facing turn-run carry"
+      ],
+      "known_gaps": [
+        "TurnRun animation command pause and completion timing remain partial."
+      ]
     },
     {
       "from": "Run",
       "to": "RunBrake",
       "input": "release stick or leave same-direction run condition",
       "frames": "current frame",
-      "status": "partial"
+      "status": "partial",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_Enter"
+        },
+        {
+          "label": "Melee Run IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_IASA"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust RunBrake transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "run release branch / enter_run_brake"
+        },
+        {
+          "label": "Run brake contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "captain_falcon_values.walk_and_run.max_run_brake_frames"
+      ],
+      "physics": [
+        "stick leaves same-direction run condition",
+        "traction deceleration",
+        "profile max run brake frames"
+      ],
+      "known_gaps": [
+        "RunBrake remains partial pending exact Falcon braking timing review."
+      ]
     },
     {
       "from": "Run",
@@ -452,14 +2160,46 @@
       "to": "Run",
       "input": "direct run entry resolves",
       "frames": "state-local duration",
-      "status": "missing",
-      "notes": "RunDirect is not implemented as a Rust state yet."
+      "status": "partial",
+      "notes": "Rust now models the visible ftCo_RunDirect_IASA branch: when injected/diagnostic RunDirect has same-facing run input, fn_800CA698 enters Run while preserving the current animation frame. This remains partial because the local decomp search did not reveal a normal gameplay source entry into RunDirect.",
+      "source_refs": [
+        {
+          "label": "Melee RunDirect IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunDirect.c",
+          "function": "ftCo_RunDirect_IASA"
+        },
+        {
+          "label": "Melee Run handoff helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "fn_800CA698 / ftCo_Run_Enter_Full"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust RunDirect to Run branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::RunDirect branch"
+        },
+        {
+          "label": "RunDirect handoff contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "run_direct_same_direction_run_input_handoffs_to_run_preserving_anim_frame"
+        }
+      ],
+      "physics": [
+        "ftCo_RunDirect_IASA can call fn_800CA698 when same-facing run input is held and the RunDirect motion var gate is eligible",
+        "fn_800CA698 enters Run through ftCo_Run_Enter_Full with the current animation frame and frame speed",
+        "Rust preserves motion_frame across the RunDirect-to-Run handoff and then uses the shared Run gr_vel/xE4 physics path"
+      ],
+      "known_gaps": [
+        "No source-backed normal gameplay entry into RunDirect has been found yet."
+      ]
     },
     {
       "from": "RunBrake",
       "to": "Wait",
-      "input": "ground traction settles X velocity to zero",
-      "frames": "variable physics duration or extracted profile max_run_brake_frames",
+      "input": "ground traction settles X velocity to zero or extracted Falcon max_run_brake_frames expires",
+      "frames": "variable physics duration or 30-frame Falcon max_run_brake window",
       "status": "partial"
     },
     {
@@ -467,7 +2207,43 @@
       "to": "Run",
       "input": "facing has flipped and same-direction run input is held",
       "frames": "after turn-run crossing resolves",
-      "status": "partial"
+      "status": "partial",
+      "source_refs": [
+        {
+          "label": "Melee TurnRun completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+        },
+        {
+          "label": "Melee Run source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_Enter"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust TurnRun-to-Run transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "turn_run crossing / enter_run"
+        },
+        {
+          "label": "TurnRun contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.grounded_locomotion.run_x",
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a"
+      ],
+      "physics": [
+        "facing flip after velocity crossing",
+        "same-direction run input held",
+        "run acceleration target resumes"
+      ],
+      "known_gaps": [
+        "TurnRun-to-Run remains partial pending source-frame timing review."
+      ]
     },
     {
       "from": "TurnRun",
@@ -482,6 +2258,14 @@
       "input": "continue holding crouch",
       "frames": "after squat startup",
       "status": "partial"
+    },
+    {
+      "from": "Squat",
+      "to": "Pass",
+      "input": "down tap on a soft platform arms the platform-pass gate, then countdown expires",
+      "frames": "x470 / platform_drop_delay_ticks after arming",
+      "status": "partial",
+      "notes": "Implemented as source-style pending pass state, not a custom shield-drop or wavedash-style mechanic."
     },
     {
       "from": "SquatWait",
@@ -512,6 +2296,14 @@
       "status": "partial"
     },
     {
+      "from": "GuardOn",
+      "to": "Pass",
+      "input": "shield held plus down tap on a soft platform",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Uses the same platform_pass_gate as Squat, matching ftCo_8009A080 / ftCo_8009A228."
+    },
+    {
       "from": "Guard",
       "to": "ShieldTurn",
       "input": "horizontal stick while shield is held",
@@ -532,6 +2324,91 @@
       "input": "release shield",
       "frames": "current frame",
       "status": "partial"
+    },
+    {
+      "from": "Guard",
+      "to": "Pass",
+      "input": "shield held plus down tap on a soft platform",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "Uses the same platform_pass_gate as Squat, matching ftCo_8009A080 / ftCo_8009A228."
+    },
+    {
+      "from": "GuardReflect",
+      "to": "Pass",
+      "input": "shield held plus down tap on a soft platform",
+      "frames": "current frame",
+      "status": "partial",
+      "notes": "GuardReflect currently shares the shield-held pass helper so the Rust core can model ftCo_GuardReflect_IASA calling the same platform-pass gate. The visual shield-hit/reflect behavior is still separate future work.",
+      "source_refs": [
+        {
+          "label": "Melee GuardReflect IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_GuardReflect.c",
+          "function": "ftCo_GuardReflect_IASA"
+        },
+        {
+          "label": "Melee platform pass helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_8009A080 / ftCo_8009A228"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust GuardReflect pass branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "Guard | GuardReflect IASA branch / enter_pass"
+        },
+        {
+          "label": "GuardReflect pass contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "guard_reflect_with_held_lr_can_pass_through_soft_platform"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.platform_pass.platform_pass_y",
+        "global_common_values.platform_pass.pass_initial_y_velocity"
+      ],
+      "physics": [
+        "shared platform pass gate",
+        "x46C initial Pass Y velocity",
+        "common airborne fall step applies gravity before translation"
+      ],
+      "known_gaps": []
+    },
+    {
+      "from": "Pass",
+      "to": "Fall",
+      "input": "Pass animation completes",
+      "frames": "source animation end; Falcon action 209 frame count",
+      "status": "partial",
+      "notes": "Decomp ftCo_Pass_Anim calls ftCo_Fall_Enter when ftAnim_IsFramesRemaining is false. Rust now enters Fall when generated Falcon Pass action samples reach their source animation-frame count, then continues through the ordinary airborne IASA/drift path for that frame.",
+      "source_refs": [
+        {
+          "label": "Melee Pass animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_Pass_Anim"
+        },
+        {
+          "label": "Melee fighter callback order",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_8006A360 / Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust Pass completion",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::Pass branch / action_sample_frame_count_for_motion_state"
+        },
+        {
+          "label": "Pass completion contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "pass_animation_completion_enters_fall"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_209"
+      ]
     },
     {
       "from": "Guard",
@@ -574,7 +2451,7 @@
       "input": "jumpsquat completes with forward-facing jump",
       "frames": "Falcon reference 4f",
       "status": "partial",
-      "notes": "Covered by Rust tests: jumpsquat completes into JumpF with profile velocity while the bottom ECB vertex remains anchored on the takeoff state-change tick."
+      "notes": "Covered by Rust tests: grounded entries into KneeBend apply source ft_80084F3C friction on the entry frame, walk/dash/slide/moonwalk carried gr_vel feeds JumpF through the ordinary ftCo_Jump_Enter formula, jumpsquat completes with profile velocity from the prior grounded self_vel/gr_vel, translates by that velocity on the takeoff state-change tick, runs airborne IASA actions on that tick, and defers ordinary Jump air drift/gravity until the following tick."
     },
     {
       "from": "KneeBend",
@@ -582,66 +2459,7 @@
       "input": "jumpsquat completes with backward-facing jump",
       "frames": "Falcon reference 4f",
       "status": "partial",
-      "notes": "Covered by Rust tests: jumpsquat completes into JumpB with profile velocity while the bottom ECB vertex remains anchored on the takeoff state-change tick."
-    },
-    {
-      "from": "JumpF",
-      "to": "Air",
-      "input": "upward jump phase enters umbrella air handling",
-      "frames": "gravity/velocity dependent",
-      "status": "mismatch",
-      "notes": "Melee reference splits this into FallF/FallB/Fall."
-    },
-    {
-      "from": "JumpB",
-      "to": "Air",
-      "input": "upward jump phase enters umbrella air handling",
-      "frames": "gravity/velocity dependent",
-      "status": "mismatch",
-      "notes": "Melee reference splits this into FallF/FallB/Fall."
-    },
-    {
-      "from": "Air",
-      "to": "EscapeAir",
-      "input": "digital shield / airdodge press after airborne",
-      "frames": "first airborne frame or later",
-      "status": "partial",
-      "notes": "Fresh native digital L/R bottom-out is required after jumpsquat; analog shield travel alone does not enter EscapeAir."
-    },
-    {
-      "from": "Air",
-      "to": "JumpAerialF",
-      "input": "double jump pressed while airborne with forward input",
-      "frames": "airborne actionable frame",
-      "status": "partial"
-    },
-    {
-      "from": "Air",
-      "to": "JumpAerialB",
-      "input": "double jump pressed while airborne with backward input",
-      "frames": "airborne actionable frame",
-      "status": "partial"
-    },
-    {
-      "from": "JumpAerialF",
-      "to": "Air",
-      "input": "aerial jump arc transitions back to umbrella air handling",
-      "frames": "gravity/velocity dependent",
-      "status": "mismatch"
-    },
-    {
-      "from": "JumpAerialB",
-      "to": "Air",
-      "input": "aerial jump arc transitions back to umbrella air handling",
-      "frames": "gravity/velocity dependent",
-      "status": "mismatch"
-    },
-    {
-      "from": "Air",
-      "to": "Landing",
-      "input": "ground/platform collision from umbrella air",
-      "frames": "collision frame",
-      "status": "partial"
+      "notes": "Covered by Rust tests: grounded entries into KneeBend apply source ft_80084F3C friction on the entry frame, jumpsquat completes into JumpB with profile velocity from the prior grounded self_vel/gr_vel, translates by that velocity on the takeoff state-change tick, and defers ordinary Jump gravity until the following tick."
     },
     {
       "from": "Fall",
@@ -656,7 +2474,8 @@
       "to": "FallSpecial",
       "input": "escape-air animation completes without landing",
       "frames": "after escape-air action duration",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Rust now uses generated Falcon action 44 sample count (50 frames from PlyCaptain5K_Share_ACTION_EscapeAir_figatree) rather than the legacy common-data duration placeholder."
     },
     {
       "from": "EscapeAir",
@@ -664,7 +2483,7 @@
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
       "status": "partial",
-      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide."
+      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. The full Slippi oracle still diverges before this local slice, so earlier position/state history remains the next investigation target."
     },
     {
       "from": "FallSpecial",
@@ -694,7 +2513,7 @@
       "input": "fall-special landing lag completes",
       "frames": "landing-fall-special lag window",
       "status": "partial",
-      "notes": "Slide now uses fixed Falcon ground traction each 60 Hz tick until common-data landing lag returns control."
+      "notes": "Slide uses fixed Falcon ground traction each 60 Hz tick until common-data landing lag returns control; active ECB/render pose samples the Landing figatree at the source-scaled LandingFallSpecial animation rate during that lag window."
     },
     {
       "from": "LandingFallSpecial",
@@ -703,6 +2522,152 @@
       "frames": "collision frame",
       "status": "partial",
       "notes": "Rust now leaves the grounded slide through explicit Fall rather than returning to FallSpecial."
+    },
+    {
+      "from": "LandingAirN",
+      "to": "Wait",
+      "input": "neutral-aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "partial",
+      "notes": "State identity, ECB mapping, and Falcon landingairn_lag duration are exact; animation-rate scaling remains pending."
+    },
+    {
+      "from": "LandingAirF",
+      "to": "Wait",
+      "input": "forward-aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "partial",
+      "notes": "State identity, ECB mapping, and Falcon landingairf_lag duration are exact; animation-rate scaling remains pending."
+    },
+    {
+      "from": "LandingAirB",
+      "to": "Wait",
+      "input": "back-aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "partial",
+      "notes": "State identity, ECB mapping, and Falcon landingairb_lag duration are exact; animation-rate scaling remains pending."
+    },
+    {
+      "from": "LandingAirHi",
+      "to": "Wait",
+      "input": "up-aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "partial",
+      "notes": "State identity, ECB mapping, and Falcon landingairhi_lag duration are exact; animation-rate scaling remains pending."
+    },
+    {
+      "from": "LandingAirLw",
+      "to": "Wait",
+      "input": "down-aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "partial",
+      "notes": "State identity, ECB mapping, and Falcon landingairlw_lag duration are exact; animation-rate scaling remains pending."
+    },
+    {
+      "from": "Fall",
+      "to": "EscapeAir",
+      "input": "digital shield / airdodge press while falling",
+      "frames": "airborne actionable frame",
+      "status": "partial",
+      "notes": "Fall now owns the airborne IASA path that the removed Air umbrella previously covered; exact source priority remains tracked against ftCo_Fall_IASA_Inner."
+    },
+    {
+      "from": "Fall",
+      "to": "JumpAerialF",
+      "input": "double jump pressed while falling with forward input",
+      "frames": "airborne actionable frame",
+      "status": "partial"
+    },
+    {
+      "from": "Fall",
+      "to": "JumpAerialB",
+      "input": "double jump pressed while falling with backward input",
+      "frames": "airborne actionable frame",
+      "status": "partial"
+    },
+    {
+      "from": "JumpF",
+      "to": "Fall",
+      "input": "jump animation completes",
+      "frames": "source animation end",
+      "status": "partial",
+      "notes": "Decomp ftCo_Jump_Anim calls ftCo_Fall_Enter. Rust now enters Fall when generated Captain Falcon JumpF action samples reach their source animation-frame count; exact animation callback ordering remains under broader source audit.",
+      "source_refs": [
+        {
+          "label": "Melee Jump animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Jump.c",
+          "function": "ftCo_Jump_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust JumpF completion",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::JumpF branch / action_sample_frame_count_for_motion_state"
+        },
+        {
+          "label": "Jump completion contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "ground_jump_animation_completion_enters_base_fall"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_16"
+      ]
+    },
+    {
+      "from": "JumpB",
+      "to": "Fall",
+      "input": "jump animation completes",
+      "frames": "source animation end",
+      "status": "partial",
+      "notes": "Decomp ftCo_Jump_Anim calls ftCo_Fall_Enter. Rust now enters Fall when generated Captain Falcon JumpB action samples reach their source animation-frame count; exact animation callback ordering remains under broader source audit.",
+      "source_refs": [
+        {
+          "label": "Melee Jump animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Jump.c",
+          "function": "ftCo_Jump_Anim"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust JumpB completion",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::JumpB branch / action_sample_frame_count_for_motion_state"
+        },
+        {
+          "label": "Jump completion contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "ground_jump_animation_completion_enters_base_fall"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_ecb_samples.action_17"
+      ]
+    },
+    {
+      "from": "JumpAerialF",
+      "to": "FallAerial",
+      "input": "aerial-jump animation completes",
+      "frames": "source animation end",
+      "status": "partial",
+      "notes": "Decomp ftCo_JumpAerial_Anim calls ftCo_FallAerial_Enter. Rust now implements the direct JumpAerialF -> FallAerial transition using extracted action-sample frame counts, without routing through Fall or Air; exact callback timing remains under source audit."
+    },
+    {
+      "from": "JumpAerialB",
+      "to": "FallAerial",
+      "input": "aerial-jump animation completes",
+      "frames": "source animation end",
+      "status": "partial",
+      "notes": "Decomp ftCo_JumpAerial_Anim calls ftCo_FallAerial_Enter. Rust now implements the direct JumpAerialB -> FallAerial transition using extracted action-sample frame counts, without routing through Fall or Air; exact callback timing remains under source audit."
+    },
+    {
+      "from": "FallAerial",
+      "to": "Landing",
+      "input": "ground/platform collision from post-aerial-jump fall",
+      "frames": "collision frame",
+      "status": "partial",
+      "notes": "Rust includes FallAerial in the shared airborne collision path to Landing; exact FallAerial collision callback parity remains under source audit."
     }
   ]
 }

@@ -3,7 +3,6 @@ import pygame
 
 MAIN_STICK_DEADZONE = 0.05
 TRIGGER_DEADZONE = 0.20
-UCF_VERSION = "0.84"
 
 
 def _button(joystick, index):
@@ -33,14 +32,6 @@ def _melee_fact(joystick, name, default=None):
     if joystick is None or not hasattr(joystick, "get_melee_fact"):
         return default
     return joystick.get_melee_fact(name, default)
-
-
-def _melee_int_fact(joystick, name, default=0):
-    value = _melee_fact(joystick, name, default)
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _melee_optional_int_fact(joystick, name):
@@ -198,11 +189,6 @@ def _set_button_state(
     melee_x_tap_timer=None,
     melee_y_tap_timer=None,
     melee_dash_direction=None,
-    ucf_version=UCF_VERSION,
-    ucf_x_tilt_intent=False,
-    ucf_shield_drop_tilt_intent=False,
-    ucf_dashback_direction=0,
-    ucf_shield_drop=False,
 ):
     player.akey = bool(akey)
     player.specialkey = bool(specialkey)
@@ -243,12 +229,6 @@ def _set_button_state(
     player.melee_dash_direction = (
         None if melee_dash_direction is None else int(melee_dash_direction)
     )
-    player.ucf_version = ucf_version or UCF_VERSION
-    player.ucf_x_tilt_intent = bool(ucf_x_tilt_intent)
-    player.ucf_shield_drop_tilt_intent = bool(ucf_shield_drop_tilt_intent)
-    player.ucf_dashback_direction = int(ucf_dashback_direction)
-    player.ucf_shield_drop = bool(ucf_shield_drop)
-
     if not player.jumpkey:
         if getattr(player, "jumpSquat", False):
             player.jump_released_during_squat = True
@@ -363,20 +343,6 @@ def _gather_joystick(player, joystick):
     melee_x_tap_timer = _melee_optional_int_fact(joystick, "x_tap_timer")
     melee_y_tap_timer = _melee_optional_int_fact(joystick, "y_tap_timer")
     melee_dash_direction = _melee_optional_int_fact(joystick, "dash_direction")
-    ucf_version = _melee_fact(joystick, "ucf_version", UCF_VERSION)
-    ucf_x_tilt_intent = _melee_fact(joystick, "ucf_x_tilt_intent", False)
-    ucf_shield_drop_tilt_intent = _melee_fact(
-        joystick, "ucf_shield_drop_tilt_intent", False
-    )
-    ucf_dashback_direction = _melee_int_fact(joystick, "ucf_dashback_direction", 0)
-    ucf_shield_drop = _melee_fact(joystick, "ucf_shield_drop", False)
-    # UCF belongs to the input wrapper: the game consumes the canonical dash fact.
-    if (
-        melee_dash_direction is not None
-        and melee_dash_direction == 0
-        and ucf_dashback_direction != 0
-    ):
-        melee_dash_direction = ucf_dashback_direction
     if left_analog_held is not None:
         left_shield = left_digital or (
             bool(left_analog_held) and _trigger_held(player.l_trigger)
@@ -421,11 +387,6 @@ def _gather_joystick(player, joystick):
         melee_x_tap_timer=melee_x_tap_timer,
         melee_y_tap_timer=melee_y_tap_timer,
         melee_dash_direction=melee_dash_direction,
-        ucf_version=ucf_version,
-        ucf_x_tilt_intent=ucf_x_tilt_intent,
-        ucf_shield_drop_tilt_intent=ucf_shield_drop_tilt_intent,
-        ucf_dashback_direction=ucf_dashback_direction,
-        ucf_shield_drop=ucf_shield_drop,
     )
 
     player.upkey = _button(joystick, 8)

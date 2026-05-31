@@ -1,5 +1,6 @@
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use mole_core::{step_world, Frame, PlayerInput, World};
@@ -37,13 +38,43 @@ fn main() {
     let replay_path = parse_replay_path(&args, frames);
     #[cfg(feature = "sdl")]
     let frame_log = has_flag(&args, "--frame-log");
+    #[cfg(feature = "sdl")]
+    let input_trace = has_flag(&args, "--input-trace");
+    #[cfg(feature = "wup")]
+    let ucf_enabled = parse_ucf_enabled(&args);
+
+    if let Some(path) = value_after(&args, "--compare-slippi") {
+        let frame_limit = has_flag(&args, "--frames").then_some(frames as usize);
+        let report_path = value_after(&args, "--slippi-core-report").map(PathBuf::from);
+        let comparison_mode = parse_slippi_compare_mode(&args);
+        match run_slippi_core_compare(
+            Path::new(&path),
+            report_path.as_deref(),
+            frame_limit,
+            comparison_mode,
+        ) {
+            Ok(()) => {}
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
 
     if has_flag(&args, "--udp") {
         #[cfg(feature = "sdl")]
         if has_flag(&args, "--sdl") {
-            match mole_runtime::UdpRuntimeConfig::from_args(&args)
-                .and_then(|config| run_udp_sdl(frames, config, replay_path.as_deref(), frame_log))
-            {
+            match mole_runtime::UdpRuntimeConfig::from_args(&args).and_then(|config| {
+                run_udp_sdl(
+                    frames,
+                    config,
+                    replay_path.as_deref(),
+                    frame_log,
+                    input_trace,
+                    ucf_enabled,
+                )
+            }) {
                 Ok(()) => {}
                 Err(error) => {
                     eprintln!("{error}");
@@ -153,7 +184,7 @@ fn main() {
 
     #[cfg(feature = "wup")]
     if has_flag(&args, "--wup") {
-        if let Err(error) = run_wup_smoke(frames, replay_path.as_deref()) {
+        if let Err(error) = run_wup_smoke(frames, replay_path.as_deref(), ucf_enabled) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -168,7 +199,14 @@ fn main() {
 
     #[cfg(feature = "sdl")]
     if has_flag(&args, "--sdl") {
-        if let Err(error) = run_sdl_smoke(frames, replay_path.as_deref(), frame_log) {
+        if let Err(error) = run_sdl_smoke(
+            frames,
+            replay_path.as_deref(),
+            frame_log,
+            input_trace,
+            #[cfg(feature = "wup")]
+            ucf_enabled,
+        ) {
             eprintln!("{error}");
             std::process::exit(1);
         }
@@ -187,6 +225,45 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
+}
+
+fn run_slippi_core_compare(
+    path: &Path,
+    report_path: Option<&Path>,
+    frame_limit: Option<usize>,
+    comparison_mode: mole_runtime::SlippiCoreComparisonMode,
+) -> Result<(), String> {
+    let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let config = mole_runtime::SlippiCoreComparisonConfig {
+        max_frames: frame_limit,
+        ..Default::default()
+    };
+    let comparison = match comparison_mode {
+        mole_runtime::SlippiCoreComparisonMode::SeededPreFrameDiagnostic => {
+            mole_runtime::compare_slippi_export_with_core(&text, config)
+        }
+        mole_runtime::SlippiCoreComparisonMode::SequentialMatchStart => {
+            mole_runtime::compare_slippi_export_from_match_start_with_core(&text, config)
+        }
+    }
+    .map_err(|error| error.to_string())?;
+    let output_path = report_path.map(PathBuf::from).unwrap_or_else(|| {
+        comparison
+            .source_replay_path
+            .as_deref()
+            .map(mole_runtime::slippi_core_report_path)
+            .unwrap_or_else(|| mole_runtime::slippi_core_report_path(path))
+    });
+    mole_runtime::write_slippi_core_report(&output_path, &comparison)
+        .map_err(|error| error.to_string())?;
+    println!("slippi_core_report={}", output_path.display());
+    println!(
+        "frames_compared={} state_mismatches={} unsupported_states={}",
+        comparison.frames_compared,
+        comparison.state_mismatch_count,
+        comparison.unsupported_state_count
+    );
+    Ok(())
 }
 
 fn run_headless(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
@@ -302,6 +379,8 @@ fn run_udp_sdl(
     config: mole_runtime::UdpRuntimeConfig,
     replay_path: Option<&Path>,
     frame_log: bool,
+    input_trace: bool,
+    ucf_enabled: bool,
 ) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
@@ -316,7 +395,9 @@ fn run_udp_sdl(
     let mut texture_cache =
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
-    let mut local_input_source = WupInputSource::open()?;
+    let mut local_input_source =
+        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
+    let mut input_trace_writer = create_input_trace_writer(input_trace)?;
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
         .map_err(|error| error.to_string())?;
     let initial = World::for_two_players();
@@ -329,7 +410,17 @@ fn run_udp_sdl(
     for frame_number in 0..frames {
         let frame = Frame(frame_number);
         let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, frame);
-        let polled_inputs = mole_runtime::InputSource::poll_inputs(&mut local_input_source, frame);
+        let before_trace_frame = input_trace_writer
+            .as_ref()
+            .map(|_| mole_runtime::RenderFrame::from_world(&world));
+        let (polled_inputs, local_trace) = if input_trace_writer.is_some() {
+            poll_traced_wup_inputs(&mut local_input_source)
+        } else {
+            (
+                mole_runtime::InputSource::poll_inputs(&mut local_input_source, frame),
+                None,
+            )
+        };
         drain_udp_packets(&transport, &mut inbox, &mut stats, frame)?;
 
         let mut inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -359,6 +450,20 @@ fn run_udp_sdl(
         }
 
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        if let (Some(writer), Some(trace), Some(before)) = (
+            input_trace_writer.as_mut(),
+            local_trace.as_ref(),
+            before_trace_frame.as_ref(),
+        ) {
+            writer
+                .write_line(&mole_runtime::ControllerInputTraceLog::from_wup_trace(
+                    frame,
+                    trace,
+                    before,
+                    &render_frame,
+                ))
+                .map_err(|error| error.to_string())?;
+        }
         let overlay = DebugOverlay::from_frame_with_udp_stats(&render_frame, &stats);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         let scene = RenderScene::from_frame(&render_frame, width, height);
@@ -412,6 +517,8 @@ fn run_udp_sdl(
     _config: mole_runtime::UdpRuntimeConfig,
     _replay_path: Option<&Path>,
     _frame_log: bool,
+    _input_trace: bool,
+    #[cfg(feature = "wup")] _ucf_enabled: bool,
 ) -> Result<(), String> {
     Err(
         "UDP SDL runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --udp --sdl --local-addr <addr> --peer-addr <addr>"
@@ -420,7 +527,13 @@ fn run_udp_sdl(
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
-fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Result<(), String> {
+fn run_sdl_smoke(
+    frames: u32,
+    replay_path: Option<&Path>,
+    frame_log: bool,
+    input_trace: bool,
+    ucf_enabled: bool,
+) -> Result<(), String> {
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -435,7 +548,9 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Re
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
 
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
-    let mut gameplay_input_source = WupInputSource::open()?;
+    let mut gameplay_input_source =
+        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
+    let mut input_trace_writer = create_input_trace_writer(input_trace)?;
     let initial = World::for_two_players();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
@@ -443,15 +558,36 @@ fn run_sdl_smoke(frames: u32, replay_path: Option<&Path>, frame_log: bool) -> Re
     for frame in 0..frames {
         let frame = Frame(frame);
         let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, frame);
-        let inputs = mole_runtime::step_world_from_input_source(
-            &mut world,
-            &mut gameplay_input_source,
-            frame,
-        );
+        let before_trace_frame = input_trace_writer
+            .as_ref()
+            .map(|_| mole_runtime::RenderFrame::from_world(&world));
+        let (inputs, wup_trace) = if input_trace_writer.is_some() {
+            poll_traced_wup_inputs(&mut gameplay_input_source)
+        } else {
+            (
+                mole_runtime::InputSource::poll_inputs(&mut gameplay_input_source, frame),
+                None,
+            )
+        };
+        step_world(&mut world, frame, &inputs);
         if let Some(capture) = replay_capture.as_mut() {
             capture.record_frame(frame, inputs, world.checksum());
         }
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        if let (Some(writer), Some(trace), Some(before)) = (
+            input_trace_writer.as_mut(),
+            wup_trace.as_ref(),
+            before_trace_frame.as_ref(),
+        ) {
+            writer
+                .write_line(&mole_runtime::ControllerInputTraceLog::from_wup_trace(
+                    frame,
+                    trace,
+                    before,
+                    &render_frame,
+                ))
+                .map_err(|error| error.to_string())?;
+        }
         let overlay = DebugOverlay::from_frame(&render_frame);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         let scene = RenderScene::from_frame(&render_frame, width, height);
@@ -495,11 +631,41 @@ fn run_sdl_smoke(
     _frames: u32,
     _replay_path: Option<&Path>,
     _frame_log: bool,
+    _input_trace: bool,
+    #[cfg(feature = "wup")] _ucf_enabled: bool,
 ) -> Result<(), String> {
     Err(
         "SDL3 runtime gameplay input requires native WUP: cargo run -p mole_runtime --features \"sdl wup\" -- --sdl"
             .to_string(),
     )
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn create_input_trace_writer(
+    enabled: bool,
+) -> Result<Option<mole_runtime::InputTraceWriter>, String> {
+    if !enabled {
+        return Ok(None);
+    }
+
+    let writer = mole_runtime::InputTraceWriter::create_default()
+        .map_err(|error| format!("failed to create controller input trace log: {error}"))?;
+    println!("input_trace_path={}", writer.path().display());
+    Ok(Some(writer))
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn poll_traced_wup_inputs(
+    input_source: &mut WupInputSource,
+) -> ([PlayerInput; 2], Option<mole_runtime::WupInputTrace>) {
+    match input_source.poll_traced_adapter() {
+        Ok(trace) => (trace.inputs, Some(trace)),
+        Err(rusb::Error::Timeout) => (input_source.latest_inputs(), input_source.latest_trace()),
+        Err(error) => {
+            eprintln!("WUP read failed; neutralizing gameplay input for this frame: {error}");
+            ([PlayerInput::neutral(), PlayerInput::neutral()], None)
+        }
+    }
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -907,8 +1073,9 @@ fn stream_wup_native(frames: u32) -> Result<(), String> {
 }
 
 #[cfg(feature = "wup")]
-fn run_wup_smoke(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
-    let mut input_source = WupInputSource::open()?;
+fn run_wup_smoke(frames: u32, replay_path: Option<&Path>, ucf_enabled: bool) -> Result<(), String> {
+    let mut input_source =
+        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
     let initial = World::for_two_players();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
@@ -951,6 +1118,19 @@ fn parse_frames(args: &[String]) -> u32 {
     120
 }
 
+#[cfg_attr(not(feature = "wup"), allow(dead_code))]
+fn parse_ucf_enabled(args: &[String]) -> bool {
+    !has_flag(args, "--no-ucf")
+}
+
+fn parse_slippi_compare_mode(args: &[String]) -> mole_runtime::SlippiCoreComparisonMode {
+    if has_flag(args, "--slippi-match-start") {
+        mole_runtime::SlippiCoreComparisonMode::SequentialMatchStart
+    } else {
+        mole_runtime::SlippiCoreComparisonMode::SeededPreFrameDiagnostic
+    }
+}
+
 fn parse_replay_path(args: &[String], frames: u32) -> Option<PathBuf> {
     value_after(args, "--replay-path")
         .map(PathBuf::from)
@@ -967,7 +1147,8 @@ fn value_after(args: &[String], flag: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_frames;
+    use super::{parse_frames, parse_slippi_compare_mode, parse_ucf_enabled};
+    use mole_runtime::SlippiCoreComparisonMode;
 
     #[test]
     fn parse_frames_defaults_to_smoke_length() {
@@ -988,6 +1169,32 @@ mod tests {
                 "2".to_string()
             ]),
             2
+        );
+    }
+
+    #[test]
+    fn parse_ucf_enabled_defaults_to_on() {
+        assert!(parse_ucf_enabled(&[]));
+    }
+
+    #[test]
+    fn parse_ucf_enabled_supports_vanilla_input_mode() {
+        assert!(!parse_ucf_enabled(&["--no-ucf".to_string()]));
+    }
+
+    #[test]
+    fn parse_slippi_compare_mode_defaults_to_seeded_diagnostic() {
+        assert_eq!(
+            parse_slippi_compare_mode(&[]),
+            SlippiCoreComparisonMode::SeededPreFrameDiagnostic
+        );
+    }
+
+    #[test]
+    fn parse_slippi_compare_mode_supports_match_start_oracle() {
+        assert_eq!(
+            parse_slippi_compare_mode(&["--slippi-match-start".to_string()]),
+            SlippiCoreComparisonMode::SequentialMatchStart
         );
     }
 }

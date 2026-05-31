@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Subagents are disabled for this repository session by the user. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the Melee `Pass` movement state so shield/platform drop-through emerges from the source-shaped down-through-platform gate, including UCF-assisted shield-drop input facts, without adding a custom `ShieldDrop` or `AxeDrop` state.
+**Goal:** Add the Melee `Pass` movement state so shield/platform drop-through emerges from the source-shaped down-through-platform gate, with UCF preprocessing translated before core input, without adding a custom `ShieldDrop` or `AxeDrop` state.
 
-**Architecture:** Rust core remains authoritative. `MeleeCommonData` owns PlCo common fields `x464`, `x468`, `x46C`, and records `x470` for the delayed crouch/pass path. `MotionState::Pass` is entered from `GuardOn`/`Guard` only when the player is grounded on a soft platform, held source L/R shield exists, and either the source down-stick tap window or the UCF shield-drop preprocessing fact satisfies the down intent.
+**Architecture:** Rust core remains authoritative and vanilla-Melee-shaped. `MeleeCommonData` owns PlCo common fields `x464`, `x468`, `x46C`, and records `x470` for the delayed crouch/pass path. `MotionState::Pass` is entered from `GuardOn`/`Guard` only when the player is grounded on a soft platform, held source L/R shield exists, and the engine-facing pad snapshot satisfies the source down-stick tap window. UCF belongs in `mole_input`/WUP preprocessing before that snapshot reaches the core.
 
-**Tech Stack:** Rust `mole_core`, deterministic 60 Hz simulation, existing Battlefield-style `StageProfile`, native WUP/UCF input facts already represented in `PlayerInput`.
+**Tech Stack:** Rust `mole_core`, deterministic 60 Hz simulation, existing Battlefield-style `StageProfile`, native WUP/UCF preprocessing in `mole_input`.
 
 ---
 
@@ -40,7 +40,7 @@
   - Enter `Pass` with source vertical velocity, airborne grounded state, and soft-platform skip behavior.
   - Keep `Pass` landing through existing non-special landing path; do not add `ShieldDrop` or `AxeDrop`.
 - Modify `D:\Mole Game\First_Game\crates\mole_core\tests\core_contract.rs`
-  - Add tests for common-data extraction, support-surface kind, Guard shield-drop entry into `Pass`, hard floor rejection, no invented state names, and deterministic UCF-assisted pass.
+  - Add tests for common-data extraction, support-surface kind, Guard shield-drop entry into `Pass`, hard floor rejection, no invented state names, and deterministic adapter-preprocessed pass.
 
 ---
 
@@ -104,7 +104,7 @@
 - [ ] Run the focused test and commit:
   - `git commit -m "feat: enter pass from shield platform drop"`
 
-### Task 4: Reject Hard Floor And Cover UCF-Assisted AXE-Drop Path
+### Task 4: Reject Hard Floor And Cover Adapter-Preprocessed UCF Path
 
 **Files:**
 - Modify: `D:\Mole Game\First_Game\crates\mole_core\tests\core_contract.rs`
@@ -112,17 +112,17 @@
 
 - [ ] Write failing tests that assert:
   - held L/R plus down on the main floor remains `Guard`/`GuardOn`, not `Pass`.
-  - with the y-tap window expired, UCF shield-drop preprocessing (`with_ucf_shield_drop_tilt_intent(true)`) can still enter `Pass` on a soft platform.
-  - two worlds with identical UCF-assisted inputs produce matching checksums through pass entry.
+  - with source UCF shield-drop preprocessing enabled in the adapter, the core receives an ordinary vanilla pass-band input and can enter `Pass` on a soft platform.
+  - two worlds with identical adapter-preprocessed inputs produce matching checksums through pass entry.
 - [ ] Run:
   - `cargo test -p mole_core pass_from_shield_requires_soft_platform_support`
-  - `cargo test -p mole_core ucf_shield_drop_fact_enters_pass_without_custom_state`
-  - Expected: fail until pass gating includes support-surface and UCF facts.
+  - `cargo test -p mole_input gamecube_input_mapper_translates_ucf_shield_drop_after_source_two_frame_counter`
+  - Expected: fail until adapter preprocessing translates the UCF source condition before core input.
 - [ ] Add helper logic:
   - source-shaped non-UCF path: `stick_y <= -platform_pass_y && y_tap < platform_pass_y_tap_window`
   - the spotdodge threshold must stay harder downward than `platform_pass_y`; if the user hits the spotdodge gate, source priority enters `EscapeN` before `Pass`.
-  - UCF-assisted path: `facts.ucf_shield_drop`
-  - both require `facts.source_held.lr()` and `StageSurfaceKind::Soft`.
+  - UCF-assisted path: adapter emits an ordinary pass-band stick value before the core snapshot is derived.
+  - core pass entry still requires `facts.source_held.lr()` and `StageSurfaceKind::Soft`.
 - [ ] Run focused tests and commit:
   - `git commit -m "test: cover pass platform and ucf gates"`
 

@@ -35,6 +35,20 @@
       "raw": 1.2999999523162842,
       "source_name": "x440"
     },
+    "c_stick_deadzone_x": {
+      "kind": "stick",
+      "offset": 0,
+      "raw": 0.2800000011920929,
+      "source_name": "x0",
+      "stick_byte": 36
+    },
+    "c_stick_deadzone_y": {
+      "kind": "stick",
+      "offset": 4,
+      "raw": 0.2800000011920929,
+      "source_name": "x4",
+      "stick_byte": 36
+    },
     "crouch_release_y": {
       "kind": "stick",
       "offset": 148,
@@ -77,12 +91,47 @@
       "source_name": "x40",
       "ticks": 2
     },
+    "dash_velocity_decay_milli": {
+      "kind": "milli",
+      "milli": 750,
+      "offset": 84,
+      "raw": 0.75,
+      "source_name": "x54"
+    },
     "dash_x": {
       "kind": "stick",
       "offset": 60,
       "raw": 0.800000011920929,
       "source_name": "x3C",
       "stick_byte": 102
+    },
+    "entry_collision_landing_lag_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1736,
+      "raw": 120,
+      "source_name": "x6C8",
+      "ticks": 120
+    },
+    "entry_end_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1728,
+      "raw": 30,
+      "source_name": "x6C0",
+      "ticks": 30
+    },
+    "entry_initial_scale_y_milli": {
+      "kind": "milli",
+      "milli": 10,
+      "offset": 1732,
+      "raw": 0.009999999776482582,
+      "source_name": "x6C4"
+    },
+    "entry_start_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1724,
+      "raw": 30,
+      "source_name": "x6BC",
+      "ticks": 30
     },
     "escape_x": {
       "kind": "stick",
@@ -154,6 +203,20 @@
       "source_name": "x344",
       "ticks": 10
     },
+    "fall_animation_blend_milli": {
+      "kind": "milli",
+      "milli": 500,
+      "offset": 1096,
+      "raw": 0.5,
+      "source_name": "x448"
+    },
+    "fall_animation_drift_threshold_milli": {
+      "kind": "milli",
+      "milli": 100,
+      "offset": 1092,
+      "raw": 0.10000000149011612,
+      "source_name": "x444"
+    },
     "fallspecial_platform_landing_y": {
       "kind": "stick",
       "offset": 604,
@@ -182,12 +245,33 @@
       "source_name": "x68",
       "ticks": 3
     },
+    "guard_reflect_input_window": {
+      "kind": "i32_ticks",
+      "offset": 672,
+      "raw": 2,
+      "source_name": "x2A0",
+      "ticks": 2
+    },
     "high_speed_ground_friction_multiplier_milli": {
       "kind": "milli",
       "milli": 2000,
       "offset": 108,
       "raw": 2.0,
       "source_name": "x6C"
+    },
+    "main_stick_deadzone_x": {
+      "kind": "stick",
+      "offset": 0,
+      "raw": 0.2800000011920929,
+      "source_name": "x0",
+      "stick_byte": 36
+    },
+    "main_stick_deadzone_y": {
+      "kind": "stick",
+      "offset": 4,
+      "raw": 0.2800000011920929,
+      "source_name": "x4",
+      "stick_byte": 36
     },
     "pass_initial_y_velocity": {
       "kind": "milli",
@@ -307,6 +391,13 @@
       "raw": 0.25,
       "source_name": "x18",
       "trigger_byte": 64
+    },
+    "turn_run_x": {
+      "kind": "stick",
+      "offset": 56,
+      "raw": -0.375,
+      "source_name": "x38_someLStickXThreshold",
+      "stick_byte": -48
     },
     "turn_x": {
       "kind": "stick",

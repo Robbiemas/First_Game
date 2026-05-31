@@ -1,8 +1,16 @@
-use crate::{map_gamecube_pad_to_player_input, WupPort};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, BufWriter, Write};
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::{
+    map_gamecube_pad_to_player_input, project_asset_root, RenderFrame, WupInputTrace, WupPort,
+};
+use mole_core::Frame;
 use mole_core::GameCubePadStatus;
 use mole_core::{
     MeleeInputFacts, MeleeInputSnapshot, MeleeInputThresholds, MeleeJumpInput, PlayerInput,
-    UCF_VERSION,
+    WalkSpeedBucket,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -112,8 +120,6 @@ pub struct MeleeReadout {
     pub x_tap_timer: u8,
     pub y_tap_timer: u8,
     pub trigger_timer: u8,
-    pub ucf_x_tilt_intent: bool,
-    pub ucf_shield_drop_tilt_intent: bool,
     pub facts: MeleeInputFacts,
 }
 
@@ -133,8 +139,6 @@ impl MeleeReadout {
             x_tap_timer: snapshot.x_tap_timer,
             y_tap_timer: snapshot.y_tap_timer,
             trigger_timer: snapshot.trigger_timer,
-            ucf_x_tilt_intent: snapshot.ucf_x_tilt_intent,
-            ucf_shield_drop_tilt_intent: snapshot.ucf_shield_drop_tilt_intent,
             facts: snapshot.facts(MeleeInputThresholds::default()),
         }
     }
@@ -209,6 +213,277 @@ impl InputReadout {
             player_to_json(self.players[1])
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ControllerInputTraceLog {
+    json_line: String,
+}
+
+impl ControllerInputTraceLog {
+    pub fn from_wup_trace(
+        frame: Frame,
+        trace: &WupInputTrace,
+        before: &RenderFrame,
+        after: &RenderFrame,
+    ) -> Self {
+        Self {
+            json_line: format!(
+                "{{\"frame\":{},\"input_backend\":\"wup\",\"ucf_enabled\":{},\"adapter_ports\":[{},{},{},{}],\"wup\":{},\"before\":{},\"after\":{}}}",
+                frame.0,
+                trace.ucf_enabled,
+                trace.adapter_ports[0],
+                trace.adapter_ports[1],
+                trace.adapter_ports[2],
+                trace.adapter_ports[3],
+                wup_trace_players_to_json(trace),
+                core_frame_to_json(before),
+                core_frame_to_json(after)
+            ),
+        }
+    }
+
+    pub fn to_json_line(&self) -> String {
+        self.json_line.clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct InputTraceWriter {
+    path: PathBuf,
+    writer: BufWriter<File>,
+}
+
+impl InputTraceWriter {
+    pub fn create_default() -> io::Result<Self> {
+        Self::create_in_dir(project_asset_root().join("logs"))
+    }
+
+    pub fn create_in_dir(path: impl AsRef<Path>) -> io::Result<Self> {
+        let dir = path.as_ref();
+        fs::create_dir_all(dir)?;
+        let timestamp = unix_time_millis();
+        for suffix in 0..1000 {
+            let filename = if suffix == 0 {
+                format!("controller-input-trace-{timestamp}.jsonl")
+            } else {
+                format!("controller-input-trace-{timestamp}-{suffix}.jsonl")
+            };
+            let path = dir.join(filename);
+            match OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(file) => {
+                    return Ok(Self {
+                        path,
+                        writer: BufWriter::new(file),
+                    });
+                }
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            }
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "could not allocate unique controller input trace filename",
+        ))
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn write_line(&mut self, log: &ControllerInputTraceLog) -> io::Result<()> {
+        writeln!(self.writer, "{}", log.to_json_line())?;
+        self.writer.flush()
+    }
+}
+
+fn unix_time_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
+fn wup_trace_players_to_json(trace: &WupInputTrace) -> String {
+    format!(
+        "{{\"inputs\":[{},{}],\"players\":[{},{}]}}",
+        player_input_to_json(trace.inputs[0]),
+        player_input_to_json(trace.inputs[1]),
+        trace.players[0].map_or_else(|| "null".to_string(), wup_player_trace_to_json),
+        trace.players[1].map_or_else(|| "null".to_string(), wup_player_trace_to_json)
+    )
+}
+
+fn wup_player_trace_to_json(player: crate::WupPlayerInputTrace) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"source_port\":{},",
+            "\"raw\":{},",
+            "\"origin\":{},",
+            "\"origin_adjusted\":{},",
+            "\"native\":{},",
+            "\"ucf\":{},",
+            "\"dashback_amendment\":{},",
+            "\"input\":{},",
+            "\"melee\":{}",
+            "}}"
+        ),
+        player.source_port,
+        gamecube_pad_to_json(player.raw),
+        gamecube_pad_to_json(player.origin),
+        gamecube_pad_to_json(player.origin_adjusted),
+        gamecube_pad_to_json(player.native),
+        gamecube_pad_to_json(player.ucf),
+        player.dashback_amendment,
+        player_input_to_json(player.input),
+        melee_to_json(Some(MeleeReadout::from_snapshot(player.snapshot)))
+    )
+}
+
+fn gamecube_pad_to_json(pad: GameCubePadStatus) -> String {
+    let (stick_x, stick_y) = pad.main_stick_i8();
+    let (c_stick_x, c_stick_y) = pad.c_stick_i8();
+    format!(
+        concat!(
+            "{{",
+            "\"stick_x\":{},",
+            "\"stick_y\":{},",
+            "\"c_stick_x\":{},",
+            "\"c_stick_y\":{},",
+            "\"left_trigger\":{},",
+            "\"right_trigger\":{},",
+            "\"buttons\":{},",
+            "\"main_x\":{},",
+            "\"main_y\":{},",
+            "\"c_x\":{},",
+            "\"c_y\":{}",
+            "}}"
+        ),
+        pad.stick_x,
+        pad.stick_y,
+        pad.c_stick_x,
+        pad.c_stick_y,
+        pad.left_trigger,
+        pad.right_trigger,
+        pad.buttons.bits(),
+        stick_x,
+        stick_y,
+        c_stick_x,
+        c_stick_y
+    )
+}
+
+fn player_input_to_json(input: PlayerInput) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"bits\":{},",
+            "\"stick_x\":{},",
+            "\"stick_y\":{},",
+            "\"c_stick_x\":{},",
+            "\"c_stick_y\":{},",
+            "\"left_trigger\":{},",
+            "\"right_trigger\":{},",
+            "\"attack\":{},",
+            "\"special\":{},",
+            "\"jump\":{},",
+            "\"shield\":{},",
+            "\"grab\":{},",
+            "\"ucf_dashback_amendment\":{}",
+            "}}"
+        ),
+        input.bits(),
+        input.stick_x(),
+        input.stick_y(),
+        input.c_stick_x(),
+        input.c_stick_y(),
+        input.left_trigger_analog(),
+        input.right_trigger_analog(),
+        input.attack(),
+        input.special(),
+        input.jump(),
+        input.shield(),
+        input.grab(),
+        input.ucf_dashback_amendment()
+    )
+}
+
+fn core_frame_to_json(frame: &RenderFrame) -> String {
+    format!(
+        "{{\"frame\":{},\"checksum\":{},\"players\":[{},{}]}}",
+        frame.frame.0,
+        frame.checksum,
+        core_player_to_json(frame, 0),
+        core_player_to_json(frame, 1)
+    )
+}
+
+fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"index\":{},",
+            "\"motion_state\":\"{:?}\",",
+            "\"state_frame\":{},",
+            "\"animation_frame\":{},",
+            "\"facing\":{},",
+            "\"position_x\":{},",
+            "\"position_y\":{},",
+            "\"velocity_x\":{},",
+            "\"velocity_y\":{},",
+            "\"core_facts\":{}",
+            "}}"
+        ),
+        index,
+        frame.player_motion_states[index],
+        frame.player_state_frames[index],
+        frame.player_animation_frames[index],
+        frame.player_facings[index],
+        frame.player_positions[index].x,
+        frame.player_positions[index].y,
+        frame.player_velocities[index].x,
+        frame.player_velocities[index].y,
+        core_facts_to_json(frame.player_debug_input_facts[index])
+    )
+}
+
+fn core_facts_to_json(facts: MeleeInputFacts) -> String {
+    format!(
+        concat!(
+            "{{",
+            "\"walk_direction\":{},",
+            "\"walk_speed_bucket\":\"{}\",",
+            "\"turn_direction\":{},",
+            "\"horizontal_smash_direction\":{},",
+            "\"held_dash_x_direction\":{},",
+            "\"dash_direction\":{},",
+            "\"crouch\":{},",
+            "\"tap_jump\":{},",
+            "\"jump_pressed\":{},",
+            "\"shield_held\":{},",
+            "\"air_dodge_pressed\":{},",
+            "\"source_held_bits\":{},",
+            "\"source_pressed_bits\":{},",
+            "\"source_released_bits\":{}",
+            "}}"
+        ),
+        facts.walk_direction,
+        walk_speed_bucket_json(facts.walk_speed_bucket),
+        facts.turn_direction,
+        facts.horizontal_smash_direction,
+        facts.held_dash_x_direction,
+        facts.dash_direction,
+        facts.crouch,
+        facts.tap_jump,
+        facts.jump_pressed,
+        facts.shield_held,
+        facts.air_dodge_pressed,
+        facts.source_held.bits(),
+        facts.source_pressed.bits(),
+        facts.source_released.bits()
+    )
 }
 
 fn player_to_json(player: PlayerReadout) -> String {
@@ -286,9 +561,6 @@ fn melee_to_json(melee: Option<MeleeReadout>) -> String {
             "\"cstick_y\":{},",
             "\"prev_cstick_x\":{},",
             "\"prev_cstick_y\":{},",
-            "\"ucf_version\":\"{}\",",
-            "\"ucf_x_tilt_intent\":{},",
-            "\"ucf_shield_drop_tilt_intent\":{},",
             "\"x_tap_timer\":{},",
             "\"y_tap_timer\":{},",
             "\"trigger_timer\":{},",
@@ -299,8 +571,6 @@ fn melee_to_json(melee: Option<MeleeReadout>) -> String {
             "\"tilt_direction_y\":{},",
             "\"horizontal_smash_direction\":{},",
             "\"dash_direction\":{},",
-            "\"ucf_dashback_direction\":{},",
-            "\"ucf_shield_drop\":{},",
             "\"crouch\":{},",
             "\"tap_jump\":{},",
             "\"button_jump_pressed\":{},",
@@ -362,9 +632,6 @@ fn melee_to_json(melee: Option<MeleeReadout>) -> String {
         melee.cstick_y,
         melee.prev_cstick_x,
         melee.prev_cstick_y,
-        UCF_VERSION,
-        melee.ucf_x_tilt_intent,
-        melee.ucf_shield_drop_tilt_intent,
         melee.x_tap_timer,
         melee.y_tap_timer,
         melee.trigger_timer,
@@ -375,8 +642,6 @@ fn melee_to_json(melee: Option<MeleeReadout>) -> String {
         melee.facts.tilt_direction.1,
         melee.facts.horizontal_smash_direction,
         melee.facts.dash_direction,
-        melee.facts.ucf_dashback_direction,
-        melee.facts.ucf_shield_drop,
         melee.facts.crouch,
         melee.facts.tap_jump,
         melee.facts.button_jump_pressed,
@@ -437,6 +702,15 @@ fn melee_jump_input_json(input: MeleeJumpInput) -> &'static str {
         MeleeJumpInput::LStick => "lstick",
         MeleeJumpInput::XY => "xy",
         MeleeJumpInput::CStick => "cstick",
+    }
+}
+
+fn walk_speed_bucket_json(bucket: WalkSpeedBucket) -> &'static str {
+    match bucket {
+        WalkSpeedBucket::None => "none",
+        WalkSpeedBucket::Slow => "slow",
+        WalkSpeedBucket::Middle => "middle",
+        WalkSpeedBucket::Fast => "fast",
     }
 }
 

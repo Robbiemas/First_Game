@@ -7,12 +7,11 @@ const START_BIT: u64 = 1 << 5;
 const LEFT_TRIGGER_DIGITAL_BIT: u64 = 1 << 6;
 const RIGHT_TRIGGER_DIGITAL_BIT: u64 = 1 << 7;
 const JUMP_SECONDARY_BIT: u64 = 1 << 28;
-const UCF_X_TILT_INTENT_BIT: u64 = 1 << 29;
-const UCF_SHIELD_DROP_TILT_INTENT_BIT: u64 = 1 << 30;
 const DPAD_UP_BIT: u64 = 1 << 24;
 const DPAD_DOWN_BIT: u64 = 1 << 25;
 const DPAD_LEFT_BIT: u64 = 1 << 26;
 const DPAD_RIGHT_BIT: u64 = 1 << 27;
+pub const UCF_DASHBACK_AMENDMENT_BIT: u64 = 1 << 29;
 const STICK_X_SHIFT: u32 = 8;
 const STICK_Y_SHIFT: u32 = 16;
 const C_STICK_X_SHIFT: u32 = 32;
@@ -30,12 +29,11 @@ const USED_BITS: u64 = ATTACK_BIT
     | LEFT_TRIGGER_DIGITAL_BIT
     | RIGHT_TRIGGER_DIGITAL_BIT
     | JUMP_SECONDARY_BIT
-    | UCF_X_TILT_INTENT_BIT
-    | UCF_SHIELD_DROP_TILT_INTENT_BIT
     | DPAD_UP_BIT
     | DPAD_DOWN_BIT
     | DPAD_LEFT_BIT
     | DPAD_RIGHT_BIT
+    | UCF_DASHBACK_AMENDMENT_BIT
     | (STICK_BYTE_MASK << STICK_X_SHIFT)
     | (STICK_BYTE_MASK << STICK_Y_SHIFT)
     | (STICK_BYTE_MASK << C_STICK_X_SHIFT)
@@ -83,16 +81,6 @@ const SOURCE_USED_BUTTON_BITS: u32 = SOURCE_DPAD_LEFT_BIT
     | SOURCE_START_BIT
     | SOURCE_LR_BIT;
 const MAX_MELEE_INPUT_TIMER: u8 = 0xfe;
-
-pub const UCF_VERSION: &str = "0.84";
-pub const UCF_CARDINAL_AXIS: i8 = 80;
-pub const UCF_CARDINAL_SNAP_RANGE: i8 = 6;
-pub const UCF_TILT_INTENT_DELTA: i16 = 75;
-pub const UCF_SHIELD_DROP_DELTA: i16 = 44;
-// UCF's sdrop-up precheck uses -0.6125 on the Melee float stick scale.
-pub const UCF_SHIELD_DROP_MIN_Y: i8 = 78;
-const UCF_PAD_BUFFER_SIZE: usize = 4;
-const UCF_PAD_BUFFER_MASK: usize = UCF_PAD_BUFFER_SIZE - 1;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct GameCubeButtonState {
@@ -389,8 +377,10 @@ pub struct MeleeInputConfig {
     pub tap_y_threshold: i8,
     pub trigger_threshold: u8,
     pub trigger_timer_threshold: u8,
-    pub main_stick_deadzone: i8,
-    pub c_stick_deadzone: i8,
+    pub main_stick_deadzone_x: i8,
+    pub main_stick_deadzone_y: i8,
+    pub c_stick_deadzone_x: i8,
+    pub c_stick_deadzone_y: i8,
     pub trigger_deadzone: u8,
 }
 
@@ -426,8 +416,6 @@ pub struct MeleeInputSnapshot {
     pub x_tap_timer: u8,
     pub y_tap_timer: u8,
     pub trigger_timer: u8,
-    pub ucf_x_tilt_intent: bool,
-    pub ucf_shield_drop_tilt_intent: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -548,8 +536,6 @@ pub struct MeleeInputFacts {
     pub horizontal_smash_direction: i8,
     pub held_dash_x_direction: i8,
     pub dash_direction: i8,
-    pub ucf_dashback_direction: i8,
-    pub ucf_shield_drop: bool,
     pub main_stick_spot_dodge: bool,
     pub cstick_spot_dodge: bool,
     pub crouch: bool,
@@ -611,19 +597,7 @@ impl MeleeInputSnapshot {
             0
         };
         let held_dash_x_direction = axis_direction(self.lstick.0, thresholds.dash_x);
-        let ucf_dashback_direction = if self.ucf_x_tilt_intent {
-            held_dash_x_direction
-        } else {
-            0
-        };
-        let dash_direction = if horizontal_smash_direction != 0 {
-            horizontal_smash_direction
-        } else {
-            ucf_dashback_direction
-        };
-        let ucf_shield_drop = self.ucf_shield_drop_tilt_intent
-            && (self.lstick.1 as i16) <= -threshold_abs(UCF_SHIELD_DROP_MIN_Y)
-            && is_ucf_shield_drop_rim_coord(self.lstick);
+        let dash_direction = horizontal_smash_direction;
         let tilt_direction = (
             axis_direction(self.lstick.0, thresholds.tilt_x),
             axis_direction(self.lstick.1, thresholds.tilt_y),
@@ -729,8 +703,6 @@ impl MeleeInputSnapshot {
             horizontal_smash_direction,
             held_dash_x_direction,
             dash_direction,
-            ucf_dashback_direction,
-            ucf_shield_drop,
             main_stick_spot_dodge,
             cstick_spot_dodge,
             crouch: (self.lstick.1 as i16) <= -threshold_abs(thresholds.crouch_y),
@@ -862,8 +834,6 @@ pub struct MeleeInputProcessor {
     y_tap_timer: u8,
     trigger_timer: u8,
     prev_trigger_active: bool,
-    ucf_pad_buffer: [(i8, i8); UCF_PAD_BUFFER_SIZE],
-    ucf_pad_buffer_index: usize,
 }
 
 impl MeleeInputProcessor {
@@ -882,42 +852,17 @@ impl MeleeInputProcessor {
             y_tap_timer: MAX_MELEE_INPUT_TIMER,
             trigger_timer: MAX_MELEE_INPUT_TIMER,
             prev_trigger_active: false,
-            ucf_pad_buffer: [(0, 0); UCF_PAD_BUFFER_SIZE],
-            ucf_pad_buffer_index: 0,
         }
     }
 
     pub fn update(&mut self, pad: GameCubePadStatus) -> MeleeInputSnapshot {
-        let raw_lstick = (
-            gamecube_axis_to_i8(pad.stick_x),
-            gamecube_axis_to_i8(pad.stick_y),
+        let lstick = (
+            clean_axis_to_i8(pad.stick_x, self.config.main_stick_deadzone_x),
+            clean_axis_to_i8(pad.stick_y, self.config.main_stick_deadzone_y),
         );
-        let raw_cstick = (
-            gamecube_axis_to_i8(pad.c_stick_x),
-            gamecube_axis_to_i8(pad.c_stick_y),
-        );
-        self.ucf_pad_buffer_index = (self.ucf_pad_buffer_index + 1) & UCF_PAD_BUFFER_MASK;
-        self.ucf_pad_buffer[self.ucf_pad_buffer_index] = raw_lstick;
-        let previous_ucf_stick = self.ucf_pad_buffer
-            [(self.ucf_pad_buffer_index + UCF_PAD_BUFFER_SIZE - 2) & UCF_PAD_BUFFER_MASK];
-        let ucf_x_tilt_intent =
-            ucf_axis_delta_exceeds(previous_ucf_stick.0, raw_lstick.0, UCF_TILT_INTENT_DELTA);
-        let ucf_shield_drop_tilt_intent =
-            ucf_axis_delta_exceeds(previous_ucf_stick.1, raw_lstick.1, UCF_SHIELD_DROP_DELTA);
-
-        let lstick = apply_ucf_cardinals(
-            raw_lstick,
-            (
-                clean_axis_to_i8(pad.stick_x, self.config.main_stick_deadzone),
-                clean_axis_to_i8(pad.stick_y, self.config.main_stick_deadzone),
-            ),
-        );
-        let cstick = apply_ucf_cardinals(
-            raw_cstick,
-            (
-                clean_axis_to_i8(pad.c_stick_x, self.config.c_stick_deadzone),
-                clean_axis_to_i8(pad.c_stick_y, self.config.c_stick_deadzone),
-            ),
+        let cstick = (
+            clean_axis_to_i8(pad.c_stick_x, self.config.c_stick_deadzone_x),
+            clean_axis_to_i8(pad.c_stick_y, self.config.c_stick_deadzone_y),
         );
         let left_trigger = clean_trigger(pad.left_trigger, self.config.trigger_deadzone);
         let right_trigger = clean_trigger(pad.right_trigger, self.config.trigger_deadzone);
@@ -980,8 +925,6 @@ impl MeleeInputProcessor {
             x_tap_timer: self.x_tap_timer,
             y_tap_timer: self.y_tap_timer,
             trigger_timer: self.trigger_timer,
-            ucf_x_tilt_intent,
-            ucf_shield_drop_tilt_intent,
         };
 
         self.prev_lstick = lstick;
@@ -1112,12 +1055,8 @@ impl PlayerInput {
         self.with_button(DPAD_RIGHT_BIT, pressed)
     }
 
-    pub fn with_ucf_x_tilt_intent(self, active: bool) -> Self {
-        self.with_button(UCF_X_TILT_INTENT_BIT, active)
-    }
-
-    pub fn with_ucf_shield_drop_tilt_intent(self, active: bool) -> Self {
-        self.with_button(UCF_SHIELD_DROP_TILT_INTENT_BIT, active)
+    pub fn with_ucf_dashback_amendment(self, active: bool) -> Self {
+        self.with_button(UCF_DASHBACK_AMENDMENT_BIT, active)
     }
 
     pub const fn attack(self) -> bool {
@@ -1184,12 +1123,8 @@ impl PlayerInput {
         self.bits & DPAD_RIGHT_BIT != 0
     }
 
-    pub const fn ucf_x_tilt_intent(self) -> bool {
-        self.bits & UCF_X_TILT_INTENT_BIT != 0
-    }
-
-    pub const fn ucf_shield_drop_tilt_intent(self) -> bool {
-        self.bits & UCF_SHIELD_DROP_TILT_INTENT_BIT != 0
+    pub const fn ucf_dashback_amendment(self) -> bool {
+        self.bits & UCF_DASHBACK_AMENDMENT_BIT != 0
     }
 
     pub const fn stick_x(self) -> i8 {
@@ -1293,8 +1228,6 @@ impl PlayerInput {
             x_tap_timer: updated_timers.x_tap,
             y_tap_timer: updated_timers.y_tap,
             trigger_timer: updated_timers.trigger,
-            ucf_x_tilt_intent: self.ucf_x_tilt_intent(),
-            ucf_shield_drop_tilt_intent: self.ucf_shield_drop_tilt_intent(),
         }
     }
 
@@ -1356,51 +1289,6 @@ fn update_binary_timer(timer: u8, previous_active: bool, current_active: bool) -
 
 fn increment_melee_timer(timer: u8) -> u8 {
     timer.saturating_add(1).min(MAX_MELEE_INPUT_TIMER)
-}
-
-fn apply_ucf_cardinals(raw: (i8, i8), cleaned: (i8, i8)) -> (i8, i8) {
-    if threshold_abs(raw.0) >= UCF_CARDINAL_AXIS as i16
-        && threshold_abs(raw.1) <= UCF_CARDINAL_SNAP_RANGE as i16
-    {
-        (full_axis(raw.0), 0)
-    } else if threshold_abs(raw.1) >= UCF_CARDINAL_AXIS as i16
-        && threshold_abs(raw.0) <= UCF_CARDINAL_SNAP_RANGE as i16
-    {
-        (0, full_axis(raw.1))
-    } else {
-        cleaned
-    }
-}
-
-fn full_axis(value: i8) -> i8 {
-    if value < 0 {
-        -128
-    } else {
-        127
-    }
-}
-
-fn ucf_axis_delta_exceeds(previous: i8, current: i8, threshold: i16) -> bool {
-    let delta = current as i32 - previous as i32;
-    let threshold = threshold as i32;
-    delta * delta > threshold * threshold
-}
-
-fn is_ucf_shield_drop_rim_coord(stick: (i8, i8)) -> bool {
-    let x = ucf_rim_axis_coord(stick.0);
-    let y = ucf_rim_axis_coord(stick.1);
-    x * x + y * y > 80 * 80
-}
-
-fn ucf_rim_axis_coord(axis: i8) -> i32 {
-    let abs_axis = (axis as i16).abs() as i32;
-    let denominator = if axis < 0 { 128 } else { 127 };
-    let numerator = abs_axis * 80;
-    let mut coord = numerator / denominator;
-    if numerator != 0 && numerator % denominator == 0 {
-        coord -= 1;
-    }
-    coord + 2
 }
 
 fn clean_axis_to_i8(value: u8, deadzone: i8) -> i8 {
@@ -1624,7 +1512,7 @@ fn shield_main_stick_spot_dodge(
     thresholds: MeleeInputThresholds,
 ) -> bool {
     y_tap_timer < thresholds.escape_y_tap_window
-        && (lstick.1 as i16) <= -threshold_abs(thresholds.escape_y)
+        && (lstick.1 as i16) < -threshold_abs(thresholds.escape_y)
 }
 
 fn shield_cstick_spot_dodge(cstick: (i8, i8), thresholds: MeleeInputThresholds) -> bool {

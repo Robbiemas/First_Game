@@ -420,6 +420,8 @@ WUP-028 adapter
   -> raw USB report
   -> per-port GameCubePadStatus
   -> console-style origin capture
+  -> PADRead-style origin subtraction
+  -> HSD stick clamp / native Melee pad sample
   -> UCF-native correction
   -> deterministic packed PlayerInput
   -> rollback/core
@@ -446,29 +448,44 @@ experience.
 
 This origin is not a gameplay mechanic. It is controller preprocessing.
 
-### Trigger Deadzone
+### Native Pre-UCF Pad Processing
 
-Analog triggers should support a configurable lower deadzone, but the current
-default can be fixed in data:
+The native WUP path mirrors the Melee pad stack before UCF is layered on top:
 
 ```text
-raw analog <= deadzone -> 0.0 pressure
-raw analog > deadzone -> remap to 0.0..1.0
-digital bottom-out -> separate L/R digital button facts
+raw WUP bytes
+  -> PADRead-style origin subtraction
+  -> HSD radius clamp for main stick and C-stick
+  -> optional UCF
+  -> vanilla Melee input facts
 ```
 
-This preserves the user's desired safety behavior without patching shield
-logic. The input layer changes the analog reading; the game still consumes the
-resulting controller state naturally.
+Do not apply the SDK `PADClamp` trigger rest band as a WUP gameplay rule.
+Melee's HSD fighter-input path subtracts the trigger origin, then fighter common
+data decides when analog shield pressure is meaningful. Digital L/R bottom-out
+still remains separate button state.
 
 ### UCF-Native Correction
 
 UCF should be treated as the default native controller pass. It should be
 implemented in `mole_input` as a deterministic transformation from raw/current
-and previous controller frames into Melee-shaped facts.
+and previous controller frames into Melee-shaped facts or rollback-owned input
+amendments.
 
-The game should not contain special "UCF state hacks." The core should consume
-ordinary facts as if the controller behaved correctly.
+UCF cardinals and shield-drop are ordinary input translations: the core receives
+a normal Melee-shaped pad sample. UCF dashback is the exception in the source:
+UCF 0.84 patches `Interrupt_AS_Turn`, checks the raw two-frame x delta from the
+UCF pad buffer, and then writes the Turn action-state flags that vanilla Melee
+already uses (`has_turned`/`just_turned`, named `is_smash_turn`/`can_dash` in
+the UCF source). The adapter owns the raw delta check and the default-on toggle;
+the rollback input carries a dashback amendment bit, and the core applies it
+only at the decomp Turn hook frame. Do not model this as a new movement state or
+as character tuning.
+
+Slippi replay diagnostics use the same split: game-facing replay analogs are
+exported as core inputs, and UCF-tagged replay players receive adapter-owned
+amendment bits derived from the recorded raw stick deltas. This makes UCF
+replay comparison realistic while preserving a vanilla core transition model.
 
 ### Generic Controller Fallback
 
@@ -518,6 +535,21 @@ end condition
 Do not use one giant "choose best action" resolver. Each state owns an ordered
 transition function. This is how we prevent accidental same-frame overwrites and
 patch stacks.
+
+`KneeBend` takeoff is a concrete example of the required callback ordering.
+`ftCo_KneeBend_Anim` may enter `JumpF`/`JumpB` on the same 60 Hz tick; the new
+airborne state's IASA callback can then accept fresh airborne actions such as
+`EscapeAir` or C-stick aerials, while `ftCo_Jump_Phys_Inner` still skips
+ordinary air drift/gravity on that first jump tick. The Rust core should keep
+that separation explicit: IASA action checks are not the same thing as physics.
+
+ECB/contact state is also rollback-owned. Source ground-to-air transitions call
+`ftCommon_8007D5D4`, set a 10-frame ECB lock, and preserve the previous bottom
+probe while the JObj-sourced ECB changes under the animation. The current Rust
+bootstrap records this as `ecb_bottom_lock_timer`, but full parity requires
+parsed per-action/per-frame JObj ECB data from Falcon action animation resources
+such as `PlCaAJ.dat`; hardcoded EscapeAir bottom probes are diagnostic
+waypoints, not the final architecture.
 
 ### Motion State Parity Rule
 

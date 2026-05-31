@@ -76,8 +76,10 @@ pub struct MeleeCommonData {
     pub tap_y_threshold: i8,
     pub trigger_threshold: u8,
     pub trigger_timer_threshold: u8,
-    pub main_stick_deadzone: i8,
-    pub c_stick_deadzone: i8,
+    pub main_stick_deadzone_x: i8,
+    pub main_stick_deadzone_y: i8,
+    pub c_stick_deadzone_x: i8,
+    pub c_stick_deadzone_y: i8,
     pub trigger_deadzone: u8,
     pub z_shield_analog: u8,
     pub walk_x: i8,
@@ -87,6 +89,7 @@ pub struct MeleeCommonData {
     pub dash_x: i8,
     pub dash_tap_window: u8,
     pub turn_x: i8,
+    pub turn_run_x: i8,
     pub tilt_x: i8,
     pub tilt_y: i8,
     pub smash_y: i8,
@@ -122,59 +125,70 @@ pub struct MeleeCommonData {
     pub run_ground_friction_multiplier_milli: i32,
     pub high_speed_ground_friction_multiplier_milli: i32,
     pub animation_velocity_scale_milli: i32,
+    pub fall_animation_drift_threshold_milli: i32,
+    pub fall_animation_blend_milli: i32,
     pub fallspecial_platform_landing_y: i8,
     pub platform_pass_y: i8,
     pub platform_pass_y_tap_window: u8,
     pub pass_initial_y_velocity: i32,
     pub platform_drop_delay_ticks: u8,
+    pub entry_start_ticks: u8,
+    pub entry_end_ticks: u8,
+    pub entry_initial_scale_y_milli: i32,
+    pub entry_collision_landing_lag_ticks: u8,
     pub dash_early_action_window: u8,
     pub dash_defensive_action_window: u8,
     pub dash_late_action_window: u8,
+    pub dash_velocity_decay_milli: i32,
     pub run_x: i8,
     pub guard_on_catch_dash_window: u8,
+    pub guard_reflect_input_window: u8,
     pub run_turn_run_no_interrupt_frames: u8,
 }
 
 impl MeleeCommonData {
     pub const PROVISIONAL: Self = Self {
-        tap_x_threshold: 36,
-        tap_y_threshold: 36,
+        tap_x_threshold: 32,
+        tap_y_threshold: 32,
         trigger_threshold: 1,
-        trigger_timer_threshold: 140,
-        main_stick_deadzone: 0,
-        c_stick_deadzone: 0,
-        trigger_deadzone: 0,
-        z_shield_analog: 49,
-        walk_x: 20,
+        trigger_timer_threshold: 64,
+        main_stick_deadzone_x: 36,
+        main_stick_deadzone_y: 36,
+        c_stick_deadzone_x: 36,
+        c_stick_deadzone_y: 36,
+        trigger_deadzone: 77,
+        z_shield_analog: 89,
+        walk_x: 23,
         walk_slow_x: 20,
         walk_middle_x: 50,
         walk_fast_x: 90,
-        dash_x: 80,
-        dash_tap_window: 3,
-        turn_x: 24,
-        tilt_x: 24,
-        tilt_y: 24,
+        dash_x: 102,
+        dash_tap_window: 2,
+        turn_x: -32,
+        turn_run_x: -48,
+        tilt_x: 32,
+        tilt_y: 32,
         smash_y: 80,
-        crouch_y: 36,
-        crouch_release_y: 36,
-        tap_jump_y: 80,
-        tap_jump_window: 3,
-        tap_jump_release_y: 40,
-        fast_fall_y: 80,
-        fast_fall_window: 2,
+        crouch_y: 87,
+        crouch_release_y: 79,
+        tap_jump_y: 84,
+        tap_jump_window: 4,
+        tap_jump_release_y: 38,
+        fast_fall_y: 84,
+        fast_fall_window: 4,
         c_stick: 40,
-        aerial_neutral_x: 40,
-        aerial_neutral_y: 40,
-        aerial_vertical_angle_tan_milli: 1000,
+        aerial_neutral_x: 32,
+        aerial_neutral_y: 32,
+        aerial_vertical_angle_tan_milli: 1192,
         air_jump_backward_x: 16,
-        escape_x: 80,
-        escape_x_tap_window: 3,
-        escape_y: 89,
-        escape_y_tap_window: 3,
+        escape_x: 89,
+        escape_x_tap_window: 4,
+        escape_y: -89,
+        escape_y_tap_window: 4,
         special_side_x: 40,
         special_vertical_y: 40,
         escapeair_iasa_timer_ticks: 3,
-        escapeair_animation_ticks: 20,
+        escapeair_animation_ticks: 50,
         escapeair_deadzone_x: 32,
         escapeair_deadzone_y: 32,
         escapeair_force: 3_100,
@@ -187,17 +201,25 @@ impl MeleeCommonData {
         run_ground_friction_multiplier_milli: 1_000,
         high_speed_ground_friction_multiplier_milli: 2_000,
         animation_velocity_scale_milli: 1_300,
-        fallspecial_platform_landing_y: -80,
+        fall_animation_drift_threshold_milli: 100,
+        fall_animation_blend_milli: 500,
+        fallspecial_platform_landing_y: -71,
         platform_pass_y: 84,
-        platform_pass_y_tap_window: 3,
-        pass_initial_y_velocity: -1_200,
-        platform_drop_delay_ticks: 4,
-        dash_early_action_window: 1,
-        dash_defensive_action_window: 1,
-        dash_late_action_window: 15,
-        run_x: 64,
-        guard_on_catch_dash_window: 4,
-        run_turn_run_no_interrupt_frames: 1,
+        platform_pass_y_tap_window: 6,
+        pass_initial_y_velocity: -500,
+        platform_drop_delay_ticks: 2,
+        entry_start_ticks: 30,
+        entry_end_ticks: 30,
+        entry_initial_scale_y_milli: 10,
+        entry_collision_landing_lag_ticks: 120,
+        dash_early_action_window: 4,
+        dash_defensive_action_window: 3,
+        dash_late_action_window: 20,
+        dash_velocity_decay_milli: 750,
+        run_x: 79,
+        guard_on_catch_dash_window: 3,
+        guard_reflect_input_window: 2,
+        run_turn_run_no_interrupt_frames: 10,
     };
 
     pub const fn provisional_mole() -> Self {
@@ -207,6 +229,10 @@ impl MeleeCommonData {
     pub fn from_plco_bytes(bytes: &[u8]) -> Result<Self, CommonDataExtractError> {
         let mut data = Self::PROVISIONAL;
 
+        data.main_stick_deadzone_x = read_stick_i8(bytes, 0x00, "x0")?;
+        data.main_stick_deadzone_y = read_stick_i8(bytes, 0x04, "x4")?;
+        data.c_stick_deadzone_x = data.main_stick_deadzone_x;
+        data.c_stick_deadzone_y = data.main_stick_deadzone_y;
         data.tap_x_threshold = read_stick_i8(bytes, 0x08, "x8_someStickThreshold")?;
         data.tap_y_threshold = read_stick_i8(bytes, 0x0c, "xC")?;
         data.trigger_deadzone = read_trigger_u8(bytes, 0x10, "x10")?;
@@ -219,11 +245,13 @@ impl MeleeCommonData {
         data.walk_fast_velocity_ratio_milli = read_milli_i32(bytes, 0x2c, "x2C")?;
         data.walk_accel_taper_milli = read_milli_i32(bytes, 0x30, "x30")?;
         data.turn_x = read_stick_i8(bytes, 0x34, "x34")?;
+        data.turn_run_x = read_stick_i8(bytes, 0x38, "x38_someLStickXThreshold")?;
         data.dash_x = read_stick_i8(bytes, 0x3c, "x3C")?;
         data.dash_tap_window = read_u8_from_i32(bytes, 0x40, "x40")?;
         data.dash_early_action_window = read_u8_from_f32(bytes, 0x44, "x44")?;
         data.dash_defensive_action_window = read_u8_from_f32(bytes, 0x48, "x48")?;
         data.dash_late_action_window = read_u8_from_f32(bytes, 0x4c, "x4C")?;
+        data.dash_velocity_decay_milli = read_milli_i32(bytes, 0x54, "x54")?;
         data.run_x = read_stick_i8(bytes, 0x58, "x58_someLStickXThreshold")?;
         data.run_accel_taper_milli = read_milli_i32(bytes, 0x5c, "x5C")?;
         data.run_ground_friction_multiplier_milli =
@@ -243,6 +271,7 @@ impl MeleeCommonData {
         data.aerial_neutral_x = read_stick_i8(bytes, 0xdc, "xDC")?;
         data.aerial_neutral_y = read_stick_i8(bytes, 0xe0, "xE0")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
+        data.guard_reflect_input_window = read_u8_from_i32(bytes, 0x2a0, "x2A0")?;
         data.escape_y = read_stick_i8(bytes, 0x314, "x314")?;
         data.escape_y_tap_window = read_u8_from_i32(bytes, 0x318, "x318")?;
         data.escape_x = read_stick_i8(bytes, 0x31c, "x31C")?;
@@ -257,10 +286,16 @@ impl MeleeCommonData {
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
         data.animation_velocity_scale_milli = read_milli_i32(bytes, 0x440, "x440")?;
+        data.fall_animation_drift_threshold_milli = read_milli_i32(bytes, 0x444, "x444")?;
+        data.fall_animation_blend_milli = read_milli_i32(bytes, 0x448, "x448")?;
         data.platform_pass_y = read_stick_i8(bytes, 0x464, "x464")?;
         data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
         data.pass_initial_y_velocity = read_milli_i32(bytes, 0x46c, "x46C")?;
         data.platform_drop_delay_ticks = read_u8_from_f32(bytes, 0x470, "x470")?;
+        data.entry_start_ticks = read_u8_from_i32(bytes, 0x6bc, "x6BC")?;
+        data.entry_end_ticks = read_u8_from_i32(bytes, 0x6c0, "x6C0")?;
+        data.entry_initial_scale_y_milli = read_milli_i32(bytes, 0x6c4, "x6C4")?;
+        data.entry_collision_landing_lag_ticks = read_u8_from_i32(bytes, 0x6c8, "x6C8")?;
 
         Ok(data)
     }
@@ -271,8 +306,10 @@ impl MeleeCommonData {
             tap_y_threshold: self.tap_y_threshold,
             trigger_threshold: self.trigger_threshold,
             trigger_timer_threshold: self.trigger_timer_threshold,
-            main_stick_deadzone: self.main_stick_deadzone,
-            c_stick_deadzone: self.c_stick_deadzone,
+            main_stick_deadzone_x: self.main_stick_deadzone_x,
+            main_stick_deadzone_y: self.main_stick_deadzone_y,
+            c_stick_deadzone_x: self.c_stick_deadzone_x,
+            c_stick_deadzone_y: self.c_stick_deadzone_y,
             trigger_deadzone: self.trigger_deadzone,
         }
     }
@@ -454,16 +491,40 @@ fn range_i32(
 
 pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
     CommonDataFieldSource {
+        rust_name: "main_stick_deadzone_x",
+        source_name: "x0",
+        offset: 0x00,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "main_stick_deadzone_y",
+        source_name: "x4",
+        offset: 0x04,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "c_stick_deadzone_x",
+        source_name: "x0",
+        offset: 0x00,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "c_stick_deadzone_y",
+        source_name: "x4",
+        offset: 0x04,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "tap_x_threshold",
         source_name: "x8_someStickThreshold",
         offset: 0x08,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "tap_y_threshold",
         source_name: "xC_someStickThreshold",
         offset: 0x0c,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "trigger_deadzone",
@@ -493,7 +554,7 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "walk_x",
         source_name: "x24",
         offset: 0x24,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "walk_slow_x",
@@ -535,43 +596,55 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "turn_x",
         source_name: "x34",
         offset: 0x34,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "turn_run_x",
+        source_name: "x38_someLStickXThreshold",
+        offset: 0x38,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "dash_x",
         source_name: "x3C",
         offset: 0x3c,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "dash_tap_window",
         source_name: "x40",
         offset: 0x40,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "dash_early_action_window",
         source_name: "x44",
         offset: 0x44,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "dash_defensive_action_window",
         source_name: "x48",
         offset: 0x48,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "dash_late_action_window",
         source_name: "x4C",
         offset: 0x4c,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dash_velocity_decay_milli",
+        source_name: "x54",
+        offset: 0x54,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "run_x",
         source_name: "x58_someLStickXThreshold",
         offset: 0x58,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "run_accel_taper_milli",
@@ -598,15 +671,33 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "guard_reflect_input_window",
+        source_name: "x2A0",
+        offset: 0x2a0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "run_turn_run_no_interrupt_frames",
         source_name: "x430",
         offset: 0x430,
-        provenance: CommonDataProvenance::ProvisionalMole,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "animation_velocity_scale_milli",
         source_name: "x440",
         offset: 0x440,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "fall_animation_drift_threshold_milli",
+        source_name: "x444",
+        offset: 0x444,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "fall_animation_blend_milli",
+        source_name: "x448",
+        offset: 0x448,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -782,6 +873,30 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "x470",
         offset: 0x470,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "entry_start_ticks",
+        source_name: "x6BC",
+        offset: 0x6bc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "entry_end_ticks",
+        source_name: "x6C0",
+        offset: 0x6c0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "entry_initial_scale_y_milli",
+        source_name: "x6C4",
+        offset: 0x6c4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "entry_collision_landing_lag_ticks",
+        source_name: "x6C8",
+        offset: 0x6c8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
 ];
 

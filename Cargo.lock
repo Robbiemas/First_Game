@@ -136,6 +136,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mole_cli"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mole_core"
 version = "0.1.0"
 
@@ -166,10 +174,13 @@ version = "0.1.0"
 dependencies = [
  "image",
  "mole_core",
+ "mole_input",
  "mole_replay",
  "mole_transport",
  "rusb",
  "sdl3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

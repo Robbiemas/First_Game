@@ -77,6 +77,13 @@
       "raw": 2.299999952316284,
       "source_name": "dash_run_terminal_velocity"
     },
+    "entry_platform_offset_y": {
+      "kind": "entry_platform_offset_milli",
+      "milli": 1647,
+      "offset": 272,
+      "raw": 1.100000023841858,
+      "source_name": "trophy_scale*1.497345"
+    },
     "fast_fall_velocity": {
       "kind": "milli",
       "milli": 3500,
@@ -153,6 +160,41 @@
       "offset": 64,
       "raw": 3.0999999046325684,
       "source_name": "jump_v_initial_velocity"
+    },
+    "landingairb_lag": {
+      "kind": "f32_ticks",
+      "offset": 240,
+      "raw": 18.0,
+      "source_name": "landingairb_lag",
+      "ticks": 18
+    },
+    "landingairf_lag": {
+      "kind": "f32_ticks",
+      "offset": 236,
+      "raw": 19.0,
+      "source_name": "landingairf_lag",
+      "ticks": 19
+    },
+    "landingairhi_lag": {
+      "kind": "f32_ticks",
+      "offset": 244,
+      "raw": 15.0,
+      "source_name": "landingairhi_lag",
+      "ticks": 15
+    },
+    "landingairlw_lag": {
+      "kind": "f32_ticks",
+      "offset": 248,
+      "raw": 24.0,
+      "source_name": "landingairlw_lag",
+      "ticks": 24
+    },
+    "landingairn_lag": {
+      "kind": "f32_ticks",
+      "offset": 232,
+      "raw": 15.0,
+      "source_name": "landingairn_lag",
+      "ticks": 15
     },
     "max_jumps": {
       "kind": "i32_ticks",

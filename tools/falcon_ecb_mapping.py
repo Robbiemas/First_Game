@@ -1,0 +1,94 @@
+"""Captain Falcon action-table ECB mappings used by extraction and Rust generation."""
+
+from __future__ import annotations
+
+MOTION_STATE_ACTION_MAP: tuple[tuple[str, int], ...] = (
+    ("Wait", 2),
+    ("WalkSlow", 7),
+    ("WalkMiddle", 8),
+    ("WalkFast", 9),
+    ("Turn", 10),
+    ("TurnRun", 11),
+    ("Dash", 12),
+    ("Run", 13),
+    ("RunDirect", 13),
+    ("RunBrake", 14),
+    ("KneeBend", 15),
+    ("Landing", 15),
+    ("JumpF", 16),
+    ("JumpB", 17),
+    ("JumpAerialF", 18),
+    ("JumpAerialB", 19),
+    ("Fall", 20),
+    ("FallF", 21),
+    ("FallB", 22),
+    ("FallAerial", 23),
+    ("FallAerialF", 24),
+    ("FallAerialB", 25),
+    ("FallSpecial", 26),
+    ("FallSpecialF", 27),
+    ("FallSpecialB", 28),
+    ("Squat", 30),
+    ("SquatWait", 31),
+    ("SquatRv", 34),
+    ("GuardOn", 37),
+    ("Guard", 38),
+    ("GuardOff", 39),
+    ("GuardSetOff", 40),
+    ("GuardReflect", 37),
+    ("LandingFallSpecial", 36),
+    ("EscapeN", 41),
+    ("EscapeF", 42),
+    ("EscapeB", 43),
+    ("EscapeAir", 44),
+    ("Attack1", 46),
+    ("AttackDash", 52),
+    ("AttackS3", 55),
+    ("AttackHi3", 58),
+    ("AttackLw3", 59),
+    ("AttackS4", 62),
+    ("AttackHi4", 66),
+    ("AttackLw4", 67),
+    ("AttackAirN", 68),
+    ("AttackAirF", 69),
+    ("AttackAirB", 70),
+    ("AttackAirHi", 71),
+    ("AttackAirLw", 72),
+    ("LandingAirN", 73),
+    ("LandingAirF", 74),
+    ("LandingAirB", 75),
+    ("LandingAirHi", 76),
+    ("LandingAirLw", 77),
+    ("Pass", 209),
+    ("Catch", 242),
+    ("CatchDash", 243),
+    ("SpecialN", 301),
+    ("SpecialAirN", 302),
+    ("SpecialSStart", 303),
+    ("SpecialS", 304),
+    ("SpecialAirSStart", 305),
+    ("SpecialAirS", 306),
+    ("SpecialHi", 307),
+    ("SpecialAirHi", 308),
+    ("SpecialLw", 311),
+    ("SpecialAirLw", 313),
+    ("EntryStart", 238),
+)
+
+UNMAPPED_DERIVED_MOTION_STATES: tuple[str, ...] = (
+)
+
+NO_ACTION_SUBMOTION_MOTION_STATES: tuple[tuple[str, str], ...] = (
+    (
+        "Entry",
+        "ftCo_MS_Entry uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
+    ),
+    (
+        "EntryEnd",
+        "ftCo_MS_EntryEnd uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
+    ),
+)
+
+
+def sampled_action_ids() -> tuple[int, ...]:
+    return tuple(dict.fromkeys(action_id for _state, action_id in MOTION_STATE_ACTION_MAP))

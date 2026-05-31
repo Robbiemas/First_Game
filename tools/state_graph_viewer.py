@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import sys
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,77 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_GRAPH_DIR = PROJECT_ROOT / "docs" / "state_graphs"
 DEFAULT_LAYOUT_PATH = PROJECT_ROOT / "config" / "state_graph_layout.json"
+DEFAULT_COMMON_DATA_RS = PROJECT_ROOT / "crates" / "mole_core" / "src" / "common_data.rs"
+DEFAULT_STATE_RS = PROJECT_ROOT / "crates" / "mole_core" / "src" / "state.rs"
 GRAPH_FILES = ("melee_reference_graph.json", "mole_current_graph.json")
+DEFAULT_VALUE_SHEET_DIR = DEFAULT_GRAPH_DIR / "value_sheets"
+DEFAULT_INPUT_TRACE_DIR = PROJECT_ROOT / "logs"
+DEFAULT_SLIPPI_REPORT_DIR = PROJECT_ROOT / "debug" / "slippi"
+DEFAULT_ECB_COVERAGE_JSON = DEFAULT_GRAPH_DIR / "parity_reports" / "falcon_ecb_coverage.json"
+INPUT_TRACE_GLOB = "controller-input-trace-*.jsonl"
+SLIPPI_REPORT_GLOB = "*.report.md"
+VALUE_SHEET_FILES = ("global_common_values.json", "captain_falcon_values.json")
+TOOL_TITLE = "Mole Game Dev Tool"
+STATE_GRAPHS_TAB_LABEL = "State Graphs"
+PARITY_LEDGER_TAB_LABEL = "Parity Ledger"
+ECB_COVERAGE_TAB_LABEL = "ECB Coverage"
+INPUT_TRACE_TAB_LABEL = "Input Trace"
+SLIPPI_REPLAY_TAB_LABEL = "Slippi Replay"
+GROUNDED_LEDGER_NODE_IDS = (
+    "Wait",
+    "WalkSlow",
+    "WalkMiddle",
+    "WalkFast",
+    "Turn",
+    "Dash",
+    "Run",
+    "RunBrake",
+    "TurnRun",
+)
+TEST_CHARACTER_VALUES_TAB_LABEL = "Test Character Values"
+GLOBAL_VALUES_TAB_LABEL = "Global Values"
+CHARACTER_RUST_FIELD_MAP = {
+    "walk_initial_velocity": "walk_initial_velocity_per_tick",
+    "walk_accel": "walk_accel_per_tick",
+    "walk_max_vel": "walk_speed_per_tick",
+    "slow_walk_max_velocity": "slow_walk_max_velocity_per_tick",
+    "mid_walk_threshold": "mid_walk_animation_rate_per_tick",
+    "fast_walk_threshold": "fast_walk_animation_rate_per_tick",
+    "traction_per_tick": "traction_per_tick",
+    "dash_run_terminal_velocity": "run_speed_per_tick",
+    "run_animation_scaling": "run_animation_scaling_per_tick",
+    "max_run_brake_frames": "max_run_brake_frames",
+    "ground_max_horizontal_velocity": "ground_max_horizontal_velocity_per_tick",
+    "dash_initial_velocity": "initial_dash_speed_per_tick",
+    "dash_run_acceleration_a": "dash_run_accel_stick_per_tick",
+    "dash_run_acceleration_b": "dash_run_accel_base_per_tick",
+    "frames_to_change_direction_on_standing_turn": "standing_turn_direction_change_frames",
+    "jump_startup_time": "jumpsquat_frames",
+    "jump_h_initial_velocity": "jump_horizontal_initial_velocity_per_tick",
+    "jump_v_initial_velocity": "full_hop_jump_force_per_tick",
+    "ground_to_air_jump_momentum_multiplier": "ground_to_air_jump_momentum_milli",
+    "jump_h_max_velocity": "jump_horizontal_max_velocity_per_tick",
+    "hop_v_initial_velocity": "short_hop_jump_force_per_tick",
+    "air_jump_v_multiplier": "air_jump_v_multiplier_milli",
+    "air_jump_h_multiplier": "air_jump_horizontal_velocity_per_tick",
+    "max_jumps": "max_jumps",
+    "air_drift_stick_mul": "air_drift_stick_accel_per_tick",
+    "aerial_drift_base": "air_drift_base_accel_per_tick",
+    "air_drift_max": "air_drift_max_velocity_per_tick",
+    "aerial_friction": "air_friction_per_tick",
+    "air_max_horizontal_velocity": "air_max_horizontal_velocity_per_tick",
+    "grav": "gravity_per_tick",
+    "terminal_vel": "fall_speed_per_tick",
+    "fast_fall_velocity": "fast_fall_speed_per_tick",
+    "normal_landing_lag": "normal_landing_lag_ticks",
+    "landingairn_lag": "landing_air_n_lag_ticks",
+    "landingairf_lag": "landing_air_f_lag_ticks",
+    "landingairb_lag": "landing_air_b_lag_ticks",
+    "landingairhi_lag": "landing_air_hi_lag_ticks",
+    "landingairlw_lag": "landing_air_lw_lag_ticks",
+    "entry_platform_offset_y": "entry_platform_offset_y",
+}
+CHARACTER_DERIVED_NOTES: dict[str, str] = {}
 MIN_ZOOM = 0.35
 MAX_ZOOM = 2.75
 ZOOM_STEP = 1.12
@@ -41,9 +112,22 @@ ONE_TO_ONE_LAYOUT_EQUIVALENTS = {
     "JumpAerialF",
     "JumpAerialB",
     "EscapeAir",
+    "Fall",
+    "FallF",
+    "FallB",
+    "FallAerial",
+    "FallAerialF",
+    "FallAerialB",
     "FallSpecial",
+    "FallSpecialF",
+    "FallSpecialB",
     "LandingFallSpecial",
     "Landing",
+    "LandingAirN",
+    "LandingAirF",
+    "LandingAirB",
+    "LandingAirHi",
+    "LandingAirLw",
 }
 
 
@@ -64,6 +148,14 @@ STATUS_STYLES = {
     "intentional": StatusStyle("#dbeafe", "#2563eb", "#172554", "Intentional"),
 }
 ALLOWED_STATUSES = set(STATUS_STYLES)
+LEDGER_LIST_FIELDS = {
+    "source_refs",
+    "rust_refs",
+    "value_refs",
+    "known_gaps",
+    "physics",
+}
+REFERENCE_FIELDS = {"source_refs", "rust_refs"}
 
 
 def load_graphs(graph_dir: Path = DEFAULT_GRAPH_DIR) -> list[dict[str, Any]]:
@@ -78,6 +170,153 @@ def load_graphs(graph_dir: Path = DEFAULT_GRAPH_DIR) -> list[dict[str, Any]]:
             raise ValueError(f"{path} is not a valid state graph:\n{joined}")
         graphs.append(graph)
     return graphs
+
+
+def load_value_sheets(value_sheet_dir: Path = DEFAULT_VALUE_SHEET_DIR) -> list[dict[str, Any]]:
+    sheets = []
+    for filename in VALUE_SHEET_FILES:
+        path = value_sheet_dir / filename
+        with path.open("r", encoding="utf-8") as handle:
+            sheets.append(json.load(handle))
+    return sheets
+
+
+def load_ecb_coverage(path: Path = DEFAULT_ECB_COVERAGE_JSON) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def latest_input_trace_path(log_dir: Path = DEFAULT_INPUT_TRACE_DIR) -> Path | None:
+    traces = sorted(
+        log_dir.glob(INPUT_TRACE_GLOB),
+        key=lambda path: (path.stat().st_mtime, path.name),
+        reverse=True,
+    )
+    return traces[0] if traces else None
+
+
+def latest_slippi_report_path(report_dir: Path = DEFAULT_SLIPPI_REPORT_DIR) -> Path | None:
+    reports = sorted(
+        report_dir.glob(SLIPPI_REPORT_GLOB),
+        key=lambda path: (path.stat().st_mtime, path.name),
+        reverse=True,
+    )
+    return reports[0] if reports else None
+
+
+def load_recent_input_trace_rows(path: Path, limit: int = 120) -> list[dict[str, Any]]:
+    rows: deque[dict[str, Any]] = deque(maxlen=max(1, limit))
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(row, dict):
+                rows.append(row)
+    return list(rows)
+
+
+def format_recent_input_trace(path: Path | None = None, limit: int = 90) -> str:
+    path = path or latest_input_trace_path()
+    if path is None:
+        return (
+            "Input Trace\n\n"
+            "No controller input trace found yet. Run the SDL3 runtime, move the controller, then refresh this tab."
+        )
+
+    rows = load_recent_input_trace_rows(path, limit=limit)
+    lines = [
+        "Input Trace",
+        "",
+        f"File: {path.name}",
+        f"Frames shown: {len(rows)}",
+        "",
+    ]
+    if not rows:
+        lines.append("Trace file is present but does not contain readable JSONL rows yet.")
+        return "\n".join(lines)
+
+    lines.extend(_format_input_trace_row(row) for row in rows)
+    return "\n".join(lines)
+
+
+def format_latest_slippi_report(
+    path: Path | None = None,
+    report_dir: Path = DEFAULT_SLIPPI_REPORT_DIR,
+) -> str:
+    path = path or latest_slippi_report_path(report_dir)
+    if path is None:
+        return (
+            "Slippi Replay\n\n"
+            "No Slippi replay diagnostic report found yet. Generate one with:\n"
+            "node tools\\slippi_replay_to_inputs.cjs --replay replays\\Game.slp --frames 1800"
+        )
+
+    return "\n".join(
+        [
+            "Slippi Replay",
+            "",
+            f"File: {path.name}",
+            "",
+            path.read_text(encoding="utf-8"),
+        ]
+    )
+
+
+def _format_input_trace_row(row: dict[str, Any]) -> str:
+    frame = row.get("frame", "?")
+    wup_player = _first_player(row.get("wup", {}).get("players", []))
+    after_player = _first_player(row.get("after", {}).get("players", []))
+    melee = wup_player.get("melee", {}) if isinstance(wup_player, dict) else {}
+    core_facts = after_player.get("core_facts", {}) if isinstance(after_player, dict) else {}
+    raw = _axis_pair(wup_player.get("raw", {}) if isinstance(wup_player, dict) else {})
+    native = _axis_pair(wup_player.get("native", {}) if isinstance(wup_player, dict) else {})
+    ucf = _axis_pair(wup_player.get("ucf", {}) if isinstance(wup_player, dict) else {})
+    dashback = wup_player.get("dashback_amendment") if isinstance(wup_player, dict) else None
+    tap = melee.get("x_tap_timer", "?")
+    dash = core_facts.get("dash_direction", melee.get("dash_direction", "?"))
+    held_dash = core_facts.get("held_dash_x_direction", melee.get("held_dash_x_direction", "?"))
+    state = after_player.get("motion_state", "?") if isinstance(after_player, dict) else "?"
+    state_frame = after_player.get("state_frame", "?") if isinstance(after_player, dict) else "?"
+    velocity_x = after_player.get("velocity_x", "?") if isinstance(after_player, dict) else "?"
+    velocity_y = after_player.get("velocity_y", "?") if isinstance(after_player, dict) else "?"
+
+    return (
+        f"F{frame} raw={raw} native={native} ucf={ucf} "
+        f"tap={tap} dash={dash} held_dash={held_dash} "
+        f"state={state} sf={state_frame} vx={velocity_x} vy={velocity_y} "
+        f"ucf_db={dashback}"
+    )
+
+
+def _first_player(players: Any) -> dict[str, Any]:
+    if isinstance(players, list) and players and isinstance(players[0], dict):
+        return players[0]
+    return {}
+
+
+def _axis_pair(pad: dict[str, Any]) -> str:
+    return f"({pad.get('main_x', '?')},{pad.get('main_y', '?')})"
+
+
+def load_rust_global_values(path: Path = DEFAULT_COMMON_DATA_RS) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    block = _extract_rust_initializer_block(text, "pub const PROVISIONAL: Self = Self {")
+    return _parse_rust_initializer_values(block)
+
+
+def load_rust_character_values(path: Path = DEFAULT_STATE_RS) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    block = _extract_rust_initializer_block(
+        text,
+        "pub const FALCON_LIKE: Self = Self {",
+        after="impl FighterProfile",
+    )
+    return _parse_rust_initializer_values(block)
 
 
 def apply_saved_layout(
@@ -262,6 +501,7 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
             errors.append(f"node {node_id!r} has unknown status {status!r}")
         if not _is_position(node.get("pos")):
             errors.append(f"node {node_id!r} must have numeric [x, y] pos")
+        errors.extend(validate_ledger_fields(node, item_label=f"node {node_id!r}"))
 
     root = graph.get("root")
     if root and root not in node_ids:
@@ -280,6 +520,7 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
         status = edge.get("status")
         if status not in ALLOWED_STATUSES:
             errors.append(f"edge {index} has unknown status {status!r}")
+        errors.extend(validate_ledger_fields(edge, item_label=f"edge {index}"))
 
     return errors
 
@@ -294,6 +535,215 @@ def summarize_comparison(graph: dict[str, Any]) -> dict[str, int]:
     return {status: counter[status] for status in sorted(ALLOWED_STATUSES - {"reference"})}
 
 
+def summarize_value_sheet(sheet: dict[str, Any]) -> dict[str, int]:
+    categories = sheet.get("categories", [])
+    field_count = sum(len(category.get("fields", [])) for category in categories)
+    return {"categories": len(categories), "fields": field_count}
+
+
+def build_value_comparison_rows(
+    sheet: dict[str, Any],
+    rust_values: dict[str, Any],
+    *,
+    character_value: bool = False,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    field_map = CHARACTER_RUST_FIELD_MAP if character_value else {}
+    derived_notes = CHARACTER_DERIVED_NOTES if character_value else {}
+    for category in sheet.get("categories", []):
+        for field in category.get("fields", []):
+            field_name = field["rust_name"]
+            rust_field = field_map.get(field_name, field_name)
+            rust_value = rust_values.get(rust_field)
+            decomp_value = field.get("converted_value")
+            note = derived_notes.get(field_name, "")
+            if field_name in derived_notes:
+                status = "derived"
+            elif rust_field not in rust_values:
+                status = "missing"
+            elif rust_value == decomp_value:
+                status = "match"
+            else:
+                status = "diff"
+            rows.append(
+                {
+                    "category": category["id"],
+                    "field": field_name,
+                    "source_field": field["source_name"],
+                    "offset": field["offset_hex"],
+                    "decomp_value": decomp_value,
+                    "rust_field": rust_field,
+                    "rust_value": rust_value,
+                    "status": status,
+                    "provenance": field["provenance"],
+                    "kind": field["kind"],
+                    "raw": field.get("raw"),
+                    "note": note,
+                }
+            )
+    return rows
+
+
+def build_parity_ledger_overview(
+    graphs: list[dict[str, Any]],
+    value_sheets: list[dict[str, Any]],
+) -> str:
+    graph_by_id = {graph["id"]: graph for graph in graphs}
+    mole = graph_by_id.get("mole_current", {})
+    nodes_by_id = {node["id"]: node for node in mole.get("nodes", [])}
+    covered_nodes = [
+        node_id
+        for node_id in GROUNDED_LEDGER_NODE_IDS
+        if _has_grounded_ledger_coverage(nodes_by_id.get(node_id, {}))
+    ]
+    dash_edges = [
+        edge
+        for edge in mole.get("edges", [])
+        if edge.get("from") == "Dash" or edge.get("to") == "Dash"
+    ]
+    dash_physics_edges = [edge for edge in dash_edges if edge.get("physics")]
+    dash_gaps = nodes_by_id.get("Dash", {}).get("known_gaps", [])
+
+    lines = [
+        "Parity Ledger",
+        "",
+        "Value sheets:",
+    ]
+    for sheet in value_sheets:
+        summary = summarize_value_sheet(sheet)
+        lines.append(f"- {sheet['id']}: {summary['categories']} categories, {summary['fields']} fields")
+    lines.extend(
+        [
+            "",
+            f"Grounded ledger coverage: {len(covered_nodes)}/{len(GROUNDED_LEDGER_NODE_IDS)} nodes",
+            "- " + ", ".join(covered_nodes),
+            f"Dash-related physics edges: {len(dash_physics_edges)}/{len(dash_edges)}",
+        ]
+    )
+    if dash_gaps:
+        lines.extend(["", "Dash known gaps:"])
+        lines.extend(f"- {gap}" for gap in dash_gaps)
+    return "\n".join(lines)
+
+
+def format_ecb_coverage(coverage: dict[str, Any]) -> str:
+    mapped = coverage.get("mapped_motion_states", [])
+    missing = coverage.get("missing_sampled_mappings", [])
+    unmapped = coverage.get("unmapped_derived_motion_states", [])
+    no_submotion = coverage.get("no_action_submotion_motion_states", [])
+    lines = [
+        str(coverage.get("title", "ECB Coverage")),
+        "",
+        f"Samples: {coverage.get('source', {}).get('samples', '?')}",
+        f"Generated Rust: {coverage.get('source', {}).get('generated_rust', '?')}",
+        f"Mapped exact action-table states: {coverage.get('mapped_motion_state_count', len(mapped))}",
+        f"Mapped exact action ids: {coverage.get('mapped_action_count', '?')}",
+        f"Missing sampled mappings: {len(missing)}",
+        "",
+        "Unmapped derived/current Rust states:",
+    ]
+    if unmapped:
+        lines.extend(f"- {state}" for state in unmapped)
+    else:
+        lines.append("- none")
+    lines.extend(["", "No action-submotion ECB states:"])
+    if no_submotion:
+        lines.extend(
+            "- {motion_state}: {reason}".format(**row)
+            for row in no_submotion
+            if isinstance(row, dict)
+        )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "Do not alias these states to nearby animation records. Split real derived states, and justify source states whose motion-state table uses ftCo_SM_None.",
+            "",
+            "Mapped states:",
+        ]
+    )
+    for row in mapped:
+        lines.append(
+            "- {motion_state} -> action {action_state_id} ({sample_frames} frames, {status})".format(
+                **row
+            )
+        )
+    return "\n".join(lines)
+
+
+def _has_grounded_ledger_coverage(node: dict[str, Any]) -> bool:
+    return bool(node.get("source_refs") and node.get("rust_refs") and node.get("value_refs"))
+
+
+def _extract_rust_initializer_block(text: str, marker: str, *, after: str | None = None) -> str:
+    search_start = text.index(after) if after else 0
+    marker_index = text.index(marker, search_start)
+    open_index = text.index("{", marker_index)
+    depth = 0
+    for index in range(open_index, len(text)):
+        character = text[index]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1:index]
+    raise ValueError(f"could not find closing brace for {marker!r}")
+
+
+def _parse_rust_initializer_values(block: str) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for line in block.splitlines():
+        line = line.split("//", 1)[0].strip()
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        values[key] = _parse_rust_scalar(value.strip().rstrip(","))
+    return values
+
+
+def _parse_rust_scalar(value: str) -> Any:
+    if value.startswith("Some(") and value.endswith(")"):
+        return _parse_rust_scalar(value[5:-1])
+    if value == "None":
+        return None
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    if re.fullmatch(r"-?\d[\d_]*", value):
+        return int(value.replace("_", ""))
+    return value
+
+
+def format_ledger_details(item: dict[str, Any]) -> str:
+    sections: list[str] = []
+    _append_ref_section(sections, "Source", item.get("source_refs", []))
+    _append_ref_section(sections, "Rust", item.get("rust_refs", []))
+    _append_string_section(sections, "Values", item.get("value_refs", []))
+    _append_string_section(sections, "Physics", item.get("physics", []))
+    _append_string_section(sections, "Known gaps", item.get("known_gaps", []))
+    return "\n\n".join(sections)
+
+
+def _append_ref_section(sections: list[str], label: str, refs: list[dict[str, Any]]) -> None:
+    if not refs:
+        return
+    lines = [f"{label}:"]
+    for ref in refs:
+        target = ref.get("path") or ref.get("url") or ""
+        function = ref.get("function")
+        suffix = f" ({function})" if function else ""
+        lines.append(f"- {ref['label']}: {target}{suffix}")
+    sections.append("\n".join(lines))
+
+
+def _append_string_section(sections: list[str], label: str, values: list[str]) -> None:
+    if not values:
+        return
+    sections.append("\n".join([f"{label}:"] + [f"- {value}" for value in values]))
+
+
 def _find_node(graph: dict[str, Any], node_id: str) -> dict[str, Any] | None:
     for node in graph["nodes"]:
         if node["id"] == node_id:
@@ -304,22 +754,39 @@ def _find_node(graph: dict[str, Any], node_id: str) -> dict[str, Any] | None:
 def launch_viewer(
     graphs: list[dict[str, Any]],
     layout_path: Path = DEFAULT_LAYOUT_PATH,
+    value_sheets: list[dict[str, Any]] | None = None,
 ) -> None:
     import tkinter as tk
+    from tkinter import ttk
 
     graphs = copy.deepcopy(graphs)
+    value_sheets = copy.deepcopy(value_sheets) if value_sheets is not None else load_value_sheets()
     apply_saved_layout(graphs, layout_path)
 
     root = tk.Tk()
-    root.title("Mole State Transition Graphs")
+    root.title(TOOL_TITLE)
     root.geometry("1540x940")
     root.minsize(1100, 760)
+
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill=tk.BOTH, expand=True)
+
+    graphs_tab = tk.Frame(notebook, bg="#ffffff")
+    ledger_tab = tk.Frame(notebook, bg="#ffffff")
+    ecb_coverage_tab = tk.Frame(notebook, bg="#ffffff")
+    input_trace_tab = tk.Frame(notebook, bg="#ffffff")
+    slippi_replay_tab = tk.Frame(notebook, bg="#ffffff")
+    notebook.add(graphs_tab, text=STATE_GRAPHS_TAB_LABEL)
+    notebook.add(ledger_tab, text=PARITY_LEDGER_TAB_LABEL)
+    notebook.add(ecb_coverage_tab, text=ECB_COVERAGE_TAB_LABEL)
+    notebook.add(input_trace_tab, text=INPUT_TRACE_TAB_LABEL)
+    notebook.add(slippi_replay_tab, text=SLIPPI_REPLAY_TAB_LABEL)
 
     show_labels = tk.BooleanVar(value=False)
     curved_edges = tk.BooleanVar(value=True)
     status_text = tk.StringVar(value="Layout changes are not saved until you click Save Layout.")
 
-    toolbar = tk.Frame(root, padx=10, pady=7)
+    toolbar = tk.Frame(graphs_tab, padx=10, pady=7)
     toolbar.pack(fill=tk.X)
     draw_legend(toolbar)
     tk.Label(toolbar, textvariable=status_text, fg="#475569").pack(side=tk.LEFT, padx=(8, 18))
@@ -341,8 +808,12 @@ def launch_viewer(
         command=lambda: on_show_labels_changed(),
     ).pack(side=tk.RIGHT)
 
-    split = tk.PanedWindow(root, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
+    split = tk.PanedWindow(graphs_tab, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
     split.pack(fill=tk.BOTH, expand=True)
+    draw_parity_ledger_tab(ledger_tab, graphs, value_sheets)
+    draw_ecb_coverage_tab(ecb_coverage_tab)
+    draw_input_trace_tab(input_trace_tab)
+    draw_slippi_replay_tab(slippi_replay_tab)
 
     panes: list[StateGraphPane] = []
 
@@ -427,6 +898,330 @@ def launch_viewer(
 
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
+
+
+def draw_parity_ledger_tab(
+    parent: Any,
+    graphs: list[dict[str, Any]],
+    value_sheets: list[dict[str, Any]],
+) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    frame = tk.Frame(parent, bg="#ffffff", padx=12, pady=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+    header = tk.Label(
+        frame,
+        text=PARITY_LEDGER_TAB_LABEL,
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 13, "bold"),
+    )
+    header.pack(fill=tk.X, pady=(0, 8))
+    summary = tk.Label(
+        frame,
+        text=build_parity_ledger_overview(graphs, value_sheets),
+        justify=tk.LEFT,
+        anchor="w",
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        padx=12,
+        pady=8,
+    )
+    summary.pack(fill=tk.X, pady=(0, 10))
+
+    sheets_by_id = {sheet["id"]: sheet for sheet in value_sheets}
+    ledger_tabs = ttk.Notebook(frame)
+    ledger_tabs.pack(fill=tk.BOTH, expand=True)
+    draw_value_comparison_tab(
+        ledger_tabs,
+        GLOBAL_VALUES_TAB_LABEL,
+        build_value_comparison_rows(
+            sheets_by_id["global_common_values"],
+            load_rust_global_values(),
+        ),
+    )
+    draw_value_comparison_tab(
+        ledger_tabs,
+        TEST_CHARACTER_VALUES_TAB_LABEL,
+        build_value_comparison_rows(
+            sheets_by_id["captain_falcon_values"],
+            load_rust_character_values(),
+            character_value=True,
+        ),
+    )
+
+
+def draw_ecb_coverage_tab(parent: Any, coverage_path: Path = DEFAULT_ECB_COVERAGE_JSON) -> None:
+    import tkinter as tk
+
+    frame = tk.Frame(parent, bg="#ffffff", padx=12, pady=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    header_row = tk.Frame(frame, bg="#ffffff")
+    header_row.pack(fill=tk.X, pady=(0, 8))
+    tk.Label(
+        header_row,
+        text=ECB_COVERAGE_TAB_LABEL,
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 13, "bold"),
+    ).pack(side=tk.LEFT)
+    status = tk.StringVar(value="")
+
+    coverage_text = tk.Text(
+        frame,
+        wrap=tk.NONE,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Consolas", 9),
+        padx=10,
+        pady=8,
+    )
+    y_scroll = tk.Scrollbar(frame, orient=tk.VERTICAL, command=coverage_text.yview)
+    x_scroll = tk.Scrollbar(frame, orient=tk.HORIZONTAL, command=coverage_text.xview)
+    coverage_text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+    y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+    coverage_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def refresh() -> None:
+        coverage = load_ecb_coverage(coverage_path)
+        _set_text(coverage_text, format_ecb_coverage(coverage))
+        status.set(f"Source: {coverage_path.name}")
+
+    tk.Button(header_row, text="Refresh", command=refresh).pack(side=tk.RIGHT)
+    tk.Label(header_row, textvariable=status, bg="#ffffff", fg="#475569").pack(
+        side=tk.RIGHT,
+        padx=(0, 12),
+    )
+    refresh()
+
+
+def draw_value_comparison_tab(
+    notebook: Any,
+    tab_label: str,
+    rows: list[dict[str, Any]],
+) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    frame = tk.Frame(notebook, bg="#ffffff", padx=8, pady=8)
+    notebook.add(frame, text=tab_label)
+
+    columns = (
+        "category",
+        "field",
+        "source_field",
+        "offset",
+        "decomp_value",
+        "rust_field",
+        "rust_value",
+        "status",
+    )
+    table_frame = tk.Frame(frame)
+    table_frame.pack(fill=tk.BOTH, expand=True)
+    table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
+    y_scroll = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=table.yview)
+    x_scroll = ttk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=table.xview)
+    table.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+    y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+    table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    headings = {
+        "category": "Category",
+        "field": "Ledger Field",
+        "source_field": "Decomp Field",
+        "offset": "Offset",
+        "decomp_value": "Decomp Value",
+        "rust_field": "Rust Field",
+        "rust_value": "Rust Value",
+        "status": "Status",
+    }
+    widths = {
+        "category": 160,
+        "field": 230,
+        "source_field": 190,
+        "offset": 74,
+        "decomp_value": 110,
+        "rust_field": 260,
+        "rust_value": 110,
+        "status": 88,
+    }
+    for column in columns:
+        table.heading(column, text=headings[column])
+        table.column(column, width=widths[column], minwidth=70, stretch=column in {"field", "rust_field"})
+
+    table.tag_configure("match", background="#ecfdf5")
+    table.tag_configure("diff", background="#fff7ed")
+    table.tag_configure("derived", background="#eff6ff")
+    table.tag_configure("missing", background="#fef2f2")
+
+    row_by_iid: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(rows):
+        iid = str(index)
+        row_by_iid[iid] = row
+        table.insert(
+            "",
+            "end",
+            iid=iid,
+            values=tuple(_display_value(row[column]) for column in columns),
+            tags=(row["status"],),
+        )
+
+    details = tk.Text(
+        frame,
+        height=8,
+        wrap=tk.WORD,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Segoe UI", 9),
+        padx=10,
+        pady=8,
+    )
+    details.pack(fill=tk.X, pady=(8, 0))
+
+    def show_row_details(_event: Any | None = None) -> None:
+        selected = table.selection()
+        if not selected:
+            return
+        _set_text(details, format_value_comparison_details(row_by_iid[selected[0]]))
+
+    table.bind("<<TreeviewSelect>>", show_row_details)
+    if rows:
+        table.selection_set("0")
+        show_row_details()
+
+
+def draw_input_trace_tab(parent: Any, log_dir: Path = DEFAULT_INPUT_TRACE_DIR) -> None:
+    import tkinter as tk
+
+    frame = tk.Frame(parent, bg="#ffffff", padx=12, pady=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    header_row = tk.Frame(frame, bg="#ffffff")
+    header_row.pack(fill=tk.X, pady=(0, 8))
+    tk.Label(
+        header_row,
+        text=INPUT_TRACE_TAB_LABEL,
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 13, "bold"),
+    ).pack(side=tk.LEFT)
+    status = tk.StringVar(value="")
+
+    trace_text = tk.Text(
+        frame,
+        wrap=tk.NONE,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Consolas", 9),
+        padx=10,
+        pady=8,
+    )
+    y_scroll = tk.Scrollbar(frame, orient=tk.VERTICAL, command=trace_text.yview)
+    x_scroll = tk.Scrollbar(frame, orient=tk.HORIZONTAL, command=trace_text.xview)
+    trace_text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+    y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+    trace_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def refresh() -> None:
+        path = latest_input_trace_path(log_dir)
+        text = format_recent_input_trace(path)
+        _set_text(trace_text, text)
+        status.set(f"Latest: {path.name}" if path else "Latest: none")
+
+    tk.Button(header_row, text="Refresh", command=refresh).pack(side=tk.RIGHT)
+    tk.Label(header_row, textvariable=status, bg="#ffffff", fg="#475569").pack(
+        side=tk.RIGHT,
+        padx=(0, 12),
+    )
+    refresh()
+
+
+def draw_slippi_replay_tab(parent: Any, report_dir: Path = DEFAULT_SLIPPI_REPORT_DIR) -> None:
+    import tkinter as tk
+
+    frame = tk.Frame(parent, bg="#ffffff", padx=12, pady=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    header_row = tk.Frame(frame, bg="#ffffff")
+    header_row.pack(fill=tk.X, pady=(0, 8))
+    tk.Label(
+        header_row,
+        text=SLIPPI_REPLAY_TAB_LABEL,
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 13, "bold"),
+    ).pack(side=tk.LEFT)
+    status = tk.StringVar(value="")
+
+    report_text = tk.Text(
+        frame,
+        wrap=tk.NONE,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Consolas", 9),
+        padx=10,
+        pady=8,
+    )
+    y_scroll = tk.Scrollbar(frame, orient=tk.VERTICAL, command=report_text.yview)
+    x_scroll = tk.Scrollbar(frame, orient=tk.HORIZONTAL, command=report_text.xview)
+    report_text.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+    y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+    report_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def refresh() -> None:
+        path = latest_slippi_report_path(report_dir)
+        text = format_latest_slippi_report(path=path, report_dir=report_dir)
+        _set_text(report_text, text)
+        status.set(f"Latest: {path.name}" if path else "Latest: none")
+
+    tk.Button(header_row, text="Refresh", command=refresh).pack(side=tk.RIGHT)
+    tk.Label(header_row, textvariable=status, bg="#ffffff", fg="#475569").pack(
+        side=tk.RIGHT,
+        padx=(0, 12),
+    )
+    refresh()
+
+
+def format_value_comparison_details(row: dict[str, Any]) -> str:
+    lines = [
+        f"{row['field']} [{row['status']}]",
+        "",
+        f"Category: {row['category']}",
+        f"Decomp: {row['source_field']} @ {row['offset']} -> {_display_value(row['decomp_value'])}",
+        f"Rust: {row['rust_field']} -> {_display_value(row['rust_value'])}",
+        f"Kind: {row['kind']}",
+        f"Raw decomp value: {_display_value(row['raw'])}",
+        f"Provenance: {row['provenance']}",
+    ]
+    if row.get("note"):
+        lines.extend(["", row["note"]])
+    return "\n".join(lines)
+
+
+def _set_text(text: Any, value: str) -> None:
+    text.configure(state="normal")
+    text.delete("1.0", "end")
+    text.insert("1.0", value)
+    text.configure(state="disabled")
+
+
+def _display_value(value: Any) -> str:
+    return "" if value is None else str(value)
 
 
 def save_current_layout(graphs: list[dict[str, Any]], layout_path: Path, status_text: Any) -> None:
@@ -754,21 +1549,26 @@ class StateGraphPane:
     def _show_node_details(self, node_id: str) -> None:
         node = self._node_by_id(node_id)
         style = STATUS_STYLES[node["status"]]
-        self._set_details(
-            f"{node['label']} [{style.label}]\n\n"
-            f"{node.get('notes', 'No notes yet.')}"
-        )
+        ledger = format_ledger_details(node)
+        body = f"{node['label']} [{style.label}]\n\n{node.get('notes', 'No notes yet.')}"
+        if ledger:
+            body = f"{body}\n\n{ledger}"
+        self._set_details(body)
 
     def _show_edge_details(self, edge_index: int) -> None:
         edge = self.graph["edges"][edge_index]
         style = STATUS_STYLES[edge["status"]]
         notes = edge.get("notes", "No notes yet.")
-        self._set_details(
+        ledger = format_ledger_details(edge)
+        body = (
             f"{edge['from']} -> {edge['to']} [{style.label}]\n\n"
             f"Input: {edge['input']}\n"
             f"Frames: {edge['frames']}\n\n"
             f"{notes}"
         )
+        if ledger:
+            body = f"{body}\n\n{ledger}"
+        self._set_details(body)
 
     def _set_details(self, text: str) -> None:
         self.details.configure(state="normal")
@@ -1040,10 +1840,34 @@ def _is_position(value: Any) -> bool:
     )
 
 
+def validate_ledger_fields(item: dict[str, Any], *, item_label: str) -> list[str]:
+    errors: list[str] = []
+    for field in LEDGER_LIST_FIELDS:
+        if field not in item:
+            continue
+        value = item[field]
+        if not isinstance(value, list):
+            errors.append(f"{item_label} {field} must be a list")
+            continue
+        for index, entry in enumerate(value):
+            if field in REFERENCE_FIELDS:
+                if not isinstance(entry, dict):
+                    errors.append(f"{item_label} {field}[{index}] must be an object")
+                    continue
+                if not entry.get("label"):
+                    errors.append(f"{item_label} {field}[{index}] missing label")
+                if not (entry.get("path") or entry.get("url") or entry.get("function")):
+                    errors.append(f"{item_label} {field}[{index}] missing path, url, or function")
+            elif not isinstance(entry, str):
+                errors.append(f"{item_label} {field}[{index}] must be a string")
+    return errors
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Open the Mole/Melee state graph viewer.")
     parser.add_argument("--graph-dir", type=Path, default=DEFAULT_GRAPH_DIR)
     parser.add_argument("--layout", type=Path, default=DEFAULT_LAYOUT_PATH)
+    parser.add_argument("--value-sheets", type=Path, default=DEFAULT_VALUE_SHEET_DIR)
     parser.add_argument("--check", action="store_true", help="Validate graph data without opening a window.")
     return parser.parse_args(argv)
 
@@ -1058,8 +1882,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{graph['id']}: {len(graph['nodes'])} nodes, {len(graph['edges'])} edges")
             if any(summary.values()):
                 print("  " + ", ".join(f"{key}={value}" for key, value in summary.items()))
+        for sheet in load_value_sheets(args.value_sheets):
+            summary = summarize_value_sheet(sheet)
+            print(f"{sheet['id']}: {summary['categories']} categories, {summary['fields']} fields")
         return 0
-    launch_viewer(graphs, args.layout)
+    launch_viewer(graphs, args.layout, load_value_sheets(args.value_sheets))
     return 0
 
 

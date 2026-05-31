@@ -14,119 +14,1431 @@
     }
   ],
   "nodes": [
-    {"id": "Wait", "label": "Wait", "pos": [4, 0], "status": "reference", "notes": "Grounded standstill / neutral state."},
-    {"id": "WalkSlow", "label": "WalkSlow", "pos": [0, 1], "status": "reference", "notes": "Low analog walk bucket."},
-    {"id": "WalkMiddle", "label": "WalkMiddle", "pos": [1, 1], "status": "reference", "notes": "Middle analog walk bucket."},
-    {"id": "WalkFast", "label": "WalkFast", "pos": [2, 1], "status": "reference", "notes": "Fast analog walk bucket below dash/run threshold."},
-    {"id": "Turn", "label": "Turn", "pos": [3, 1], "status": "reference", "notes": "Standing/smash turn spine."},
-    {"id": "Dash", "label": "Dash", "pos": [4, 1], "status": "reference", "notes": "Initial dash. Dash dance and moonwalk behavior emerges from this state plus input timing and velocity."},
-    {"id": "Squat", "label": "Squat", "pos": [5, 1], "status": "reference", "notes": "Crouch entry."},
-    {"id": "GuardOn", "label": "GuardOn", "pos": [6, 1], "status": "reference", "notes": "Shield startup before steady Guard."},
-    {"id": "KneeBend", "label": "KneeBend", "pos": [7, 1], "status": "reference", "notes": "Jump squat."},
-    {"id": "Run", "label": "Run", "pos": [4, 2], "status": "reference", "notes": "Sustained run after initial dash."},
-    {"id": "RunDirect", "label": "RunDirect", "pos": [3, 2], "status": "reference", "notes": "Run entry/direct variant in Melee's common movement family."},
-    {"id": "SquatWait", "label": "SquatWait", "pos": [5, 2], "status": "reference", "notes": "Held crouch state."},
-    {"id": "Guard", "label": "Guard", "pos": [6, 2], "status": "reference", "notes": "Steady shield."},
-    {"id": "JumpF", "label": "JumpF", "pos": [7, 2], "status": "reference", "notes": "Forward ground jump after KneeBend."},
-    {"id": "JumpB", "label": "JumpB", "pos": [8, 2], "status": "reference", "notes": "Backward ground jump after KneeBend."},
-    {"id": "RunBrake", "label": "RunBrake", "pos": [2, 3], "status": "reference", "notes": "Explicit run braking state."},
-    {"id": "TurnRun", "label": "TurnRun", "pos": [4, 3], "status": "reference", "notes": "Run turnaround with old-facing persistence until resolution."},
-    {"id": "SquatRv", "label": "SquatRv", "pos": [5, 3], "status": "reference", "notes": "Crouch release / return from squat."},
-    {"id": "GuardOff", "label": "GuardOff", "pos": [6, 3], "status": "reference", "notes": "Shield release."},
-    {"id": "GuardSetOff", "label": "GuardSetOff", "pos": [7, 3], "status": "reference", "notes": "Shield hitstun/setoff state when shield absorbs a hit."},
-    {"id": "GuardReflect", "label": "GuardReflect", "pos": [8, 3], "status": "reference", "notes": "Shield reflect/powershield-style common state family."},
-    {"id": "EscapeN", "label": "EscapeN", "pos": [5, 4], "status": "reference", "notes": "Spot dodge / neutral grounded escape."},
-    {"id": "EscapeF", "label": "EscapeF", "pos": [6, 4], "status": "reference", "notes": "Forward roll."},
-    {"id": "EscapeB", "label": "EscapeB", "pos": [7, 4], "status": "reference", "notes": "Backward roll."},
-    {"id": "JumpAerialF", "label": "JumpAerialF", "pos": [8, 4], "status": "reference", "notes": "Forward double jump."},
-    {"id": "JumpAerialB", "label": "JumpAerialB", "pos": [9, 4], "status": "reference", "notes": "Backward double jump."},
-    {"id": "Fall", "label": "Fall", "pos": [7, 5], "status": "reference", "notes": "Neutral fall."},
-    {"id": "FallF", "label": "FallF", "pos": [8, 5], "status": "reference", "notes": "Forward fall."},
-    {"id": "FallB", "label": "FallB", "pos": [9, 5], "status": "reference", "notes": "Backward fall."},
-    {"id": "FallAerial", "label": "FallAerial", "pos": [7, 6], "status": "reference", "notes": "Neutral post-aerial-jump fall."},
-    {"id": "FallAerialF", "label": "FallAerialF", "pos": [8, 6], "status": "reference", "notes": "Forward post-aerial-jump fall."},
-    {"id": "FallAerialB", "label": "FallAerialB", "pos": [9, 6], "status": "reference", "notes": "Backward post-aerial-jump fall."},
-    {"id": "EscapeAir", "label": "EscapeAir", "pos": [10, 5], "status": "reference", "notes": "Airdodge movement state."},
-    {"id": "FallSpecial", "label": "FallSpecial", "pos": [10, 6], "status": "reference", "notes": "Special fall after airdodge or special fall action."},
-    {"id": "FallSpecialF", "label": "FallSpecialF", "pos": [11, 6], "status": "reference", "notes": "Forward-facing/sided special fall variant."},
-    {"id": "FallSpecialB", "label": "FallSpecialB", "pos": [12, 6], "status": "reference", "notes": "Backward-facing/sided special fall variant."},
-    {"id": "Landing", "label": "Landing", "pos": [7, 7], "status": "reference", "notes": "General landing state."},
-    {"id": "LandingFallSpecial", "label": "LandingFallSpecial", "pos": [10, 7], "status": "reference", "notes": "Landing lag from EscapeAir/FallSpecial."},
-    {"id": "LandingAirN", "label": "LandingAirN", "pos": [6, 8], "status": "reference", "notes": "Neutral aerial landing state."},
-    {"id": "LandingAirF", "label": "LandingAirF", "pos": [7, 8], "status": "reference", "notes": "Forward aerial landing state."},
-    {"id": "LandingAirB", "label": "LandingAirB", "pos": [8, 8], "status": "reference", "notes": "Back aerial landing state."},
-    {"id": "LandingAirHi", "label": "LandingAirHi", "pos": [9, 8], "status": "reference", "notes": "Up aerial landing state."},
-    {"id": "LandingAirLw", "label": "LandingAirLw", "pos": [10, 8], "status": "reference", "notes": "Down aerial landing state."}
+    {
+      "id": "EntryEnd",
+      "label": "EntryEnd",
+      "pos": [
+        4,
+        -1
+      ],
+      "status": "reference",
+      "notes": "EntryEnd uses x6C0, optionally calls ftColl_8007B760 with x6C8, then enters normal airborne/fall handling.",
+      "source_refs": [
+        {
+          "label": "Melee EntryEnd source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C6B6C / ftCo_EntryEnd_Anim / ftCo_EntryEnd_Phys"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_end_ticks",
+        "global_common_values.entry_and_respawn.entry_collision_landing_lag_ticks"
+      ]
+    },
+    {
+      "id": "EntryStart",
+      "label": "EntryStart",
+      "pos": [
+        4,
+        -2
+      ],
+      "status": "reference",
+      "notes": "EntryStart uses x6BC, x6C4, and accessory/platform interpolation before calling ftCo_800C6B6C.",
+      "source_refs": [
+        {
+          "label": "Melee EntryStart source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C6408 / ftCo_EntryStart_Anim / ftCo_EntryStart_Phys"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_start_ticks",
+        "global_common_values.entry_and_respawn.entry_initial_scale_y_milli"
+      ]
+    },
+    {
+      "id": "Entry",
+      "label": "Entry",
+      "pos": [
+        4,
+        -3
+      ],
+      "status": "reference",
+      "notes": "ftCo_MS_Entry waits on Player_GetUnk4C, hides the fighter, records base Y, then transitions into EntryStart.",
+      "source_refs": [
+        {
+          "label": "Melee Entry source",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_0C31.c",
+          "function": "ftCo_800C61B0 / ftCo_Entry_Anim"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.entry_and_respawn.entry_start_ticks"
+      ]
+    },
+    {
+      "id": "Wait",
+      "label": "Wait",
+      "pos": [
+        4,
+        0
+      ],
+      "status": "reference",
+      "notes": "Grounded standstill / neutral state.",
+      "source_refs": [
+        {
+          "label": "Melee Wait source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Wait.c",
+          "function": "ftCo_Wait_*"
+        }
+      ]
+    },
+    {
+      "id": "WalkSlow",
+      "label": "WalkSlow",
+      "pos": [
+        0,
+        1
+      ],
+      "status": "reference",
+      "notes": "Low analog walk bucket.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_*"
+        },
+        {
+          "label": "Melee walk helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ]
+    },
+    {
+      "id": "WalkMiddle",
+      "label": "WalkMiddle",
+      "pos": [
+        1,
+        1
+      ],
+      "status": "reference",
+      "notes": "Middle analog walk bucket.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_*"
+        },
+        {
+          "label": "Melee walk helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ]
+    },
+    {
+      "id": "WalkFast",
+      "label": "WalkFast",
+      "pos": [
+        2,
+        1
+      ],
+      "status": "reference",
+      "notes": "Fast analog walk bucket below dash/run threshold.",
+      "source_refs": [
+        {
+          "label": "Melee Walk source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_*"
+        },
+        {
+          "label": "Melee walk helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftwalkcommon.c",
+          "function": "ftWalkCommon_*"
+        }
+      ]
+    },
+    {
+      "id": "Turn",
+      "label": "Turn",
+      "pos": [
+        3,
+        1
+      ],
+      "status": "reference",
+      "notes": "Standing/smash turn spine. Turn IASA can be entered by an earlier state input callback, and the same frame's Fighter_procUpdate then uses Turn_Phys through the swapped phys_cb.",
+      "source_refs": [
+        {
+          "label": "Melee Turn source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_*"
+        },
+        {
+          "label": "Melee general grounded physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_084E.c",
+          "function": "ft_80084F3C"
+        },
+        {
+          "label": "Melee fighter update order",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        }
+      ],
+      "physics": [
+        "Fighter_Spaghetti_8006AD10 runs the current input_cb before Fighter_procUpdate runs phys_cb.",
+        "Fighter_ChangeMotionState updates phys_cb immediately, so a state that enters Turn during IASA receives Turn_Phys later in that same engine frame.",
+        "ftCo_Turn_Phys calls ft_80084F3C: gr_friction is doubled by common x6C when ABS(gr_vel) exceeds walk_max_vel, then staged as xE4_ground_accel_1."
+      ]
+    },
+    {
+      "id": "Dash",
+      "label": "Dash",
+      "pos": [
+        4,
+        1
+      ],
+      "status": "reference",
+      "notes": "Initial dash. Dash dance and moonwalk behavior emerges from this state plus input timing, grounded gr_vel staging, run handoff, and non-run completion back to Wait. Dash entry uses the source xE8_ground_accel_2 path, while ordinary Dash/Run/friction acceleration uses xE4_ground_accel_1.",
+      "source_refs": [
+        {
+          "label": "Melee Dash source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_*"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        },
+        {
+          "label": "Melee ground acceleration helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/ftcommon.c",
+          "function": "ftCommon_800804A0 / ftCommon_8007C98C / ftCommon_ApplyGroundMovement"
+        },
+        {
+          "label": "Melee fighter ground velocity commit",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_procUpdate"
+        }
+      ],
+      "physics": [
+        "ftCo_Dash_Enter computes init_vel = facing_dir * dash_initial_velocity.",
+        "If gr_vel already points opposite the new facing, mv.co.dash.x0 is set to init_vel; otherwise it is set to init_vel - gr_vel.",
+        "ftCommon_800804A0 stages mv.co.dash.x0 into xE8_ground_accel_2, applying floor friction multiplier when below 1.0.",
+        "ftCo_Dash_Phys consumes mv.co.dash.x0 on the entry physics tick by clearing it; ordinary Dash acceleration does not run until later Dash physics ticks.",
+        "After the entry tick, ftCo_Dash_Phys calls getAccelAndTarget and ftCommon_8007C98C, which stages live-stick Dash/Run acceleration or friction into xE4_ground_accel_1.",
+        "ftCommon_ApplyGroundMovement converts gr_vel and xE4_ground_accel_1 into self_vel and anim_vel along the floor normal; xE8_ground_accel_2 is not part of same-frame translation.",
+        "Fighter_procUpdate commits gr_vel += xE4_ground_accel_1 + xE8_ground_accel_2, then clears both acceleration slots."
+      ]
+    },
+    {
+      "id": "Squat",
+      "label": "Squat",
+      "pos": [
+        5,
+        1
+      ],
+      "status": "reference",
+      "notes": "Crouch entry. Can arm platform pass through ftCo_80099F9C and the Squat IASA countdown route."
+    },
+    {
+      "id": "Pass",
+      "label": "Pass",
+      "pos": [
+        5,
+        2
+      ],
+      "status": "reference",
+      "notes": "Common drop-through platform state 244. The shared pass gate checks down input, y-tap timing, and platform support; shield-held pass enters immediately while Squat can arm a delayed countdown. ftCo_Pass_Anim exits to Fall when the Pass animation has no frames remaining.",
+      "source_refs": [
+        {
+          "label": "Melee Pass source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_80099F1C / ftCo_80099F9C / ftCo_8009A080 / ftCo_8009A228 / ftCo_Pass_Anim"
+        },
+        {
+          "label": "Melee Squat pass route",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Squat.c",
+          "function": "ftCo_Squat_IASA_inline"
+        }
+      ]
+    },
+    {
+      "id": "GuardOn",
+      "label": "GuardOn",
+      "pos": [
+        6,
+        1
+      ],
+      "status": "reference",
+      "notes": "Shield startup before steady Guard."
+    },
+    {
+      "id": "KneeBend",
+      "label": "KneeBend",
+      "pos": [
+        7,
+        1
+      ],
+      "status": "reference",
+      "notes": "Jump squat. Grounded IASA can enter KneeBend before the same frame's Phys callback, so ftCo_KneeBend_Phys/ft_80084F3C applies grounded friction and writes self_vel/x74_anim_vel through ftCommon_ApplyGroundMovement. On animation completion, ftCo_KneeBend_Anim enters JumpF/JumpB before Phys, so ftCo_Jump_Enter scales the previous grounded self_vel by ground_to_air_jump_momentum_multiplier without a fresh takeoff-frame KneeBend friction tick."
+    },
+    {
+      "id": "Run",
+      "label": "Run",
+      "pos": [
+        4,
+        2
+      ],
+      "status": "reference",
+      "notes": "Sustained run after initial dash.",
+      "source_refs": [
+        {
+          "label": "Melee Run source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_*"
+        }
+      ]
+    },
+    {
+      "id": "RunDirect",
+      "label": "RunDirect",
+      "pos": [
+        3,
+        2
+      ],
+      "status": "reference",
+      "notes": "RunDirect is a common motion-state table identity that reuses Run submotion/physics callbacks but has its own IASA callback. Local decomp search shows callbacks and table registration, but no normal Fighter_ChangeMotionState entry site."
+    },
+    {
+      "id": "SquatWait",
+      "label": "SquatWait",
+      "pos": [
+        5,
+        2
+      ],
+      "status": "reference",
+      "notes": "Held crouch state."
+    },
+    {
+      "id": "Guard",
+      "label": "Guard",
+      "pos": [
+        6,
+        2
+      ],
+      "status": "reference",
+      "notes": "Steady shield."
+    },
+    {
+      "id": "JumpF",
+      "label": "JumpF",
+      "pos": [
+        7,
+        2
+      ],
+      "status": "reference",
+      "notes": "Forward ground jump after KneeBend."
+    },
+    {
+      "id": "JumpB",
+      "label": "JumpB",
+      "pos": [
+        8,
+        2
+      ],
+      "status": "reference",
+      "notes": "Backward ground jump after KneeBend."
+    },
+    {
+      "id": "RunBrake",
+      "label": "RunBrake",
+      "pos": [
+        2,
+        3
+      ],
+      "status": "reference",
+      "notes": "Explicit run braking state. RunBrake_Enter stores max_run_brake_frames, RunBrake_Anim decrements that timer and handles command-var animation pause near PlCo x42C, RunBrake_IASA checks jump, command-var-gated TurnRun, then squat, and RunBrake_Phys applies gr_friction * x60.",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_*"
+        }
+      ]
+    },
+    {
+      "id": "TurnRun",
+      "label": "TurnRun",
+      "pos": [
+        4,
+        3
+      ],
+      "status": "reference",
+      "notes": "Run turnaround entered through PlCo x38_someLStickXThreshold with old-facing accel_mul persistence until velocity crossing; TurnRun_Phys accepts opposite acceleration while accel_mul * accel < 0.",
+      "source_refs": [
+        {
+          "label": "Melee TurnRun source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_Enter / ftCo_TurnRun_Anim / ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ]
+    },
+    {
+      "id": "SquatRv",
+      "label": "SquatRv",
+      "pos": [
+        5,
+        3
+      ],
+      "status": "reference",
+      "notes": "Crouch release / return from squat."
+    },
+    {
+      "id": "GuardOff",
+      "label": "GuardOff",
+      "pos": [
+        6,
+        3
+      ],
+      "status": "reference",
+      "notes": "Shield release."
+    },
+    {
+      "id": "GuardSetOff",
+      "label": "GuardSetOff",
+      "pos": [
+        7,
+        3
+      ],
+      "status": "reference",
+      "notes": "Shield hitstun/setoff state when shield absorbs a hit."
+    },
+    {
+      "id": "GuardReflect",
+      "label": "GuardReflect",
+      "pos": [
+        8,
+        3
+      ],
+      "status": "reference",
+      "notes": "Shield reflect/powershield-style common state family."
+    },
+    {
+      "id": "EscapeN",
+      "label": "EscapeN",
+      "pos": [
+        5,
+        4
+      ],
+      "status": "reference",
+      "notes": "Spot dodge / neutral grounded escape."
+    },
+    {
+      "id": "EscapeF",
+      "label": "EscapeF",
+      "pos": [
+        6,
+        4
+      ],
+      "status": "reference",
+      "notes": "Forward roll."
+    },
+    {
+      "id": "EscapeB",
+      "label": "EscapeB",
+      "pos": [
+        7,
+        4
+      ],
+      "status": "reference",
+      "notes": "Backward roll."
+    },
+    {
+      "id": "JumpAerialF",
+      "label": "JumpAerialF",
+      "pos": [
+        8,
+        4
+      ],
+      "status": "reference",
+      "notes": "Forward double jump."
+    },
+    {
+      "id": "JumpAerialB",
+      "label": "JumpAerialB",
+      "pos": [
+        9,
+        4
+      ],
+      "status": "reference",
+      "notes": "Backward double jump."
+    },
+    {
+      "id": "Fall",
+      "label": "Fall",
+      "pos": [
+        7,
+        5
+      ],
+      "status": "reference",
+      "notes": "Neutral fall."
+    },
+    {
+      "id": "FallF",
+      "label": "FallF",
+      "pos": [
+        8,
+        5
+      ],
+      "status": "reference",
+      "notes": "Forward fall."
+    },
+    {
+      "id": "FallB",
+      "label": "FallB",
+      "pos": [
+        9,
+        5
+      ],
+      "status": "reference",
+      "notes": "Backward fall."
+    },
+    {
+      "id": "FallAerial",
+      "label": "FallAerial",
+      "pos": [
+        7,
+        6
+      ],
+      "status": "reference",
+      "notes": "Neutral post-aerial-jump fall."
+    },
+    {
+      "id": "FallAerialF",
+      "label": "FallAerialF",
+      "pos": [
+        8,
+        6
+      ],
+      "status": "reference",
+      "notes": "Forward post-aerial-jump fall."
+    },
+    {
+      "id": "FallAerialB",
+      "label": "FallAerialB",
+      "pos": [
+        9,
+        6
+      ],
+      "status": "reference",
+      "notes": "Backward post-aerial-jump fall."
+    },
+    {
+      "id": "EscapeAir",
+      "label": "EscapeAir",
+      "pos": [
+        10,
+        5
+      ],
+      "status": "reference",
+      "notes": "Airdodge movement state. Action state 44 maps to PlyCaptain5K_Share_ACTION_EscapeAir_figatree in PlCaAJ.dat with a 50-frame FigaTree duration; ECB source points come from ftDataCaptain.x44, the Captain costume HSD joint preorder, sampled FigaTree tracks, and mpColl_LoadECB_JObj reduction.",
+      "source_refs": [
+        {
+          "label": "Melee EscapeAir common data",
+          "path": ".research/doldecomp-melee/src/melee/ft/types.h",
+          "function": "ftCommonData x32C/x330/x334/x338/x33C/x344"
+        },
+        {
+          "label": "Melee ECB JObj source setup",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80081B38"
+        },
+        {
+          "label": "Melee JObj ECB loader",
+          "path": ".research/doldecomp-melee/src/melee/mp/mpcoll.c",
+          "function": "mpColl_SetECBSource_JObj / mpColl_LoadECB_JObj"
+        },
+        {
+          "label": "Melee FigaTree animation source",
+          "path": ".research/doldecomp-melee/src/melee/lb/lbanim.h",
+          "function": "FigaTree / FigaTrack"
+        }
+      ],
+      "value_refs": [
+        "global_common_values.defensive_movement.escapeair_deadzone_x",
+        "global_common_values.defensive_movement.escapeair_deadzone_y",
+        "global_common_values.defensive_movement.escapeair_force",
+        "global_common_values.defensive_movement.escapeair_decay_milli",
+        "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
+      ]
+    },
+    {
+      "id": "FallSpecial",
+      "label": "FallSpecial",
+      "pos": [
+        10,
+        6
+      ],
+      "status": "reference",
+      "notes": "Special fall after airdodge or special fall action. Action state 26 maps to PlyCaptain5K_Share_ACTION_FallSpecial_figatree in PlCaAJ.dat."
+    },
+    {
+      "id": "FallSpecialF",
+      "label": "FallSpecialF",
+      "pos": [
+        11,
+        6
+      ],
+      "status": "reference",
+      "notes": "Forward-facing/sided special fall variant."
+    },
+    {
+      "id": "FallSpecialB",
+      "label": "FallSpecialB",
+      "pos": [
+        12,
+        6
+      ],
+      "status": "reference",
+      "notes": "Backward-facing/sided special fall variant."
+    },
+    {
+      "id": "Landing",
+      "label": "Landing",
+      "pos": [
+        7,
+        7
+      ],
+      "status": "reference",
+      "notes": "General landing state."
+    },
+    {
+      "id": "LandingFallSpecial",
+      "label": "LandingFallSpecial",
+      "pos": [
+        10,
+        7
+      ],
+      "status": "reference",
+      "notes": "Landing lag from EscapeAir/FallSpecial; EscapeAir landing lag comes from common-data x344. ftCo_LandingFallSpecial_Enter calls shared Landing entry with anim_speed = (0.1 + fp->x2EC) / landing_lag, where x2EC is Falcon's cached Landing animation duration."
+    },
+    {
+      "id": "SpecialSStart",
+      "label": "SpecialSStart",
+      "pos": [
+        11,
+        4
+      ],
+      "status": "reference",
+      "notes": "Captain grounded side-B start state. ftCo_SpecialS_CheckInput dispatches to ftCa_SpecialS_Enter, which changes to ftCa_MS_SpecialSStart; action-table slot 303 maps to PlyCaptain5K_Share_ACTION_SpecialSStart_figatree."
+    },
+    {
+      "id": "SpecialS",
+      "label": "SpecialS",
+      "pos": [
+        12,
+        4
+      ],
+      "status": "reference",
+      "notes": "Captain grounded side-B hit state entered by ftCa_SpecialS_OnDetect from SpecialSStart; action-table slot 304 maps to PlyCaptain5K_Share_ACTION_SpecialS_figatree."
+    },
+    {
+      "id": "SpecialAirSStart",
+      "label": "SpecialAirSStart",
+      "pos": [
+        11,
+        5
+      ],
+      "status": "reference",
+      "notes": "Captain aerial side-B start state. ftCo_SpecialAir_CheckInput dispatches to ftCa_SpecialAirS_Enter, which changes to ftCa_MS_SpecialAirSStart; action-table slot 305 maps to PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree."
+    },
+    {
+      "id": "SpecialAirS",
+      "label": "SpecialAirS",
+      "pos": [
+        12,
+        5
+      ],
+      "status": "reference",
+      "notes": "Captain aerial side-B hit state entered by ftCa_SpecialS_OnDetect from SpecialAirSStart; action-table slot 306 maps to PlyCaptain5K_Share_ACTION_SpecialAirS_figatree."
+    },
+    {
+      "id": "LandingAirN",
+      "label": "LandingAirN",
+      "pos": [
+        6,
+        8
+      ],
+      "status": "reference",
+      "notes": "Neutral aerial landing state."
+    },
+    {
+      "id": "LandingAirF",
+      "label": "LandingAirF",
+      "pos": [
+        7,
+        8
+      ],
+      "status": "reference",
+      "notes": "Forward aerial landing state."
+    },
+    {
+      "id": "LandingAirB",
+      "label": "LandingAirB",
+      "pos": [
+        8,
+        8
+      ],
+      "status": "reference",
+      "notes": "Back aerial landing state."
+    },
+    {
+      "id": "LandingAirHi",
+      "label": "LandingAirHi",
+      "pos": [
+        9,
+        8
+      ],
+      "status": "reference",
+      "notes": "Up aerial landing state."
+    },
+    {
+      "id": "LandingAirLw",
+      "label": "LandingAirLw",
+      "pos": [
+        10,
+        8
+      ],
+      "status": "reference",
+      "notes": "Down aerial landing state."
+    }
   ],
   "edges": [
-    {"from": "Wait", "to": "WalkSlow", "input": "hold small horizontal stick in walk zone", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "WalkMiddle", "input": "hold middle horizontal stick in walk zone", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "WalkFast", "input": "hold high walk input below dash/run requirement", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "Dash", "input": "control stick X crosses dash threshold inside tap window", "frames": "frame 0 of fresh X tap", "status": "reference"},
-    {"from": "Wait", "to": "Turn", "input": "opposite horizontal stick below dash/tap requirement", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "Squat", "input": "control stick down past crouch threshold", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "GuardOn", "input": "L/R shield input held", "frames": "current frame", "status": "reference"},
-    {"from": "Wait", "to": "KneeBend", "input": "jump button or jump stick input pressed", "frames": "current frame", "status": "reference"},
-    {"from": "WalkSlow", "to": "Wait", "input": "release stick or leave walk condition", "frames": "current frame", "status": "reference"},
-    {"from": "WalkMiddle", "to": "Wait", "input": "release stick or leave walk condition", "frames": "current frame", "status": "reference"},
-    {"from": "WalkFast", "to": "Wait", "input": "release stick or leave walk condition", "frames": "current frame", "status": "reference"},
-    {"from": "WalkFast", "to": "Dash", "input": "fresh forward X tap while walking", "frames": "inside X tap window", "status": "reference"},
-    {"from": "WalkFast", "to": "Turn", "input": "fresh opposite X tap / smash turn", "frames": "inside X tap window", "status": "reference"},
-    {"from": "Dash", "to": "Run", "input": "dash animation completes while run-zone stick is held", "frames": "after character dash frames; Falcon reference 15f", "status": "reference"},
-    {"from": "Dash", "to": "WalkFast", "input": "dash animation completes with walk-zone stick held", "frames": "after character dash frames", "status": "reference"},
-    {"from": "Dash", "to": "Wait", "input": "dash animation completes with no walk/run input", "frames": "after character dash frames", "status": "reference"},
-    {"from": "Dash", "to": "Turn", "input": "opposite fresh dash/smash-turn input during initial dash", "frames": "during Dash before run transition", "status": "reference"},
-    {"from": "Dash", "to": "KneeBend", "input": "jump pressed during allowed dash window", "frames": "dash action window", "status": "reference"},
-    {"from": "Run", "to": "TurnRun", "input": "hard opposite stick after run can accept turn", "frames": "current frame after no-interrupt window", "status": "reference"},
-    {"from": "Run", "to": "RunBrake", "input": "release stick or leave same-direction run condition", "frames": "current frame", "status": "reference"},
-    {"from": "Run", "to": "GuardOn", "input": "shield held during run", "frames": "current frame", "status": "reference"},
-    {"from": "Run", "to": "KneeBend", "input": "jump pressed out of run", "frames": "current frame", "status": "reference"},
-    {"from": "RunDirect", "to": "Run", "input": "direct run entry resolves", "frames": "state-local duration", "status": "reference"},
-    {"from": "RunBrake", "to": "Wait", "input": "ground traction settles X velocity to zero", "frames": "variable physics duration", "status": "reference"},
-    {"from": "TurnRun", "to": "Run", "input": "facing has flipped and same-direction run input is held", "frames": "after turn-run crossing resolves", "status": "reference"},
-    {"from": "TurnRun", "to": "Wait", "input": "neutral stick and X velocity reaches zero", "frames": "variable physics duration", "status": "reference"},
-    {"from": "Squat", "to": "SquatWait", "input": "continue holding crouch", "frames": "after squat startup", "status": "reference"},
-    {"from": "SquatWait", "to": "SquatRv", "input": "release crouch input", "frames": "current frame", "status": "reference"},
-    {"from": "SquatRv", "to": "Wait", "input": "crouch release animation completes", "frames": "state-local duration", "status": "reference"},
-    {"from": "GuardOn", "to": "Guard", "input": "continue holding shield", "frames": "after GuardOn startup; local reference 4f", "status": "reference"},
-    {"from": "GuardOn", "to": "GuardOff", "input": "release shield during startup", "frames": "current frame", "status": "reference"},
-    {"from": "Guard", "to": "GuardOff", "input": "release shield", "frames": "current frame", "status": "reference"},
-    {"from": "Guard", "to": "GuardSetOff", "input": "shield is hit", "frames": "hit frame", "status": "reference"},
-    {"from": "Guard", "to": "GuardReflect", "input": "reflect/powershield condition", "frames": "hit/input timing window", "status": "reference"},
-    {"from": "Guard", "to": "EscapeN", "input": "spot-dodge input", "frames": "current actionable shield frame", "status": "reference"},
-    {"from": "Guard", "to": "EscapeF", "input": "roll forward input", "frames": "current actionable shield frame", "status": "reference"},
-    {"from": "Guard", "to": "EscapeB", "input": "roll backward input", "frames": "current actionable shield frame", "status": "reference"},
-    {"from": "Guard", "to": "KneeBend", "input": "jump pressed out of shield", "frames": "current actionable shield frame", "status": "reference"},
-    {"from": "GuardOff", "to": "Wait", "input": "shield release animation completes", "frames": "15f reference window", "status": "reference"},
-    {"from": "GuardSetOff", "to": "Guard", "input": "shield hitstun/setoff resolves while shield remains", "frames": "state-local duration", "status": "reference"},
-    {"from": "GuardReflect", "to": "Guard", "input": "reflect animation resolves while shield remains", "frames": "state-local duration", "status": "reference"},
-    {"from": "KneeBend", "to": "JumpF", "input": "jumpsquat completes with forward-facing jump", "frames": "Falcon reference 4f", "status": "reference"},
-    {"from": "KneeBend", "to": "JumpB", "input": "jumpsquat completes with backward-facing jump", "frames": "Falcon reference 4f", "status": "reference"},
-    {"from": "JumpF", "to": "FallF", "input": "upward jump phase gives way to fall", "frames": "gravity/velocity dependent", "status": "reference"},
-    {"from": "JumpB", "to": "FallB", "input": "upward jump phase gives way to fall", "frames": "gravity/velocity dependent", "status": "reference"},
-    {"from": "JumpF", "to": "EscapeAir", "input": "digital shield / airdodge press after airborne", "frames": "first airborne frame or later", "status": "reference"},
-    {"from": "JumpB", "to": "EscapeAir", "input": "digital shield / airdodge press after airborne", "frames": "first airborne frame or later", "status": "reference"},
-    {"from": "JumpF", "to": "JumpAerialF", "input": "double jump pressed while airborne with forward input", "frames": "airborne actionable frame", "status": "reference"},
-    {"from": "JumpB", "to": "JumpAerialB", "input": "double jump pressed while airborne with backward input", "frames": "airborne actionable frame", "status": "reference"},
-    {"from": "JumpAerialF", "to": "FallAerialF", "input": "aerial jump arc transitions to fall", "frames": "gravity/velocity dependent", "status": "reference"},
-    {"from": "JumpAerialB", "to": "FallAerialB", "input": "aerial jump arc transitions to fall", "frames": "gravity/velocity dependent", "status": "reference"},
-    {"from": "Fall", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "FallF", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "FallB", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "FallAerial", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "FallAerialF", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "FallAerialB", "to": "Landing", "input": "ground/platform collision", "frames": "collision frame", "status": "reference"},
-    {"from": "EscapeAir", "to": "FallSpecial", "input": "escape-air animation completes without landing", "frames": "after escape-air action duration", "status": "reference"},
-    {"from": "EscapeAir", "to": "LandingFallSpecial", "input": "ground/platform collision during EscapeAir", "frames": "collision frame", "status": "reference"},
-    {"from": "FallSpecial", "to": "LandingFallSpecial", "input": "ground/platform collision during special fall", "frames": "collision frame", "status": "reference"},
-    {"from": "FallSpecialF", "to": "LandingFallSpecial", "input": "ground/platform collision during forward special fall", "frames": "collision frame", "status": "reference"},
-    {"from": "FallSpecialB", "to": "LandingFallSpecial", "input": "ground/platform collision during backward special fall", "frames": "collision frame", "status": "reference"},
-    {"from": "Landing", "to": "Wait", "input": "landing animation completes", "frames": "state-local duration", "status": "reference"},
-    {"from": "LandingFallSpecial", "to": "Wait", "input": "fall-special landing lag completes", "frames": "landing-fall-special lag window", "status": "reference"},
-    {"from": "LandingAirN", "to": "Wait", "input": "aerial landing lag completes", "frames": "aerial landing lag window", "status": "reference"},
-    {"from": "LandingAirF", "to": "Wait", "input": "aerial landing lag completes", "frames": "aerial landing lag window", "status": "reference"},
-    {"from": "LandingAirB", "to": "Wait", "input": "aerial landing lag completes", "frames": "aerial landing lag window", "status": "reference"},
-    {"from": "LandingAirHi", "to": "Wait", "input": "aerial landing lag completes", "frames": "aerial landing lag window", "status": "reference"},
-    {"from": "LandingAirLw", "to": "Wait", "input": "aerial landing lag completes", "frames": "aerial landing lag window", "status": "reference"}
+    {
+      "from": "EntryEnd",
+      "to": "Fall",
+      "label": "x6C0 countdown expires",
+      "status": "reference",
+      "notes": "Rust exits to Fall on the x6C0 schedule; the optional x6C8 collision handoff is recorded as a remaining gap.",
+      "input": "no player IASA",
+      "frames": "x6C0 countdown reaches zero"
+    },
+    {
+      "from": "EntryStart",
+      "to": "EntryEnd",
+      "label": "x6BC countdown expires",
+      "status": "reference",
+      "notes": "EntryStart_Anim decrements x6BC and calls ftCo_800C6B6C when it reaches zero.",
+      "input": "no player IASA",
+      "frames": "x6BC countdown reaches zero"
+    },
+    {
+      "from": "Entry",
+      "to": "EntryStart",
+      "label": "timer reaches zero",
+      "status": "reference",
+      "notes": "Entry_Anim checks timer 0, enters EntryStart, then decrements the newly seeded x6BC timer on the same source frame.",
+      "input": "match-start Entry timer",
+      "frames": "Player_GetUnk4C countdown reaches zero"
+    },
+    {
+      "from": "Wait",
+      "to": "WalkSlow",
+      "input": "hold small horizontal stick in walk zone",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "WalkMiddle",
+      "input": "hold middle horizontal stick in walk zone",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "WalkFast",
+      "input": "hold high walk input below dash/run requirement",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "Dash",
+      "input": "control stick X crosses dash threshold inside tap window",
+      "frames": "frame 0 of fresh X tap",
+      "status": "reference",
+      "notes": "ftCo_Dash_Enter stages the initial dash delta through xE8_ground_accel_2, which commits to gr_vel after the transition-frame ground movement.",
+      "source_refs": [
+        {
+          "label": "Melee Wait IASA to Dash",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Wait.c",
+          "function": "ftCo_Wait_IASA"
+        },
+        {
+          "label": "Melee Dash entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter"
+        }
+      ],
+      "physics": [
+        "Wait IASA selects ftCo_Dash_Enter from a fresh forward X tap.",
+        "Dash entry stages xE8_ground_accel_2 through ftCommon_800804A0.",
+        "Entry-frame translation still uses the pre-entry gr_vel/xE4 path; xE8 commits to gr_vel at Fighter_procUpdate."
+      ]
+    },
+    {
+      "from": "Wait",
+      "to": "Turn",
+      "input": "opposite horizontal stick below dash/tap requirement",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "Squat",
+      "input": "control stick down past crouch threshold",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "GuardOn",
+      "input": "L/R shield input held",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Wait",
+      "to": "KneeBend",
+      "input": "jump button or jump stick input pressed",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "WalkSlow",
+      "to": "Wait",
+      "input": "release stick or leave walk condition",
+      "frames": "current frame",
+      "status": "reference",
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+    },
+    {
+      "from": "WalkMiddle",
+      "to": "Wait",
+      "input": "release stick or leave walk condition",
+      "frames": "current frame",
+      "status": "reference",
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+    },
+    {
+      "from": "WalkFast",
+      "to": "Wait",
+      "input": "release stick or leave walk condition",
+      "frames": "current frame",
+      "status": "reference",
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+    },
+    {
+      "from": "WalkFast",
+      "to": "Dash",
+      "input": "fresh forward X tap while walking",
+      "frames": "inside X tap window",
+      "status": "reference",
+      "notes": "Walk carry remains in gr_vel; Dash entry adds the source initial-dash delta through xE8 rather than clearing movement first.",
+      "source_refs": [
+        {
+          "label": "Melee Walk IASA to Dash",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_IASA"
+        },
+        {
+          "label": "Melee Dash entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter"
+        }
+      ],
+      "physics": [
+        "Walk exit does not clear gr_vel.",
+        "Dash entry computes the xE8 delta from current gr_vel and facing_dir.",
+        "This preserved walk carry is a required moonwalk setup input to the Dash velocity lifecycle."
+      ]
+    },
+    {
+      "from": "WalkFast",
+      "to": "Turn",
+      "input": "fresh opposite X tap / smash turn",
+      "frames": "inside X tap window",
+      "status": "reference",
+      "notes": "Walk IASA can enter Turn through ftCo_Dash_CheckInput; the later same-frame Fighter_procUpdate uses the new Turn phys_cb, so carried walk gr_vel receives ft_80084F3C friction before the follow-up dash-out.",
+      "source_refs": [
+        {
+          "label": "Melee Walk IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Walk.c",
+          "function": "ftCo_Walk_IASA"
+        },
+        {
+          "label": "Melee Dash input check",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_CheckInput"
+        },
+        {
+          "label": "Melee Turn physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Phys"
+        }
+      ],
+      "physics": [
+        "Walk carry remains in gr_vel when ftCo_Dash_CheckInput routes opposite fresh dash input into ftCo_Turn_Enter_Smash.",
+        "The same frame uses Turn_Phys/ft_80084F3C, staging gr_friction into xE4 before gr_vel is committed.",
+        "The next Turn dash-out frame calls ftCo_Dash_Enter and stages the initial dash delta through xE8."
+      ]
+    },
+    {
+      "from": "Dash",
+      "to": "Run",
+      "input": "dash animation completes while run-zone stick is held",
+      "frames": "after character dash frames; Falcon reference 15f",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee Dash completion to Run",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_IASA / ftCo_Dash_Anim"
+        }
+      ]
+    },
+    {
+      "from": "Dash",
+      "to": "Wait",
+      "input": "dash animation completes without same-facing run handoff",
+      "frames": "after character dash frames",
+      "status": "reference",
+      "notes": "Melee Dash animation completion returns to Wait with carried gr_vel; any held walk/opposite intent is handled by the next Wait IASA priority pass.",
+      "source_refs": [
+        {
+          "label": "Melee Dash completion to Wait",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Anim / ftCo_Dash_IASA"
+        }
+      ]
+    },
+    {
+      "from": "Dash",
+      "to": "Turn",
+      "input": "opposite fresh dash/smash-turn input during initial dash",
+      "frames": "during Dash before run transition",
+      "status": "reference",
+      "notes": "Opposite fresh dash input routes through ftCo_Dash_CheckInput into ftCo_Turn_Enter_Smash; because the input callback runs before Fighter_procUpdate, the same frame then uses Turn_Phys rather than Dash_Phys. The next dash is produced by the Turn dash-out path rather than a separate dash-dance state.",
+      "source_refs": [
+        {
+          "label": "Melee Dash opposite input branch",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_IASA"
+        },
+        {
+          "label": "Melee Turn dash-out branch",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "fn_800C9C2C / ftCo_Turn_IASA"
+        },
+        {
+          "label": "Melee Turn same-frame physics",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Phys"
+        },
+        {
+          "label": "Melee fighter callback order",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        }
+      ],
+      "physics": [
+        "ftCo_Dash_IASA checks the opposite-stick dashback branch only after the tap-start early Dash branch is no longer active.",
+        "When ftCo_Dash_CheckInput succeeds, ftCo_Dash_IASA still falls through to the x54 gr_vel decay block before the frame's physics/commit path continues.",
+        "Fighter_ChangeMotionState swaps phys_cb during IASA; Fighter_procUpdate then calls Turn_Phys/ft_80084F3C in the same frame before gr_vel is committed.",
+        "A successful opposite fresh dash enters Turn; Turn later calls ftCo_Dash_Enter, which stages the next dash delta through the same xE8 path.",
+        "Any apparent dash dance pivot comes from Dash, Turn, ftCo_Dash_Enter, and the shared gr_vel commit order."
+      ]
+    },
+    {
+      "from": "Dash",
+      "to": "KneeBend",
+      "input": "jump pressed during allowed dash window",
+      "frames": "dash action window",
+      "status": "reference"
+    },
+    {
+      "from": "Run",
+      "to": "TurnRun",
+      "input": "opposite stick at PlCo x38 after run can accept turn",
+      "frames": "current frame after no-interrupt window",
+      "status": "reference",
+      "notes": "ftCo_Run_IASA enters TurnRun through fn_800C9D40 when input.lstick.x * facing_dir <= PlCo x38_someLStickXThreshold; the TurnRun phys callback then uses getAccelAndTarget with old-facing accel_mul to accept opposite acceleration on the entry tick.",
+      "source_refs": [
+        {
+          "label": "Melee Run to TurnRun",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "ftCo_Run_IASA"
+        },
+        {
+          "label": "Melee TurnRun source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_Enter / ftCo_TurnRun_Phys"
+        },
+        {
+          "label": "Melee dash/run accel helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/inlines.h",
+          "function": "getAccelAndTarget"
+        }
+      ]
+    },
+    {
+      "from": "Run",
+      "to": "RunBrake",
+      "input": "release stick or leave same-direction run condition",
+      "frames": "current frame",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_Enter"
+        }
+      ]
+    },
+    {
+      "from": "Run",
+      "to": "GuardOn",
+      "input": "shield held during run",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Run",
+      "to": "KneeBend",
+      "input": "jump pressed out of run",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "RunDirect",
+      "to": "Run",
+      "input": "direct run entry resolves",
+      "frames": "state-local duration",
+      "status": "reference",
+      "notes": "ftCo_RunDirect_IASA can call fn_800CA698 when its motion-var gate is eligible and same-facing run input is held; fn_800CA698 enters Run with the current animation frame and frame speed.",
+      "source_refs": [
+        {
+          "label": "Melee RunDirect IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunDirect.c",
+          "function": "ftCo_RunDirect_IASA"
+        },
+        {
+          "label": "Melee Run handoff helper",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
+          "function": "fn_800CA698"
+        }
+      ],
+      "known_gaps": [
+        "No normal source entry into ftCo_MS_RunDirect was found in the local decomp search; this edge documents the visible RunDirect callback behavior if that state identity is reached."
+      ]
+    },
+    {
+      "from": "RunBrake",
+      "to": "Wait",
+      "input": "ground traction settles X velocity to zero",
+      "frames": "variable physics duration",
+      "status": "reference"
+    },
+    {
+      "from": "TurnRun",
+      "to": "Run",
+      "input": "facing has flipped and same-direction run input is held",
+      "frames": "after turn-run crossing resolves",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee TurnRun completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
+          "function": "ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+        }
+      ]
+    },
+    {
+      "from": "TurnRun",
+      "to": "Wait",
+      "input": "neutral stick and X velocity reaches zero",
+      "frames": "variable physics duration",
+      "status": "reference"
+    },
+    {
+      "from": "Squat",
+      "to": "SquatWait",
+      "input": "continue holding crouch",
+      "frames": "after squat startup",
+      "status": "reference"
+    },
+    {
+      "from": "Squat",
+      "to": "Pass",
+      "input": "down tap on a soft platform arms the platform-pass gate, then countdown expires",
+      "frames": "x470 countdown after ftCo_80099F9C arms mv.co.pass",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee Squat pass route",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Squat.c",
+          "function": "ftCo_80099F9C / ftCo_Squat_IASA_inline"
+        }
+      ]
+    },
+    {
+      "from": "SquatWait",
+      "to": "SquatRv",
+      "input": "release crouch input",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "SquatRv",
+      "to": "Wait",
+      "input": "crouch release animation completes",
+      "frames": "state-local duration",
+      "status": "reference"
+    },
+    {
+      "from": "GuardOn",
+      "to": "Guard",
+      "input": "continue holding shield",
+      "frames": "after GuardOn startup; local reference 4f",
+      "status": "reference"
+    },
+    {
+      "from": "GuardOn",
+      "to": "GuardOff",
+      "input": "release shield during startup",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "GuardOn",
+      "to": "Pass",
+      "input": "shield held plus down tap on a soft platform",
+      "frames": "current frame",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee shield pass route",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_8009A080 / ftCo_8009A228"
+        }
+      ]
+    },
+    {
+      "from": "Guard",
+      "to": "GuardOff",
+      "input": "release shield",
+      "frames": "current frame",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "Pass",
+      "input": "shield held plus down tap on a soft platform",
+      "frames": "current frame",
+      "status": "reference",
+      "source_refs": [
+        {
+          "label": "Melee shield pass route",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_8009A080 / ftCo_8009A228"
+        }
+      ]
+    },
+    {
+      "from": "Pass",
+      "to": "Fall",
+      "input": "Pass animation completes",
+      "frames": "ftAnim_IsFramesRemaining becomes false",
+      "status": "reference",
+      "notes": "ftCo_Pass_Anim calls ftCo_Fall_Enter when the Pass animation has no frames remaining.",
+      "source_refs": [
+        {
+          "label": "Melee Pass animation completion",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Pass.c",
+          "function": "ftCo_Pass_Anim"
+        }
+      ]
+    },
+    {
+      "from": "Guard",
+      "to": "GuardSetOff",
+      "input": "shield is hit",
+      "frames": "hit frame",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "GuardReflect",
+      "input": "reflect/powershield condition",
+      "frames": "hit/input timing window",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "EscapeN",
+      "input": "spot-dodge input",
+      "frames": "current actionable shield frame",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "EscapeF",
+      "input": "roll forward input",
+      "frames": "current actionable shield frame",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "EscapeB",
+      "input": "roll backward input",
+      "frames": "current actionable shield frame",
+      "status": "reference"
+    },
+    {
+      "from": "Guard",
+      "to": "KneeBend",
+      "input": "jump pressed out of shield",
+      "frames": "current actionable shield frame",
+      "status": "reference"
+    },
+    {
+      "from": "GuardOff",
+      "to": "Wait",
+      "input": "shield release animation completes",
+      "frames": "15f reference window",
+      "status": "reference"
+    },
+    {
+      "from": "GuardSetOff",
+      "to": "Guard",
+      "input": "shield hitstun/setoff resolves while shield remains",
+      "frames": "state-local duration",
+      "status": "reference"
+    },
+    {
+      "from": "GuardReflect",
+      "to": "Guard",
+      "input": "reflect animation resolves while shield remains",
+      "frames": "state-local duration",
+      "status": "reference"
+    },
+    {
+      "from": "KneeBend",
+      "to": "JumpF",
+      "input": "jumpsquat completes with forward-facing jump",
+      "frames": "Falcon reference 4f",
+      "status": "reference",
+      "notes": "ftCo_KneeBend_Anim calls ftCo_Jump_Enter; ftCo_800CB110 scales carried self_vel.x by ground_to_air_jump_momentum_multiplier, adds lstick.x * jump_h_initial_velocity, clamps to jump_h_max_velocity, and selects JumpF when lstick.x * facing_dir > -p_ftCommonData->x78."
+    },
+    {
+      "from": "KneeBend",
+      "to": "JumpB",
+      "input": "jumpsquat completes with backward-facing jump",
+      "frames": "Falcon reference 4f",
+      "status": "reference",
+      "notes": "ftCo_KneeBend_Anim calls ftCo_Jump_Enter; the same carried self_vel.x and jump horizontal velocity formula applies, with JumpB selected when lstick.x * facing_dir <= -p_ftCommonData->x78."
+    },
+    {
+      "from": "JumpF",
+      "to": "FallF",
+      "input": "upward jump phase gives way to fall",
+      "frames": "gravity/velocity dependent",
+      "status": "reference"
+    },
+    {
+      "from": "JumpB",
+      "to": "FallB",
+      "input": "upward jump phase gives way to fall",
+      "frames": "gravity/velocity dependent",
+      "status": "reference"
+    },
+    {
+      "from": "JumpF",
+      "to": "EscapeAir",
+      "input": "digital shield / airdodge press after airborne",
+      "frames": "first airborne frame or later",
+      "status": "reference"
+    },
+    {
+      "from": "JumpB",
+      "to": "EscapeAir",
+      "input": "digital shield / airdodge press after airborne",
+      "frames": "first airborne frame or later",
+      "status": "reference"
+    },
+    {
+      "from": "JumpF",
+      "to": "JumpAerialF",
+      "input": "double jump pressed while airborne with forward input",
+      "frames": "airborne actionable frame",
+      "status": "reference"
+    },
+    {
+      "from": "JumpB",
+      "to": "JumpAerialB",
+      "input": "double jump pressed while airborne with backward input",
+      "frames": "airborne actionable frame",
+      "status": "reference"
+    },
+    {
+      "from": "JumpAerialF",
+      "to": "FallAerialF",
+      "input": "aerial jump arc transitions to fall",
+      "frames": "gravity/velocity dependent",
+      "status": "reference"
+    },
+    {
+      "from": "JumpAerialB",
+      "to": "FallAerialB",
+      "input": "aerial jump arc transitions to fall",
+      "frames": "gravity/velocity dependent",
+      "status": "reference"
+    },
+    {
+      "from": "Fall",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallF",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallB",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallAerial",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallAerialF",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallAerialB",
+      "to": "Landing",
+      "input": "ground/platform collision",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "EscapeAir",
+      "to": "FallSpecial",
+      "input": "escape-air animation completes without landing",
+      "frames": "after escape-air action duration",
+      "status": "reference",
+      "notes": "ftCo_EscapeAir_Anim exits when animation frames are exhausted; Falcon action 44 reports a 50-frame FigaTree duration."
+    },
+    {
+      "from": "EscapeAir",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during EscapeAir",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallSpecial",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during special fall",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallSpecialF",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during forward special fall",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "FallSpecialB",
+      "to": "LandingFallSpecial",
+      "input": "ground/platform collision during backward special fall",
+      "frames": "collision frame",
+      "status": "reference"
+    },
+    {
+      "from": "Landing",
+      "to": "Wait",
+      "input": "landing animation completes",
+      "frames": "state-local duration",
+      "status": "reference"
+    },
+    {
+      "from": "LandingFallSpecial",
+      "to": "Wait",
+      "input": "fall-special landing lag completes",
+      "frames": "landing-fall-special lag window",
+      "status": "reference",
+      "notes": "ftCo_Landing_Anim exits when the source-scaled Landing animation finishes; for EscapeAir, landing_lag is p_ftCommonData->x344."
+    },
+    {
+      "from": "LandingAirN",
+      "to": "Wait",
+      "input": "aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "reference"
+    },
+    {
+      "from": "LandingAirF",
+      "to": "Wait",
+      "input": "aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "reference"
+    },
+    {
+      "from": "LandingAirB",
+      "to": "Wait",
+      "input": "aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "reference"
+    },
+    {
+      "from": "LandingAirHi",
+      "to": "Wait",
+      "input": "aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "reference"
+    },
+    {
+      "from": "LandingAirLw",
+      "to": "Wait",
+      "input": "aerial landing lag completes",
+      "frames": "aerial landing lag window",
+      "status": "reference"
+    }
   ]
 }

@@ -1,6 +1,7 @@
 use mole_core::PlayerInput;
 use mole_input::{
-    map_gamecube_pad_to_player_input, map_gamecube_pad_to_player_input_with_config,
+    hsd_clamp_gamecube_pad, map_gamecube_pad_to_player_input,
+    map_gamecube_pad_to_player_input_with_config, native_gamecube_pad_with_origin,
     GameCubeButtonState, GameCubePadStatus, InputMappingConfig, InputOrigin,
 };
 
@@ -100,9 +101,46 @@ fn input_origin_recenters_sticks_and_triggers_before_mapping() {
 }
 
 #[test]
+fn native_gamecube_origin_subtracts_triggers_without_sdk_padclamp_deadzone() {
+    let native = native_gamecube_pad_with_origin(
+        GameCubePadStatus {
+            left_trigger: 41,
+            right_trigger: 45,
+            ..GameCubePadStatus::neutral()
+        },
+        GameCubePadStatus {
+            left_trigger: 12,
+            right_trigger: 15,
+            ..GameCubePadStatus::neutral()
+        },
+    );
+
+    assert_eq!(native.left_trigger, 29);
+    assert_eq!(native.right_trigger, 30);
+}
+
+#[test]
+fn native_gamecube_hsd_clamp_limits_stick_vectors_to_melee_radius() {
+    let clamped = hsd_clamp_gamecube_pad(GameCubePadStatus {
+        stick_x: 255,
+        stick_y: 255,
+        c_stick_x: 0,
+        c_stick_y: 0,
+        ..GameCubePadStatus::neutral()
+    });
+    let input = map_gamecube_pad_to_player_input(clamped);
+
+    assert_eq!(input.stick_x(), 89);
+    assert_eq!(input.stick_y(), 89);
+    assert_eq!(input.c_stick_x(), -89);
+    assert_eq!(input.c_stick_y(), -89);
+}
+
+#[test]
 fn trigger_deadzone_maps_low_analog_values_to_zero_pressure() {
     let config = InputMappingConfig {
         trigger_deadzone: 8,
+        ..InputMappingConfig::default()
     };
     let input = map_gamecube_pad_to_player_input_with_config(
         GameCubePadStatus {
@@ -121,6 +159,7 @@ fn trigger_deadzone_maps_low_analog_values_to_zero_pressure() {
 fn trigger_deadzone_remaps_above_deadzone_to_full_analog_range() {
     let config = InputMappingConfig {
         trigger_deadzone: 8,
+        ..InputMappingConfig::default()
     };
     let input = map_gamecube_pad_to_player_input_with_config(
         GameCubePadStatus {
@@ -139,6 +178,7 @@ fn trigger_deadzone_remaps_above_deadzone_to_full_analog_range() {
 fn trigger_deadzone_keeps_left_right_and_digital_bottom_out_independent() {
     let config = InputMappingConfig {
         trigger_deadzone: 8,
+        ..InputMappingConfig::default()
     };
     let input = map_gamecube_pad_to_player_input_with_config(
         GameCubePadStatus {

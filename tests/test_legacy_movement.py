@@ -314,14 +314,14 @@ def test_native_melee_dash_fact_blocks_legacy_dash_when_rust_timer_is_expired():
     assert player.isRight is True
 
 
-def test_native_ucf_dashback_fact_allows_dash_dance_when_vanilla_timer_misses():
+def test_native_canonical_dashback_fact_allows_dash_dance_when_timer_misses():
     player = make_grounded_player()
 
     frames = [
-        (1.0, {"x_tap_timer": 0, "dash_direction": 1, "ucf_dashback_direction": 0}),
-        (1.0, {"x_tap_timer": 1, "dash_direction": 1, "ucf_dashback_direction": 0}),
-        (-1.0, {"x_tap_timer": 0xFE, "dash_direction": 0, "ucf_dashback_direction": -1}),
-        (-1.0, {"x_tap_timer": 0xFE, "dash_direction": 0, "ucf_dashback_direction": -1}),
+        (1.0, {"x_tap_timer": 0, "dash_direction": 1}),
+        (1.0, {"x_tap_timer": 1, "dash_direction": 1}),
+        (-1.0, {"x_tap_timer": 0xFE, "dash_direction": -1}),
+        (-1.0, {"x_tap_timer": 0xFE, "dash_direction": -1}),
     ]
 
     for x, melee in frames:
@@ -334,7 +334,6 @@ def test_native_ucf_dashback_fact_allows_dash_dance_when_vanilla_timer_misses():
                     "lstick_y": 0,
                     "cstick_x": 0,
                     "cstick_y": 0,
-                    "ucf_x_tilt_intent": melee["ucf_dashback_direction"] != 0,
                     **melee,
                 },
             ),

@@ -1,0 +1,437 @@
+{
+  "categories": [
+    {
+      "fields": [
+        {
+          "converted_value": 150,
+          "kind": "milli",
+          "offset": 0,
+          "offset_hex": "0x0",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.15000000596046448,
+          "rust_name": "walk_initial_velocity",
+          "source_name": "walk_initial_velocity"
+        },
+        {
+          "converted_value": 100,
+          "kind": "milli",
+          "offset": 4,
+          "offset_hex": "0x4",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.10000000149011612,
+          "rust_name": "walk_accel",
+          "source_name": "walk_accel"
+        },
+        {
+          "converted_value": 850,
+          "kind": "milli",
+          "offset": 8,
+          "offset_hex": "0x8",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.8500000238418579,
+          "rust_name": "walk_max_vel",
+          "source_name": "walk_max_vel"
+        },
+        {
+          "converted_value": 165,
+          "kind": "milli",
+          "offset": 12,
+          "offset_hex": "0xc",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.16500000655651093,
+          "rust_name": "slow_walk_max_velocity",
+          "source_name": "slow_walk_max_velocity"
+        },
+        {
+          "converted_value": 407,
+          "kind": "milli",
+          "offset": 16,
+          "offset_hex": "0x10",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.40700000524520874,
+          "rust_name": "mid_walk_threshold",
+          "source_name": "mid_walk_threshold"
+        },
+        {
+          "converted_value": 660,
+          "kind": "milli",
+          "offset": 20,
+          "offset_hex": "0x14",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.659600019454956,
+          "rust_name": "fast_walk_threshold",
+          "source_name": "fast_walk_threshold"
+        },
+        {
+          "converted_value": 80,
+          "kind": "milli",
+          "offset": 24,
+          "offset_hex": "0x18",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.07999999821186066,
+          "rust_name": "traction_per_tick",
+          "source_name": "gr_friction"
+        },
+        {
+          "converted_value": 2300,
+          "kind": "milli",
+          "offset": 40,
+          "offset_hex": "0x28",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.299999952316284,
+          "rust_name": "dash_run_terminal_velocity",
+          "source_name": "dash_run_terminal_velocity"
+        },
+        {
+          "converted_value": 2330,
+          "kind": "milli",
+          "offset": 44,
+          "offset_hex": "0x2c",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.3299999237060547,
+          "rust_name": "run_animation_scaling",
+          "source_name": "run_animation_scaling"
+        },
+        {
+          "converted_value": 30,
+          "kind": "f32_ticks",
+          "offset": 48,
+          "offset_hex": "0x30",
+          "provenance": "extracted_melee_dat",
+          "raw": 30.0,
+          "rust_name": "max_run_brake_frames",
+          "source_name": "max_run_brake_frames"
+        },
+        {
+          "converted_value": 3000,
+          "kind": "milli",
+          "offset": 52,
+          "offset_hex": "0x34",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0,
+          "rust_name": "ground_max_horizontal_velocity",
+          "source_name": "ground_max_horizontal_velocity"
+        }
+      ],
+      "id": "walk_and_run",
+      "label": "Walk And Run"
+    },
+    {
+      "fields": [
+        {
+          "converted_value": 2000,
+          "kind": "milli",
+          "offset": 28,
+          "offset_hex": "0x1c",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0,
+          "rust_name": "dash_initial_velocity",
+          "source_name": "dash_initial_velocity"
+        },
+        {
+          "converted_value": 150,
+          "kind": "milli",
+          "offset": 32,
+          "offset_hex": "0x20",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.15000000596046448,
+          "rust_name": "dash_run_acceleration_a",
+          "source_name": "dash_run_acceleration_a"
+        },
+        {
+          "converted_value": 10,
+          "kind": "milli",
+          "offset": 36,
+          "offset_hex": "0x24",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.009999999776482582,
+          "rust_name": "dash_run_acceleration_b",
+          "source_name": "dash_run_acceleration_b"
+        },
+        {
+          "converted_value": 6,
+          "kind": "f32_ticks",
+          "offset": 132,
+          "offset_hex": "0x84",
+          "provenance": "extracted_melee_dat",
+          "raw": 6.0,
+          "rust_name": "frames_to_change_direction_on_standing_turn",
+          "source_name": "frames_to_change_direction_on_standing_turn"
+        }
+      ],
+      "id": "dash_and_turn",
+      "label": "Dash And Turn"
+    },
+    {
+      "fields": [
+        {
+          "converted_value": 4,
+          "kind": "f32_ticks",
+          "offset": 56,
+          "offset_hex": "0x38",
+          "provenance": "extracted_melee_dat",
+          "raw": 4.0,
+          "rust_name": "jump_startup_time",
+          "source_name": "jump_startup_time"
+        },
+        {
+          "converted_value": 950,
+          "kind": "milli",
+          "offset": 60,
+          "offset_hex": "0x3c",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.949999988079071,
+          "rust_name": "jump_h_initial_velocity",
+          "source_name": "jump_h_initial_velocity"
+        },
+        {
+          "converted_value": 3100,
+          "kind": "milli",
+          "offset": 64,
+          "offset_hex": "0x40",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0999999046325684,
+          "rust_name": "jump_v_initial_velocity",
+          "source_name": "jump_v_initial_velocity"
+        },
+        {
+          "converted_value": 750,
+          "kind": "milli",
+          "offset": 68,
+          "offset_hex": "0x44",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.75,
+          "rust_name": "ground_to_air_jump_momentum_multiplier",
+          "source_name": "ground_to_air_jump_momentum_multiplier"
+        },
+        {
+          "converted_value": 2100,
+          "kind": "milli",
+          "offset": 72,
+          "offset_hex": "0x48",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0999999046325684,
+          "rust_name": "jump_h_max_velocity",
+          "source_name": "jump_h_max_velocity"
+        },
+        {
+          "converted_value": 1900,
+          "kind": "milli",
+          "offset": 76,
+          "offset_hex": "0x4c",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.899999976158142,
+          "rust_name": "hop_v_initial_velocity",
+          "source_name": "hop_v_initial_velocity"
+        },
+        {
+          "converted_value": 900,
+          "kind": "milli",
+          "offset": 80,
+          "offset_hex": "0x50",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.8999999761581421,
+          "rust_name": "air_jump_v_multiplier",
+          "source_name": "air_jump_v_multiplier"
+        },
+        {
+          "converted_value": 900,
+          "kind": "milli",
+          "offset": 84,
+          "offset_hex": "0x54",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.8999999761581421,
+          "rust_name": "air_jump_h_multiplier",
+          "source_name": "air_jump_h_multiplier"
+        },
+        {
+          "converted_value": 2,
+          "kind": "i32_ticks",
+          "offset": 88,
+          "offset_hex": "0x58",
+          "provenance": "extracted_melee_dat",
+          "raw": 2,
+          "rust_name": "max_jumps",
+          "source_name": "max_jumps"
+        },
+        {
+          "converted_value": 40,
+          "kind": "milli",
+          "offset": 100,
+          "offset_hex": "0x64",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.03999999910593033,
+          "rust_name": "air_drift_stick_mul",
+          "source_name": "air_drift_stick_mul"
+        },
+        {
+          "converted_value": 20,
+          "kind": "milli",
+          "offset": 104,
+          "offset_hex": "0x68",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.019999999552965164,
+          "rust_name": "aerial_drift_base",
+          "source_name": "aerial_drift_base"
+        },
+        {
+          "converted_value": 1120,
+          "kind": "milli",
+          "offset": 108,
+          "offset_hex": "0x6c",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.1200000047683716,
+          "rust_name": "air_drift_max",
+          "source_name": "air_drift_max"
+        },
+        {
+          "converted_value": 10,
+          "kind": "milli",
+          "offset": 112,
+          "offset_hex": "0x70",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.009999999776482582,
+          "rust_name": "aerial_friction",
+          "source_name": "aerial_friction"
+        },
+        {
+          "converted_value": 3000,
+          "kind": "milli",
+          "offset": 120,
+          "offset_hex": "0x78",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0,
+          "rust_name": "air_max_horizontal_velocity",
+          "source_name": "air_max_horizontal_velocity"
+        }
+      ],
+      "id": "jump_and_air",
+      "label": "Jump And Air"
+    },
+    {
+      "fields": [
+        {
+          "converted_value": 130,
+          "kind": "milli",
+          "offset": 92,
+          "offset_hex": "0x5c",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.12999999523162842,
+          "rust_name": "grav",
+          "source_name": "grav"
+        },
+        {
+          "converted_value": 2900,
+          "kind": "milli",
+          "offset": 96,
+          "offset_hex": "0x60",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.9000000953674316,
+          "rust_name": "terminal_vel",
+          "source_name": "terminal_vel"
+        },
+        {
+          "converted_value": 3500,
+          "kind": "milli",
+          "offset": 116,
+          "offset_hex": "0x74",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.5,
+          "rust_name": "fast_fall_velocity",
+          "source_name": "fast_fall_velocity"
+        },
+        {
+          "converted_value": 4,
+          "kind": "f32_ticks",
+          "offset": 228,
+          "offset_hex": "0xe4",
+          "provenance": "extracted_melee_dat",
+          "raw": 4.0,
+          "rust_name": "normal_landing_lag",
+          "source_name": "normal_landing_lag"
+        },
+        {
+          "converted_value": 15,
+          "kind": "f32_ticks",
+          "offset": 232,
+          "offset_hex": "0xe8",
+          "provenance": "extracted_melee_dat",
+          "raw": 15.0,
+          "rust_name": "landingairn_lag",
+          "source_name": "landingairn_lag"
+        },
+        {
+          "converted_value": 19,
+          "kind": "f32_ticks",
+          "offset": 236,
+          "offset_hex": "0xec",
+          "provenance": "extracted_melee_dat",
+          "raw": 19.0,
+          "rust_name": "landingairf_lag",
+          "source_name": "landingairf_lag"
+        },
+        {
+          "converted_value": 18,
+          "kind": "f32_ticks",
+          "offset": 240,
+          "offset_hex": "0xf0",
+          "provenance": "extracted_melee_dat",
+          "raw": 18.0,
+          "rust_name": "landingairb_lag",
+          "source_name": "landingairb_lag"
+        },
+        {
+          "converted_value": 15,
+          "kind": "f32_ticks",
+          "offset": 244,
+          "offset_hex": "0xf4",
+          "provenance": "extracted_melee_dat",
+          "raw": 15.0,
+          "rust_name": "landingairhi_lag",
+          "source_name": "landingairhi_lag"
+        },
+        {
+          "converted_value": 24,
+          "kind": "f32_ticks",
+          "offset": 248,
+          "offset_hex": "0xf8",
+          "provenance": "extracted_melee_dat",
+          "raw": 24.0,
+          "rust_name": "landingairlw_lag",
+          "source_name": "landingairlw_lag"
+        }
+      ],
+      "id": "gravity_and_landing",
+      "label": "Gravity And Landing"
+    },
+    {
+      "fields": [
+        {
+          "converted_value": 1647,
+          "kind": "entry_platform_offset_milli",
+          "offset": 272,
+          "offset_hex": "0x110",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.100000023841858,
+          "rust_name": "entry_platform_offset_y",
+          "source_name": "trophy_scale*1.497345"
+        }
+      ],
+      "id": "entry_and_collision",
+      "label": "Entry And Collision"
+    }
+  ],
+  "character_id": "captain_falcon",
+  "engine_boundary": "rust_core_authority",
+  "id": "captain_falcon_values",
+  "scope": "character",
+  "source": {
+    "file": "resources/melee/raw/PlCa.dat",
+    "format": "HSD DAT, big-endian floats/ints",
+    "ft_data_offset": 39428,
+    "ftco_dat_attrs_len": 388,
+    "ftco_dat_attrs_offset": 14164,
+    "symbol": "ftDataCaptain"
+  },
+  "title": "Captain Falcon Character Values"
+}

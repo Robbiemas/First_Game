@@ -1,0 +1,514 @@
+{
+  "id": "falcon_ecb_coverage",
+  "mapped_action_count": 67,
+  "mapped_motion_state_count": 70,
+  "mapped_motion_states": [
+    {
+      "action_state_id": 2,
+      "motion_state": "Wait",
+      "sample_frames": 60,
+      "source_action": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 7,
+      "motion_state": "WalkSlow",
+      "sample_frames": 54,
+      "source_action": "PlyCaptain5K_Share_ACTION_WalkSlow_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 8,
+      "motion_state": "WalkMiddle",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_WalkMiddle_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 9,
+      "motion_state": "WalkFast",
+      "sample_frames": 25,
+      "source_action": "PlyCaptain5K_Share_ACTION_WalkFast_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 10,
+      "motion_state": "Turn",
+      "sample_frames": 12,
+      "source_action": "PlyCaptain5K_Share_ACTION_Turn_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 11,
+      "motion_state": "TurnRun",
+      "sample_frames": 22,
+      "source_action": "PlyCaptain5K_Share_ACTION_TurnRun_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 12,
+      "motion_state": "Dash",
+      "sample_frames": 29,
+      "source_action": "PlyCaptain5K_Share_ACTION_Dash_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 13,
+      "motion_state": "Run",
+      "sample_frames": 20,
+      "source_action": "PlyCaptain5K_Share_ACTION_Run_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 13,
+      "motion_state": "RunDirect",
+      "sample_frames": 20,
+      "source_action": "PlyCaptain5K_Share_ACTION_Run_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 14,
+      "motion_state": "RunBrake",
+      "sample_frames": 28,
+      "source_action": "PlyCaptain5K_Share_ACTION_RunBrake_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 15,
+      "motion_state": "KneeBend",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 15,
+      "motion_state": "Landing",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 16,
+      "motion_state": "JumpF",
+      "sample_frames": 35,
+      "source_action": "PlyCaptain5K_Share_ACTION_JumpF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 17,
+      "motion_state": "JumpB",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_JumpB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 18,
+      "motion_state": "JumpAerialF",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_JumpAerialF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 19,
+      "motion_state": "JumpAerialB",
+      "sample_frames": 35,
+      "source_action": "PlyCaptain5K_Share_ACTION_JumpAerialB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 20,
+      "motion_state": "Fall",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_Fall_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 21,
+      "motion_state": "FallF",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 22,
+      "motion_state": "FallB",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 23,
+      "motion_state": "FallAerial",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallAerial_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 24,
+      "motion_state": "FallAerialF",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallAerialF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 25,
+      "motion_state": "FallAerialB",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallAerialB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 26,
+      "motion_state": "FallSpecial",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallSpecial_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 27,
+      "motion_state": "FallSpecialF",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallSpecialF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 28,
+      "motion_state": "FallSpecialB",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_FallSpecialB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 30,
+      "motion_state": "Squat",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_Squat_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 31,
+      "motion_state": "SquatWait",
+      "sample_frames": 158,
+      "source_action": "PlyCaptain5K_Share_ACTION_SquatWait_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 34,
+      "motion_state": "SquatRv",
+      "sample_frames": 10,
+      "source_action": "PlyCaptain5K_Share_ACTION_SquatRv_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 37,
+      "motion_state": "GuardOn",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 38,
+      "motion_state": "Guard",
+      "sample_frames": 370,
+      "source_action": "PlyCaptain5K_Share_ACTION_Guard_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 39,
+      "motion_state": "GuardOff",
+      "sample_frames": 16,
+      "source_action": "PlyCaptain5K_Share_ACTION_GuardOff_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 40,
+      "motion_state": "GuardSetOff",
+      "sample_frames": 20,
+      "source_action": "PlyCaptain5K_Share_ACTION_GuardDamage_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 37,
+      "motion_state": "GuardReflect",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 36,
+      "motion_state": "LandingFallSpecial",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 41,
+      "motion_state": "EscapeN",
+      "sample_frames": 33,
+      "source_action": "PlyCaptain5K_Share_ACTION_EscapeN_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 42,
+      "motion_state": "EscapeF",
+      "sample_frames": 32,
+      "source_action": "PlyCaptain5K_Share_ACTION_EscapeF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 43,
+      "motion_state": "EscapeB",
+      "sample_frames": 32,
+      "source_action": "PlyCaptain5K_Share_ACTION_EscapeB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 44,
+      "motion_state": "EscapeAir",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_EscapeAir_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 46,
+      "motion_state": "Attack1",
+      "sample_frames": 22,
+      "source_action": "PlyCaptain5K_Share_ACTION_Attack11_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 52,
+      "motion_state": "AttackDash",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackDash_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 55,
+      "motion_state": "AttackS3",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackS3S_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 58,
+      "motion_state": "AttackHi3",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackHi3_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 59,
+      "motion_state": "AttackLw3",
+      "sample_frames": 36,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackLw3_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 62,
+      "motion_state": "AttackS4",
+      "sample_frames": 65,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackS4S_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 66,
+      "motion_state": "AttackHi4",
+      "sample_frames": 55,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackHi4_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 67,
+      "motion_state": "AttackLw4",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackLw4_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 68,
+      "motion_state": "AttackAirN",
+      "sample_frames": 45,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 69,
+      "motion_state": "AttackAirF",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackAirF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 70,
+      "motion_state": "AttackAirB",
+      "sample_frames": 36,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackAirB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 71,
+      "motion_state": "AttackAirHi",
+      "sample_frames": 34,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackAirHi_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 72,
+      "motion_state": "AttackAirLw",
+      "sample_frames": 45,
+      "source_action": "PlyCaptain5K_Share_ACTION_AttackAirLw_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 73,
+      "motion_state": "LandingAirN",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_LandingAirN_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 74,
+      "motion_state": "LandingAirF",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_LandingAirF_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 75,
+      "motion_state": "LandingAirB",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_LandingAirB_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 76,
+      "motion_state": "LandingAirHi",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_LandingAirHi_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 77,
+      "motion_state": "LandingAirLw",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_LandingAirLw_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 209,
+      "motion_state": "Pass",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_Pass_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 242,
+      "motion_state": "Catch",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_Catch_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 243,
+      "motion_state": "CatchDash",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 301,
+      "motion_state": "SpecialN",
+      "sample_frames": 100,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 302,
+      "motion_state": "SpecialAirN",
+      "sample_frames": 100,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialAirN_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 303,
+      "motion_state": "SpecialSStart",
+      "sample_frames": 80,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 304,
+      "motion_state": "SpecialS",
+      "sample_frames": 25,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialS_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 305,
+      "motion_state": "SpecialAirSStart",
+      "sample_frames": 80,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 306,
+      "motion_state": "SpecialAirS",
+      "sample_frames": 45,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialAirS_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 307,
+      "motion_state": "SpecialHi",
+      "sample_frames": 65,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 308,
+      "motion_state": "SpecialAirHi",
+      "sample_frames": 65,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 311,
+      "motion_state": "SpecialLw",
+      "sample_frames": 40,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialLw_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 313,
+      "motion_state": "SpecialAirLw",
+      "sample_frames": 30,
+      "source_action": "PlyCaptain5K_Share_ACTION_SpecialAirLw_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 238,
+      "motion_state": "EntryStart",
+      "sample_frames": 10,
+      "source_action": "PlyCaptain5K_Share_ACTION_Entry_figatree",
+      "status": "mapped_exact_action_table"
+    }
+  ],
+  "missing_sampled_mappings": [],
+  "no_action_submotion_motion_states": [
+    {
+      "motion_state": "Entry",
+      "reason": "ftCo_MS_Entry uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map."
+    },
+    {
+      "motion_state": "EntryEnd",
+      "reason": "ftCo_MS_EntryEnd uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map."
+    }
+  ],
+  "source": {
+    "generated_rust": "crates/mole_core/src/generated/falcon_ecb.rs",
+    "samples": "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
+  },
+  "title": "Captain Falcon ECB Coverage",
+  "unmapped_derived_motion_states": []
+}

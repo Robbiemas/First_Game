@@ -21,23 +21,34 @@ py -3.10 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-## Run The Legacy Pygame Prototype
+## Legacy Pygame Prototype
 
-All double-click launchers and checkers live in `execs/`.
+Active double-click launchers and checkers live in `execs/`. Deprecated Pygame
+and generic-controller launchers are kept in `execs/depreciated/` for old
+reference work only.
 
-Double-click `execs\Launch Mole Game.cmd`, or run:
+To launch the old prototype manually, run:
 
 ```powershell
 .\.venv\Scripts\python RealMainFile.py
 ```
 
 The legacy prototype opens in a window by default. Set `MOLE_FULLSCREEN=1` for fullscreen.
-With a WUP-028 adapter on WinUSB, the launcher also starts the native Rust WUP input bridge so the old Pygame prototype can read the GameCube controller without a remapper. Set `MOLE_DISABLE_NATIVE_WUP=1` to force the legacy Pygame/keyboard path only.
+The old `execs\depreciated\Launch Mole Game.cmd` launcher can still start the
+native Rust WUP input bridge for the Pygame prototype, but it is no longer the
+normal playtest path. Set `MOLE_DISABLE_NATIVE_WUP=1` to force the legacy
+Pygame/keyboard path only.
 The old prototype menu is skipped by default during mechanics QA so native input starts immediately; set `MOLE_SHOW_MENU=1` if you want to open that menu again.
 
-For controller/mechanics diagnosis, double-click `execs\Launch Mole Game Debug.cmd`. The debug launch starts with the input/state overlay visible and writes frame-by-frame JSONL logs under `logs/`. While the game is running, press `F3` to toggle the overlay and `F4` to toggle logging.
+For old Pygame controller/mechanics diagnosis, double-click
+`execs\depreciated\Launch Mole Game Debug.cmd`. The debug launch starts with
+the input/state overlay visible and writes frame-by-frame JSONL logs under
+`logs/`. While the game is running, press `F3` to toggle the overlay and `F4`
+to toggle logging.
 
-For live QA while iterating, double-click `execs\Live Test Session.cmd`. It launches the game with debug overlay/logging forced on, watches Python/config/Rust source changes only while the game is open, and exits the watcher when the game closes or crashes. New logs stay under `logs/`. The live session and the game entry point both hold single-instance locks, so a second launch exits before it can create another watcher or game window. Source changes are reported in the console but do not restart the game by default; pass `--auto-restart` only when you explicitly want the older replace-on-edit behavior.
+The deprecated `execs\depreciated\Live Test Session.cmd` launcher remains for
+old Pygame QA only. Current visual parity work should use the Rust SDL3 runtime
+plus the Mole Game Dev Tool.
 
 ## Rust Rollback Path
 
@@ -76,7 +87,6 @@ For GameCube/WUP checks:
 ```powershell
 .\execs\Check WUP Native.cmd
 .\execs\Monitor WUP Native.cmd
-.\execs\Run WUP Native Runtime.cmd
 ```
 
 For visual state reference:
@@ -95,17 +105,37 @@ For the native SDL3/WUP game window, double-click `execs\Run SDL3 Runtime.cmd`.
 The first launch downloads the free SDL3 development package into `.local/SDL3`,
 which is ignored by git.
 
-For the native WUP-028 GameCube adapter path, double-click `execs\Check WUP Native.cmd` to verify ports, then `execs\Run WUP Native Runtime.cmd` to run the 60 Hz smoke loop using WinUSB/libusb directly. This path does not require a controller remapper.
+For vanilla controller-path testing, double-click
+`execs\Run SDL3 Runtime Vanilla No UCF.cmd`. It launches the same native SDL3/WUP
+runtime and input trace logging, but passes `--no-ucf` so the WUP/native
+pre-UCF path is visible before UCF amendments are layered on top.
+
+For Slippi replay diagnostics, place local `.slp` files under `replays\` and
+run `node tools\slippi_replay_to_inputs.cjs --replay replays\Game.slp --frames
+1800`. The first setup is `npm install --prefix tools\slippi`. Generated JSON
+and Markdown diagnostics are written under `debug\slippi\`, and the Mole Game
+Dev Tool has a `Slippi Replay` tab that shows the latest report. Replay files
+and generated diagnostics stay local by default.
+
+For the native WUP-028 GameCube adapter path, double-click
+`execs\Check WUP Native.cmd` to verify ports. The main SDL3 runtime uses that
+same WinUSB/libusb path directly; this path does not require a controller
+remapper.
 
 For a Delfinovin-style native input display, double-click `execs\Monitor WUP Native.cmd`. It opens a lightweight SDL3 window that polls the WUP-028 adapter directly through WinUSB/libusb and shows connected adapter ports, main stick, C-stick, D-pad, separate L/R analog trigger values, separate L/R digital trigger clicks, and button state for the first two connected controllers.
 
 The WUP path is now GameCube-first internally. Rust stores the adapter report as native `0..255` GameCube stick bytes, native `0..255` trigger bytes, and GameCube button bits before deriving any legacy `PlayerInput` or Pygame-compatible float axes. The compact Rust `PlayerInput` now preserves main stick, C-stick, D-pad, separate L/R analog triggers, separate L/R digital trigger clicks, separate X/Y jump buttons, and gameplay buttons for deterministic replay/rollback checksums. The JSON stream keeps the older centered fields for fallback tooling, emits `raw_main_x`, `raw_main_y`, `raw_c_x`, and `raw_c_y`, and includes a `melee` object with canonical cleaned sticks, cleaned per-side triggers, timers, and input facts. The current Pygame bridge prefers that `melee` object when present, then falls back field-by-field to the raw stream for older runtimes or partial data.
 
-The Rust native input layer now treats UCF 0.84 as the default Melee control baseline. UCF cardinals, raw two-frame x tilt-intent, and raw shield-drop tilt-intent are derived in `mole_core::MeleeInputProcessor` from the calibrated WUP samples before the game shell sees them. UCF dashback is folded into the canonical `dash_direction` fact at the input boundary, while `ucf_dashback_direction` remains available as a diagnostic/raw-fix fact. The Pygame prototype consumes the canonical facts and does not implement UCF-specific movement branches.
+The Rust native input layer now treats UCF 0.84 as the default Melee control baseline. UCF cardinals, raw two-frame x tilt-intent, and raw shield-drop tilt-intent are derived in `mole_input` from calibrated WUP samples before the game shell sees them. UCF dashback is carried as a rollback-owned input amendment bit from the adapter, then applied only at the source Turn hook frame so ordinary vanilla pad snapshots still flow through the vanilla `dash_direction` facts. The Pygame prototype consumes the canonical facts and does not implement UCF-specific movement branches.
 
 `PlayerInput` is intentionally a per-frame controller-state packet, not a pre-resolved action command. The WUP mapper keeps held A/B/X/Y/Z/Start, sticks, D-pad, and trigger state in the packet; Melee-style derived facts such as tap jump, fresh button presses, and shield edges stay in the Melee snapshot/readout layer for the engine to consume deterministically. `shield()` is a derived view, while `explicit_shield()` is only the generic keyboard/abstract shield bit; SDL gamepad trigger and bumper input now stays as L/R analog or L/R digital trigger state instead of being promoted into that generic shield bit.
 
 Native WUP input is plug-and-play by default. The first connected raw GameCube report becomes that controller port's origin, matching the console-level power-on/plug-in behavior: if a stick or trigger is held during launch or insertion, that value is treated as the origin just like on console. Hold `X + Y + Start` for about three seconds to recenter the current stick and trigger origin without restarting. The native path now subtracts origin only; it does not apply user endpoint calibration or stretch real GameCube gate values into a fake full square. UCF/cardinal cleanup and Melee-style input facts happen in Rust before the Pygame shell sees the controller.
+
+UCF remains default-on for normal native runtime play, but can be disabled with
+`--no-ucf` for vanilla input-path testing. Disabling UCF leaves the Rust core on
+the same Melee-shaped input snapshots and bypasses only adapter-owned UCF
+amendments such as cardinal cleanup and dashback assistance.
 
 The legacy Pygame input bridge now applies a `0.20` trigger dead zone before exposing L/R analog values to movement or shield logic: native values from `0.00` through `0.20` become `0.00`, then the remaining trigger travel is rescaled back across `0.00..1.00`. Low trigger noise is treated as no trigger input instead of being blocked later by special-case action rules.
 
@@ -121,7 +151,7 @@ The deterministic `World` owns previous per-frame input plus Melee-style x tap, 
 
 The core can now derive a Melee-style input snapshot from rollback-owned state with `World::melee_input_snapshot(player, input)`. Runtime readouts and future motion-state code can use the same snapshot/facts shape instead of interpreting host input differently. In that compact rollback path, any nonzero cleaned analog trigger value counts as analog shield hold, the stricter source-shaped `x18` threshold drives the trigger timer, and the physical bottom-out L/R clicks remain separate digital presses for air-dodge and wavedash timing.
 
-UCF intent bits are also carried inside rollback-owned `PlayerInput`, so future Rust motion states can apply UCF dashback/shield-drop behavior deterministically during rollback instead of depending on Pygame or host-only controller state.
+UCF dashback amendment state is carried inside rollback-owned `PlayerInput`, so the Rust Turn state can apply the source hook deterministically during rollback instead of depending on Pygame or host-only controller state. UCF shield-drop remains an adapter translation into the ordinary vanilla platform-pass stick band before the core sees the frame.
 
 Input timer windows now use Melee-style exclusive common-data limits: a window of `3` accepts timers `0`, `1`, and `2`, and rejects timer `3`. Dash/smash-turn, tap-jump, roll, and spotdodge facts all use that same strict boundary shape.
 
@@ -153,10 +183,13 @@ The air-dodge vector now also follows the source shape: stick values inside `esc
 
 The launcher enables SDL's HIDAPI GameCube controller support before Pygame starts. With a WUP-028 adapter on WinUSB through Zadig, close any remapper software, unplug/replug the adapter if needed, then launch the game.
 
-To see what the game can see, double-click `execs\Check Controllers.cmd`. For a live input readout, run:
+To see what the active native path can see, double-click
+`execs\Monitor WUP Native.cmd`. The old Pygame/generic controller checker is
+kept at `execs\depreciated\Check Controllers.cmd` only for reference. For that
+legacy checker in watch mode, run:
 
 ```powershell
-& '.\execs\Check Controllers.cmd' --watch
+& '.\execs\depreciated\Check Controllers.cmd' --watch
 ```
 
 ## Keyboard Controls

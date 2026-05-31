@@ -74,7 +74,19 @@ def test_sdl3_runtime_launcher_builds_with_native_wup_feature():
 
     assert '--features "sdl wup"' in text
     assert "-- --sdl" in text
+    assert "--input-trace" in text
+    assert "--no-ucf" not in text
     assert "--features sdl -- --sdl" not in text
+
+
+def test_sdl3_runtime_vanilla_launcher_disables_ucf():
+    launcher = ROOT / "execs" / "Run SDL3 Runtime Vanilla No UCF.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert '--features "sdl wup"' in text
+    assert "-- --sdl --play --input-trace --no-ucf" in text
+    assert "Open State Graphs.cmd" in text
 
 
 def test_sdl3_runtime_launcher_opens_state_graph_viewer():
@@ -83,7 +95,26 @@ def test_sdl3_runtime_launcher_opens_state_graph_viewer():
     text = launcher.read_text(encoding="utf-8")
 
     assert "Open State Graphs.cmd" in text
-    assert 'start "Mole State Graphs"' in text
+    assert 'start "Mole Game Dev Tool"' in text
+    assert "tools\\state_graph_viewer.py" not in text
+
+
+def test_deprecated_execs_are_out_of_the_active_launcher_folder():
+    active_execs = ROOT / "execs"
+    deprecated_execs = active_execs / "depreciated"
+    deprecated_names = {
+        "Check Controllers.cmd",
+        "Check SDL3 Inputs.cmd",
+        "Launch Mole Game.cmd",
+        "Launch Mole Game Debug.cmd",
+        "Live Test Session.cmd",
+        "Open GameCube Calibration.cmd",
+        "Run WUP Native Runtime.cmd",
+    }
+
+    for name in deprecated_names:
+        assert not (active_execs / name).exists()
+        assert (deprecated_execs / name).is_file()
 
 
 def test_main_menu_is_skipped_by_default(monkeypatch):
@@ -748,7 +779,7 @@ def test_gather_inputs_uses_rust_melee_z_facts_without_trigger_airdodge():
     assert player.r_trigger_digital_pressed is False
 
 
-def test_gather_inputs_exposes_rust_ucf_facts_without_recomputing_them():
+def test_gather_inputs_ignores_legacy_ucf_facts_and_uses_canonical_dash_fact():
     from GatherInputs import gather_inputs
     from NativeWupInput import NativeWupPad
 
@@ -762,26 +793,20 @@ def test_gather_inputs_exposes_rust_ucf_facts_without_recomputing_them():
             "raw_c_x": 128,
             "raw_c_y": 128,
             "melee": {
-                "lstick_x": 127,
+                "lstick_x": -127,
                 "lstick_y": 0,
                 "cstick_x": 0,
                 "cstick_y": 0,
-                "ucf_version": "0.84",
-                "ucf_x_tilt_intent": True,
-                "ucf_shield_drop_tilt_intent": False,
+                "dash_direction": 0,
                 "ucf_dashback_direction": -1,
-                "ucf_shield_drop": False,
             },
         }
     )
 
     gather_inputs(player, pad)
 
-    assert player.ucf_version == "0.84"
-    assert player.ucf_x_tilt_intent is True
-    assert player.ucf_shield_drop_tilt_intent is False
-    assert player.ucf_dashback_direction == -1
-    assert player.ucf_shield_drop is False
+    assert player.melee_dash_direction == 0
+    assert not hasattr(player, "ucf_dashback_direction")
 
 
 def test_native_wup_pad_recaptures_origin_after_gamecube_recenter_combo():

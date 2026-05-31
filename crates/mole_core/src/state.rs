@@ -1,4 +1,5 @@
 use crate::{
+    collision::EcbDiamond,
     stage::{StageProfile, StageSurface, StageSurfaceKind},
     time::Frame,
     MeleeCommonData, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput,
@@ -6,8 +7,15 @@ use crate::{
 };
 use std::fmt;
 
+#[path = "generated/falcon_ecb.rs"]
+mod falcon_ecb;
+
 pub const PLAYER_COUNT: usize = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
+// Fallback for Melee's JObj-sourced ECB path while non-sampled actions are
+// still being migrated from extracted per-frame data.
+pub(crate) const SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y: i32 = 2_790;
+const FALLBACK_ECB_WIDTH_UNITS: i32 = 4_000;
 const PLAYER_ONE_DEFAULT_SPAWN_X: i32 = -20_000;
 const PLAYER_TWO_DEFAULT_SPAWN_X: i32 = 20_000;
 
@@ -129,6 +137,7 @@ pub struct FighterProfile {
     pub jump_horizontal_initial_velocity_per_tick: i32,
     pub jump_horizontal_max_velocity_per_tick: i32,
     pub air_jump_horizontal_velocity_per_tick: i32,
+    pub air_jump_v_multiplier_milli: i32,
     pub max_jumps: u8,
     pub air_drift_stick_accel_per_tick: i32,
     pub air_drift_base_accel_per_tick: i32,
@@ -144,12 +153,18 @@ pub struct FighterProfile {
     pub full_hop_height: i32,
     pub short_hop_height: i32,
     pub double_jump_height: i32,
+    pub entry_platform_offset_y: i32,
     pub standing_height_units: i32,
     pub jumpsquat_frames: u8,
     pub dash_frames: u8,
     pub standing_turn_direction_change_frames: u8,
     pub standing_turn_total_frames: u8,
     pub normal_landing_lag_ticks: u8,
+    pub landing_air_n_lag_ticks: u8,
+    pub landing_air_f_lag_ticks: u8,
+    pub landing_air_b_lag_ticks: u8,
+    pub landing_air_hi_lag_ticks: u8,
+    pub landing_air_lw_lag_ticks: u8,
 }
 
 impl FighterProfile {
@@ -174,7 +189,8 @@ impl FighterProfile {
         jump_horizontal_initial_velocity_per_tick: 950,
         jump_horizontal_max_velocity_per_tick: 2_100,
         air_jump_horizontal_velocity_per_tick: 900,
-        max_jumps: 1,
+        air_jump_v_multiplier_milli: 900,
+        max_jumps: 2,
         air_drift_stick_accel_per_tick: 40,
         air_drift_base_accel_per_tick: 20,
         air_drift_max_velocity_per_tick: 1_120,
@@ -189,6 +205,7 @@ impl FighterProfile {
         full_hop_height: 38_520,
         short_hop_height: 14_850,
         double_jump_height: 28_560,
+        entry_platform_offset_y: 1_647,
         // Provisional visual scale: current 136 px standing sprite at the old 6 px/unit art calibration.
         standing_height_units: 22_667,
         jumpsquat_frames: 4,
@@ -196,10 +213,23 @@ impl FighterProfile {
         standing_turn_direction_change_frames: 6,
         standing_turn_total_frames: 11,
         normal_landing_lag_ticks: 4,
+        landing_air_n_lag_ticks: 15,
+        landing_air_f_lag_ticks: 19,
+        landing_air_b_lag_ticks: 18,
+        landing_air_hi_lag_ticks: 15,
+        landing_air_lw_lag_ticks: 24,
     };
 
     pub const fn falcon_like() -> Self {
         Self::FALCON_LIKE
+    }
+
+    pub const fn reusable_air_jumps(self) -> u8 {
+        if self.max_jumps == 0 {
+            0
+        } else {
+            self.max_jumps - 1
+        }
     }
 
     pub fn from_ftco_dat_attrs_bytes(
@@ -259,9 +289,14 @@ impl FighterProfile {
             "jump_v_initial_velocity*air_jump_v_multiplier",
             0x50,
         )?;
+        profile.air_jump_v_multiplier_milli = round_profile_f32_to_i32(
+            air_jump_v_multiplier * 1000.0,
+            "air_jump_v_multiplier",
+            0x50,
+        )?;
         profile.air_jump_horizontal_velocity_per_tick =
             read_profile_milli_i32(bytes, 0x54, "air_jump_h_multiplier")?;
-        profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?.saturating_sub(1);
+        profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?;
         profile.gravity_per_tick = read_profile_milli_i32(bytes, 0x5c, "grav")?;
         profile.fall_speed_per_tick = read_profile_milli_i32(bytes, 0x60, "terminal_vel")?;
         profile.air_drift_stick_accel_per_tick =
@@ -277,8 +312,21 @@ impl FighterProfile {
             read_profile_milli_i32(bytes, 0x78, "air_max_horizontal_velocity")?;
         profile.standing_turn_direction_change_frames =
             read_profile_u8_from_f32(bytes, 0x84, "frames_to_change_direction_on_standing_turn")?;
+        let trophy_scale = read_profile_f32(bytes, 0x110, "trophy_scale")?;
+        profile.entry_platform_offset_y = round_profile_f32_to_i32(
+            trophy_scale * 1.497_345 * 1000.0,
+            "trophy_scale*entry_platform_offset",
+            0x110,
+        )?;
         profile.normal_landing_lag_ticks =
             read_profile_u8_from_f32(bytes, 0xe4, "normal_landing_lag")?;
+        profile.landing_air_n_lag_ticks = read_profile_u8_from_f32(bytes, 0xe8, "landingairn_lag")?;
+        profile.landing_air_f_lag_ticks = read_profile_u8_from_f32(bytes, 0xec, "landingairf_lag")?;
+        profile.landing_air_b_lag_ticks = read_profile_u8_from_f32(bytes, 0xf0, "landingairb_lag")?;
+        profile.landing_air_hi_lag_ticks =
+            read_profile_u8_from_f32(bytes, 0xf4, "landingairhi_lag")?;
+        profile.landing_air_lw_lag_ticks =
+            read_profile_u8_from_f32(bytes, 0xf8, "landingairlw_lag")?;
 
         Ok(profile)
     }
@@ -402,11 +450,15 @@ impl Default for FighterProfile {
 pub enum MotionState {
     #[default]
     Wait,
+    Entry,
+    EntryStart,
+    EntryEnd,
     WalkSlow,
     WalkMiddle,
     WalkFast,
     Dash,
     Run,
+    RunDirect,
     RunBrake,
     TurnRun,
     Turn,
@@ -414,10 +466,12 @@ pub enum MotionState {
     SquatWait,
     SquatRv,
     SpecialN,
+    SpecialSStart,
     SpecialS,
     SpecialHi,
     SpecialLw,
     SpecialAirN,
+    SpecialAirSStart,
     SpecialAirS,
     SpecialAirHi,
     SpecialAirLw,
@@ -426,6 +480,11 @@ pub enum MotionState {
     AttackAirB,
     AttackAirHi,
     AttackAirLw,
+    LandingAirN,
+    LandingAirF,
+    LandingAirB,
+    LandingAirHi,
+    LandingAirLw,
     Catch,
     CatchDash,
     Attack1,
@@ -439,18 +498,26 @@ pub enum MotionState {
     KneeBend,
     JumpF,
     JumpB,
-    Air,
     Fall,
+    FallF,
+    FallB,
+    FallAerial,
+    FallAerialF,
+    FallAerialB,
     JumpAerialF,
     JumpAerialB,
     GuardOn,
     Guard,
     GuardOff,
+    GuardSetOff,
+    GuardReflect,
     EscapeN,
     EscapeF,
     EscapeB,
     EscapeAir,
     FallSpecial,
+    FallSpecialF,
+    FallSpecialB,
     LandingFallSpecial,
     Landing,
     Pass,
@@ -461,6 +528,8 @@ pub struct PlayerState {
     pub profile: FighterProfile,
     pub position: Vec2,
     pub velocity: Vec2,
+    pub ecb_bottom_offset_y: i32,
+    pub ecb_bottom_lock_timer: u8,
     pub jumps_remaining: u8,
     pub grounded: bool,
     pub fast_falling: bool,
@@ -468,6 +537,11 @@ pub struct PlayerState {
     pub attack_frame: u8,
     pub motion_state: MotionState,
     pub motion_frame: u8,
+    pub ground_velocity_x: i32,
+    pub ground_accel_x: i32,
+    pub ground_accel_x2: i32,
+    pub dash_entry_velocity_delta: i32,
+    pub dash_started_from_tap: bool,
     pub turn_facing_after: i8,
     pub turn_has_turned: bool,
     pub turn_just_turned: bool,
@@ -483,6 +557,11 @@ pub struct PlayerState {
     pub short_hop: bool,
     pub escape_air_iasa_timer: u8,
     pub floor_skip_surface: Option<u8>,
+    pub platform_pass_pending: bool,
+    pub platform_pass_timer: u8,
+    pub entry_base_y: i32,
+    pub entry_platform_offset_y: i32,
+    pub entry_timer: u8,
 }
 
 impl PlayerState {
@@ -495,13 +574,20 @@ impl PlayerState {
             profile,
             position: Vec2 { x, y },
             velocity: Vec2 { x: 0, y: 0 },
-            jumps_remaining: profile.max_jumps,
+            ecb_bottom_offset_y: SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
+            ecb_bottom_lock_timer: 0,
+            jumps_remaining: profile.reusable_air_jumps(),
             grounded: true,
             fast_falling: false,
             facing,
             attack_frame: 0,
             motion_state: MotionState::Wait,
             motion_frame: 0,
+            ground_velocity_x: 0,
+            ground_accel_x: 0,
+            ground_accel_x2: 0,
+            dash_entry_velocity_delta: 0,
+            dash_started_from_tap: false,
             turn_facing_after: facing,
             turn_has_turned: false,
             turn_just_turned: false,
@@ -517,7 +603,180 @@ impl PlayerState {
             short_hop: false,
             escape_air_iasa_timer: 0,
             floor_skip_surface: None,
+            platform_pass_pending: false,
+            platform_pass_timer: 0,
+            entry_base_y: y,
+            entry_platform_offset_y: profile.entry_platform_offset_y,
+            entry_timer: 0,
         }
+    }
+}
+
+pub(crate) fn active_ecb_for_player(
+    player: &PlayerState,
+    common_data: MeleeCommonData,
+) -> EcbDiamond {
+    active_ecb_for_motion_frame(player, player.motion_frame, common_data)
+}
+
+pub(crate) fn active_ecb_for_motion_frame(
+    player: &PlayerState,
+    motion_frame: u8,
+    common_data: MeleeCommonData,
+) -> EcbDiamond {
+    local_ecb_to_world(
+        active_local_ecb(player, motion_frame, common_data),
+        player.position,
+        player.facing,
+    )
+}
+
+pub(crate) fn active_ecb_bottom_offset_y(
+    player: &PlayerState,
+    motion_frame: u8,
+    common_data: MeleeCommonData,
+) -> i32 {
+    active_local_ecb(player, motion_frame, common_data).bottom.y
+}
+
+pub(crate) fn action_sample_frame_count_for_motion_state(motion_state: MotionState) -> Option<u8> {
+    let samples = falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state)?;
+    u8::try_from(samples.len()).ok()
+}
+
+fn active_local_ecb(
+    player: &PlayerState,
+    motion_frame: u8,
+    common_data: MeleeCommonData,
+) -> EcbDiamond {
+    if player.ecb_bottom_lock_timer > 0 {
+        return fallback_local_ecb(player, player.ecb_bottom_offset_y);
+    }
+
+    let motion_state = active_pose_motion_state(player, common_data);
+    if let Some(samples) = falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state) {
+        sampled_ecb(
+            samples,
+            action_pose_sample_frame(motion_state, motion_frame, common_data, samples.len()),
+        )
+    } else {
+        fallback_local_ecb(player, fallback_bottom_offset_y(player))
+    }
+}
+
+fn action_pose_sample_frame(
+    motion_state: MotionState,
+    motion_frame: u8,
+    common_data: MeleeCommonData,
+    sample_count: usize,
+) -> u8 {
+    match motion_state {
+        MotionState::LandingFallSpecial => {
+            landing_fall_special_pose_sample_frame(motion_frame, common_data, sample_count)
+        }
+        _ => motion_frame,
+    }
+}
+
+fn landing_fall_special_pose_sample_frame(
+    motion_frame: u8,
+    common_data: MeleeCommonData,
+    sample_count: usize,
+) -> u8 {
+    let landing_lag = common_data.escapeair_landing_lag_ticks;
+    if landing_lag == 0 || sample_count == 0 {
+        return motion_frame;
+    }
+
+    // ftCo_LandingFallSpecial_Enter scales the Landing figatree by
+    // (0.1 + fp->x2EC) / landing_lag, where x2EC is the source Landing
+    // animation duration cached at fighter creation.
+    let action_frames_tenths = sample_count.saturating_mul(10).saturating_add(1);
+    let scaled = usize::from(motion_frame).saturating_mul(action_frames_tenths)
+        / (usize::from(landing_lag) * 10);
+    u8::try_from(scaled.min(sample_count.saturating_sub(1))).unwrap_or(u8::MAX)
+}
+
+fn active_pose_motion_state(player: &PlayerState, common_data: MeleeCommonData) -> MotionState {
+    let Some((forward, backward)) = fall_directional_pose_pair(player.motion_state) else {
+        return player.motion_state;
+    };
+    if common_data.fall_animation_blend_milli == 0
+        || player.profile.air_drift_max_velocity_per_tick == 0
+    {
+        return player.motion_state;
+    }
+
+    let drift_ratio_milli =
+        player.velocity.x.abs() * 1000 / player.profile.air_drift_max_velocity_per_tick.abs();
+    if drift_ratio_milli <= common_data.fall_animation_drift_threshold_milli {
+        return player.motion_state;
+    }
+
+    if player.velocity.x * player.facing as i32 > 0 {
+        forward
+    } else {
+        backward
+    }
+}
+
+fn fall_directional_pose_pair(motion_state: MotionState) -> Option<(MotionState, MotionState)> {
+    match motion_state {
+        MotionState::Fall => Some((MotionState::FallF, MotionState::FallB)),
+        MotionState::FallAerial => Some((MotionState::FallAerialF, MotionState::FallAerialB)),
+        MotionState::FallSpecial => Some((MotionState::FallSpecialF, MotionState::FallSpecialB)),
+        _ => None,
+    }
+}
+
+fn fallback_bottom_offset_y(player: &PlayerState) -> i32 {
+    if player.grounded {
+        0
+    } else {
+        player.ecb_bottom_offset_y
+    }
+}
+
+fn fallback_local_ecb(player: &PlayerState, bottom_offset_y: i32) -> EcbDiamond {
+    EcbDiamond::from_bottom_center_and_size(
+        Vec2 {
+            x: 0,
+            y: bottom_offset_y,
+        },
+        FALLBACK_ECB_WIDTH_UNITS,
+        player.profile.standing_height_units,
+    )
+}
+
+fn sampled_ecb(samples: &[EcbDiamond], motion_frame: u8) -> EcbDiamond {
+    let index = usize::from(motion_frame).min(samples.len().saturating_sub(1));
+    samples[index]
+}
+
+fn local_ecb_to_world(local: EcbDiamond, root_position: Vec2, facing: i8) -> EcbDiamond {
+    let top = local_point_to_world(local.top, root_position, facing);
+    let bottom = local_point_to_world(local.bottom, root_position, facing);
+    let side_a = local_point_to_world(local.right, root_position, facing);
+    let side_b = local_point_to_world(local.left, root_position, facing);
+    let (left, right) = if side_a.x <= side_b.x {
+        (side_a, side_b)
+    } else {
+        (side_b, side_a)
+    };
+
+    EcbDiamond {
+        top,
+        right,
+        bottom,
+        left,
+    }
+}
+
+fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
+    let facing_sign = if facing < 0 { -1 } else { 1 };
+    Vec2 {
+        x: root_position.x + local.x * facing_sign,
+        y: root_position.y + local.y,
     }
 }
 
@@ -525,6 +784,7 @@ impl PlayerState {
 pub struct PlayerRenderSnapshot {
     pub position: Vec2,
     pub velocity: Vec2,
+    pub active_ecb: EcbDiamond,
     pub facing: i8,
     pub motion_state: MotionState,
     pub state_frame: u8,
@@ -533,10 +793,15 @@ pub struct PlayerRenderSnapshot {
 }
 
 impl PlayerRenderSnapshot {
-    fn from_player(player: PlayerState, debug_input_facts: MeleeInputFacts) -> Self {
+    fn from_player(
+        player: PlayerState,
+        debug_input_facts: MeleeInputFacts,
+        common_data: MeleeCommonData,
+    ) -> Self {
         Self {
             position: player.position,
             velocity: player.velocity,
+            active_ecb: active_ecb_for_player(&player, common_data),
             facing: player.facing,
             motion_state: player.motion_state,
             state_frame: player.motion_frame,
@@ -618,6 +883,30 @@ impl World {
         }
     }
 
+    pub fn for_slippi_battlefield_singles_match_start() -> Self {
+        let stage = StageProfile::battlefield_test();
+        let mut world = Self::for_two_players_on_stage_with_profiles_and_common_data(
+            stage,
+            [FighterProfile::FALCON_LIKE; PLAYER_COUNT],
+            MeleeCommonData::provisional_mole(),
+        );
+
+        for (index, player) in world.players.iter_mut().enumerate() {
+            let spawn = stage.spawn_points[index];
+            *player = PlayerState::new_with_profile(
+                spawn.x,
+                spawn.y,
+                spawn.facing,
+                FighterProfile::FALCON_LIKE,
+            );
+            player.motion_state = MotionState::Entry;
+            player.entry_timer = 5 * (index as u8 + 1);
+            player.grounded = false;
+        }
+
+        world
+    }
+
     pub const fn frame(&self) -> Frame {
         self.frame
     }
@@ -666,6 +955,27 @@ impl World {
         self.last_input_facts = facts;
     }
 
+    pub fn set_player_state_for_diagnostic(
+        &mut self,
+        player_index: usize,
+        state: PlayerState,
+    ) -> bool {
+        let Some(player) = self.players.get_mut(player_index) else {
+            return false;
+        };
+        *player = state;
+        true
+    }
+
+    pub fn set_input_history_for_diagnostic(
+        &mut self,
+        previous_inputs: [PlayerInput; PLAYER_COUNT],
+        input_timers: [MeleeInputTimers; PLAYER_COUNT],
+    ) {
+        self.previous_inputs = previous_inputs;
+        self.input_timers = input_timers;
+    }
+
     pub fn melee_input_snapshot(
         &self,
         player_index: usize,
@@ -685,8 +995,16 @@ impl World {
         WorldSnapshot {
             frame: self.frame,
             players: [
-                PlayerRenderSnapshot::from_player(self.players[0], self.last_input_facts[0]),
-                PlayerRenderSnapshot::from_player(self.players[1], self.last_input_facts[1]),
+                PlayerRenderSnapshot::from_player(
+                    self.players[0],
+                    self.last_input_facts[0],
+                    self.common_data,
+                ),
+                PlayerRenderSnapshot::from_player(
+                    self.players[1],
+                    self.last_input_facts[1],
+                    self.common_data,
+                ),
             ],
             checksum: self.checksum(),
         }
@@ -703,6 +1021,8 @@ impl World {
             mix_i32(&mut hash, player.position.y);
             mix_i32(&mut hash, player.velocity.x);
             mix_i32(&mut hash, player.velocity.y);
+            mix_i32(&mut hash, player.ecb_bottom_offset_y);
+            mix_u8(&mut hash, player.ecb_bottom_lock_timer);
             mix_u8(&mut hash, player.jumps_remaining);
             mix_u8(&mut hash, player.grounded as u8);
             mix_u8(&mut hash, player.fast_falling as u8);
@@ -710,6 +1030,11 @@ impl World {
             mix_u8(&mut hash, player.attack_frame);
             mix_u8(&mut hash, motion_state_id(player.motion_state));
             mix_u8(&mut hash, player.motion_frame);
+            mix_i32(&mut hash, player.ground_velocity_x);
+            mix_i32(&mut hash, player.ground_accel_x);
+            mix_i32(&mut hash, player.ground_accel_x2);
+            mix_i32(&mut hash, player.dash_entry_velocity_delta);
+            mix_u8(&mut hash, player.dash_started_from_tap as u8);
             mix_u8(&mut hash, player.turn_facing_after as u8);
             mix_u8(&mut hash, player.turn_has_turned as u8);
             mix_u8(&mut hash, player.turn_just_turned as u8);
@@ -725,6 +1050,11 @@ impl World {
             mix_u8(&mut hash, player.short_hop as u8);
             mix_u8(&mut hash, player.escape_air_iasa_timer);
             mix_u8(&mut hash, player.floor_skip_surface.unwrap_or(u8::MAX));
+            mix_u8(&mut hash, player.platform_pass_pending as u8);
+            mix_u8(&mut hash, player.platform_pass_timer);
+            mix_i32(&mut hash, player.entry_base_y);
+            mix_i32(&mut hash, player.entry_platform_offset_y);
+            mix_u8(&mut hash, player.entry_timer);
         }
         for input in self.previous_inputs {
             mix_u64(&mut hash, input.bits());
@@ -741,11 +1071,15 @@ impl World {
 const fn motion_state_id(state: MotionState) -> u8 {
     match state {
         MotionState::Wait => 0,
+        MotionState::Entry => 53,
+        MotionState::EntryStart => 54,
+        MotionState::EntryEnd => 55,
         MotionState::WalkSlow => 1,
         MotionState::WalkMiddle => 2,
         MotionState::WalkFast => 3,
         MotionState::Dash => 4,
         MotionState::Run => 5,
+        MotionState::RunDirect => 71,
         MotionState::RunBrake => 6,
         MotionState::TurnRun => 7,
         MotionState::Turn => 8,
@@ -762,14 +1096,21 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::AttackHi4 => 17,
         MotionState::AttackLw4 => 18,
         MotionState::KneeBend => 19,
-        MotionState::Air => 20,
+        MotionState::Fall => 50,
+        MotionState::FallF => 57,
+        MotionState::FallB => 58,
+        MotionState::FallAerial => 59,
+        MotionState::FallAerialF => 60,
+        MotionState::FallAerialB => 61,
         MotionState::Guard => 21,
         MotionState::EscapeAir => 22,
-        MotionState::SpecialS => 23,
+        MotionState::SpecialSStart => 23,
+        MotionState::SpecialS => 69,
         MotionState::SpecialHi => 24,
         MotionState::SpecialLw => 25,
         MotionState::SpecialAirN => 26,
-        MotionState::SpecialAirS => 27,
+        MotionState::SpecialAirSStart => 27,
+        MotionState::SpecialAirS => 70,
         MotionState::SpecialAirHi => 28,
         MotionState::SpecialAirLw => 29,
         MotionState::AttackAirN => 30,
@@ -777,12 +1118,21 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::AttackAirB => 32,
         MotionState::AttackAirHi => 33,
         MotionState::AttackAirLw => 34,
+        MotionState::LandingAirN => 64,
+        MotionState::LandingAirF => 65,
+        MotionState::LandingAirB => 66,
+        MotionState::LandingAirHi => 67,
+        MotionState::LandingAirLw => 68,
         MotionState::EscapeN => 35,
         MotionState::EscapeF => 36,
         MotionState::EscapeB => 37,
         MotionState::GuardOff => 38,
+        MotionState::GuardSetOff => 72,
+        MotionState::GuardReflect => 56,
         MotionState::LandingFallSpecial => 39,
         MotionState::FallSpecial => 40,
+        MotionState::FallSpecialF => 62,
+        MotionState::FallSpecialB => 63,
         MotionState::CatchDash => 41,
         MotionState::AttackDash => 42,
         MotionState::GuardOn => 43,
@@ -792,7 +1142,6 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::JumpB => 47,
         MotionState::Landing => 48,
         MotionState::Pass => 49,
-        MotionState::Fall => 50,
     }
 }
 
@@ -838,6 +1187,11 @@ fn mix_stage_profile(hash: &mut u64, stage: StageProfile) {
     mix_i32(hash, stage.blast_zones.right_x);
     mix_i32(hash, stage.blast_zones.top_y);
     mix_i32(hash, stage.blast_zones.bottom_y);
+    for spawn in stage.spawn_points {
+        mix_i32(hash, spawn.x);
+        mix_i32(hash, spawn.y);
+        mix_u8(hash, spawn.facing as u8);
+    }
 }
 
 fn mix_stage_surface(hash: &mut u64, surface: StageSurface) {
@@ -860,8 +1214,10 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.tap_y_threshold as u8);
     mix_u8(hash, common.trigger_threshold);
     mix_u8(hash, common.trigger_timer_threshold);
-    mix_u8(hash, common.main_stick_deadzone as u8);
-    mix_u8(hash, common.c_stick_deadzone as u8);
+    mix_u8(hash, common.main_stick_deadzone_x as u8);
+    mix_u8(hash, common.main_stick_deadzone_y as u8);
+    mix_u8(hash, common.c_stick_deadzone_x as u8);
+    mix_u8(hash, common.c_stick_deadzone_y as u8);
     mix_u8(hash, common.trigger_deadzone);
     mix_u8(hash, common.z_shield_analog);
     mix_u8(hash, common.walk_x as u8);
@@ -871,6 +1227,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.dash_x as u8);
     mix_u8(hash, common.dash_tap_window);
     mix_u8(hash, common.turn_x as u8);
+    mix_u8(hash, common.turn_run_x as u8);
     mix_u8(hash, common.tilt_x as u8);
     mix_u8(hash, common.tilt_y as u8);
     mix_u8(hash, common.smash_y as u8);
@@ -906,16 +1263,24 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_i32(hash, common.run_ground_friction_multiplier_milli);
     mix_i32(hash, common.high_speed_ground_friction_multiplier_milli);
     mix_i32(hash, common.animation_velocity_scale_milli);
+    mix_i32(hash, common.fall_animation_drift_threshold_milli);
+    mix_i32(hash, common.fall_animation_blend_milli);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);
     mix_i32(hash, common.pass_initial_y_velocity);
     mix_u8(hash, common.platform_drop_delay_ticks);
+    mix_u8(hash, common.entry_start_ticks);
+    mix_u8(hash, common.entry_end_ticks);
+    mix_i32(hash, common.entry_initial_scale_y_milli);
+    mix_u8(hash, common.entry_collision_landing_lag_ticks);
     mix_u8(hash, common.dash_early_action_window);
     mix_u8(hash, common.dash_defensive_action_window);
     mix_u8(hash, common.dash_late_action_window);
+    mix_i32(hash, common.dash_velocity_decay_milli);
     mix_u8(hash, common.run_x as u8);
     mix_u8(hash, common.guard_on_catch_dash_window);
+    mix_u8(hash, common.guard_reflect_input_window);
     mix_u8(hash, common.run_turn_run_no_interrupt_frames);
 }
 
@@ -945,6 +1310,7 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.jump_horizontal_initial_velocity_per_tick);
     mix_i32(hash, profile.jump_horizontal_max_velocity_per_tick);
     mix_i32(hash, profile.air_jump_horizontal_velocity_per_tick);
+    mix_i32(hash, profile.air_jump_v_multiplier_milli);
     mix_u8(hash, profile.max_jumps);
     mix_i32(hash, profile.air_drift_stick_accel_per_tick);
     mix_i32(hash, profile.air_drift_base_accel_per_tick);
@@ -960,12 +1326,18 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.full_hop_height);
     mix_i32(hash, profile.short_hop_height);
     mix_i32(hash, profile.double_jump_height);
+    mix_i32(hash, profile.entry_platform_offset_y);
     mix_i32(hash, profile.standing_height_units);
     mix_u8(hash, profile.jumpsquat_frames);
     mix_u8(hash, profile.dash_frames);
     mix_u8(hash, profile.standing_turn_direction_change_frames);
     mix_u8(hash, profile.standing_turn_total_frames);
     mix_u8(hash, profile.normal_landing_lag_ticks);
+    mix_u8(hash, profile.landing_air_n_lag_ticks);
+    mix_u8(hash, profile.landing_air_f_lag_ticks);
+    mix_u8(hash, profile.landing_air_b_lag_ticks);
+    mix_u8(hash, profile.landing_air_hi_lag_ticks);
+    mix_u8(hash, profile.landing_air_lw_lag_ticks);
 }
 
 fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames) {

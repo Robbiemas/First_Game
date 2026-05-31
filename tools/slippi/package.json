@@ -1,0 +1,10 @@
+{
+  "name": "mole-slippi-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional local Slippi replay parsing tools for Mole Game parity diagnostics.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@slippi/slippi-js": "^9.1.1"
+  }
+}

@@ -23,10 +23,24 @@ pub mod sdl_input;
 pub use sdl_input::{configure_sdl_controller_hints, SdlInputSource};
 
 pub mod readout;
-pub use readout::{ButtonReadout, InputReadout, MeleeReadout, PlayerReadout};
+pub use readout::{
+    ButtonReadout, ControllerInputTraceLog, InputReadout, InputTraceWriter, MeleeReadout,
+    PlayerReadout,
+};
+
+mod slippi_diagnostic;
+pub use slippi_diagnostic::{
+    compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
+    slippi_core_report_path, write_slippi_core_report, SlippiCoreComparison,
+    SlippiCoreComparisonConfig, SlippiCoreComparisonMode, SlippiCoreDiagnosticError,
+    SlippiCoreMismatch,
+};
 
 pub mod wup_input;
-pub use wup_input::{map_wup_ports_to_player_inputs, parse_wup_report, WupInputMapper, WupPort};
+pub use wup_input::{
+    map_wup_ports_to_player_inputs, parse_wup_report, WupInputConfig, WupInputMapper,
+    WupInputTrace, WupPlayerInputTrace, WupPort,
+};
 
 #[cfg(feature = "wup")]
 pub use wup_input::WupInputSource;
@@ -189,6 +203,7 @@ pub struct RenderFrame {
     pub frame: Frame,
     pub player_positions: [Vec2; 2],
     pub player_velocities: [Vec2; 2],
+    pub player_ecbs: [EcbDiamond; 2],
     pub player_facings: [i8; 2],
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
@@ -207,6 +222,10 @@ impl RenderFrame {
             frame: snapshot.frame,
             player_positions: [snapshot.players[0].position, snapshot.players[1].position],
             player_velocities: [snapshot.players[0].velocity, snapshot.players[1].velocity],
+            player_ecbs: [
+                snapshot.players[0].active_ecb,
+                snapshot.players[1].active_ecb,
+            ],
             player_facings: [snapshot.players[0].facing, snapshot.players[1].facing],
             player_motion_states: [
                 snapshot.players[0].motion_state,
@@ -374,9 +393,9 @@ pub struct RenderScene {
     pub stage: RenderRect,
     pub stage_surfaces: Vec<RenderRect>,
     pub players: [RenderRect; 2],
-    /// Screen-space projection of the fighter's simulation position.
-    /// This is the bottom ECB vertex/contact point; renderers should anchor
-    /// visual assets to it instead of deriving identity from sprite dimensions.
+    /// Screen-space projection of the fighter's simulation/root position.
+    /// Visual assets stay anchored here while the active ECB polygon is drawn
+    /// from core-owned collision data.
     pub player_contact_points: [RenderPoint; 2],
     pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
@@ -441,8 +460,8 @@ impl RenderScene {
             players,
             player_contact_points,
             player_ecbs: [
-                player_ecb(frame, 0, transform, player_sprites[0], visual),
-                player_ecb(frame, 1, transform, player_sprites[1], visual),
+                player_ecb(frame, 0, transform),
+                player_ecb(frame, 1, transform),
             ],
             player_sprites,
             player_shields: [
@@ -605,7 +624,10 @@ fn player_rect(
 fn player_shield(motion_state: MotionState, player: RenderRect) -> Option<RenderCircle> {
     if !matches!(
         motion_state,
-        MotionState::GuardOn | MotionState::Guard | MotionState::GuardOff
+        MotionState::GuardOn
+            | MotionState::Guard
+            | MotionState::GuardOff
+            | MotionState::GuardReflect
     ) {
         return None;
     }
@@ -660,23 +682,11 @@ fn render_stage_surface(surface: &StageSurface, transform: RenderTransform) -> R
     }
 }
 
-fn player_ecb(
-    frame: &RenderFrame,
-    index: usize,
-    transform: RenderTransform,
-    sprite: LegacySpriteCue,
-    visual: DolphinMoleVisualProfile,
-) -> RenderPolygon {
-    let source_size = sprite.source_size_px();
-    let size = visual.scaled_size_units(source_size.width, source_size.height);
-    let ecb = EcbDiamond::from_bottom_center_and_size(
-        frame.player_positions[index],
-        size.width,
-        size.height,
-    );
-
+fn player_ecb(frame: &RenderFrame, index: usize, transform: RenderTransform) -> RenderPolygon {
     RenderPolygon {
-        points: ecb.points().map(|point| transform.world_to_screen(point)),
+        points: frame.player_ecbs[index]
+            .points()
+            .map(|point| transform.world_to_screen(point)),
         color: RenderColor::ECB,
     }
 }

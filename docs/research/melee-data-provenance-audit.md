@@ -26,7 +26,19 @@ user-provided DAT files go in `resources/melee/raw` and are ignored by git, whil
 `tools/extract_melee_resources.py` writes small reviewable JSON snapshots into
 `resources/melee/extracted`. The extractor follows the HSD DAT root-node layout:
 `PlCo.dat` resolves `ftLoadCommonData -> CommonAttributes`, and `PlCa.dat`
-resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`.
+resolves `ftDataCaptain.x0 -> ftCo_DatAttrs`, `ftDataCaptain.x44 ->
+ftData_x44_t` for the six ECB source joint indices and ledge snap metadata, and
+`ftDataCaptain.xC -> Fighter_WaitAnimData[]` for Captain Falcon action records.
+The local Melee 1.02 disc image was also used to extract `PlCaAJ.dat` and
+`PlCaNr.dat`. `resources/melee/extracted/captain_falcon_action_animation_table.json`
+now maps each Falcon action-state record to its exact `PlCaAJ.dat` figatree
+chunk offset, chunk size, flags, public figatree root, frame count, node track
+counts, and raw `FigaTrack` descriptors. `resources/melee/extracted/captain_falcon_costume_skeleton.json`
+now records the 63-node Captain Falcon neutral costume HSD joint preorder used by
+`ftParts_SetupParts`. The six `ftDataCaptain.x44` ECB source indices resolve in
+that preorder to exact JObj offsets and bind into `mpColl_SetECBSource_JObj`.
+Per-frame JObj/ECB sampling remains the next data step; the current snapshots
+are source plumbing, not final ECB math.
 
 ## Current Decomp-Shaped Logic
 
@@ -140,6 +152,14 @@ These should not be hand-tuned:
 - `FighterProfile::FALCON_LIKE` still needs extracted action/submotion data for
   animation-specific durations and IASA. Core movement attributes now use the
   generated Captain Falcon bootstrap values.
+- Captain Falcon action animation chunks are now mapped from `PlCa.dat` records
+  into `PlCaAJ.dat`, including `Dash` (action state 12), `JumpF` (16),
+  `JumpAerialF` (18), `FallSpecial` (26), and `EscapeAir` (44), with
+  decomp-shaped `FigaTree`/`FigaTrack` metadata available. Captain Falcon's
+  neutral costume skeleton is also extracted from `PlCaNr.dat`; the extractor
+  now samples those figatrees against the 63-node skeleton and reduces the
+  source joints through `mpColl_LoadECB_JObj` into per-frame ECB bottom/top/side
+  points for those five actions.
 - Animation durations and IASA frames currently stored as `FALCON_*` constants:
   replace with extracted action/animation data. Standing turn, Attack1,
   AttackDash, GuardOn, GuardOff, spotdodge, rolls, crouch startup, and crouch

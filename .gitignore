@@ -143,6 +143,13 @@ cython_debug/
 # Runtime diagnostics
 logs/
 debug/replays/
+debug/slippi/
+replays/*.slp
+replays/*.slp.gz
+
+# Node tooling dependencies
+node_modules/
+tools/slippi/node_modules/
 
 # Idea files
 .idea/

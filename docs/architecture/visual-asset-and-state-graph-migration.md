@@ -35,3 +35,10 @@ metadata only; mechanics remain in `mole_core`.
 Keep this viewer as a side-by-side Melee/Mole state transition reference and
 tuning aid. It should help humans inspect state-shape decisions, but it should
 not become an authoritative runtime dependency.
+
+## Engine-Agnostic Editor Direction
+
+The state graph viewer and value sheets are development tooling around the
+Rust-authoritative core. They should stay plain-data driven so the same
+simulation and profile data can later be inspected or edited from a custom Rust
+tool, Godot, Unity, or another frontend without changing gameplay authority.

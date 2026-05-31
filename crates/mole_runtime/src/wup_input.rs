@@ -2,6 +2,10 @@ use crate::map_gamecube_pad_to_player_input;
 use mole_core::{
     GameCubeButtonState, GameCubePadStatus, MeleeInputProcessor, MeleeInputSnapshot, PlayerInput,
 };
+use mole_input::{
+    gamecube_pad_with_origin, native_gamecube_pad_with_origin, UcfInputPreprocessor,
+    UcfPreprocessedPad,
+};
 
 #[cfg(feature = "wup")]
 use crate::InputSource;
@@ -24,15 +28,44 @@ const WUP_REPORT_ID: u8 = 0x21;
 const PORT_COUNT: usize = 4;
 const PORT_STRIDE: usize = 9;
 const PORTS_OFFSET: usize = 1;
-const GAMECUBE_STICK_CENTER: u8 = 128;
-// Matches the standard PAD trigger rest band after origin subtraction.
-const GAMECUBE_TRIGGER_DEAD_ZONE: u8 = 30;
 pub const GAMECUBE_RECENTER_FRAMES: u16 = 180;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WupInputConfig {
+    pub ucf_enabled: bool,
+}
+
+impl Default for WupInputConfig {
+    fn default() -> Self {
+        Self { ucf_enabled: true }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct WupPort {
     pub connected: bool,
     pub pad: GameCubePadStatus,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct WupInputTrace {
+    pub ucf_enabled: bool,
+    pub adapter_ports: [bool; PORT_COUNT],
+    pub inputs: [PlayerInput; 2],
+    pub players: [Option<WupPlayerInputTrace>; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WupPlayerInputTrace {
+    pub source_port: usize,
+    pub raw: GameCubePadStatus,
+    pub origin: GameCubePadStatus,
+    pub origin_adjusted: GameCubePadStatus,
+    pub native: GameCubePadStatus,
+    pub ucf: GameCubePadStatus,
+    pub dashback_amendment: bool,
+    pub snapshot: MeleeInputSnapshot,
+    pub input: PlayerInput,
 }
 
 pub fn parse_wup_report(report: [u8; 37]) -> [WupPort; PORT_COUNT] {
@@ -67,60 +100,105 @@ pub fn map_wup_ports_to_player_inputs(ports: [WupPort; PORT_COUNT]) -> [PlayerIn
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WupInputMapper {
+    config: WupInputConfig,
     origins: [Option<GameCubePadStatus>; PORT_COUNT],
     recenter_frames: [u16; PORT_COUNT],
     melee_processors: [MeleeInputProcessor; PORT_COUNT],
+    ucf_preprocessors: [UcfInputPreprocessor; PORT_COUNT],
 }
 
 impl Default for WupInputMapper {
     fn default() -> Self {
+        Self::new(WupInputConfig::default())
+    }
+}
+
+impl WupInputMapper {
+    pub fn new(config: WupInputConfig) -> Self {
         Self {
+            config,
             origins: [None; PORT_COUNT],
             recenter_frames: [0; PORT_COUNT],
             melee_processors: [MeleeInputProcessor::default(); PORT_COUNT],
+            ucf_preprocessors: [UcfInputPreprocessor::default(); PORT_COUNT],
         }
     }
 }
 
 impl WupInputMapper {
     pub fn map_ports(&mut self, ports: [WupPort; PORT_COUNT]) -> [PlayerInput; 2] {
-        self.map_ports_to_melee_snapshots(ports)
-            .map(|snapshot| snapshot.map_or(PlayerInput::neutral(), player_input_from_snapshot))
+        self.map_ports_to_input_trace(ports).inputs
     }
 
     pub fn map_ports_to_melee_snapshots(
         &mut self,
         ports: [WupPort; PORT_COUNT],
     ) -> [Option<MeleeInputSnapshot>; 2] {
-        let mut snapshots = [None; 2];
+        self.map_ports_to_input_trace(ports)
+            .players
+            .map(|trace| trace.map(|player| player.snapshot))
+    }
+
+    pub fn map_ports_to_input_trace(&mut self, ports: [WupPort; PORT_COUNT]) -> WupInputTrace {
+        let mut trace = WupInputTrace {
+            ucf_enabled: self.config.ucf_enabled,
+            ..WupInputTrace::default()
+        };
         let mut player_index = 0;
 
         for (port_index, port) in ports.into_iter().enumerate() {
+            trace.adapter_ports[port_index] = port.connected;
             if !port.connected {
                 self.origins[port_index] = None;
                 self.recenter_frames[port_index] = 0;
                 self.melee_processors[port_index] = MeleeInputProcessor::default();
+                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
                 continue;
             }
 
             if self.origins[port_index].is_none() {
                 self.origins[port_index] = Some(port.pad);
                 self.melee_processors[port_index] = MeleeInputProcessor::default();
+                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
             }
             if self.update_recenter_combo(port_index, port.pad) {
                 self.melee_processors[port_index] = MeleeInputProcessor::default();
+                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
             }
 
-            if player_index < snapshots.len() {
+            if player_index < trace.players.len() {
                 let origin = self.origins[port_index].unwrap_or(port.pad);
                 let calibrated = gamecube_pad_with_origin(port.pad, origin);
-                snapshots[player_index] =
-                    Some(self.melee_processors[port_index].update(calibrated));
+                let native = native_gamecube_pad_with_origin(port.pad, origin);
+                let preprocessed = if self.config.ucf_enabled {
+                    self.ucf_preprocessors[port_index]
+                        .preprocess_pad_with_native_result(calibrated, native)
+                } else {
+                    UcfPreprocessedPad {
+                        pad: native,
+                        dashback_amendment: false,
+                    }
+                };
+                let snapshot = self.melee_processors[port_index].update(preprocessed.pad);
+                let input = player_input_from_snapshot(snapshot)
+                    .with_ucf_dashback_amendment(preprocessed.dashback_amendment);
+                trace.inputs[player_index] = input;
+                trace.players[player_index] = Some(WupPlayerInputTrace {
+                    source_port: port_index,
+                    raw: port.pad,
+                    origin,
+                    origin_adjusted: calibrated,
+                    native,
+                    ucf: preprocessed.pad,
+                    dashback_amendment: preprocessed.dashback_amendment,
+                    snapshot,
+                    input,
+                });
                 player_index += 1;
             }
         }
 
-        snapshots
+        trace
     }
 
     fn update_recenter_combo(&mut self, port_index: usize, pad: GameCubePadStatus) -> bool {
@@ -157,36 +235,6 @@ fn player_input_from_snapshot(snapshot: MeleeInputSnapshot) -> PlayerInput {
         .with_dpad_down(snapshot.held.dpad_down())
         .with_dpad_left(snapshot.held.dpad_left())
         .with_dpad_right(snapshot.held.dpad_right())
-        .with_ucf_x_tilt_intent(snapshot.ucf_x_tilt_intent)
-        .with_ucf_shield_drop_tilt_intent(snapshot.ucf_shield_drop_tilt_intent)
-}
-
-fn gamecube_pad_with_origin(
-    pad: GameCubePadStatus,
-    origin: GameCubePadStatus,
-) -> GameCubePadStatus {
-    GameCubePadStatus {
-        stick_x: gamecube_axis_with_origin(pad.stick_x, origin.stick_x),
-        stick_y: gamecube_axis_with_origin(pad.stick_y, origin.stick_y),
-        c_stick_x: gamecube_axis_with_origin(pad.c_stick_x, origin.c_stick_x),
-        c_stick_y: gamecube_axis_with_origin(pad.c_stick_y, origin.c_stick_y),
-        left_trigger: gamecube_trigger_with_origin(pad.left_trigger, origin.left_trigger),
-        right_trigger: gamecube_trigger_with_origin(pad.right_trigger, origin.right_trigger),
-        buttons: pad.buttons,
-    }
-}
-
-fn gamecube_trigger_with_origin(value: u8, origin: u8) -> u8 {
-    let offset = value.saturating_sub(origin);
-    if offset <= GAMECUBE_TRIGGER_DEAD_ZONE {
-        0
-    } else {
-        offset
-    }
-}
-
-fn gamecube_axis_with_origin(value: u8, origin: u8) -> u8 {
-    (i16::from(GAMECUBE_STICK_CENTER) + i16::from(value) - i16::from(origin)).clamp(0, 255) as u8
 }
 
 fn parse_port(bytes: &[u8]) -> WupPort {
@@ -217,11 +265,16 @@ pub struct WupInputSource {
     handle: rusb::DeviceHandle<rusb::GlobalContext>,
     mapper: WupInputMapper,
     latest: [PlayerInput; 2],
+    latest_trace: Option<WupInputTrace>,
 }
 
 #[cfg(feature = "wup")]
 impl WupInputSource {
     pub fn open() -> Result<Self, String> {
+        Self::open_with_config(WupInputConfig::default())
+    }
+
+    pub fn open_with_config(config: WupInputConfig) -> Result<Self, String> {
         let handle = rusb::open_device_with_vid_pid(WUP_VENDOR_ID, WUP_PRODUCT_ID)
             .ok_or_else(|| "WUP-028 was not found on WinUSB/libusb.".to_string())?;
 
@@ -239,15 +292,31 @@ impl WupInputSource {
 
         Ok(Self {
             handle,
-            mapper: WupInputMapper::default(),
+            mapper: WupInputMapper::new(config),
             latest: [PlayerInput::neutral(), PlayerInput::neutral()],
+            latest_trace: None,
         })
     }
 
     pub fn poll_adapter(&mut self) -> Result<[PlayerInput; 2], rusb::Error> {
-        let ports = self.poll_ports()?;
-        self.latest = self.mapper.map_ports(ports);
+        self.latest = self.poll_traced_adapter()?.inputs;
         Ok(self.latest)
+    }
+
+    pub fn poll_traced_adapter(&mut self) -> Result<WupInputTrace, rusb::Error> {
+        let ports = self.poll_ports()?;
+        let trace = self.mapper.map_ports_to_input_trace(ports);
+        self.latest = trace.inputs;
+        self.latest_trace = Some(trace);
+        Ok(trace)
+    }
+
+    pub const fn latest_inputs(&self) -> [PlayerInput; 2] {
+        self.latest
+    }
+
+    pub const fn latest_trace(&self) -> Option<WupInputTrace> {
+        self.latest_trace
     }
 
     pub fn poll_ports(&mut self) -> Result<[WupPort; PORT_COUNT], rusb::Error> {

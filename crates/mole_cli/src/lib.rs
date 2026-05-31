@@ -1,0 +1,2083 @@
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::{
+    collections::BTreeMap,
+    env, fs, io,
+    ops::Range,
+    path::{Path, PathBuf},
+    process::Command,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+mod formatting;
+mod generated;
+mod graph;
+mod verify;
+
+pub use verify::verification_plan_for_changed_paths;
+
+pub(crate) const SCHEMA_VERSION: u8 = 1;
+const EXPECTED_BRANCH: &str = "handoff/rust-rollback-architecture";
+const EXPECTED_REMOTE: &str = "https://github.com/Robbiemas/First_Game.git";
+pub(crate) const MESSAGE_BOARD_PATH: &str = "MOLE_CLI_AGENT_MESSAGES.md";
+const MACRO_PLAN_PATH: &str =
+    "docs/superpowers/plans/2026-05-31-human-noticeable-melee-parity-macro-plan.md";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliOptions {
+    command: CliCommand,
+    root: PathBuf,
+    output: OutputMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CliCommand {
+    Status,
+    Parity,
+    Snapshot,
+    Agent(AgentCommand),
+    Graph(GraphCommand),
+    Verify(VerifyCommand),
+    Generated(GeneratedCommand),
+    Finish(FinishCommand),
+    Doctor,
+    Tests,
+    Handoff,
+    RecommendNext,
+    Request(RequestCommand),
+    Help,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum AgentCommand {
+    Brief,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GraphCommand {
+    Missing,
+    Next,
+    Inspect { target: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum VerifyCommand {
+    Changed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GeneratedCommand {
+    Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum FinishCommand {
+    Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RequestCommand {
+    List,
+    Next,
+    Add {
+        id: Option<String>,
+        title: String,
+        request: String,
+        context: String,
+        expected: String,
+    },
+    Done {
+        id: String,
+        result: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OutputMode {
+    Json,
+    Text,
+    Markdown,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct GitStatusSummary {
+    pub branch: Option<String>,
+    pub upstream: Option<String>,
+    pub remote_origin: Option<String>,
+    pub expected_branch: String,
+    pub expected_remote: String,
+    pub branch_ok: bool,
+    pub remote_ok: bool,
+    pub dirty: bool,
+    pub modified: usize,
+    pub deleted: usize,
+    pub untracked: usize,
+    pub renamed: usize,
+    pub other: usize,
+    pub total_changed: usize,
+    pub sample: Vec<String>,
+    pub git_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ParitySummary {
+    pub value_sections: BTreeMap<String, ValueSectionSummary>,
+    pub value_total_rows: usize,
+    pub value_matches: usize,
+    pub value_actionable: usize,
+    pub value_derived: usize,
+    pub ecb_mapped_motion_states: usize,
+    pub ecb_missing_sampled_mappings: usize,
+    pub ecb_unmapped_derived_states: Vec<String>,
+    pub graph_nodes: usize,
+    pub graph_edges: usize,
+    pub graph_status_counts: BTreeMap<String, usize>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ValueSectionSummary {
+    pub rows: usize,
+    pub matches: usize,
+    pub actionable: usize,
+    pub derived: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DoctorCheck {
+    pub name: String,
+    pub ok: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct GeneratedArtifactStatus {
+    pub path: String,
+    pub exists: bool,
+    pub dirty: bool,
+    pub git_status: Vec<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct MessageBoardRequest {
+    pub id: String,
+    pub title: String,
+    pub request: String,
+    pub context: String,
+    pub expected_output: String,
+    pub raw: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct MessageBoardSummary {
+    pub path: String,
+    pub inbox_count: usize,
+    pub completed_count: usize,
+    pub inbox: Vec<MessageBoardRequest>,
+    pub completed: Vec<MessageBoardRequest>,
+    pub errors: Vec<String>,
+}
+
+pub fn run_cli(args: &[String]) -> Result<String, String> {
+    let cwd = env::current_dir().map_err(|error| error.to_string())?;
+    let options = parse_args(args, &cwd)?;
+    let report = command_report(&options);
+    Ok(match options.output {
+        OutputMode::Json => serde_json::to_string_pretty(&report).expect("report is serializable"),
+        OutputMode::Text => formatting::format_text_report(&report),
+        OutputMode::Markdown => formatting::format_markdown_report(&report),
+    })
+}
+
+pub fn parse_args(args: &[String], cwd: &Path) -> Result<CliOptions, String> {
+    let mut root: Option<PathBuf> = None;
+    let mut output = OutputMode::Json;
+    let mut positional = Vec::new();
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => output = OutputMode::Json,
+            "--text" => output = OutputMode::Text,
+            "--format" => {
+                index += 1;
+                let Some(format) = args.get(index) else {
+                    return Err("--format requires json, text, or markdown".to_string());
+                };
+                output = match format.as_str() {
+                    "json" => OutputMode::Json,
+                    "text" => OutputMode::Text,
+                    "markdown" => OutputMode::Markdown,
+                    _ => return Err("--format requires json, text, or markdown".to_string()),
+                };
+            }
+            "--root" => {
+                index += 1;
+                let Some(path) = args.get(index) else {
+                    return Err("--root requires a path".to_string());
+                };
+                root = Some(PathBuf::from(path));
+            }
+            "-h" | "--help" => positional.push("help".to_string()),
+            value => positional.push(value.to_string()),
+        }
+        index += 1;
+    }
+
+    let command = parse_command(&positional)?;
+    let root = match root {
+        Some(path) => path,
+        None => find_project_root(cwd).ok_or_else(|| {
+            format!(
+                "could not find First_Game project root from {}",
+                cwd.display()
+            )
+        })?,
+    };
+
+    Ok(CliOptions {
+        command,
+        root,
+        output,
+    })
+}
+
+fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
+    let Some(command) = positional.first().map(String::as_str) else {
+        return Ok(CliCommand::Status);
+    };
+
+    match command {
+        "status" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Status),
+        "parity" => {
+            if positional.get(1).map(String::as_str) == Some("snapshot") {
+                ensure_no_extra_args("parity snapshot", &positional[2..])
+                    .map(|()| CliCommand::Snapshot)
+            } else {
+                ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Parity)
+            }
+        }
+        "snapshot" => {
+            ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Snapshot)
+        }
+        "agent" => parse_agent_command(&positional[1..]).map(CliCommand::Agent),
+        "graph" => parse_graph_command(&positional[1..]).map(CliCommand::Graph),
+        "verify" => parse_verify_command(&positional[1..]).map(CliCommand::Verify),
+        "generated" => parse_generated_command(&positional[1..]).map(CliCommand::Generated),
+        "finish" => parse_finish_command(&positional[1..]).map(CliCommand::Finish),
+        "doctor" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Doctor),
+        "tests" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Tests),
+        "handoff" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Handoff),
+        "recommend-next" => {
+            ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::RecommendNext)
+        }
+        "request" => parse_request_command(&positional[1..]).map(CliCommand::Request),
+        "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
+        other => Err(format!("unknown mole command: {other}")),
+    }
+}
+
+fn parse_agent_command(args: &[String]) -> Result<AgentCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("brief");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "brief" => ensure_no_extra_args("agent brief", rest).map(|()| AgentCommand::Brief),
+        other => Err(format!("unknown mole agent command: {other}")),
+    }
+}
+
+fn parse_graph_command(args: &[String]) -> Result<GraphCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("missing");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "missing" => ensure_no_extra_args("graph missing", rest).map(|()| GraphCommand::Missing),
+        "next" => ensure_no_extra_args("graph next", rest).map(|()| GraphCommand::Next),
+        "inspect" => {
+            let target = rest.join(" ");
+            if target.trim().is_empty() {
+                Err("graph inspect requires a node id or edge target".to_string())
+            } else {
+                Ok(GraphCommand::Inspect { target })
+            }
+        }
+        other => Err(format!("unknown mole graph command: {other}")),
+    }
+}
+
+fn parse_verify_command(args: &[String]) -> Result<VerifyCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("changed");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "changed" => ensure_no_extra_args("verify changed", rest).map(|()| VerifyCommand::Changed),
+        other => Err(format!("unknown mole verify command: {other}")),
+    }
+}
+
+fn parse_generated_command(args: &[String]) -> Result<GeneratedCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("check");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "check" => ensure_no_extra_args("generated check", rest).map(|()| GeneratedCommand::Check),
+        other => Err(format!("unknown mole generated command: {other}")),
+    }
+}
+
+fn parse_finish_command(args: &[String]) -> Result<FinishCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("check");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "check" => ensure_no_extra_args("finish check", rest).map(|()| FinishCommand::Check),
+        other => Err(format!("unknown mole finish command: {other}")),
+    }
+}
+
+fn subcommand_args(args: &[String]) -> &[String] {
+    if args.is_empty() {
+        &[]
+    } else {
+        &args[1..]
+    }
+}
+
+fn ensure_no_extra_args(command: &str, args: &[String]) -> Result<(), String> {
+    if let Some(extra) = args.first() {
+        return Err(format!("unexpected argument for {command}: {extra}"));
+    }
+    Ok(())
+}
+
+fn parse_request_command(args: &[String]) -> Result<RequestCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("list");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "list" => ensure_no_extra_args("request list", rest).map(|()| RequestCommand::List),
+        "next" => ensure_no_extra_args("request next", rest).map(|()| RequestCommand::Next),
+        "add" => parse_request_add(rest),
+        "done" => parse_request_done(rest),
+        other => Err(format!("unknown mole request command: {other}")),
+    }
+}
+
+fn parse_request_add(args: &[String]) -> Result<RequestCommand, String> {
+    let mut id = None;
+    let mut title = None;
+    let mut request = None;
+    let mut context = String::new();
+    let mut expected = String::new();
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--id" => id = Some(take_flag_value(args, &mut index, "--id")?),
+            "--title" => title = Some(take_flag_value(args, &mut index, "--title")?),
+            "--request" => request = Some(take_flag_value(args, &mut index, "--request")?),
+            "--context" => context = take_flag_value(args, &mut index, "--context")?,
+            "--expected" => expected = take_flag_value(args, &mut index, "--expected")?,
+            other => return Err(format!("unexpected argument for request add: {other}")),
+        }
+        index += 1;
+    }
+
+    Ok(RequestCommand::Add {
+        id,
+        title: required_request_arg(title, "--title")?,
+        request: required_request_arg(request, "--request")?,
+        context,
+        expected,
+    })
+}
+
+fn parse_request_done(args: &[String]) -> Result<RequestCommand, String> {
+    let mut id = None;
+    let mut result = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--id" => id = Some(take_flag_value(args, &mut index, "--id")?),
+            "--result" => result = Some(take_flag_value(args, &mut index, "--result")?),
+            other => return Err(format!("unexpected argument for request done: {other}")),
+        }
+        index += 1;
+    }
+
+    Ok(RequestCommand::Done {
+        id: required_request_arg(id, "--id")?,
+        result: required_request_arg(result, "--result")?,
+    })
+}
+
+fn take_flag_value(args: &[String], index: &mut usize, flag: &str) -> Result<String, String> {
+    *index += 1;
+    args.get(*index)
+        .cloned()
+        .ok_or_else(|| format!("{flag} requires a value"))
+}
+
+fn required_request_arg(value: Option<String>, flag: &str) -> Result<String, String> {
+    value.ok_or_else(|| format!("request command requires {flag}"))
+}
+
+pub fn find_project_root(start: &Path) -> Option<PathBuf> {
+    for candidate in start.ancestors() {
+        if is_project_root(candidate) {
+            return Some(candidate.to_path_buf());
+        }
+    }
+
+    let first_game = start.join("First_Game");
+    if is_project_root(&first_game) {
+        return Some(first_game);
+    }
+
+    fs::read_dir(start)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| is_project_root(path))
+}
+
+fn is_project_root(path: &Path) -> bool {
+    path.join(".git").exists()
+        && path.join("Cargo.toml").exists()
+        && path.join("docs").join("state_graphs").exists()
+}
+
+fn command_report(options: &CliOptions) -> Value {
+    match &options.command {
+        CliCommand::Status => status_report(&options.root),
+        CliCommand::Parity => parity_report(&options.root),
+        CliCommand::Snapshot => snapshot_report(&options.root),
+        CliCommand::Agent(command) => agent_report(&options.root, command),
+        CliCommand::Graph(command) => graph::graph_report(&options.root, command),
+        CliCommand::Verify(command) => verify_report(&options.root, command),
+        CliCommand::Generated(command) => generated::generated_report(&options.root, command),
+        CliCommand::Finish(command) => finish_report(&options.root, command),
+        CliCommand::Doctor => doctor_report(&options.root),
+        CliCommand::Tests => tests_report(&options.root),
+        CliCommand::Handoff => handoff_report(&options.root),
+        CliCommand::RecommendNext => recommend_next_report(&options.root),
+        CliCommand::Request(command) => request_report(&options.root, command),
+        CliCommand::Help => help_report(),
+    }
+}
+
+fn base_report(command: &str, root: &Path) -> Value {
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": command,
+        "project_root": root.display().to_string(),
+    })
+}
+
+fn status_report(root: &Path) -> Value {
+    let git = git_status_summary(root);
+    let mut report = base_report("status", root);
+    report["git"] = serde_json::to_value(git).expect("git summary serializes");
+    report["artifacts"] = json!(artifact_checks(root));
+    report
+}
+
+fn parity_report(root: &Path) -> Value {
+    let parity = parity_summary(root);
+    let mut report = base_report("parity", root);
+    report["parity"] = serde_json::to_value(parity).expect("parity summary serializes");
+    report
+}
+
+fn snapshot_report(root: &Path) -> Value {
+    let git = git_status_summary(root);
+    let parity = parity_summary(root);
+    let generated_artifacts = generated_artifact_statuses(root);
+    let generated_artifacts_dirty = generated_artifacts.iter().any(|artifact| artifact.dirty);
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "parity snapshot",
+        "project_root": root.display().to_string(),
+        "git": {
+            "branch": git.branch,
+            "remote_origin": git.remote_origin,
+            "branch_ok": git.branch_ok,
+            "remote_ok": git.remote_ok,
+            "dirty": git.dirty,
+            "total_changed": git.total_changed,
+            "generated_artifacts_dirty": generated_artifacts_dirty,
+            "error": git.git_error,
+        },
+        "generated_artifacts": generated_artifacts,
+        "value_counts": {
+            "total_rows": parity.value_total_rows,
+            "matches": parity.value_matches,
+            "actionable": parity.value_actionable,
+            "derived": parity.value_derived,
+            "sections": parity.value_sections,
+        },
+        "falcon_ecb": {
+            "mapped_motion_states": parity.ecb_mapped_motion_states,
+            "missing_sampled_mappings": parity.ecb_missing_sampled_mappings,
+            "unmapped_derived_states": parity.ecb_unmapped_derived_states,
+        },
+        "graph": {
+            "nodes": parity.graph_nodes,
+            "edges": parity.graph_edges,
+            "status_counts": parity.graph_status_counts,
+        },
+        "recommended_next": recommended_next(root),
+        "verification_commands": recommended_test_commands(),
+        "errors": parity.errors,
+    })
+}
+
+fn doctor_report(root: &Path) -> Value {
+    let checks = doctor_checks(root);
+    let ok = checks.iter().all(|check| check.ok);
+    let mut report = base_report("doctor", root);
+    report["ok"] = json!(ok);
+    report["checks"] = serde_json::to_value(checks).expect("doctor checks serialize");
+    report
+}
+
+fn tests_report(root: &Path) -> Value {
+    let commands = recommended_test_commands();
+    let mut report = base_report("tests", root);
+    report["commands"] = json!(commands);
+    report["notes"] = json!([
+        "Run full workspace tests after Rust core or generated table changes.",
+        "Run graph/parity Python tests after docs/state_graphs or tools changes.",
+        "Mole CLI is read-only; it reports commands but does not run them."
+    ]);
+    report
+}
+
+fn handoff_report(root: &Path) -> Value {
+    let mut report = base_report("handoff", root);
+    report["git"] = serde_json::to_value(git_status_summary(root)).expect("git summary serializes");
+    report["parity"] = serde_json::to_value(parity_summary(root)).expect("parity serializes");
+    report["recommended_next"] = json!(recommended_next(root));
+    report["verification_commands"] = json!(recommended_test_commands());
+    report
+}
+
+fn recommend_next_report(root: &Path) -> Value {
+    let mut report = base_report("recommend-next", root);
+    report["recommended_next"] = json!(recommended_next(root));
+    report
+}
+
+fn finish_report(root: &Path, command: &FinishCommand) -> Value {
+    match command {
+        FinishCommand::Check => finish_check_report(root),
+    }
+}
+
+fn finish_check_report(root: &Path) -> Value {
+    let git = git_status_summary(root);
+    let help_catalog = help_catalog_status();
+    let doctor_checks = doctor_checks(root);
+    let doctor_ok = doctor_checks.iter().all(|check| check.ok);
+    let request_summary = message_board_summary(root);
+    let (verification, verification_ok) = finish_verification_report(root);
+    let completion_checks = vec![
+        json!({
+            "name": "repository branch",
+            "ok": git.branch_ok,
+            "detail": format!("expected `{}`, got `{}`", EXPECTED_BRANCH, git.branch.as_deref().unwrap_or("unknown")),
+        }),
+        json!({
+            "name": "repository remote",
+            "ok": git.remote_ok,
+            "detail": format!("expected `{}`", EXPECTED_REMOTE),
+        }),
+        json!({
+            "name": "help catalog",
+            "ok": help_catalog.get("ok").and_then(Value::as_bool).unwrap_or(false),
+            "detail": "help --json documents the known command surface",
+        }),
+        json!({
+            "name": "doctor",
+            "ok": doctor_ok,
+            "detail": "required local tools and project artifacts are visible",
+        }),
+        json!({
+            "name": "request inbox",
+            "ok": request_summary.inbox_count == 0,
+            "detail": format!("{} inbox request(s)", request_summary.inbox_count),
+        }),
+        json!({
+            "name": "verification plan",
+            "ok": verification_ok,
+            "detail": "changed-file verification plan was generated",
+        }),
+    ];
+    let completion_ok = completion_checks
+        .iter()
+        .all(|check| check.get("ok").and_then(Value::as_bool).unwrap_or(false));
+
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "finish check",
+        "project_root": root.display().to_string(),
+        "mutated": false,
+        "completion_gate": {
+            "ok": completion_ok,
+            "checks": completion_checks,
+        },
+        "git": {
+            "branch": git.branch,
+            "remote_origin": git.remote_origin,
+            "branch_ok": git.branch_ok,
+            "remote_ok": git.remote_ok,
+            "dirty": git.dirty,
+            "total_changed": git.total_changed,
+            "error": git.git_error,
+        },
+        "help_catalog": help_catalog,
+        "doctor": {
+            "ok": doctor_ok,
+            "checks": doctor_checks,
+        },
+        "request_queue": {
+            "inbox_count": request_summary.inbox_count,
+            "completed_count": request_summary.completed_count,
+            "next": request_summary.inbox.first(),
+            "errors": request_summary.errors,
+        },
+        "verification": verification,
+    })
+}
+
+fn finish_verification_report(root: &Path) -> (Value, bool) {
+    let mut errors = Vec::new();
+    let changed_paths = match run_git(root, &["status", "--porcelain=v1"]) {
+        Ok(status) => verify::changed_paths_from_git_status(&status),
+        Err(error) => {
+            errors.push(format!("git status --porcelain=v1: {error}"));
+            Vec::new()
+        }
+    };
+    let (commands, command_reasons) =
+        verify::verification_plan_with_reasons_for_changed_paths(&changed_paths);
+    let ok = errors.is_empty() && commands.iter().any(|command| command == "git diff --check");
+    (
+        json!({
+            "changed_paths": changed_paths,
+            "commands": commands,
+            "command_reasons": command_reasons,
+            "errors": errors,
+        }),
+        ok,
+    )
+}
+
+fn help_catalog_status() -> Value {
+    let expected = expected_command_names()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let commands = command_help_catalog();
+    let documented = commands
+        .as_array()
+        .map(|commands| {
+            commands
+                .iter()
+                .filter_map(|command| command.get("name").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let missing = expected
+        .iter()
+        .filter(|expected| !documented.iter().any(|documented| documented == *expected))
+        .cloned()
+        .collect::<Vec<_>>();
+    let extra = documented
+        .iter()
+        .filter(|documented| !expected.iter().any(|expected| expected == *documented))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    json!({
+        "ok": missing.is_empty(),
+        "documented_command_count": documented.len(),
+        "expected_commands": expected,
+        "documented_commands": documented,
+        "missing_commands": missing,
+        "extra_commands": extra,
+    })
+}
+
+fn expected_command_names() -> Vec<&'static str> {
+    vec![
+        "status",
+        "parity",
+        "parity snapshot",
+        "snapshot",
+        "agent brief",
+        "graph missing",
+        "graph next",
+        "graph inspect",
+        "verify changed",
+        "generated check",
+        "finish check",
+        "doctor",
+        "tests",
+        "handoff",
+        "recommend-next",
+        "request list",
+        "request next",
+        "request add",
+        "request done",
+        "help",
+    ]
+}
+
+fn agent_report(root: &Path, command: &AgentCommand) -> Value {
+    match command {
+        AgentCommand::Brief => agent_brief_report(root),
+    }
+}
+
+fn agent_brief_report(root: &Path) -> Value {
+    let git = git_status_summary(root);
+    let parity = parity_summary(root);
+    let missing_graph = graph::graph_missing_report(root);
+    let graph_next = graph::graph_next_report(root);
+    let request_summary = message_board_summary(root);
+    let next_request = request_summary.inbox.first().cloned();
+    let (macro_plan_exists, compaction_anchor, macro_plan_error) = macro_plan_anchor(root);
+    let mut errors = parity.errors.clone();
+    errors.extend(request_summary.errors.clone());
+    if let Some(error) = macro_plan_error {
+        errors.push(error);
+    }
+
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "agent brief",
+        "project_root": root.display().to_string(),
+        "git": {
+            "branch": git.branch,
+            "remote_origin": git.remote_origin,
+            "branch_ok": git.branch_ok,
+            "remote_ok": git.remote_ok,
+            "dirty": git.dirty,
+            "total_changed": git.total_changed,
+            "error": git.git_error,
+        },
+        "macro_plan": {
+            "path": MACRO_PLAN_PATH,
+            "exists": macro_plan_exists,
+        },
+        "compaction_anchor": compaction_anchor,
+        "parity": parity,
+        "missing_graph": {
+            "missing_count": missing_graph.get("missing_count").cloned().unwrap_or(json!(0)),
+            "nodes": missing_graph.get("nodes").cloned().unwrap_or_else(|| json!([])),
+            "edges": missing_graph.get("edges").cloned().unwrap_or_else(|| json!([])),
+            "recommended_next": missing_graph.get("recommended_next").cloned().unwrap_or_else(|| json!([])),
+        },
+        "graph_next": {
+            "ranked_count": graph_next.get("ranked_count").cloned().unwrap_or(json!(0)),
+            "omitted_count": graph_next.get("omitted_count").cloned().unwrap_or(json!(0)),
+            "ranked_entries": graph_next.get("ranked_entries").cloned().unwrap_or_else(|| json!([])),
+        },
+        "request_queue": {
+            "inbox_count": request_summary.inbox_count,
+            "completed_count": request_summary.completed_count,
+            "next": next_request,
+        },
+        "recommended_next": recommended_next(root),
+        "verification_commands": recommended_test_commands(),
+        "errors": errors,
+    })
+}
+
+fn macro_plan_anchor(root: &Path) -> (bool, Vec<String>, Option<String>) {
+    let path = root.join(MACRO_PLAN_PATH);
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) => {
+            return (
+                false,
+                Vec::new(),
+                Some(format!("{}: {error}", path.display())),
+            )
+        }
+    };
+    let mut in_anchor = false;
+    let mut anchor = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed == "## Compaction Anchor" {
+            in_anchor = true;
+            continue;
+        }
+        if in_anchor && trimmed.starts_with("## ") {
+            break;
+        }
+        if !in_anchor {
+            continue;
+        }
+        if let Some((_number, text)) = trimmed.split_once(". ") {
+            if trimmed
+                .chars()
+                .next()
+                .is_some_and(|character| character.is_ascii_digit())
+            {
+                anchor.push(text.trim().to_string());
+            }
+        }
+    }
+    (true, anchor, None)
+}
+
+fn verify_report(root: &Path, command: &VerifyCommand) -> Value {
+    match command {
+        VerifyCommand::Changed => verify_changed_report(root),
+    }
+}
+
+fn verify_changed_report(root: &Path) -> Value {
+    let mut errors = Vec::new();
+    let changed_paths = match run_git(root, &["status", "--porcelain=v1"]) {
+        Ok(status) => verify::changed_paths_from_git_status(&status),
+        Err(error) => {
+            errors.push(format!("git status --porcelain=v1: {error}"));
+            Vec::new()
+        }
+    };
+    let (commands, command_reasons) =
+        verify::verification_plan_with_reasons_for_changed_paths(&changed_paths);
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "verify changed",
+        "project_root": root.display().to_string(),
+        "mutated": false,
+        "changed_paths": changed_paths,
+        "commands": commands,
+        "command_reasons": command_reasons,
+        "errors": errors,
+    })
+}
+
+fn request_report(root: &Path, command: &RequestCommand) -> Value {
+    match command {
+        RequestCommand::List => request_list_report(root),
+        RequestCommand::Next => request_next_report(root),
+        RequestCommand::Add {
+            id,
+            title,
+            request,
+            context,
+            expected,
+        } => match add_message_board_request(root, id.clone(), title, request, context, expected) {
+            Ok(request) => request_mutation_report("request add", root, true, request),
+            Err(error) => request_error_report("request add", root, error),
+        },
+        RequestCommand::Done { id, result } => {
+            match complete_message_board_request(root, id, result) {
+                Ok(request) => request_mutation_report("request done", root, true, request),
+                Err(error) => request_error_report("request done", root, error),
+            }
+        }
+    }
+}
+
+fn request_list_report(root: &Path) -> Value {
+    let summary = message_board_summary(root);
+    let mut report = base_report("request list", root);
+    report["message_board"] = json!(MESSAGE_BOARD_PATH);
+    report["mutated"] = json!(false);
+    report["inbox_count"] = json!(summary.inbox_count);
+    report["completed_count"] = json!(summary.completed_count);
+    report["inbox"] = serde_json::to_value(summary.inbox).expect("requests serialize");
+    report["completed"] = serde_json::to_value(summary.completed).expect("requests serialize");
+    report["errors"] = json!(summary.errors);
+    report
+}
+
+fn request_next_report(root: &Path) -> Value {
+    let summary = message_board_summary(root);
+    let next = summary.inbox.first().cloned();
+    let mut report = base_report("request next", root);
+    report["message_board"] = json!(MESSAGE_BOARD_PATH);
+    report["mutated"] = json!(false);
+    report["has_request"] = json!(next.is_some());
+    report["request"] = serde_json::to_value(next).expect("request serializes");
+    report["inbox_count"] = json!(summary.inbox_count);
+    report["completed_count"] = json!(summary.completed_count);
+    report["errors"] = json!(summary.errors);
+    report
+}
+
+fn request_mutation_report(
+    command: &str,
+    root: &Path,
+    mutated: bool,
+    request: MessageBoardRequest,
+) -> Value {
+    let mut report = base_report(command, root);
+    report["message_board"] = json!(MESSAGE_BOARD_PATH);
+    report["mutated"] = json!(mutated);
+    report["request"] = serde_json::to_value(request).expect("request serializes");
+    report
+}
+
+fn request_error_report(command: &str, root: &Path, error: String) -> Value {
+    let mut report = base_report(command, root);
+    report["message_board"] = json!(MESSAGE_BOARD_PATH);
+    report["mutated"] = json!(false);
+    report["error"] = json!(error);
+    report
+}
+
+fn help_report() -> Value {
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "help",
+        "summary": "Agent-facing command catalog for Mole CLI.",
+        "usage": "mole <command> [--json|--text|--format json|text|markdown] [--root PATH]",
+        "default_command": "status",
+        "global_flags": {
+            "--json": "Emit JSON output. This is the default.",
+            "--text": "Emit compact human-readable text output.",
+            "--format": "Output format override: json, text, or markdown.",
+            "--root": "Project root override.",
+            "-h, --help": "Show this command catalog."
+        },
+        "commands": command_help_catalog(),
+        "examples": [
+            "cargo run -p mole_cli -- help --json",
+            "cargo run -p mole_cli -- status --json",
+            "cargo run -p mole_cli -- agent brief --json",
+            "cargo run -p mole_cli -- parity snapshot --json",
+            "cargo run -p mole_cli -- graph missing --json",
+            "cargo run -p mole_cli -- graph next --json",
+            "cargo run -p mole_cli -- graph next --format markdown",
+            "cargo run -p mole_cli -- graph inspect Dash --json",
+            "cargo run -p mole_cli -- graph inspect \"Dash -> Run\" --format markdown",
+            "cargo run -p mole_cli -- verify changed --json",
+            "cargo run -p mole_cli -- verify changed --format markdown",
+            "cargo run -p mole_cli -- generated check --json",
+            "cargo run -p mole_cli -- generated check --format markdown",
+            "cargo run -p mole_cli -- finish check --json",
+            "cargo run -p mole_cli -- finish check --format markdown",
+            "cargo run -p mole_cli -- request next --json",
+            "cargo run -p mole_cli -- request add --id trace-summary --title \"Trace Summary\" --request \"Add a compact trace summary command.\" --context \"Agents need shorter logs.\" --expected \"JSON summary.\" --json",
+            "cargo run -p mole_cli -- request done --id trace-summary --result \"Implemented and verified.\" --json"
+        ],
+        "ai_contract": {
+            "read_only_by_default": true,
+            "mutating_commands": ["request add", "request done"],
+            "no_interactive_prompts": true,
+            "stable_json_schema_version": SCHEMA_VERSION,
+            "nonzero_exit_on_cli_usage_error": true
+        }
+    })
+}
+
+fn command_help_catalog() -> Value {
+    json!([
+        {
+            "name": "status",
+            "usage": "mole status [--json]",
+            "purpose": "Summarize git branch, remote, dirty counts, and key artifact presence.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Good first command for re-anchoring any agent in the correct repository."
+        },
+        {
+            "name": "parity",
+            "usage": "mole parity [--json]",
+            "purpose": "Summarize parity ledgers for value sheets, Falcon ECB coverage, and state graph status counts.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Read-only; does not run generators."
+        },
+        {
+            "name": "parity snapshot",
+            "usage": "mole parity snapshot [--json]",
+            "purpose": "Return compact all-in-one parity context for handoff or context refresh.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["snapshot"],
+            "agent_notes": "Preferred command when an agent needs high-signal project context quickly."
+        },
+        {
+            "name": "snapshot",
+            "usage": "mole snapshot [--json]",
+            "purpose": "Alias for `parity snapshot`.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["parity snapshot"],
+            "agent_notes": "Shorter spelling for automation."
+        },
+        {
+            "name": "agent brief",
+            "usage": "mole agent brief [--json|--format markdown]",
+            "purpose": "Return a compact start-here packet with git status, macro-plan anchor, parity, missing graph entries, ranked graph-next targets, request queue, and verification commands.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["agent"],
+            "agent_notes": "Best first command after compaction or handoff when the agent needs high-signal context."
+        },
+        {
+            "name": "graph missing",
+            "usage": "mole graph missing [--json]",
+            "purpose": "List state graph nodes and edges whose status is missing, including refs and compact recommendations.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["graph"],
+            "agent_notes": "Use before bottom-up parity work to avoid ad-hoc graph JSON parsing."
+        },
+        {
+            "name": "graph next",
+            "usage": "mole graph next [--json|--format markdown]",
+            "purpose": "Rank missing and high-priority partial state-graph entries for source-backed parity work, including score reasons.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use when choosing the next graph-backed parity target."
+        },
+        {
+            "name": "graph inspect",
+            "usage": "mole graph inspect <node-id|from->to> [--json|--format markdown]",
+            "purpose": "Return source refs, Rust refs, value refs, known gaps, notes, and an audit checklist for one graph node or edge.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after graph next selects a target so agents do not manually parse graph JSON."
+        },
+        {
+            "name": "verify changed",
+            "usage": "mole verify changed [--json|--format markdown]",
+            "purpose": "Inspect changed files and return the smallest safe verification command set, including why each command was selected.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["verify"],
+            "agent_notes": "Use before claiming completion to avoid guessing which tests cover the current diff."
+        },
+        {
+            "name": "generated check",
+            "usage": "mole generated check [--json|--format markdown]",
+            "purpose": "Check known generated artifacts for missing outputs, missing inputs, stale timestamps, dirty generated outputs, and recommended regeneration commands.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["generated"],
+            "agent_notes": "Read-only; use before handoff or after editing extraction inputs/generators so agents do not guess whether generated parity files are current."
+        },
+        {
+            "name": "finish check",
+            "usage": "mole finish check [--json|--format markdown]",
+            "purpose": "Run a read-only completion gate over repository anchor, help catalog freshness, doctor status, request queue, and changed-file verification plan.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["finish"],
+            "agent_notes": "Use before handoff, compaction, or claiming a CLI/development-tooling slice is complete."
+        },
+        {
+            "name": "doctor",
+            "usage": "mole doctor [--json]",
+            "purpose": "Check whether expected repo artifacts and helper runtimes are present.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Reports availability; does not install tools or mutate the workspace."
+        },
+        {
+            "name": "tests",
+            "usage": "mole tests [--json]",
+            "purpose": "List recommended verification commands for the current Mole Game workflow.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Reports commands only; it intentionally does not execute them."
+        },
+        {
+            "name": "handoff",
+            "usage": "mole handoff [--json|--format markdown]",
+            "purpose": "Produce a handoff-oriented summary of git, parity, recommendations, and verification commands.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use markdown when pasting into a conversation; use JSON for tools."
+        },
+        {
+            "name": "recommend-next",
+            "usage": "mole recommend-next [--json]",
+            "purpose": "Return high-priority structural recommendations derived from git and parity summaries.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Recommendations are hints, not proof that gameplay code should change."
+        },
+        {
+            "name": "request list",
+            "usage": "mole request list [--json]",
+            "purpose": "List Inbox and Completed Notes from the Mole CLI message board.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["request"],
+            "agent_notes": "Reads MOLE_CLI_AGENT_MESSAGES.md."
+        },
+        {
+            "name": "request next",
+            "usage": "mole request next [--json]",
+            "purpose": "Return the newest actionable Inbox request for Mole CLI/development-tooling work.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Preferred startup command after reading the message board directly."
+        },
+        {
+            "name": "request add",
+            "usage": "mole request add --title TITLE --request TEXT [--id ID] [--context TEXT] [--expected TEXT] [--json]",
+            "purpose": "Add a newest-first feature request to the Mole CLI message board Inbox.",
+            "mutates_workspace": true,
+            "writes": [MESSAGE_BOARD_PATH],
+            "output_modes": ["json", "text"],
+            "required_flags": ["--title", "--request"],
+            "optional_flags": ["--id", "--context", "--expected", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Only intended mutation for creating Mole CLI/development-tooling feature requests."
+        },
+        {
+            "name": "request done",
+            "usage": "mole request done --id ID --result TEXT [--json]",
+            "purpose": "Move a matching Inbox request to Completed Notes and record the result.",
+            "mutates_workspace": true,
+            "writes": [MESSAGE_BOARD_PATH],
+            "output_modes": ["json", "text"],
+            "required_flags": ["--id", "--result"],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after implementation and verification so the main agent can see completion."
+        },
+        {
+            "name": "help",
+            "usage": "mole help [--json]",
+            "purpose": "Expose this complete command catalog for AI agents.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format", "-h", "--help"],
+            "aliases": ["-h", "--help"],
+            "agent_notes": "Update this catalog whenever Mole CLI gains or removes a command."
+        }
+    ])
+}
+
+pub fn message_board_summary(root: &Path) -> MessageBoardSummary {
+    let path = message_board_path(root);
+    match fs::read_to_string(&path) {
+        Ok(text) => parse_message_board(&text, MESSAGE_BOARD_PATH.to_string()),
+        Err(error) => MessageBoardSummary {
+            path: MESSAGE_BOARD_PATH.to_string(),
+            inbox_count: 0,
+            completed_count: 0,
+            inbox: Vec::new(),
+            completed: Vec::new(),
+            errors: vec![format!("{}: {error}", path.display())],
+        },
+    }
+}
+
+fn parse_message_board(text: &str, path: String) -> MessageBoardSummary {
+    let mut errors = Vec::new();
+    let inbox = match find_section_range(text, "## Inbox") {
+        Some(range) => parse_request_entries(&text[range]),
+        None => {
+            errors.push("missing ## Inbox section".to_string());
+            Vec::new()
+        }
+    };
+    let completed = match find_section_range(text, "## Completed Notes") {
+        Some(range) => parse_request_entries(&text[range]),
+        None => {
+            errors.push("missing ## Completed Notes section".to_string());
+            Vec::new()
+        }
+    };
+
+    MessageBoardSummary {
+        path,
+        inbox_count: inbox.len(),
+        completed_count: completed.len(),
+        inbox,
+        completed,
+        errors,
+    }
+}
+
+fn add_message_board_request(
+    root: &Path,
+    id: Option<String>,
+    title: &str,
+    request: &str,
+    context: &str,
+    expected: &str,
+) -> Result<MessageBoardRequest, String> {
+    let path = message_board_path(root);
+    let text = fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let id = id.unwrap_or_else(|| generated_request_id(&text, title));
+    let request = MessageBoardRequest {
+        id,
+        title: title.trim().to_string(),
+        request: request.trim().to_string(),
+        context: context.trim().to_string(),
+        expected_output: expected.trim().to_string(),
+        raw: String::new(),
+    };
+    let entry = format_request_entry(&request, None);
+    let text = insert_entry_into_section(&text, "## Inbox", &entry)?;
+    fs::write(&path, text).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok(MessageBoardRequest {
+        raw: entry,
+        ..request
+    })
+}
+
+fn complete_message_board_request(
+    root: &Path,
+    id: &str,
+    result: &str,
+) -> Result<MessageBoardRequest, String> {
+    let path = message_board_path(root);
+    let text = fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let inbox_range = find_section_range(&text, "## Inbox")
+        .ok_or_else(|| "missing ## Inbox section".to_string())?;
+    let entries = request_entry_ranges(&text, inbox_range);
+    let (request, range) = entries
+        .into_iter()
+        .find(|(request, _range)| request.id == id)
+        .ok_or_else(|| format!("request id not found in Inbox: {id}"))?;
+
+    let completed_entry = format_request_entry(&request, Some(result));
+    let mut text_without_request = String::with_capacity(text.len() + completed_entry.len());
+    text_without_request.push_str(&text[..range.start]);
+    text_without_request.push_str(&text[range.end..]);
+    let updated = insert_entry_into_section(
+        &text_without_request,
+        "## Completed Notes",
+        &completed_entry,
+    )?;
+    fs::write(&path, updated).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok(MessageBoardRequest {
+        raw: completed_entry,
+        ..request
+    })
+}
+
+fn message_board_path(root: &Path) -> PathBuf {
+    root.join(MESSAGE_BOARD_PATH)
+}
+
+fn generated_request_id(text: &str, title: &str) -> String {
+    let base = slugify(title).unwrap_or_else(|| {
+        let seconds = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        format!("feature-{seconds}")
+    });
+    let summary = parse_message_board(text, MESSAGE_BOARD_PATH.to_string());
+    let existing_ids = summary
+        .inbox
+        .iter()
+        .chain(summary.completed.iter())
+        .map(|request| request.id.as_str())
+        .collect::<Vec<_>>();
+
+    if !existing_ids.contains(&base.as_str()) {
+        return base;
+    }
+
+    for index in 2.. {
+        let candidate = format!("{base}-{index}");
+        if !existing_ids.contains(&candidate.as_str()) {
+            return candidate;
+        }
+    }
+    unreachable!("unbounded suffix search always returns")
+}
+
+fn slugify(value: &str) -> Option<String> {
+    let mut slug = String::new();
+    let mut last_was_dash = false;
+
+    for character in value.chars().flat_map(char::to_lowercase) {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character);
+            last_was_dash = false;
+        } else if !last_was_dash && !slug.is_empty() {
+            slug.push('-');
+            last_was_dash = true;
+        }
+    }
+
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+
+    if slug.is_empty() {
+        None
+    } else {
+        Some(slug)
+    }
+}
+
+fn format_request_entry(request: &MessageBoardRequest, result: Option<&str>) -> String {
+    let mut lines = vec![
+        format!("### {} - {}", request.id, request.title),
+        String::new(),
+        "Request:".to_string(),
+        request.request.clone(),
+        String::new(),
+        "Context:".to_string(),
+        request.context.clone(),
+        String::new(),
+        "Expected output:".to_string(),
+        request.expected_output.clone(),
+    ];
+
+    if let Some(result) = result {
+        lines.extend([
+            String::new(),
+            "Result:".to_string(),
+            result.trim().to_string(),
+        ]);
+    }
+
+    lines.push(String::new());
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+fn insert_entry_into_section(
+    text: &str,
+    section_heading: &str,
+    entry: &str,
+) -> Result<String, String> {
+    let section_range = find_section_range(text, section_heading)
+        .ok_or_else(|| format!("missing {section_heading} section"))?;
+    let section = &text[section_range.clone()];
+    let relative_offset = first_request_entry_offset(section)
+        .or_else(|| first_fence_offset(section))
+        .unwrap_or(section.len());
+    let offset = section_range.start + relative_offset;
+
+    let mut updated = String::with_capacity(text.len() + entry.len() + 4);
+    updated.push_str(&text[..offset]);
+    if !updated.ends_with("\n\n") {
+        if !updated.ends_with('\n') {
+            updated.push('\n');
+        }
+        updated.push('\n');
+    }
+    updated.push_str(entry);
+    if !text[offset..].starts_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&text[offset..]);
+    Ok(updated)
+}
+
+fn find_section_range(text: &str, heading: &str) -> Option<Range<usize>> {
+    let mut offset = 0;
+    let mut start = None;
+    let mut in_fence = false;
+
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") {
+            in_fence = !in_fence;
+        }
+
+        if !in_fence && trimmed == heading {
+            start = Some(offset + line.len());
+        } else if start.is_some() && !in_fence && trimmed.starts_with("## ") {
+            return start.map(|start| start..offset);
+        }
+
+        offset += line.len();
+    }
+
+    start.map(|start| start..text.len())
+}
+
+fn parse_request_entries(section: &str) -> Vec<MessageBoardRequest> {
+    request_entry_ranges(section, 0..section.len())
+        .into_iter()
+        .map(|(request, _range)| request)
+        .collect()
+}
+
+fn request_entry_ranges(
+    text: &str,
+    section_range: Range<usize>,
+) -> Vec<(MessageBoardRequest, Range<usize>)> {
+    let section = &text[section_range.clone()];
+    let mut entries = Vec::new();
+    let mut current_start = None;
+    let mut current_raw = String::new();
+    let mut offset = section_range.start;
+    let mut in_fence = false;
+
+    for line in section.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") {
+            if !in_fence {
+                if let Some(start) = current_start {
+                    push_request_entry(&mut entries, &current_raw, start..offset);
+                    current_raw.clear();
+                    current_start = None;
+                }
+            }
+            in_fence = !in_fence;
+            offset += line.len();
+            continue;
+        }
+
+        if !in_fence && trimmed.starts_with("### ") {
+            if let Some(start) = current_start {
+                push_request_entry(&mut entries, &current_raw, start..offset);
+                current_raw.clear();
+            }
+            current_start = Some(offset);
+        }
+
+        if current_start.is_some() {
+            current_raw.push_str(line);
+        }
+        offset += line.len();
+    }
+
+    if let Some(start) = current_start {
+        push_request_entry(&mut entries, &current_raw, start..offset);
+    }
+
+    entries
+}
+
+fn push_request_entry(
+    entries: &mut Vec<(MessageBoardRequest, Range<usize>)>,
+    raw: &str,
+    range: Range<usize>,
+) {
+    if let Some(request) = parse_request_entry(raw) {
+        entries.push((request, range));
+    }
+}
+
+fn parse_request_entry(raw: &str) -> Option<MessageBoardRequest> {
+    let heading = raw
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("### "))?
+        .trim();
+    let (id, title) = heading
+        .split_once(" - ")
+        .map(|(id, title)| (id.trim(), title.trim()))
+        .unwrap_or((heading, heading));
+    Some(MessageBoardRequest {
+        id: id.to_string(),
+        title: title.to_string(),
+        request: labeled_field(raw, "Request:"),
+        context: labeled_field(raw, "Context:"),
+        expected_output: labeled_field(raw, "Expected output:"),
+        raw: raw.trim().to_string(),
+    })
+}
+
+fn labeled_field(raw: &str, label: &str) -> String {
+    let mut capture = false;
+    let mut lines = Vec::new();
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if capture
+            && matches!(
+                trimmed,
+                "Request:" | "Context:" | "Expected output:" | "Result:"
+            )
+        {
+            break;
+        }
+        if capture {
+            lines.push(line);
+        } else if trimmed == label {
+            capture = true;
+        }
+    }
+
+    trim_blank_lines(lines).join("\n")
+}
+
+fn trim_blank_lines(lines: Vec<&str>) -> Vec<String> {
+    let mut start = 0;
+    let mut end = lines.len();
+    while start < end && lines[start].trim().is_empty() {
+        start += 1;
+    }
+    while end > start && lines[end - 1].trim().is_empty() {
+        end -= 1;
+    }
+    lines[start..end]
+        .iter()
+        .map(|line| line.trim_end().to_string())
+        .collect()
+}
+
+fn first_request_entry_offset(section: &str) -> Option<usize> {
+    let mut offset = 0;
+    let mut in_fence = false;
+    for line in section.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") {
+            in_fence = !in_fence;
+        } else if !in_fence && trimmed.starts_with("### ") {
+            return Some(offset);
+        }
+        offset += line.len();
+    }
+    None
+}
+
+fn first_fence_offset(section: &str) -> Option<usize> {
+    let mut offset = 0;
+    for line in section.split_inclusive('\n') {
+        if line.trim().starts_with("```") {
+            return Some(offset);
+        }
+        offset += line.len();
+    }
+    None
+}
+
+pub fn git_status_summary(root: &Path) -> GitStatusSummary {
+    let remote_origin = run_git(root, &["remote", "get-url", "origin"]).ok();
+    let status = match run_git(root, &["status", "--porcelain=v1", "-b"]) {
+        Ok(status) => status,
+        Err(error) => {
+            return GitStatusSummary {
+                branch: None,
+                upstream: None,
+                remote_origin,
+                expected_branch: EXPECTED_BRANCH.to_string(),
+                expected_remote: EXPECTED_REMOTE.to_string(),
+                branch_ok: false,
+                remote_ok: false,
+                dirty: true,
+                modified: 0,
+                deleted: 0,
+                untracked: 0,
+                renamed: 0,
+                other: 0,
+                total_changed: 0,
+                sample: Vec::new(),
+                git_error: Some(error),
+            };
+        }
+    };
+    parse_git_status(&status, remote_origin)
+}
+
+pub fn parse_git_status(status: &str, remote_origin: Option<String>) -> GitStatusSummary {
+    let mut branch = None;
+    let mut upstream = None;
+    let mut modified = 0;
+    let mut deleted = 0;
+    let mut untracked = 0;
+    let mut renamed = 0;
+    let mut other = 0;
+    let mut sample = Vec::new();
+
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("## ") {
+            let (branch_part, upstream_part) = rest
+                .split_once("...")
+                .map_or((rest, None), |(left, right)| (left, Some(right)));
+            branch = Some(
+                branch_part
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string(),
+            );
+            upstream = upstream_part
+                .map(|value| value.split_whitespace().next().unwrap_or("").to_string());
+            continue;
+        }
+        if line.len() < 3 {
+            continue;
+        }
+        let status_code = &line[0..2];
+        let path = line[3..].to_string();
+        if sample.len() < 20 {
+            sample.push(format!("{status_code} {path}"));
+        }
+        if status_code.contains('?') {
+            untracked += 1;
+        } else if status_code.contains('R') {
+            renamed += 1;
+        } else if status_code.contains('D') {
+            deleted += 1;
+        } else if status_code.contains('M') || status_code.contains('A') {
+            modified += 1;
+        } else {
+            other += 1;
+        }
+    }
+
+    let total_changed = modified + deleted + untracked + renamed + other;
+    let remote_ok = remote_origin.as_deref().is_some_and(|remote| {
+        remote == EXPECTED_REMOTE || remote == EXPECTED_REMOTE.trim_end_matches(".git")
+    });
+    let branch_ok = branch.as_deref() == Some(EXPECTED_BRANCH);
+
+    GitStatusSummary {
+        branch,
+        upstream,
+        remote_origin,
+        expected_branch: EXPECTED_BRANCH.to_string(),
+        expected_remote: EXPECTED_REMOTE.to_string(),
+        branch_ok,
+        remote_ok,
+        dirty: total_changed > 0,
+        modified,
+        deleted,
+        untracked,
+        renamed,
+        other,
+        total_changed,
+        sample,
+        git_error: None,
+    }
+}
+
+fn run_git(root: &Path, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .map_err(|error| format!("failed to run git: {error}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .trim_end()
+        .to_string())
+}
+
+fn artifact_checks(root: &Path) -> Vec<DoctorCheck> {
+    artifact_paths()
+        .into_iter()
+        .map(|(name, relative)| {
+            let path = root.join(relative);
+            DoctorCheck {
+                name: name.to_string(),
+                ok: path.exists(),
+                detail: relative.to_string(),
+            }
+        })
+        .collect()
+}
+
+fn artifact_paths() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "mole current graph",
+            "docs/state_graphs/mole_current_graph.json",
+        ),
+        (
+            "melee reference graph",
+            "docs/state_graphs/melee_reference_graph.json",
+        ),
+        (
+            "value diff report",
+            "docs/state_graphs/parity_reports/value_diffs.json",
+        ),
+        (
+            "falcon ecb coverage",
+            "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
+        ),
+        (
+            "falcon generated ecb rust",
+            "crates/mole_core/src/generated/falcon_ecb.rs",
+        ),
+        ("state graph viewer", "tools/state_graph_viewer.py"),
+        (
+            "slippi replay converter",
+            "tools/slippi_replay_to_inputs.cjs",
+        ),
+        (
+            "captain falcon extracted action ecb samples",
+            "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
+        ),
+        (
+            "captain falcon extracted profile",
+            "resources/melee/extracted/captain_falcon_profile.json",
+        ),
+    ]
+}
+
+pub fn generated_artifact_statuses(root: &Path) -> Vec<GeneratedArtifactStatus> {
+    generated_artifact_paths()
+        .into_iter()
+        .map(|(_name, relative)| generated_artifact_status(root, relative))
+        .collect()
+}
+
+fn generated_artifact_paths() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "mole current graph",
+            "docs/state_graphs/mole_current_graph.json",
+        ),
+        (
+            "melee reference graph",
+            "docs/state_graphs/melee_reference_graph.json",
+        ),
+        (
+            "value diff report",
+            "docs/state_graphs/parity_reports/value_diffs.json",
+        ),
+        (
+            "falcon ecb coverage",
+            "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
+        ),
+        (
+            "global value sheet",
+            "docs/state_graphs/value_sheets/global_common_values.json",
+        ),
+        (
+            "captain falcon value sheet",
+            "docs/state_graphs/value_sheets/captain_falcon_values.json",
+        ),
+        (
+            "falcon generated ecb rust",
+            "crates/mole_core/src/generated/falcon_ecb.rs",
+        ),
+        (
+            "captain falcon extracted action ecb samples",
+            "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
+        ),
+        (
+            "captain falcon extracted profile",
+            "resources/melee/extracted/captain_falcon_profile.json",
+        ),
+        (
+            "plco extracted common data",
+            "resources/melee/extracted/plco_common_data.json",
+        ),
+    ]
+}
+
+fn generated_artifact_status(root: &Path, relative: &str) -> GeneratedArtifactStatus {
+    let exists = root.join(relative).exists();
+    match run_git(root, &["status", "--porcelain=v1", "--", relative]) {
+        Ok(output) => {
+            let git_status = output
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            GeneratedArtifactStatus {
+                path: relative.to_string(),
+                exists,
+                dirty: !git_status.is_empty(),
+                git_status,
+                error: None,
+            }
+        }
+        Err(error) => GeneratedArtifactStatus {
+            path: relative.to_string(),
+            exists,
+            dirty: false,
+            git_status: Vec::new(),
+            error: Some(error),
+        },
+    }
+}
+
+pub fn parity_summary(root: &Path) -> ParitySummary {
+    let mut errors = Vec::new();
+    let value_report = read_json(root.join("docs/state_graphs/parity_reports/value_diffs.json"))
+        .inspect_err(|error| errors.push(format!("value_diffs.json: {error}")))
+        .ok();
+    let ecb_report =
+        read_json(root.join("docs/state_graphs/parity_reports/falcon_ecb_coverage.json"))
+            .inspect_err(|error| errors.push(format!("falcon_ecb_coverage.json: {error}")))
+            .ok();
+    let graph = read_json(root.join("docs/state_graphs/mole_current_graph.json"))
+        .inspect_err(|error| errors.push(format!("mole_current_graph.json: {error}")))
+        .ok();
+
+    let mut value_sections = BTreeMap::new();
+    let mut value_total_rows = 0;
+    let mut value_matches = 0;
+    let mut value_actionable = 0;
+    let mut value_derived = 0;
+
+    if let Some(report) = value_report {
+        if let Some(sections) = report.get("sections").and_then(Value::as_object) {
+            for (name, section) in sections {
+                let rows = section
+                    .get("rows")
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                let matches = section
+                    .get("rows")
+                    .and_then(Value::as_array)
+                    .map(|rows| {
+                        rows.iter()
+                            .filter(|row| {
+                                row.get("status").and_then(Value::as_str) == Some("match")
+                            })
+                            .count()
+                    })
+                    .unwrap_or(0);
+                let actionable = section
+                    .get("actionable_rows")
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                let derived = section
+                    .get("derived_rows")
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                value_total_rows += rows;
+                value_matches += matches;
+                value_actionable += actionable;
+                value_derived += derived;
+                value_sections.insert(
+                    name.clone(),
+                    ValueSectionSummary {
+                        rows,
+                        matches,
+                        actionable,
+                        derived,
+                    },
+                );
+            }
+        }
+    }
+
+    let ecb_mapped_motion_states = ecb_report
+        .as_ref()
+        .and_then(|report| report.get("mapped_motion_state_count"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let ecb_missing_sampled_mappings = ecb_report
+        .as_ref()
+        .and_then(|report| report.get("missing_sampled_mappings"))
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let ecb_unmapped_derived_states = ecb_report
+        .as_ref()
+        .and_then(|report| report.get("unmapped_derived_motion_states"))
+        .and_then(Value::as_array)
+        .map(|states| {
+            states
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let graph_nodes = graph
+        .as_ref()
+        .and_then(|graph| graph.get("nodes"))
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let graph_edges = graph
+        .as_ref()
+        .and_then(|graph| graph.get("edges"))
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let graph_status_counts = graph.as_ref().map(count_graph_statuses).unwrap_or_default();
+
+    ParitySummary {
+        value_sections,
+        value_total_rows,
+        value_matches,
+        value_actionable,
+        value_derived,
+        ecb_mapped_motion_states,
+        ecb_missing_sampled_mappings,
+        ecb_unmapped_derived_states,
+        graph_nodes,
+        graph_edges,
+        graph_status_counts,
+        errors,
+    }
+}
+
+pub(crate) fn read_json(path: PathBuf) -> Result<Value, io::Error> {
+    let text = fs::read_to_string(path)?;
+    Ok(serde_json::from_str(&text)?)
+}
+
+pub fn count_graph_statuses(graph: &Value) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for collection in ["nodes", "edges"] {
+        if let Some(items) = graph.get(collection).and_then(Value::as_array) {
+            for item in items {
+                if let Some(status) = item.get("status").and_then(Value::as_str) {
+                    *counts.entry(status.to_string()).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    counts
+}
+
+fn doctor_checks(root: &Path) -> Vec<DoctorCheck> {
+    let mut checks = artifact_checks(root);
+    checks.extend([
+        command_check("git", &["--version"]),
+        command_check("cargo", &["--version"]),
+        command_check("node", &["--version"]),
+        DoctorCheck {
+            name: "project python venv".to_string(),
+            ok: root.join(".venv/Scripts/python.exe").exists(),
+            detail: ".venv/Scripts/python.exe".to_string(),
+        },
+    ]);
+    checks
+}
+
+fn command_check(command: &str, args: &[&str]) -> DoctorCheck {
+    match Command::new(command).args(args).output() {
+        Ok(output) if output.status.success() => DoctorCheck {
+            name: format!("{command} available"),
+            ok: true,
+            detail: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        },
+        Ok(output) => DoctorCheck {
+            name: format!("{command} available"),
+            ok: false,
+            detail: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        },
+        Err(error) => DoctorCheck {
+            name: format!("{command} available"),
+            ok: false,
+            detail: error.to_string(),
+        },
+    }
+}
+
+fn recommended_test_commands() -> Vec<&'static str> {
+    vec![
+        "cargo test --workspace",
+        ".venv\\Scripts\\python.exe -m pytest tests\\test_value_sheets.py tests\\test_state_graph_viewer.py tests\\test_launch_inputs.py tests\\test_parity_diff_report.py tests\\test_generate_falcon_ecb_rust.py -q",
+        ".venv\\Scripts\\python.exe tools\\state_graph_viewer.py --check",
+        "cargo run -p mole_cli -- parity --json",
+        "cargo run -p mole_cli -- parity snapshot --json",
+    ]
+}
+
+fn recommended_next(root: &Path) -> Vec<String> {
+    let git = git_status_summary(root);
+    let parity = parity_summary(root);
+    let mut recommendations = Vec::new();
+
+    if !git.branch_ok {
+        recommendations.push(format!(
+            "Re-anchor branch before editing: expected `{}`, got `{}`.",
+            EXPECTED_BRANCH,
+            git.branch.as_deref().unwrap_or("unknown")
+        ));
+    }
+    if !git.remote_ok {
+        recommendations.push(format!(
+            "Re-anchor remote before editing: expected `{}`.",
+            EXPECTED_REMOTE
+        ));
+    }
+    if parity.value_actionable > 0 {
+        recommendations.push(format!(
+            "Resolve {} actionable value parity rows before tuning feel.",
+            parity.value_actionable
+        ));
+    }
+    if parity.ecb_missing_sampled_mappings > 0 {
+        recommendations.push(format!(
+            "Regenerate or map {} missing sampled ECB actions.",
+            parity.ecb_missing_sampled_mappings
+        ));
+    }
+    if !parity.ecb_unmapped_derived_states.is_empty() {
+        recommendations.push(format!(
+            "Replace or explicitly justify unmapped derived states: {}.",
+            parity.ecb_unmapped_derived_states.join(", ")
+        ));
+    }
+    if let Some(missing) = parity.graph_status_counts.get("missing") {
+        if *missing > 0 {
+            recommendations.push(format!(
+                "Continue bottom-up decomp parity for {missing} graph entries marked missing."
+            ));
+        }
+    }
+    if recommendations.is_empty() {
+        recommendations.push("No high-priority structural gap detected by Mole CLI.".to_string());
+    }
+    recommendations
+}

@@ -204,6 +204,9 @@ pub fn legacy_sprite_source_size(cue: LegacySpriteCue) -> SpriteSourceSize {
 pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAnimationKey {
     match motion_state {
         MotionState::Wait
+        | MotionState::Entry
+        | MotionState::EntryStart
+        | MotionState::EntryEnd
         | MotionState::Attack1
         | MotionState::AttackS3
         | MotionState::AttackHi3
@@ -212,6 +215,7 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::AttackHi4
         | MotionState::AttackLw4
         | MotionState::SpecialN
+        | MotionState::SpecialSStart
         | MotionState::SpecialS
         | MotionState::SpecialHi
         | MotionState::SpecialLw
@@ -224,9 +228,10 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
             LegacyAnimationKey::Walking
         }
         MotionState::Dash => LegacyAnimationKey::Dashing,
-        MotionState::Run | MotionState::RunBrake | MotionState::AttackDash => {
-            LegacyAnimationKey::Running
-        }
+        MotionState::Run
+        | MotionState::RunDirect
+        | MotionState::RunBrake
+        | MotionState::AttackDash => LegacyAnimationKey::Running,
         MotionState::Turn => LegacyAnimationKey::Turning,
         MotionState::TurnRun => LegacyAnimationKey::RunTurn,
         MotionState::KneeBend => LegacyAnimationKey::JumpSquat,
@@ -234,8 +239,12 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::JumpB
         | MotionState::JumpAerialF
         | MotionState::JumpAerialB
-        | MotionState::Air
         | MotionState::Fall
+        | MotionState::FallF
+        | MotionState::FallB
+        | MotionState::FallAerial
+        | MotionState::FallAerialF
+        | MotionState::FallAerialB
         | MotionState::Pass
         | MotionState::AttackAirN
         | MotionState::AttackAirF
@@ -243,18 +252,29 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::AttackAirHi
         | MotionState::AttackAirLw
         | MotionState::SpecialAirN
+        | MotionState::SpecialAirSStart
         | MotionState::SpecialAirS
         | MotionState::SpecialAirHi
         | MotionState::SpecialAirLw => LegacyAnimationKey::Air,
-        MotionState::GuardOn | MotionState::Guard | MotionState::GuardOff => {
-            LegacyAnimationKey::Blocking
-        }
+        MotionState::GuardOn
+        | MotionState::Guard
+        | MotionState::GuardOff
+        | MotionState::GuardSetOff
+        | MotionState::GuardReflect => LegacyAnimationKey::Blocking,
         MotionState::EscapeN | MotionState::EscapeF | MotionState::EscapeB => {
             LegacyAnimationKey::Dashing
         }
         MotionState::EscapeAir => LegacyAnimationKey::AirDodge,
-        MotionState::FallSpecial => LegacyAnimationKey::FreeFall,
-        MotionState::Landing | MotionState::LandingFallSpecial => LegacyAnimationKey::LandingLag,
+        MotionState::FallSpecial | MotionState::FallSpecialF | MotionState::FallSpecialB => {
+            LegacyAnimationKey::FreeFall
+        }
+        MotionState::Landing
+        | MotionState::LandingAirN
+        | MotionState::LandingAirF
+        | MotionState::LandingAirB
+        | MotionState::LandingAirHi
+        | MotionState::LandingAirLw
+        | MotionState::LandingFallSpecial => LegacyAnimationKey::LandingLag,
     }
 }
 

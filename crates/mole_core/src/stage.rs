@@ -24,11 +24,19 @@ pub struct StageBlastZones {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageSpawnPoint {
+    pub x: i32,
+    pub y: i32,
+    pub facing: i8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StageProfile {
     pub name: &'static str,
     pub main_floor: StageSurface,
     pub soft_platforms: [StageSurface; 3],
     pub blast_zones: StageBlastZones,
+    pub spawn_points: [StageSpawnPoint; 4],
 }
 
 impl StageProfile {
@@ -80,6 +88,28 @@ impl StageProfile {
                 top_y: melee_units_f32(200.0),
                 bottom_y: melee_units_f32(-108.8),
             },
+            spawn_points: [
+                StageSpawnPoint {
+                    x: melee_units_f32(-38.8),
+                    y: melee_units_f32(35.2),
+                    facing: 1,
+                },
+                StageSpawnPoint {
+                    x: melee_units_f32(38.8),
+                    y: melee_units_f32(35.2),
+                    facing: -1,
+                },
+                StageSpawnPoint {
+                    x: 0,
+                    y: melee_units_f32(8.0),
+                    facing: 1,
+                },
+                StageSpawnPoint {
+                    x: 0,
+                    y: melee_units_f32(62.4),
+                    facing: 1,
+                },
+            ],
         }
     }
 }

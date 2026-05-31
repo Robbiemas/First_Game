@@ -3,10 +3,9 @@ use mole_core::{
     melee_units_f32, step_world, CommonDataExtractError, CommonDataProvenance, EcbDiamond,
     FighterActionFrames, FighterProfile, FighterProfileExtractError, Frame, GameCubeButtonState,
     GameCubePadStatus, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
-    MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, StageProfile,
-    StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ, UCF_CARDINAL_AXIS,
-    UCF_CARDINAL_SNAP_RANGE, UCF_SHIELD_DROP_DELTA, UCF_SHIELD_DROP_MIN_Y, UCF_TILT_INTENT_DELTA,
-    UCF_VERSION,
+    MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
+    StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World,
+    TICK_RATE_HZ,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -17,9 +16,174 @@ fn close_to(left: i32, right: i32, tolerance: i32) -> bool {
     (left - right).abs() <= tolerance
 }
 
+fn dash_stick_x() -> i8 {
+    MeleeCommonData::provisional_mole().dash_x
+}
+
+fn crouch_stick_y() -> i8 {
+    -MeleeCommonData::provisional_mole().crouch_y
+}
+
+fn shield_analog() -> u8 {
+    MeleeCommonData::provisional_mole().z_shield_analog
+}
+
+fn spot_dodge_stick_y() -> i8 {
+    MeleeCommonData::provisional_mole()
+        .escape_y
+        .saturating_sub(1)
+}
+
+fn run_stick_x() -> i8 {
+    MeleeCommonData::provisional_mole().run_x
+}
+
+fn turn_run_stick_x() -> i8 {
+    -MeleeCommonData::provisional_mole().turn_run_x
+}
+
+fn falcon_escape_air_action_frames() -> u32 {
+    50
+}
+
+fn falcon_pass_action_frames() -> u8 {
+    30
+}
+
+fn source_dash_iasa_decay(velocity_x: i32, common: MeleeCommonData) -> i32 {
+    velocity_x - velocity_x * common.dash_velocity_decay_milli / 1000
+}
+
+fn source_general_grounded_friction_velocity(
+    velocity_x: i32,
+    profile: FighterProfile,
+    common: MeleeCommonData,
+) -> i32 {
+    let mut friction = profile.traction_per_tick;
+    if velocity_x.abs() > profile.walk_speed_per_tick {
+        friction = friction * common.high_speed_ground_friction_multiplier_milli / 1000;
+    }
+
+    if friction.abs() > velocity_x.abs() {
+        0
+    } else if velocity_x > 0 {
+        velocity_x - friction
+    } else if velocity_x < 0 {
+        velocity_x + friction
+    } else {
+        0
+    }
+}
+
+fn source_general_grounded_friction_velocity_after_ticks(
+    mut velocity_x: i32,
+    ticks: u8,
+    profile: FighterProfile,
+    common: MeleeCommonData,
+) -> i32 {
+    for _ in 0..ticks {
+        velocity_x = source_general_grounded_friction_velocity(velocity_x, profile, common);
+    }
+    velocity_x
+}
+
+fn source_dash_to_turn_frame_velocity(
+    velocity_x: i32,
+    profile: FighterProfile,
+    common: MeleeCommonData,
+) -> i32 {
+    source_general_grounded_friction_velocity(
+        source_dash_iasa_decay(velocity_x, common),
+        profile,
+        common,
+    )
+}
+
+fn source_stick_scaled_velocity(stick_x: i32, full_stick_velocity: i32) -> i32 {
+    const FULL_POSITIVE_NATIVE_STICK: i32 = 127;
+    const FULL_NEGATIVE_NATIVE_STICK: i32 = 128;
+    let scaled = stick_x * full_stick_velocity;
+    if scaled >= 0 {
+        (scaled + FULL_POSITIVE_NATIVE_STICK / 2) / FULL_POSITIVE_NATIVE_STICK
+    } else {
+        (scaled - FULL_NEGATIVE_NATIVE_STICK / 2) / FULL_NEGATIVE_NATIVE_STICK
+    }
+}
+
+fn source_run_ground_friction(profile: FighterProfile, common: MeleeCommonData) -> i32 {
+    profile.traction_per_tick * common.run_ground_friction_multiplier_milli / 1000
+}
+
+fn source_ground_accel_toward_target(
+    current_velocity: i32,
+    mut accel: i32,
+    target_velocity: i32,
+    friction_per_tick: i32,
+    max_velocity: i32,
+) -> i32 {
+    let friction_per_tick = friction_per_tick.abs();
+    if target_velocity == 0 {
+        return if current_velocity > friction_per_tick {
+            current_velocity - friction_per_tick
+        } else if current_velocity < -friction_per_tick {
+            current_velocity + friction_per_tick
+        } else {
+            0
+        };
+    }
+
+    if current_velocity * accel >= 0 {
+        if accel > 0 && current_velocity + accel > target_velocity {
+            accel = -friction_per_tick;
+            if current_velocity + accel < target_velocity {
+                accel = target_velocity - current_velocity;
+            }
+        } else if accel < 0 && current_velocity + accel < target_velocity {
+            accel = friction_per_tick;
+            if current_velocity + accel > target_velocity {
+                accel = target_velocity - current_velocity;
+            }
+        }
+    }
+
+    (current_velocity + accel).clamp(-max_velocity, max_velocity)
+}
+
+fn source_turn_run_phys_velocity(
+    velocity_x: i32,
+    stick_x: i32,
+    accel_mul: i8,
+    profile: FighterProfile,
+    common: MeleeCommonData,
+) -> i32 {
+    let stick_accel = source_stick_scaled_velocity(stick_x, profile.dash_run_accel_stick_per_tick);
+    let base_accel = stick_x.signum() * profile.dash_run_accel_base_per_tick;
+    let accel = stick_accel + base_accel;
+    let target_velocity = source_stick_scaled_velocity(stick_x, profile.run_speed_per_tick);
+
+    if accel != 0 && accel_mul as i32 * accel < 0 {
+        source_ground_accel_toward_target(
+            velocity_x,
+            accel,
+            target_velocity,
+            source_run_ground_friction(profile, common),
+            profile.ground_max_horizontal_velocity_per_tick,
+        )
+    } else {
+        let friction = source_run_ground_friction(profile, common);
+        if velocity_x > friction {
+            velocity_x - friction
+        } else if velocity_x < -friction {
+            velocity_x + friction
+        } else {
+            0
+        }
+    }
+}
+
 fn advance_player_to_run(world: &mut World) {
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -69,6 +233,37 @@ fn battlefield_stage_exposes_ordered_collision_surfaces() {
 }
 
 #[test]
+fn battlefield_stage_records_slippi_neutral_spawn_points() {
+    let stage = StageProfile::battlefield_test();
+
+    assert_eq!(
+        stage.spawn_points,
+        [
+            StageSpawnPoint {
+                x: melee_units_f32(-38.8),
+                y: melee_units_f32(35.2),
+                facing: 1,
+            },
+            StageSpawnPoint {
+                x: melee_units_f32(38.8),
+                y: melee_units_f32(35.2),
+                facing: -1,
+            },
+            StageSpawnPoint {
+                x: 0,
+                y: melee_units_f32(8.0),
+                facing: 1,
+            },
+            StageSpawnPoint {
+                x: 0,
+                y: melee_units_f32(62.4),
+                facing: 1,
+            },
+        ]
+    );
+}
+
+#[test]
 fn default_two_player_spawns_are_separated_in_battlefield_units() {
     let world = World::for_two_players();
 
@@ -100,6 +295,98 @@ fn world_owns_battlefield_stage_for_deterministic_contact() {
     assert_eq!(stage.name, "battlefield_test");
     assert_eq!(stage.main_floor.name, "main_floor");
     assert_eq!(stage.soft_platforms.len(), 3);
+}
+
+#[test]
+fn slippi_battlefield_match_start_uses_entry_spawns_and_source_stagger() {
+    let world = World::for_slippi_battlefield_singles_match_start();
+
+    assert_eq!(
+        world.players()[0].position,
+        Vec2 {
+            x: melee_units_f32(-38.8),
+            y: melee_units_f32(35.2),
+        }
+    );
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].motion_state, MotionState::Entry);
+    assert_eq!(world.players()[0].entry_timer, 5);
+    assert!(!world.players()[0].grounded);
+
+    assert_eq!(
+        world.players()[1].position,
+        Vec2 {
+            x: melee_units_f32(38.8),
+            y: melee_units_f32(35.2),
+        }
+    );
+    assert_eq!(world.players()[1].facing, -1);
+    assert_eq!(world.players()[1].motion_state, MotionState::Entry);
+    assert_eq!(world.players()[1].entry_timer, 10);
+    assert!(!world.players()[1].grounded);
+}
+
+#[test]
+fn entry_states_follow_decomp_timer_schedule_from_match_start() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..=5 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EntryStart);
+    assert_eq!(
+        world.players()[0].entry_timer,
+        MeleeCommonData::provisional_mole().entry_start_ticks - 1
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::Entry);
+    assert_eq!(world.players()[1].entry_timer, 4);
+
+    for frame in 6..=10 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[1].motion_state, MotionState::EntryStart);
+    assert_eq!(
+        world.players()[1].entry_timer,
+        MeleeCommonData::provisional_mole().entry_start_ticks - 1
+    );
+
+    for frame in 11..=34 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EntryEnd);
+    assert_eq!(
+        world.players()[0].entry_timer,
+        MeleeCommonData::provisional_mole().entry_end_ticks
+    );
+
+    for frame in 35..=64 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+    assert_eq!(world.players()[0].entry_timer, 0);
+}
+
+#[test]
+fn slippi_battlefield_spawn_fall_lands_on_the_same_frame_as_replay_oracle() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    for frame in 0..=75 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+    assert_eq!(world.players()[0].position.y, melee_units_f32(25.114_899));
+
+    step_world(&mut world, Frame(76), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].position.y, melee_units_f32(27.200_1));
 }
 
 #[test]
@@ -284,7 +571,8 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.jump_horizontal_initial_velocity_per_tick, 950);
     assert_eq!(profile.jump_horizontal_max_velocity_per_tick, 2_100);
     assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 900);
-    assert_eq!(profile.max_jumps, 1);
+    assert_eq!(profile.air_jump_v_multiplier_milli, 900);
+    assert_eq!(profile.max_jumps, 2);
     assert_eq!(profile.air_drift_stick_accel_per_tick, 40);
     assert_eq!(profile.air_drift_base_accel_per_tick, 20);
     assert_eq!(profile.air_drift_max_velocity_per_tick, 1_120);
@@ -299,6 +587,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.full_hop_height, 38_520);
     assert_eq!(profile.short_hop_height, 14_850);
     assert_eq!(profile.double_jump_height, 28_560);
+    assert_eq!(profile.entry_platform_offset_y, 1_647);
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
@@ -306,6 +595,11 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.standing_turn_direction_change_frames, 6);
     assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
+    assert_eq!(profile.landing_air_n_lag_ticks, 15);
+    assert_eq!(profile.landing_air_f_lag_ticks, 19);
+    assert_eq!(profile.landing_air_b_lag_ticks, 18);
+    assert_eq!(profile.landing_air_hi_lag_ticks, 15);
+    assert_eq!(profile.landing_air_lw_lag_ticks, 24);
 }
 
 #[test]
@@ -345,6 +639,12 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x78, 1.26);
     put_f32_be(&mut bytes, 0x84, 7.0);
     put_f32_be(&mut bytes, 0xe4, 5.0);
+    put_f32_be(&mut bytes, 0xe8, 11.0);
+    put_f32_be(&mut bytes, 0xec, 12.0);
+    put_f32_be(&mut bytes, 0xf0, 13.0);
+    put_f32_be(&mut bytes, 0xf4, 14.0);
+    put_f32_be(&mut bytes, 0xf8, 15.0);
+    put_f32_be(&mut bytes, 0x110, 1.1);
 
     let profile = FighterProfile::from_ftco_dat_attrs_bytes("captain_falcon", &bytes)
         .expect("synthetic ftCo_DatAttrs slice should extract");
@@ -371,8 +671,9 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.full_hop_jump_force_per_tick, 3_100);
     assert_eq!(profile.short_hop_jump_force_per_tick, 1_900);
     assert_eq!(profile.air_jump_force_per_tick, 2_790);
+    assert_eq!(profile.air_jump_v_multiplier_milli, 900);
     assert_eq!(profile.air_jump_horizontal_velocity_per_tick, 460);
-    assert_eq!(profile.max_jumps, 1);
+    assert_eq!(profile.max_jumps, 2);
     assert_eq!(profile.gravity_per_tick, 130);
     assert_eq!(profile.fall_speed_per_tick, 2_900);
     assert_eq!(profile.air_drift_stick_accel_per_tick, 47);
@@ -383,7 +684,13 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_eq!(profile.air_max_horizontal_velocity_per_tick, 1_260);
     assert_eq!(profile.standing_turn_direction_change_frames, 7);
     assert_eq!(profile.standing_turn_total_frames, 11);
+    assert_eq!(profile.entry_platform_offset_y, 1_647);
     assert_eq!(profile.normal_landing_lag_ticks, 5);
+    assert_eq!(profile.landing_air_n_lag_ticks, 11);
+    assert_eq!(profile.landing_air_f_lag_ticks, 12);
+    assert_eq!(profile.landing_air_b_lag_ticks, 13);
+    assert_eq!(profile.landing_air_hi_lag_ticks, 14);
+    assert_eq!(profile.landing_air_lw_lag_ticks, 15);
 }
 
 #[test]
@@ -433,38 +740,60 @@ fn airborne_falcon_profile_uses_profile_gravity_and_fall_speed() {
 }
 
 #[test]
-fn input_threshold_defaults_come_from_provisional_common_data() {
+fn input_threshold_defaults_match_extracted_plco_common_data() {
     let common = MeleeCommonData::provisional_mole();
+    let config = common.input_config();
     let thresholds = common.input_thresholds();
 
-    assert_eq!(MeleeInputConfig::default(), common.input_config());
+    assert_eq!(MeleeInputConfig::default(), config);
     assert_eq!(MeleeInputThresholds::default(), thresholds);
     assert_eq!(common.trigger_threshold, 1);
-    assert_eq!(common.trigger_timer_threshold, 140);
-    assert_eq!(thresholds.walk_x, 20);
+    assert_eq!(common.trigger_timer_threshold, 64);
+    assert_eq!(config.main_stick_deadzone_x, 36);
+    assert_eq!(config.main_stick_deadzone_y, 36);
+    assert_eq!(config.c_stick_deadzone_x, 36);
+    assert_eq!(config.c_stick_deadzone_y, 36);
+    assert_eq!(config.trigger_deadzone, 77);
+    assert_eq!(common.tap_x_threshold, 32);
+    assert_eq!(common.tap_y_threshold, 32);
+    assert_eq!(thresholds.walk_x, 23);
     assert_eq!(common.walk_slow_x, 20);
     assert_eq!(common.walk_middle_x, 50);
     assert_eq!(common.walk_fast_x, 90);
     assert_eq!(thresholds.walk_slow_x, 20);
     assert_eq!(thresholds.walk_middle_x, 50);
     assert_eq!(thresholds.walk_fast_x, 90);
-    assert_eq!(thresholds.dash_x, 80);
-    assert_eq!(thresholds.dash_tap_window, 3);
-    assert_eq!(common.z_shield_analog, 49);
-    assert_eq!(thresholds.z_shield_analog, 49);
-    assert_eq!(common.dash_early_action_window, 1);
-    assert_eq!(common.dash_late_action_window, 15);
-    assert_eq!(common.run_x, 64);
-    assert_eq!(thresholds.tap_jump_y, 80);
-    assert_eq!(thresholds.escape_x, 80);
-    assert_eq!(thresholds.escape_y, 89);
-    assert_eq!(thresholds.aerial_neutral_x, 40);
-    assert_eq!(thresholds.aerial_neutral_y, 40);
-    assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1000);
-    assert_eq!(common.crouch_release_y, 36);
+    assert_eq!(thresholds.turn_x, -32);
+    assert_eq!(common.turn_run_x, -48);
+    assert_eq!(thresholds.dash_x, 102);
+    assert_eq!(thresholds.dash_tap_window, 2);
+    assert_eq!(common.z_shield_analog, 89);
+    assert_eq!(thresholds.z_shield_analog, 89);
+    assert_eq!(common.dash_early_action_window, 4);
+    assert_eq!(common.dash_defensive_action_window, 3);
+    assert_eq!(common.dash_late_action_window, 20);
+    assert_eq!(common.dash_velocity_decay_milli, 750);
+    assert_eq!(common.run_x, 79);
+    assert_eq!(common.run_turn_run_no_interrupt_frames, 10);
+    assert_eq!(common.tap_jump_window, 4);
+    assert_eq!(common.tap_jump_release_y, 38);
+    assert_eq!(common.fast_fall_y, 84);
+    assert_eq!(common.fast_fall_window, 4);
+    assert_eq!(thresholds.tap_jump_y, 84);
+    assert_eq!(thresholds.escape_x, 89);
+    assert_eq!(common.escape_x_tap_window, 4);
+    assert_eq!(thresholds.escape_y, -89);
+    assert_eq!(common.escape_y_tap_window, 4);
+    assert_eq!(thresholds.aerial_neutral_x, 32);
+    assert_eq!(thresholds.aerial_neutral_y, 32);
+    assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1192);
+    assert_eq!(common.tilt_x, 32);
+    assert_eq!(common.tilt_y, 32);
+    assert_eq!(common.crouch_y, 87);
+    assert_eq!(common.crouch_release_y, 79);
     assert_eq!(common.air_jump_backward_x, 16);
     assert_eq!(common.escapeair_iasa_timer_ticks, 3);
-    assert_eq!(common.escapeair_animation_ticks, 20);
+    assert_eq!(common.escapeair_animation_ticks, 50);
     assert_eq!(common.escapeair_deadzone_x, 32);
     assert_eq!(common.escapeair_deadzone_y, 32);
     assert_eq!(common.escapeair_force, 3_100);
@@ -477,18 +806,46 @@ fn input_threshold_defaults_come_from_provisional_common_data() {
     assert_eq!(common.run_ground_friction_multiplier_milli, 1_000);
     assert_eq!(common.high_speed_ground_friction_multiplier_milli, 2_000);
     assert_eq!(common.animation_velocity_scale_milli, 1_300);
-    assert_eq!(common.fallspecial_platform_landing_y, -80);
+    assert_eq!(common.fall_animation_drift_threshold_milli, 100);
+    assert_eq!(common.fall_animation_blend_milli, 500);
+    assert_eq!(common.fallspecial_platform_landing_y, -71);
     assert_eq!(common.platform_pass_y, 84);
-    assert_eq!(common.platform_pass_y_tap_window, 3);
-    assert_eq!(common.pass_initial_y_velocity, -1_200);
-    assert_eq!(common.platform_drop_delay_ticks, 4);
-    assert_eq!(common.guard_on_catch_dash_window, 4);
-    assert_eq!(common.run_turn_run_no_interrupt_frames, 1);
+    assert_eq!(common.platform_pass_y_tap_window, 6);
+    assert_eq!(common.pass_initial_y_velocity, -500);
+    assert_eq!(common.platform_drop_delay_ticks, 2);
+    assert_eq!(common.entry_start_ticks, 30);
+    assert_eq!(common.entry_end_ticks, 30);
+    assert_eq!(common.entry_initial_scale_y_milli, 10);
+    assert_eq!(common.entry_collision_landing_lag_ticks, 120);
+    assert_eq!(common.guard_on_catch_dash_window, 3);
+    assert_eq!(common.run_turn_run_no_interrupt_frames, 10);
 }
 
 #[test]
 fn input_common_data_sources_track_melee_field_offsets() {
     let sources = input_common_data_field_sources();
+
+    let main_stick_deadzone_x = sources
+        .iter()
+        .find(|source| source.rust_name == "main_stick_deadzone_x")
+        .expect("main stick X deadzone source should be recorded");
+    assert_eq!(main_stick_deadzone_x.source_name, "x0");
+    assert_eq!(main_stick_deadzone_x.offset, 0x00);
+    assert_eq!(
+        main_stick_deadzone_x.provenance,
+        CommonDataProvenance::ExtractedPlCo
+    );
+
+    let main_stick_deadzone_y = sources
+        .iter()
+        .find(|source| source.rust_name == "main_stick_deadzone_y")
+        .expect("main stick Y deadzone source should be recorded");
+    assert_eq!(main_stick_deadzone_y.source_name, "x4");
+    assert_eq!(main_stick_deadzone_y.offset, 0x04);
+    assert_eq!(
+        main_stick_deadzone_y.provenance,
+        CommonDataProvenance::ExtractedPlCo
+    );
 
     let dash = sources
         .iter()
@@ -496,7 +853,7 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("dash_x common-data source should be recorded");
     assert_eq!(dash.source_name, "x3C");
     assert_eq!(dash.offset, 0x3c);
-    assert_eq!(dash.provenance, CommonDataProvenance::ProvisionalMole);
+    assert_eq!(dash.provenance, CommonDataProvenance::ExtractedPlCo);
 
     let walk_slow = sources
         .iter()
@@ -707,6 +1064,34 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(platform_drop_delay_ticks.source_name, "x470");
     assert_eq!(platform_drop_delay_ticks.offset, 0x470);
 
+    let entry_start_ticks = sources
+        .iter()
+        .find(|source| source.rust_name == "entry_start_ticks")
+        .expect("entry_start_ticks common-data source should be recorded");
+    assert_eq!(entry_start_ticks.source_name, "x6BC");
+    assert_eq!(entry_start_ticks.offset, 0x6bc);
+
+    let entry_end_ticks = sources
+        .iter()
+        .find(|source| source.rust_name == "entry_end_ticks")
+        .expect("entry_end_ticks common-data source should be recorded");
+    assert_eq!(entry_end_ticks.source_name, "x6C0");
+    assert_eq!(entry_end_ticks.offset, 0x6c0);
+
+    let entry_initial_scale_y = sources
+        .iter()
+        .find(|source| source.rust_name == "entry_initial_scale_y_milli")
+        .expect("entry_initial_scale_y_milli common-data source should be recorded");
+    assert_eq!(entry_initial_scale_y.source_name, "x6C4");
+    assert_eq!(entry_initial_scale_y.offset, 0x6c4);
+
+    let entry_collision_landing_lag = sources
+        .iter()
+        .find(|source| source.rust_name == "entry_collision_landing_lag_ticks")
+        .expect("entry_collision_landing_lag_ticks common-data source should be recorded");
+    assert_eq!(entry_collision_landing_lag.source_name, "x6C8");
+    assert_eq!(entry_collision_landing_lag.offset, 0x6c8);
+
     let guard_on_catch_dash_window = sources
         .iter()
         .find(|source| source.rust_name == "guard_on_catch_dash_window")
@@ -742,12 +1127,26 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(dash_late_action_window.source_name, "x4C");
     assert_eq!(dash_late_action_window.offset, 0x4c);
 
+    let dash_velocity_decay = sources
+        .iter()
+        .find(|source| source.rust_name == "dash_velocity_decay_milli")
+        .expect("dash velocity decay source should be recorded");
+    assert_eq!(dash_velocity_decay.source_name, "x54");
+    assert_eq!(dash_velocity_decay.offset, 0x54);
+
     let run_x = sources
         .iter()
         .find(|source| source.rust_name == "run_x")
         .expect("run_x common-data source should be recorded");
     assert_eq!(run_x.source_name, "x58_someLStickXThreshold");
     assert_eq!(run_x.offset, 0x58);
+
+    let turn_run_x = sources
+        .iter()
+        .find(|source| source.rust_name == "turn_run_x")
+        .expect("turn_run_x common-data source should be recorded");
+    assert_eq!(turn_run_x.source_name, "x38_someLStickXThreshold");
+    assert_eq!(turn_run_x.offset, 0x38);
 
     let run_accel_taper = sources
         .iter()
@@ -772,12 +1171,26 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("animation velocity scale source should be recorded");
     assert_eq!(animation_velocity_scale.source_name, "x440");
     assert_eq!(animation_velocity_scale.offset, 0x440);
+    let fall_animation_drift_threshold = sources
+        .iter()
+        .find(|source| source.rust_name == "fall_animation_drift_threshold_milli")
+        .expect("fall animation drift threshold source should be recorded");
+    assert_eq!(fall_animation_drift_threshold.source_name, "x444");
+    assert_eq!(fall_animation_drift_threshold.offset, 0x444);
+    let fall_animation_blend = sources
+        .iter()
+        .find(|source| source.rust_name == "fall_animation_blend_milli")
+        .expect("fall animation blend source should be recorded");
+    assert_eq!(fall_animation_blend.source_name, "x448");
+    assert_eq!(fall_animation_blend.offset, 0x448);
 }
 
 #[test]
 fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
-    let mut bytes = vec![0_u8; 0x474];
+    let mut bytes = vec![0_u8; 0x6cc];
 
+    put_f32_be(&mut bytes, 0x00, 0.28);
+    put_f32_be(&mut bytes, 0x04, 0.29);
     put_f32_be(&mut bytes, 0x08, 0.37);
     put_f32_be(&mut bytes, 0x0c, 0.38);
     put_f32_be(&mut bytes, 0x10, 0.12);
@@ -789,11 +1202,13 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x2c, 0.52);
     put_f32_be(&mut bytes, 0x30, 0.74);
     put_f32_be(&mut bytes, 0x34, 0.24);
+    put_f32_be(&mut bytes, 0x38, -0.35);
     put_f32_be(&mut bytes, 0x3c, 0.82);
     put_i32_be(&mut bytes, 0x40, 5);
     put_f32_be(&mut bytes, 0x44, 6.0);
     put_f32_be(&mut bytes, 0x48, 7.0);
     put_f32_be(&mut bytes, 0x4c, 16.0);
+    put_f32_be(&mut bytes, 0x54, 0.73);
     put_f32_be(&mut bytes, 0x58, 0.66);
     put_f32_be(&mut bytes, 0x5c, 0.42);
     put_f32_be(&mut bytes, 0x60, 1.25);
@@ -824,16 +1239,26 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x344, 10.0);
     put_f32_be(&mut bytes, 0x430, 2.0);
     put_f32_be(&mut bytes, 0x440, 1.31);
+    put_f32_be(&mut bytes, 0x444, 0.18);
+    put_f32_be(&mut bytes, 0x448, 0.42);
     put_f32_be(&mut bytes, 0x464, 0.63);
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
     put_f32_be(&mut bytes, 0x470, 6.0);
+    put_i32_be(&mut bytes, 0x6bc, 31);
+    put_i32_be(&mut bytes, 0x6c0, 32);
+    put_f32_be(&mut bytes, 0x6c4, 0.02);
+    put_i32_be(&mut bytes, 0x6c8, 121);
 
     let common =
         MeleeCommonData::from_plco_bytes(&bytes).expect("synthetic PlCo slice should extract");
 
     assert_eq!(common.tap_x_threshold, 47);
     assert_eq!(common.tap_y_threshold, 48);
+    assert_eq!(common.main_stick_deadzone_x, 36);
+    assert_eq!(common.main_stick_deadzone_y, 37);
+    assert_eq!(common.c_stick_deadzone_x, 36);
+    assert_eq!(common.c_stick_deadzone_y, 37);
     assert_eq!(common.trigger_deadzone, 31);
     assert_eq!(common.z_shield_analog, 79);
     assert_eq!(common.trigger_timer_threshold, 140);
@@ -843,11 +1268,13 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.walk_middle_x, 50);
     assert_eq!(common.walk_fast_x, 90);
     assert_eq!(common.turn_x, 30);
+    assert_eq!(common.turn_run_x, -44);
     assert_eq!(common.dash_x, 104);
     assert_eq!(common.dash_tap_window, 5);
     assert_eq!(common.dash_early_action_window, 6);
     assert_eq!(common.dash_defensive_action_window, 7);
     assert_eq!(common.dash_late_action_window, 16);
+    assert_eq!(common.dash_velocity_decay_milli, 730);
     assert_eq!(common.run_x, 84);
     assert_eq!(common.walk_middle_velocity_ratio_milli, 310);
     assert_eq!(common.walk_fast_velocity_ratio_milli, 520);
@@ -857,6 +1284,8 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.guard_on_catch_dash_window, 4);
     assert_eq!(common.high_speed_ground_friction_multiplier_milli, 1_750);
     assert_eq!(common.animation_velocity_scale_milli, 1_310);
+    assert_eq!(common.fall_animation_drift_threshold_milli, 180);
+    assert_eq!(common.fall_animation_blend_milli, 420);
     assert_eq!(common.tap_jump_y, 103);
     assert_eq!(common.tap_jump_window, 4);
     assert_eq!(common.air_jump_backward_x, 28);
@@ -877,7 +1306,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.escapeair_deadzone_x, 25);
     assert_eq!(common.escapeair_deadzone_y, 32);
     assert_eq!(common.escapeair_iasa_timer_ticks, 15);
-    assert_eq!(common.escapeair_animation_ticks, 20);
+    assert_eq!(common.escapeair_animation_ticks, 50);
     assert_eq!(common.escapeair_force, 812);
     assert_eq!(common.escapeair_decay_milli, 910);
     assert_eq!(common.escapeair_landing_lag_ticks, 10);
@@ -886,6 +1315,10 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.platform_pass_y_tap_window, 5);
     assert_eq!(common.pass_initial_y_velocity, -1_250);
     assert_eq!(common.platform_drop_delay_ticks, 6);
+    assert_eq!(common.entry_start_ticks, 31);
+    assert_eq!(common.entry_end_ticks, 32);
+    assert_eq!(common.entry_initial_scale_y_milli, 20);
+    assert_eq!(common.entry_collision_landing_lag_ticks, 121);
 }
 
 #[test]
@@ -907,10 +1340,10 @@ fn extracted_escapeair_decay_preserves_milli_precision_in_velocity_path() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &right_air_dodge);
+    step_world(&mut world, Frame(5), &right_air_dodge);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].velocity.x, 1_098);
@@ -943,7 +1376,7 @@ fn put_i32_be(bytes: &mut [u8], offset: usize, value: i32) {
 }
 
 fn synthetic_plco_common_data_bytes() -> Vec<u8> {
-    let mut bytes = vec![0_u8; 0x474];
+    let mut bytes = vec![0_u8; 0x6cc];
 
     put_f32_be(&mut bytes, 0x08, 0.37);
     put_f32_be(&mut bytes, 0x0c, 0.38);
@@ -956,6 +1389,7 @@ fn synthetic_plco_common_data_bytes() -> Vec<u8> {
     put_f32_be(&mut bytes, 0x2c, 0.52);
     put_f32_be(&mut bytes, 0x30, 0.74);
     put_f32_be(&mut bytes, 0x34, 0.24);
+    put_f32_be(&mut bytes, 0x38, -0.35);
     put_f32_be(&mut bytes, 0x3c, 0.82);
     put_i32_be(&mut bytes, 0x40, 5);
     put_f32_be(&mut bytes, 0x44, 6.0);
@@ -991,6 +1425,10 @@ fn synthetic_plco_common_data_bytes() -> Vec<u8> {
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
     put_f32_be(&mut bytes, 0x470, 6.0);
+    put_i32_be(&mut bytes, 0x6bc, 31);
+    put_i32_be(&mut bytes, 0x6c0, 32);
+    put_f32_be(&mut bytes, 0x6c4, 0.02);
+    put_i32_be(&mut bytes, 0x6c8, 121);
 
     bytes
 }
@@ -1173,6 +1611,7 @@ fn melee_input_snapshot_splits_analog_shield_hold_from_x18_trigger_timer() {
     let mut processor = MeleeInputProcessor::new(MeleeInputConfig {
         trigger_threshold: 1,
         trigger_timer_threshold: 140,
+        trigger_deadzone: 0,
         ..MeleeInputConfig::default()
     });
 
@@ -1209,7 +1648,7 @@ fn melee_input_snapshot_preserves_c_stick_dpad_and_split_triggers() {
     let snapshot = processor.update(GameCubePadStatus {
         c_stick_x: 255,
         c_stick_y: 0,
-        left_trigger: 12,
+        left_trigger: shield_analog(),
         right_trigger: 200,
         buttons: GameCubeButtonState::from_bits(
             (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 10),
@@ -1219,7 +1658,7 @@ fn melee_input_snapshot_preserves_c_stick_dpad_and_split_triggers() {
 
     assert_eq!(snapshot.cstick, (127, -128));
     assert_eq!(snapshot.prev_cstick, (0, 0));
-    assert_eq!(snapshot.left_trigger, 12);
+    assert_eq!(snapshot.left_trigger, shield_analog());
     assert_eq!(snapshot.right_trigger, 200);
     assert!(snapshot.held.dpad_left());
     assert!(snapshot.held.dpad_right());
@@ -1238,8 +1677,10 @@ fn melee_input_processor_applies_pad_cleanup_before_timers_and_edges() {
         tap_y_threshold: 36,
         trigger_threshold: 64,
         trigger_timer_threshold: 64,
-        main_stick_deadzone: 4,
-        c_stick_deadzone: 5,
+        main_stick_deadzone_x: 4,
+        main_stick_deadzone_y: 4,
+        c_stick_deadzone_x: 5,
+        c_stick_deadzone_y: 5,
         trigger_deadzone: 8,
     });
 
@@ -1283,109 +1724,47 @@ fn melee_input_processor_applies_pad_cleanup_before_timers_and_edges() {
 }
 
 #[test]
-fn ucf_0_84_constants_match_source_units() {
-    assert_eq!(UCF_VERSION, "0.84");
-    assert_eq!(UCF_CARDINAL_AXIS, 80);
-    assert_eq!(UCF_CARDINAL_SNAP_RANGE, 6);
-    assert_eq!(UCF_TILT_INTENT_DELTA, 75);
-    assert_eq!(UCF_SHIELD_DROP_DELTA, 44);
-    assert_eq!(UCF_SHIELD_DROP_MIN_Y, 78);
-}
-
-#[test]
-fn melee_input_processor_applies_ucf_cardinals_before_snapshot_output() {
-    let mut processor = MeleeInputProcessor::new(MeleeInputConfig::default());
+fn melee_input_processor_preserves_vanilla_diagonals_without_ucf_cardinal_snap() {
+    let mut processor = MeleeInputProcessor::new(MeleeInputConfig {
+        main_stick_deadzone_x: 0,
+        main_stick_deadzone_y: 0,
+        c_stick_deadzone_x: 0,
+        c_stick_deadzone_y: 0,
+        ..MeleeInputConfig::default()
+    });
 
     let snapshot = processor.update(GameCubePadStatus {
         stick_x: 208,
-        stick_y: 134,
-        c_stick_x: 134,
+        stick_y: 133,
+        c_stick_x: 133,
         c_stick_y: 208,
         ..GameCubePadStatus::neutral()
     });
 
-    assert_eq!(snapshot.lstick, (127, 0));
-    assert_eq!(snapshot.cstick, (0, 127));
+    assert_eq!(snapshot.lstick, (80, 5));
+    assert_eq!(snapshot.cstick, (5, 80));
 }
 
 #[test]
-fn melee_input_processor_leaves_non_ucf_cardinal_diagonals_unchanged() {
+fn melee_input_processor_deadzone_cleanup_does_not_apply_ucf_cardinal_snap() {
     let mut processor = MeleeInputProcessor::new(MeleeInputConfig::default());
 
     let snapshot = processor.update(GameCubePadStatus {
-        stick_x: 208,
-        stick_y: 135,
-        c_stick_x: 135,
-        c_stick_y: 208,
+        stick_x: 216,
+        stick_y: 150,
+        c_stick_x: 150,
+        c_stick_y: 216,
         ..GameCubePadStatus::neutral()
     });
-
-    assert_eq!(snapshot.lstick, (80, 7));
-    assert_eq!(snapshot.cstick, (7, 80));
-}
-
-#[test]
-fn melee_input_processor_exposes_ucf_tilt_intent_from_native_pad_buffer() {
-    let mut processor = MeleeInputProcessor::new(MeleeInputConfig::default());
-
-    processor.update(GameCubePadStatus::neutral());
-    let tilt_frame = processor.update(GameCubePadStatus {
-        stick_x: 168,
-        ..GameCubePadStatus::neutral()
-    });
-    let dash_frame = processor.update(GameCubePadStatus {
-        stick_x: 255,
-        ..GameCubePadStatus::neutral()
-    });
-
-    assert!(!tilt_frame.ucf_x_tilt_intent);
-    assert!(dash_frame.ucf_x_tilt_intent);
-    assert_eq!(
-        dash_frame
-            .facts(MeleeInputThresholds::default())
-            .ucf_dashback_direction,
-        1
-    );
-}
-
-#[test]
-fn melee_input_facts_fold_ucf_dashback_into_canonical_dash_direction() {
-    let snapshot = MeleeInputSnapshot {
-        ucf_x_tilt_intent: true,
-        ..snapshot_with_timers((127, 0), (0, 0), 0xfe, 0xfe)
-    };
     let facts = snapshot.facts(MeleeInputThresholds::default());
 
-    assert_eq!(facts.horizontal_smash_direction, 0);
-    assert_eq!(facts.dash_direction, 1);
-    assert_eq!(facts.ucf_dashback_direction, 1);
+    assert_eq!(snapshot.lstick, (88, 0));
+    assert_eq!(snapshot.cstick, (0, 88));
+    assert_eq!(facts.dash_direction, 0);
 }
 
 #[test]
-fn melee_input_processor_exposes_ucf_shield_drop_intent_from_native_pad_buffer() {
-    let mut processor = MeleeInputProcessor::new(MeleeInputConfig::default());
-
-    processor.update(GameCubePadStatus::neutral());
-    let shallow_down = processor.update(GameCubePadStatus {
-        stick_y: 104,
-        ..GameCubePadStatus::neutral()
-    });
-    let shield_drop_frame = processor.update(GameCubePadStatus {
-        stick_y: 48,
-        ..GameCubePadStatus::neutral()
-    });
-
-    assert!(!shallow_down.ucf_shield_drop_tilt_intent);
-    assert!(shield_drop_frame.ucf_shield_drop_tilt_intent);
-    assert!(
-        shield_drop_frame
-            .facts(MeleeInputThresholds::default())
-            .ucf_shield_drop
-    );
-}
-
-#[test]
-fn melee_input_processor_handles_full_opposite_stick_delta_without_overflow() {
+fn melee_input_processor_handles_full_opposite_stick_delta_without_overflow_or_ucf_flags() {
     let mut processor = MeleeInputProcessor::new(MeleeInputConfig::default());
 
     processor.update(GameCubePadStatus {
@@ -1400,26 +1779,8 @@ fn melee_input_processor_handles_full_opposite_stick_delta_without_overflow() {
         ..GameCubePadStatus::neutral()
     });
 
-    assert!(snapshot.ucf_x_tilt_intent);
-    assert!(snapshot.ucf_shield_drop_tilt_intent);
-}
-
-#[test]
-fn player_input_can_carry_ucf_facts_for_rollback_owned_input() {
-    let input = PlayerInput::neutral()
-        .with_left_stick(127, -80)
-        .with_ucf_x_tilt_intent(true)
-        .with_ucf_shield_drop_tilt_intent(true);
-
-    assert_eq!(PlayerInput::from_bits(input.bits()), input);
-
-    let snapshot = input.melee_snapshot(PlayerInput::neutral(), MeleeInputTimers::expired());
-    let facts = snapshot.facts(MeleeInputThresholds::default());
-
-    assert!(snapshot.ucf_x_tilt_intent);
-    assert!(snapshot.ucf_shield_drop_tilt_intent);
-    assert_eq!(facts.ucf_dashback_direction, 1);
-    assert!(facts.ucf_shield_drop);
+    assert_eq!(snapshot.lstick, (-128, -128));
+    assert_eq!(snapshot.prev_lstick, (0, 0));
 }
 
 #[test]
@@ -1632,11 +1993,12 @@ fn melee_input_facts_track_fast_fall_as_downward_tap_intent() {
 fn melee_input_facts_use_exclusive_dash_tap_window_like_common_data() {
     let thresholds = MeleeInputThresholds {
         dash_tap_window: 3,
+        tap_jump_window: 3,
         ..MeleeInputThresholds::default()
     };
 
-    let inside_window = snapshot_with_timers((90, 90), (0, 0), 2, 2).facts(thresholds);
-    let at_boundary = snapshot_with_timers((90, 90), (0, 0), 3, 3).facts(thresholds);
+    let inside_window = snapshot_with_timers((dash_stick_x(), 90), (0, 0), 2, 2).facts(thresholds);
+    let at_boundary = snapshot_with_timers((dash_stick_x(), 90), (0, 0), 3, 3).facts(thresholds);
 
     assert_eq!(inside_window.dash_direction, 1);
     assert!(inside_window.tap_jump);
@@ -1661,6 +2023,18 @@ fn melee_input_facts_use_exclusive_shield_escape_tap_windows() {
     assert_eq!(roll_at_boundary.roll_direction, 0);
     assert!(spot_inside.spot_dodge);
     assert!(!spot_at_boundary.spot_dodge);
+}
+
+#[test]
+fn shield_spotdodge_requires_fixed_byte_y_past_extracted_escape_boundary() {
+    let thresholds = MeleeCommonData::provisional_mole().input_thresholds();
+    let at_extracted_boundary =
+        snapshot_with_timers((0, thresholds.escape_y), (0, 0), 254, 1).facts(thresholds);
+    let past_extracted_boundary =
+        snapshot_with_timers((0, thresholds.escape_y - 1), (0, 0), 254, 1).facts(thresholds);
+
+    assert!(!at_extracted_boundary.main_stick_spot_dodge);
+    assert!(past_extracted_boundary.main_stick_spot_dodge);
 }
 
 #[test]
@@ -1704,7 +2078,7 @@ fn melee_input_facts_separate_tilts_from_facing_aware_smash_turns() {
     tilt_processor.update(GameCubePadStatus::neutral());
     let tilt = tilt_processor.update(GameCubePadStatus {
         stick_x: 168,
-        stick_y: 100,
+        stick_y: 90,
         ..GameCubePadStatus::neutral()
     });
     let tilt_facts = tilt.facts(thresholds);
@@ -2039,7 +2413,7 @@ fn melee_input_facts_map_z_to_a_plus_pseudo_shield_without_air_dodge() {
     assert!(z_facts.source_pressed.lr());
     assert!(!z_facts.source_pressed.l());
     assert!(!z_facts.source_pressed.r());
-    assert_eq!(z_facts.analog_shield, 49);
+    assert_eq!(z_facts.analog_shield, shield_analog());
     assert!(z_facts.grab_pressed);
     assert!(z_facts.attack_pressed);
     assert!(z_facts.neutral_attack_pressed);
@@ -2065,7 +2439,7 @@ fn melee_input_facts_map_z_after_digital_lr_shield_amount() {
     assert!(facts.source_held.l());
     assert!(facts.source_held.lr());
     assert!(facts.digital_shield_pressed);
-    assert_eq!(facts.analog_shield, 49);
+    assert_eq!(facts.analog_shield, shield_analog());
 }
 
 #[test]
@@ -2074,6 +2448,7 @@ fn melee_input_facts_expose_source_lr_edges_after_trigger_synthesis() {
     let mut processor = MeleeInputProcessor::new(MeleeInputConfig {
         trigger_threshold: 1,
         trigger_timer_threshold: 140,
+        trigger_deadzone: 0,
         ..MeleeInputConfig::default()
     });
 
@@ -2169,6 +2544,7 @@ fn melee_input_facts_preserve_cstick_dpad_and_trigger_clicks() {
         tap_x_threshold: 36,
         tap_y_threshold: 36,
         trigger_threshold: 64,
+        trigger_deadzone: 0,
         ..MeleeInputConfig::default()
     });
 
@@ -2297,6 +2673,24 @@ fn same_start_and_inputs_produce_same_checksum() {
 }
 
 #[test]
+fn airborne_wait_falls_through_explicit_fall_state_not_air_umbrella() {
+    let mut world = World::for_two_players();
+    let mut airborne = PlayerState::new(0, 20_000, 1);
+    airborne.grounded = false;
+    airborne.motion_state = MotionState::Wait;
+    airborne.velocity.y = -400;
+    assert!(world.set_player_state_for_diagnostic(0, airborne));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+}
+
+#[test]
 fn common_data_participates_in_checksum_for_rollback() {
     let base = World::for_two_players_with_common_data(MeleeCommonData::provisional_mole());
     let altered = World::for_two_players_with_common_data(MeleeCommonData {
@@ -2355,7 +2749,7 @@ fn world_snapshot_exposes_render_state_without_mutating_core() {
     assert_eq!(snapshot.checksum, world.checksum());
     assert_eq!(player.position, world.players()[0].position);
     assert_eq!(player.facing, world.players()[0].facing);
-    assert_eq!(player.motion_state, MotionState::WalkMiddle);
+    assert_eq!(player.motion_state, MotionState::WalkSlow);
     assert_eq!(player.state_frame, world.players()[0].motion_frame);
     assert_eq!(player.animation_frame, world.players()[0].attack_frame);
     assert_eq!(player.debug_input_facts.walk_direction, 1);
@@ -2374,7 +2768,7 @@ fn world_derives_melee_snapshot_from_rollback_owned_input_state() {
     let mut world = World::for_two_players();
     let neutral = PlayerInput::neutral();
     let input = PlayerInput::neutral()
-        .with_left_stick(90, 0)
+        .with_left_stick(dash_stick_x(), 0)
         .with_c_stick(0, 90)
         .with_attack(true)
         .with_right_trigger_analog(80)
@@ -2386,7 +2780,7 @@ fn world_derives_melee_snapshot_from_rollback_owned_input_state() {
         .expect("player one snapshot should exist");
     let facts = snapshot.facts(MeleeInputThresholds::default());
 
-    assert_eq!(snapshot.lstick, (90, 0));
+    assert_eq!(snapshot.lstick, (dash_stick_x(), 0));
     assert_eq!(snapshot.prev_lstick, (0, 0));
     assert_eq!(snapshot.cstick, (0, 90));
     assert_eq!(snapshot.prev_cstick, (0, 0));
@@ -2409,7 +2803,7 @@ fn world_derives_melee_snapshot_from_rollback_owned_input_state() {
         .expect("player one held snapshot should exist");
     let held_facts = held_snapshot.facts(MeleeInputThresholds::default());
 
-    assert_eq!(held_snapshot.prev_lstick, (90, 0));
+    assert_eq!(held_snapshot.prev_lstick, (dash_stick_x(), 0));
     assert_eq!(held_snapshot.x_tap_timer, 1);
     assert_eq!(held_snapshot.trigger_timer, 1);
     assert!(held_snapshot.held.a());
@@ -2461,6 +2855,7 @@ fn world_melee_snapshot_treats_light_analog_trigger_as_shield_not_air_dodge() {
 #[test]
 fn grounded_jump_waits_through_falcon_jumpsquat_before_takeoff() {
     let mut world = World::for_two_players();
+    let profile = FighterProfile::falcon_like();
     let start_y = world.players()[0].position.y;
     let jump = [
         PlayerInput::neutral().with_jump(true),
@@ -2472,17 +2867,24 @@ fn grounded_jump_waits_through_falcon_jumpsquat_before_takeoff() {
     assert!(world.players()[0].grounded);
     assert_eq!(world.players()[0].position.y, start_y);
     assert_eq!(world.players()[0].velocity.y, 0);
+    assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+    assert_eq!(world.players()[0].motion_frame, 0);
 
-    for frame in 1..3 {
+    for frame in 1..=3 {
         step_world(&mut world, Frame(frame), &jump);
         assert!(world.players()[0].grounded);
         assert_eq!(world.players()[0].position.y, start_y);
+        assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+        assert_eq!(world.players()[0].motion_frame, frame as u8);
     }
 
-    step_world(&mut world, Frame(3), &jump);
+    step_world(&mut world, Frame(4), &jump);
 
     assert!(!world.players()[0].grounded);
-    assert_eq!(world.players()[0].position.y, start_y);
+    assert_eq!(
+        world.players()[0].position.y,
+        start_y + profile.full_hop_jump_force_per_tick
+    );
     assert!(world.players()[0].velocity.y > 0);
 }
 
@@ -2503,7 +2905,7 @@ fn ground_jump_takeoff_enters_forward_or_backward_jump_state_from_stick() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..5 {
         step_world(&mut forward, Frame(frame), &forward_jump);
         step_world(&mut backward, Frame(frame), &backward_jump);
     }
@@ -2526,7 +2928,7 @@ fn releasing_jump_during_jumpsquat_selects_short_hop_velocity() {
 
     step_world(&mut full_hop, Frame(0), &jump);
     step_world(&mut short_hop, Frame(0), &jump);
-    for frame in 1..4 {
+    for frame in 1..=4 {
         step_world(&mut full_hop, Frame(frame), &jump);
         step_world(&mut short_hop, Frame(frame), &neutral);
     }
@@ -2538,7 +2940,7 @@ fn releasing_jump_during_jumpsquat_selects_short_hop_velocity() {
 }
 
 #[test]
-fn ground_jump_first_movement_tick_uses_falcon_jump_force_before_gravity() {
+fn ground_jump_first_post_takeoff_physics_tick_applies_falcon_gravity_before_translation() {
     let mut full_hop = World::for_two_players();
     let mut short_hop = World::for_two_players();
     let profile = FighterProfile::falcon_like();
@@ -2557,10 +2959,12 @@ fn ground_jump_first_movement_tick_uses_falcon_jump_force_before_gravity() {
     }
     step_world(&mut full_hop, Frame(4), &jump);
     step_world(&mut short_hop, Frame(4), &neutral);
+    step_world(&mut full_hop, Frame(5), &neutral);
+    step_world(&mut short_hop, Frame(5), &neutral);
 
     assert_eq!(
         full_hop.players()[0].position.y - start_y,
-        profile.full_hop_jump_force_per_tick
+        profile.full_hop_jump_force_per_tick * 2 - profile.gravity_per_tick
     );
     assert_eq!(
         full_hop.players()[0].velocity.y,
@@ -2568,7 +2972,7 @@ fn ground_jump_first_movement_tick_uses_falcon_jump_force_before_gravity() {
     );
     assert_eq!(
         short_hop.players()[0].position.y - start_y,
-        profile.short_hop_jump_force_per_tick
+        profile.short_hop_jump_force_per_tick * 2 - profile.gravity_per_tick
     );
     assert_eq!(
         short_hop.players()[0].velocity.y,
@@ -2577,7 +2981,7 @@ fn ground_jump_first_movement_tick_uses_falcon_jump_force_before_gravity() {
 }
 
 #[test]
-fn ground_jump_takeoff_state_change_keeps_bottom_vertex_on_floor_until_next_physics_tick() {
+fn ground_jump_takeoff_state_change_translates_by_jump_velocity_without_first_tick_gravity() {
     let mut world = World::for_two_players();
     let profile = FighterProfile::falcon_like();
     let start_y = world.players()[0].position.y;
@@ -2587,27 +2991,214 @@ fn ground_jump_takeoff_state_change_keeps_bottom_vertex_on_floor_until_next_phys
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
 
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert!(!world.players()[0].grounded);
-    assert_eq!(world.players()[0].position.y, start_y);
-    assert_eq!(
-        world.players()[0].velocity.y,
-        profile.full_hop_jump_force_per_tick
-    );
-
-    step_world(&mut world, Frame(4), &neutral);
-
     assert_eq!(
         world.players()[0].position.y - start_y,
         profile.full_hop_jump_force_per_tick
     );
     assert_eq!(
         world.players()[0].velocity.y,
+        profile.full_hop_jump_force_per_tick
+    );
+
+    step_world(&mut world, Frame(5), &neutral);
+
+    assert_eq!(
+        world.players()[0].position.y - start_y,
+        profile.full_hop_jump_force_per_tick * 2 - profile.gravity_per_tick
+    );
+    assert_eq!(
+        world.players()[0].velocity.y,
         profile.full_hop_jump_force_per_tick - profile.gravity_per_tick
+    );
+}
+
+#[test]
+fn grounded_jump_entry_runs_knee_bend_phys_on_the_same_frame() {
+    let mut world = World::for_two_players();
+    let common = world.common_data();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Wait;
+    player.ground_velocity_x = player.profile.run_speed_per_tick;
+    player.velocity.x = player.ground_velocity_x;
+    let start_x = player.position.x;
+    let start_velocity = player.ground_velocity_x;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let expected_velocity =
+        source_general_grounded_friction_velocity(start_velocity, player.profile, common);
+
+    step_world(&mut world, Frame(0), &jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_velocity,
+        "ftCo_Jump_CheckInput enters KneeBend before ftCo_KneeBend_Phys runs"
+    );
+    assert_eq!(
+        world.players()[0].position.x,
+        start_x + expected_velocity,
+        "ft_80084F3C contributes xE4 friction to same-frame ground movement"
+    );
+}
+
+#[test]
+fn ground_jump_takeoff_uses_previous_knee_bend_ground_velocity_without_takeoff_friction() {
+    let mut world = World::for_two_players();
+    let common = world.common_data();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Wait;
+    player.ground_velocity_x = player.profile.run_speed_per_tick;
+    player.velocity.x = player.ground_velocity_x;
+    let mut expected_ground_velocity = player.ground_velocity_x;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..=3 {
+        expected_ground_velocity = source_general_grounded_friction_velocity(
+            expected_ground_velocity,
+            world.players()[0].profile,
+            common,
+        );
+        step_world(&mut world, Frame(frame), &jump);
+        assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+    }
+
+    step_world(&mut world, Frame(4), &jump);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_ground_velocity * world.players()[0].profile.ground_to_air_jump_momentum_milli
+            / 1000,
+        "ftCo_Jump_Enter scales the carried self_vel from the prior grounded frame"
+    );
+}
+
+#[test]
+fn ground_jump_takeoff_carries_full_walk_speed_after_source_jumpsquat_friction() {
+    let mut world = World::for_two_players();
+    let common = world.common_data();
+    let soft_right = [
+        PlayerInput::neutral().with_left_stick(40, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_walk_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral_jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..=2 {
+        step_world(&mut world, Frame(frame), &soft_right);
+    }
+    for frame in 3..=40 {
+        step_world(&mut world, Frame(frame), &full_walk_right);
+    }
+
+    assert!(matches!(
+        world.players()[0].motion_state,
+        MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast
+    ));
+    let walk_velocity = world.players()[0].velocity.x;
+    assert!(close_to(
+        walk_velocity,
+        world.players()[0].profile.walk_speed_per_tick,
+        10
+    ));
+    let expected_ground_velocity = source_general_grounded_friction_velocity_after_ticks(
+        walk_velocity,
+        world.players()[0].profile.jumpsquat_frames,
+        world.players()[0].profile,
+        common,
+    );
+
+    for frame in 41..=45 {
+        step_world(&mut world, Frame(frame), &neutral_jump);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_ground_velocity * world.players()[0].profile.ground_to_air_jump_momentum_milli
+            / 1000,
+        "full-speed walk carry should feed ftCo_Jump_Enter after KneeBend Phys friction"
+    );
+}
+
+#[test]
+fn ground_jump_takeoff_carries_moonwalk_followthrough_slide_without_custom_state() {
+    let mut world = World::for_two_players();
+    let common = world.common_data();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let soft_left = [
+        PlayerInput::neutral().with_left_stick(-40, 0),
+        PlayerInput::neutral(),
+    ];
+    let mid_left = [
+        PlayerInput::neutral().with_left_stick(-60, 0),
+        PlayerInput::neutral(),
+    ];
+    let near_left = [
+        PlayerInput::neutral().with_left_stick(-70, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral_jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    step_world(&mut world, Frame(1), &soft_left);
+    step_world(&mut world, Frame(2), &mid_left);
+    step_world(&mut world, Frame(3), &near_left);
+    for frame in 4..=15 {
+        step_world(&mut world, Frame(frame), &full_left);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(world.players()[0].facing, 1);
+    let moonwalk_carry_velocity = world.players()[0].velocity.x;
+    assert_ne!(moonwalk_carry_velocity, 0);
+    let expected_ground_velocity = source_general_grounded_friction_velocity_after_ticks(
+        moonwalk_carry_velocity,
+        world.players()[0].profile.jumpsquat_frames,
+        world.players()[0].profile,
+        common,
+    );
+
+    for frame in 16..=20 {
+        step_world(&mut world, Frame(frame), &neutral_jump);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_ground_velocity * world.players()[0].profile.ground_to_air_jump_momentum_milli
+            / 1000,
+        "moonwalk carry should remain ordinary gr_vel/self_vel jump carry, not a custom Moonwalk state"
     );
 }
 
@@ -2686,17 +3277,17 @@ fn jump_takeoff_adds_horizontal_velocity_from_stick_and_ground_speed() {
         PlayerInput::neutral(),
     ];
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut standing_jump, Frame(frame), &forward_jump);
     }
 
     step_world(&mut dash_jump, Frame(0), &dash_right);
     let dash_velocity = dash_jump.players()[0].velocity.x;
-    for frame in 1..5 {
+    for frame in 1..=5 {
         step_world(&mut dash_jump, Frame(frame), &forward_jump);
     }
 
@@ -2708,10 +3299,42 @@ fn jump_takeoff_adds_horizontal_velocity_from_stick_and_ground_speed() {
 }
 
 #[test]
+fn jump_takeoff_carries_preserved_wait_slide_from_dash_end() {
+    let mut world = World::for_two_players();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let neutral_jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    for frame in 1..=15 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    let wait_slide_velocity = world.players()[0].velocity.x;
+    assert!(wait_slide_velocity > 0);
+
+    for frame in 16..=20 {
+        step_world(&mut world, Frame(frame), &neutral_jump);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert!(!world.players()[0].grounded);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.x < wait_slide_velocity);
+}
+
+#[test]
 fn air_drift_preserves_jump_horizontal_velocity_without_snapping_to_neutral() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let jump_right = [
@@ -2723,14 +3346,14 @@ fn air_drift_preserves_jump_horizontal_velocity_without_snapping_to_neutral() {
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
     step_world(&mut world, Frame(0), &dash_right);
-    for frame in 1..5 {
+    for frame in 1..=5 {
         step_world(&mut world, Frame(frame), &jump_right);
     }
 
     let takeoff_velocity = world.players()[0].velocity.x;
     assert!(takeoff_velocity > 0);
 
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert!(world.players()[0].velocity.x > 0);
@@ -2753,7 +3376,7 @@ fn ground_jump_horizontal_velocity_uses_profile_source_fields() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump_right);
     }
 
@@ -2783,14 +3406,14 @@ fn air_drift_uses_profile_source_accel_base_target_and_friction() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &drift_right);
+    step_world(&mut world, Frame(5), &drift_right);
 
     assert_eq!(world.players()[0].velocity.x, 60);
 
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].velocity.x, 50);
 }
@@ -2816,10 +3439,10 @@ fn air_drift_scales_native_full_stick_as_melee_one_point_zero() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &full_drift_right);
+    step_world(&mut world, Frame(5), &full_drift_right);
 
     assert_eq!(world.players()[0].velocity.x, 60);
 }
@@ -2828,7 +3451,7 @@ fn air_drift_scales_native_full_stick_as_melee_one_point_zero() {
 fn aerial_jump_horizontal_velocity_uses_profile_source_field() {
     let profile = FighterProfile {
         air_jump_horizontal_velocity_per_tick: 730,
-        max_jumps: 1,
+        max_jumps: 2,
         ..FighterProfile::falcon_like()
     };
     let mut world = World::for_two_players_with_profiles([profile; 2]);
@@ -2844,14 +3467,45 @@ fn aerial_jump_horizontal_velocity_uses_profile_source_field() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &neutral);
-    step_world(&mut world, Frame(5), &double_jump_right);
+    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &double_jump_right);
 
     assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
     assert_eq!(world.players()[0].velocity.x, 730);
+    assert_eq!(world.players()[0].jumps_remaining, 0);
+}
+
+#[test]
+fn aerial_jump_full_left_uses_melee_negative_full_stick_scale() {
+    let profile = FighterProfile {
+        air_jump_horizontal_velocity_per_tick: 730,
+        max_jumps: 2,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let double_jump_left = [
+        PlayerInput::neutral()
+            .with_jump(true)
+            .with_left_stick(-128, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..=4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &double_jump_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialB);
+    assert_eq!(world.players()[0].velocity.x, -730);
     assert_eq!(world.players()[0].jumps_remaining, 0);
 }
 
@@ -2934,18 +3588,19 @@ fn held_jump_does_not_spend_air_jump_on_next_tick() {
 
     assert!(world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
-    assert_eq!(world.players()[0].motion_frame, 2);
+    assert_eq!(world.players()[0].motion_frame, 1);
     assert_eq!(world.players()[0].jumps_remaining, 1);
 
     step_world(&mut world, Frame(2), &held_jump);
     step_world(&mut world, Frame(3), &held_jump);
+    step_world(&mut world, Frame(4), &held_jump);
     let takeoff_velocity = world.players()[0].velocity.y;
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert_eq!(world.players()[0].jumps_remaining, 1);
 
-    step_world(&mut world, Frame(4), &held_jump);
+    step_world(&mut world, Frame(5), &held_jump);
 
     assert_eq!(world.players()[0].jumps_remaining, 1);
     assert!(world.players()[0].velocity.y < takeoff_velocity);
@@ -2972,12 +3627,13 @@ fn fresh_jump_repress_spends_air_jump() {
     assert!(world.players()[0].motion_frame > knee_bend_frame);
 
     step_world(&mut world, Frame(3), &jump);
+    step_world(&mut world, Frame(4), &jump);
 
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert_eq!(world.players()[0].jumps_remaining, 1);
 
-    step_world(&mut world, Frame(4), &neutral);
-    step_world(&mut world, Frame(5), &jump);
+    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &jump);
 
     assert_eq!(world.players()[0].jumps_remaining, 0);
     assert!(world.players()[0].velocity.y > 0);
@@ -3010,6 +3666,7 @@ fn shield_held_enters_guard_and_jump_uses_jumpsquat() {
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
     step_world(&mut world, Frame(4), &shield_jump);
+    step_world(&mut world, Frame(5), &shield_jump);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
@@ -3039,7 +3696,7 @@ fn shield_jump_height_is_selected_by_normal_jumpsquat_release_timing() {
     assert_eq!(full_hop.players()[0].motion_state, MotionState::KneeBend);
     assert_eq!(short_hop.players()[0].motion_state, MotionState::KneeBend);
 
-    for frame in 2..=4 {
+    for frame in 2..=5 {
         step_world(&mut full_hop, Frame(frame), &shield_jump);
         step_world(&mut short_hop, Frame(frame), &shield);
     }
@@ -3081,7 +3738,7 @@ fn steady_guard_jump_height_uses_normal_jumpsquat_release_timing() {
     assert_eq!(full_hop.players()[0].motion_state, MotionState::KneeBend);
     assert_eq!(short_hop.players()[0].motion_state, MotionState::KneeBend);
 
-    for frame in 7..=9 {
+    for frame in 7..=10 {
         step_world(&mut full_hop, Frame(frame), &shield_jump);
         step_world(&mut short_hop, Frame(frame), &shield);
     }
@@ -3112,7 +3769,7 @@ fn shield_tap_jump_stores_lstick_source_and_release_short_hops() {
     assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
     assert_eq!(world.players()[0].jump_input, MeleeJumpInput::LStick);
 
-    for frame in 2..=4 {
+    for frame in 2..=5 {
         step_world(&mut world, Frame(frame), &shield);
     }
 
@@ -3140,7 +3797,7 @@ fn shield_cstick_jump_stores_cstick_source_and_release_short_hops() {
     assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
     assert_eq!(world.players()[0].jump_input, MeleeJumpInput::CStick);
 
-    for frame in 2..=4 {
+    for frame in 2..=5 {
         step_world(&mut world, Frame(frame), &shield);
     }
 
@@ -3149,7 +3806,7 @@ fn shield_cstick_jump_stores_cstick_source_and_release_short_hops() {
 }
 
 #[test]
-fn held_cstick_jump_does_not_spend_air_jump_without_normal_jump_input() {
+fn takeoff_frame_cstick_aerial_does_not_spend_air_jump_without_normal_jump_input() {
     let mut world = World::for_two_players();
     let jump = [
         PlayerInput::neutral().with_jump(true),
@@ -3164,17 +3821,17 @@ fn held_cstick_jump_does_not_spend_air_jump_without_normal_jump_input() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..=2 {
+    for frame in 0..=3 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(3), &jump_takeoff_with_cstick_up);
+    step_world(&mut world, Frame(4), &jump_takeoff_with_cstick_up);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(world.players()[0].motion_state, MotionState::AttackAirHi);
     assert_eq!(world.players()[0].jumps_remaining, 1);
 
-    step_world(&mut world, Frame(4), &held_cstick_up);
+    step_world(&mut world, Frame(5), &held_cstick_up);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(world.players()[0].motion_state, MotionState::AttackAirHi);
     assert_eq!(world.players()[0].jumps_remaining, 1);
 }
 
@@ -3232,13 +3889,13 @@ fn shield_horizontal_tap_enters_facing_aware_roll() {
     let shield_right = [
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield_left = [
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -3298,7 +3955,7 @@ fn shield_turn_updates_facing_for_next_roll_direction() {
     let shield_right_roll = [
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -3344,6 +4001,7 @@ fn shield_turn_can_be_interrupted_by_normal_jump_squat() {
     step_world(&mut world, Frame(4), &shield_jump);
     step_world(&mut world, Frame(5), &shield_jump);
     step_world(&mut world, Frame(6), &shield_jump);
+    step_world(&mut world, Frame(7), &shield_jump);
 
     assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
     assert!(world.players()[0].velocity.y > 0);
@@ -3515,7 +4173,7 @@ fn guard_off_does_not_roll_or_dash_from_horizontal_tap() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
     let horizontal_tap = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -3530,7 +4188,7 @@ fn guard_off_does_not_roll_or_dash_from_horizontal_tap() {
 }
 
 #[test]
-fn digital_trigger_on_takeoff_tick_does_not_airdodge_during_jumpsquat() {
+fn digital_trigger_on_anim_takeoff_frame_can_airdodge_after_jump_state_entry() {
     let mut world = World::for_two_players();
     let jump = [
         PlayerInput::neutral().with_jump(true),
@@ -3547,10 +4205,13 @@ fn digital_trigger_on_takeoff_tick_does_not_airdodge_during_jumpsquat() {
     step_world(&mut world, Frame(0), &jump);
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
-    step_world(&mut world, Frame(3), &jump_with_digital_trigger);
+    step_world(&mut world, Frame(3), &jump);
+    step_world(&mut world, Frame(4), &jump_with_digital_trigger);
 
     assert!(!world.players()[0].grounded);
-    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.y > 0);
 }
 
 #[test]
@@ -3571,7 +4232,8 @@ fn fresh_digital_trigger_first_airborne_frame_enters_escape_air() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &air_dodge);
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &air_dodge);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
@@ -3600,7 +4262,8 @@ fn escape_air_stick_inside_deadzone_has_no_self_velocity() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &air_dodge);
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &air_dodge);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].velocity.x, 0);
@@ -3628,12 +4291,12 @@ fn escape_air_uses_fixed_force_along_stick_angle() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut right, Frame(frame), &jump);
         step_world(&mut diagonal, Frame(frame), &jump);
     }
-    step_world(&mut right, Frame(4), &right_air_dodge);
-    step_world(&mut diagonal, Frame(4), &diagonal_air_dodge);
+    step_world(&mut right, Frame(5), &right_air_dodge);
+    step_world(&mut diagonal, Frame(5), &diagonal_air_dodge);
 
     let common = MeleeCommonData::provisional_mole();
     let force = common.escapeair_force * common.escapeair_decay_milli / 1000;
@@ -3663,10 +4326,10 @@ fn escape_air_self_velocity_decays_on_entry_frame() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &right_air_dodge);
+    step_world(&mut world, Frame(5), &right_air_dodge);
 
     let common = MeleeCommonData::provisional_mole();
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
@@ -3699,17 +4362,17 @@ fn world_common_data_drives_escape_air_force_timer_and_decay() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &right_air_dodge);
+    step_world(&mut world, Frame(5), &right_air_dodge);
 
     assert_eq!(world.common_data(), common);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].escape_air_iasa_timer, 7);
     assert_eq!(world.players()[0].velocity.x, 600);
 
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].velocity.x, 300);
@@ -3734,7 +4397,7 @@ fn world_common_data_drives_tap_timer_thresholds_for_dash() {
         ],
     );
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
 }
 
 #[test]
@@ -3754,13 +4417,14 @@ fn neutral_escape_air_does_not_apply_falling_gravity_during_action_phase() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &neutral_air_dodge);
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &neutral_air_dodge);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].velocity.y, 0);
 
     let height = world.players()[0].position.y;
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].velocity.y, 0);
@@ -3786,12 +4450,13 @@ fn escape_air_self_velocity_decays_during_action_phase() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &right_air_dodge);
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &right_air_dodge);
 
     let first_escape_velocity = world.players()[0].velocity.x;
     assert!(first_escape_velocity > 0);
 
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert!(world.players()[0].velocity.x > 0);
@@ -3840,7 +4505,7 @@ fn escape_air_animation_end_enters_fall_special_while_airborne() {
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
     assert_eq!(world.players()[0].escape_air_iasa_timer, 0);
 
-    let escape_air_end = 8 + common.escapeair_animation_ticks as u32;
+    let escape_air_end = 8 + falcon_escape_air_action_frames();
     for frame in (iasa_timer_end + 1)..=escape_air_end {
         step_world(&mut world, Frame(frame), &neutral);
     }
@@ -3886,7 +4551,6 @@ fn escape_air_iasa_timer_expiring_does_not_end_motion_state() {
 #[test]
 fn escape_air_animation_end_enters_fall_special_after_iasa_timer() {
     let mut world = World::for_two_players();
-    let common = MeleeCommonData::provisional_mole();
     let jump = [
         PlayerInput::neutral().with_jump(true),
         PlayerInput::neutral(),
@@ -3908,12 +4572,56 @@ fn escape_air_animation_end_enters_fall_special_after_iasa_timer() {
     }
     step_world(&mut world, Frame(8), &up_air_dodge);
 
-    let escape_air_end = 8 + common.escapeair_animation_ticks as u32;
+    let escape_air_end = 8 + falcon_escape_air_action_frames();
     for frame in 9..=escape_air_end {
         step_world(&mut world, Frame(frame), &neutral);
     }
 
     assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::FallSpecial);
+}
+
+#[test]
+fn escape_air_uses_action_table_duration_not_common_data_placeholder() {
+    let common = MeleeCommonData {
+        escapeair_animation_ticks: 3,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let up_air_dodge = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(80, 127),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jump);
+    step_world(&mut world, Frame(1), &jump);
+    step_world(&mut world, Frame(2), &jump);
+    step_world(&mut world, Frame(3), &jump);
+    for frame in 4..8 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(8), &up_air_dodge);
+
+    for frame in 9..=(8 + common.escapeair_animation_ticks as u32) {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+
+    // PlCaAJ action 44 (PlyCaptain5K_Share_ACTION_EscapeAir_figatree) is 50 frames.
+    for frame in
+        (9 + common.escapeair_animation_ticks as u32)..=(8 + falcon_escape_air_action_frames())
+    {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
     assert_eq!(world.players()[0].motion_state, MotionState::FallSpecial);
 }
 
@@ -3940,7 +4648,7 @@ fn fall_special_landing_enters_landing_fall_special() {
         step_world(&mut world, Frame(frame), &neutral);
     }
     step_world(&mut world, Frame(8), &up_air_dodge);
-    let escape_air_end = 8 + MeleeCommonData::provisional_mole().escapeair_animation_ticks as u32;
+    let escape_air_end = 8 + falcon_escape_air_action_frames();
     for frame in 9..=escape_air_end {
         step_world(&mut world, Frame(frame), &neutral);
     }
@@ -3980,6 +4688,85 @@ fn ordinary_airborne_landing_enters_landing_not_wait() {
 }
 
 #[test]
+fn aerial_attack_contact_enters_directional_landing_air_state() {
+    for (attack_state, landing_state) in [
+        (MotionState::AttackAirN, MotionState::LandingAirN),
+        (MotionState::AttackAirF, MotionState::LandingAirF),
+        (MotionState::AttackAirB, MotionState::LandingAirB),
+        (MotionState::AttackAirHi, MotionState::LandingAirHi),
+        (MotionState::AttackAirLw, MotionState::LandingAirLw),
+    ] {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.motion_state = attack_state;
+        player.motion_frame = 3;
+        player.position = Vec2 { x: 0, y: 1_000 };
+        player.velocity = Vec2 { x: 0, y: -6_000 };
+        player.grounded = false;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        for frame in 0..20 {
+            step_world(
+                &mut world,
+                Frame(frame),
+                &[PlayerInput::neutral(), PlayerInput::neutral()],
+            );
+            if world.players()[0].grounded {
+                break;
+            }
+        }
+
+        assert_eq!(world.players()[0].motion_state, landing_state);
+        assert_eq!(world.players()[0].motion_frame, 0);
+        assert!(world.players()[0].grounded);
+    }
+}
+
+#[test]
+fn aerial_landing_uses_directional_landing_air_lag() {
+    let profile = FighterProfile {
+        normal_landing_lag_ticks: 1,
+        landing_air_f_lag_ticks: 4,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::AttackAirF;
+    player.motion_frame = 3;
+    player.position = Vec2 { x: 0, y: 1_000 };
+    player.velocity = Vec2 { x: 0, y: -6_000 };
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let walk = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral(),
+    ];
+    let mut frame = 0;
+    while !world.players()[0].grounded && frame < 20 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::LandingAirF);
+    assert_eq!(world.players()[0].motion_frame, 0);
+
+    step_world(&mut world, Frame(frame), &walk);
+    frame += 1;
+
+    assert_eq!(world.players()[0].motion_state, MotionState::LandingAirF);
+    assert_eq!(world.players()[0].motion_frame, 1);
+
+    for _ in 0..3 {
+        step_world(&mut world, Frame(frame), &walk);
+        frame += 1;
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
+}
+
+#[test]
 fn ordinary_airborne_contact_can_land_on_soft_platform() {
     let mut world = World::for_two_players();
     let stage = world.stage();
@@ -3990,11 +4777,11 @@ fn ordinary_airborne_contact_can_land_on_soft_platform() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
 
-    let mut frame = 4;
+    let mut frame = 5;
     while !world.players()[0].grounded && frame < 120 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4009,6 +4796,74 @@ fn ordinary_airborne_contact_can_land_on_soft_platform() {
 }
 
 #[test]
+fn ordinary_fall_holding_x25c_or_lower_skips_soft_platform() {
+    let mut world = World::for_two_players();
+    let stage = world.stage();
+    let platform = stage.soft_platforms[2];
+    let common = world.common_data();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 4;
+    player.position = Vec2 {
+        x: (platform.left_x + platform.right_x) / 2,
+        y: platform.y + melee_units(1.0),
+    };
+    player.velocity = Vec2 {
+        x: melee_units_f32(1.03),
+        y: -player.profile.fast_fall_speed_per_tick,
+    };
+    player.fast_falling = true;
+    player.grounded = false;
+    player.ecb_bottom_offset_y = 0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(156),
+        &[
+            PlayerInput::neutral().with_left_stick(0, common.fallspecial_platform_landing_y),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+    assert!(world.players()[0].position.y < platform.y);
+}
+
+#[test]
+fn fall_entry_from_ground_clamps_horizontal_velocity_to_air_drift_max() {
+    let mut world = World::for_two_players();
+    let main_floor = world.stage().main_floor;
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Wait;
+    player.motion_frame = 0;
+    player.position = Vec2 {
+        x: main_floor.right_x - melee_units_f32(0.25),
+        y: main_floor.y,
+    };
+    player.velocity = Vec2 {
+        x: player.profile.run_speed_per_tick,
+        y: 0,
+    };
+    player.ground_velocity_x = player.profile.run_speed_per_tick;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(168),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        world.players()[0].profile.air_drift_max_velocity_per_tick
+    );
+}
+
+#[test]
 fn soft_platform_landing_keeps_platform_height_while_grounded() {
     let mut world = World::for_two_players();
     let stage = world.stage();
@@ -4019,11 +4874,11 @@ fn soft_platform_landing_keeps_platform_height_while_grounded() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
 
-    let mut frame = 4;
+    let mut frame = 5;
     while !world.players()[0].grounded && frame < 120 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4119,6 +4974,10 @@ fn world_common_data_drives_platform_pass_gate_and_velocity() {
         player.velocity.y,
         common.pass_initial_y_velocity - player.profile.gravity_per_tick
     );
+    assert_eq!(
+        player.position.y,
+        platform.y + common.pass_initial_y_velocity - player.profile.gravity_per_tick
+    );
 }
 
 #[test]
@@ -4132,7 +4991,7 @@ fn shield_hard_down_on_soft_platform_spotdodges_before_pass() {
     let hard_shield_down = [
         PlayerInput::neutral()
             .with_left_trigger_digital(true)
-            .with_left_stick(0, -MeleeCommonData::provisional_mole().escape_y),
+            .with_left_stick(0, spot_dodge_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -4184,18 +5043,75 @@ fn pass_from_shield_requires_soft_platform_support() {
 }
 
 #[test]
-fn ucf_shield_drop_fact_enters_pass_without_custom_state() {
+fn down_tap_from_squat_arms_platform_pass_without_shield() {
+    let mut world = World::for_two_players();
+    let (stage, mut frame) = land_player_one_on_left_platform(&mut world);
+    let platform = stage.soft_platforms[0];
+    let common = MeleeCommonData::provisional_mole();
+    let pass_down_y = -((common.platform_pass_y.max(common.crouch_y) as i16) + 1) as i8;
+    let pass_down = [
+        PlayerInput::neutral().with_left_stick(0, pass_down_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &pass_down);
+    frame += 1;
+    assert_eq!(world.players()[0].motion_state, MotionState::Squat);
+    assert!(!world.players()[0].platform_pass_pending);
+
+    step_world(&mut world, Frame(frame), &pass_down);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Squat);
+    assert!(player.grounded);
+    assert_eq!(player.position.y, platform.y);
+    assert!(player.platform_pass_pending);
+    assert_eq!(player.platform_pass_timer, common.platform_drop_delay_ticks);
+}
+
+#[test]
+fn squat_platform_pass_delay_enters_shared_pass_state_without_shield() {
+    let mut world = World::for_two_players();
+    let (_stage, mut frame) = land_player_one_on_left_platform(&mut world);
+    let common = MeleeCommonData::provisional_mole();
+    let pass_down_y = -((common.platform_pass_y.max(common.crouch_y) as i16) + 1) as i8;
+    let pass_down = [
+        PlayerInput::neutral().with_left_stick(0, pass_down_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(frame), &pass_down);
+    frame += 1;
+    assert_eq!(world.players()[0].motion_state, MotionState::Squat);
+
+    step_world(&mut world, Frame(frame), &pass_down);
+    frame += 1;
+    assert!(world.players()[0].platform_pass_pending);
+
+    for _ in 0..common.platform_drop_delay_ticks {
+        step_world(&mut world, Frame(frame), &pass_down);
+        frame += 1;
+    }
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Pass);
+    assert!(!player.grounded);
+    assert!(!player.platform_pass_pending);
+    assert_eq!(player.platform_pass_timer, 0);
+    assert_ne!(format!("{:?}", player.motion_state), "ShieldDrop");
+    assert_ne!(format!("{:?}", player.motion_state), "AxeDrop");
+}
+
+#[test]
+fn vanilla_platform_pass_entry_uses_pass_without_custom_drop_state() {
     let mut first = World::for_two_players();
     let mut second = World::for_two_players();
-    let (stage, frame) = land_player_one_on_left_platform(&mut first);
-    let (second_stage, second_frame) = land_player_one_on_left_platform(&mut second);
-    assert_eq!(stage, second_stage);
-    assert_eq!(frame, second_frame);
 
-    let checksums = run_ucf_assisted_pass_entry(&mut first, frame);
-    let second_checksums = run_ucf_assisted_pass_entry(&mut second, second_frame);
+    let pass_frame = enter_pass_from_left_platform(&mut first);
+    let second_pass_frame = enter_pass_from_left_platform(&mut second);
 
-    assert_eq!(checksums, second_checksums);
+    assert_eq!(pass_frame, second_pass_frame);
+    assert_eq!(first.checksum(), second.checksum());
     assert_eq!(first.players()[0].motion_state, MotionState::Pass);
     assert_eq!(format!("{:?}", first.players()[0].motion_state), "Pass");
     assert_ne!(
@@ -4203,11 +5119,6 @@ fn ucf_shield_drop_fact_enters_pass_without_custom_state() {
         "ShieldDrop"
     );
     assert_ne!(format!("{:?}", first.players()[0].motion_state), "AxeDrop");
-    assert!(
-        first.snapshot().players[0]
-            .debug_input_facts
-            .ucf_shield_drop
-    );
 }
 
 #[test]
@@ -4227,7 +5138,10 @@ fn pass_state_accepts_airborne_action_inputs_in_source_order() {
             PlayerInput::neutral(),
         ],
     );
-    assert_eq!(special.players()[0].motion_state, MotionState::SpecialAirS);
+    assert_eq!(
+        special.players()[0].motion_state,
+        MotionState::SpecialAirSStart
+    );
 
     let mut air_dodge = World::for_two_players();
     let air_dodge_frame = enter_pass_from_left_platform(&mut air_dodge);
@@ -4288,6 +5202,29 @@ fn pass_state_applies_normal_air_drift_without_action() {
 }
 
 #[test]
+fn pass_animation_completion_enters_fall() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Pass;
+    player.motion_frame = falcon_pass_action_frames() - 1;
+    player.position = Vec2 {
+        x: 0,
+        y: melee_units_f32(80.0),
+    };
+    player.grounded = false;
+    player.velocity = Vec2 { x: 0, y: 0 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+}
+
+#[test]
 fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
     let stage = StageProfile {
         name: "stacked_soft_platforms",
@@ -4322,6 +5259,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
             },
         ],
         blast_zones: World::for_two_players().stage().blast_zones,
+        spawn_points: World::for_two_players().stage().spawn_points,
     };
 
     let contact = landing_contact_for_bottom_with_floor_skip(
@@ -4357,7 +5295,475 @@ fn pass_entry_records_and_clears_source_floor_skip() {
 }
 
 #[test]
-fn held_shield_does_not_skip_ordinary_landing_lag() {
+fn escape_air_from_pass_reloads_source_jobj_ecb_bottom_probe() {
+    let mut world = World::for_two_players();
+    let frame = enter_pass_from_left_platform(&mut world);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Pass);
+    assert_eq!(world.players()[0].ecb_bottom_offset_y, 0);
+
+    step_world(
+        &mut world,
+        Frame(frame),
+        &[
+            PlayerInput::neutral()
+                .with_right_trigger_digital(true)
+                .with_left_stick(84, -76),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::EscapeAir);
+    assert_eq!(player.ecb_bottom_offset_y, 2_790);
+}
+
+#[test]
+fn aerial_jump_from_pass_reloads_source_jobj_ecb_bottom_probe() {
+    let mut world = World::for_two_players();
+    let frame = enter_pass_from_left_platform(&mut world);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Pass);
+    assert_eq!(world.players()[0].ecb_bottom_offset_y, 0);
+
+    step_world(
+        &mut world,
+        Frame(frame),
+        &[
+            PlayerInput::neutral()
+                .with_jump(true)
+                .with_left_stick(80, 20),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::JumpAerialF);
+    assert_eq!(player.ecb_bottom_offset_y, 2_790);
+}
+
+#[test]
+fn slippi_escape_air_jobj_probe_lands_on_top_platform_on_oracle_frame_131() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let top_platform = world.stage().soft_platforms[2];
+    let mut player = world.players()[1];
+    player.motion_state = MotionState::EscapeAir;
+    player.motion_frame = 3;
+    player.position = Vec2 {
+        x: melee_units_f32(9.317),
+        y: 53_124,
+    };
+    player.velocity = Vec2 { x: 0, y: -1_684 };
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world(
+        &mut world,
+        Frame(131),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(
+        world.players()[1].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_eq!(world.players()[1].position.y, top_platform.y);
+    assert_eq!(world.players()[1].velocity.y, 0);
+    assert!(world.players()[1].grounded);
+}
+
+#[test]
+fn escape_air_landing_uses_animated_jobj_bottom_probe_between_frames() {
+    let mut world = World::for_two_players();
+    let right_platform = world.stage().soft_platforms[1];
+    let mut player = world.players()[1];
+    player.motion_state = MotionState::EscapeAir;
+    player.motion_frame = 4;
+    player.position = Vec2 {
+        x: melee_units_f32(24.868_61),
+        y: melee_units_f32(25.507_715),
+    };
+    player.velocity = Vec2 {
+        x: melee_units_f32(-1.824_294),
+        y: melee_units_f32(-0.899_3),
+    };
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world(
+        &mut world,
+        Frame(213),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(
+        world.players()[1].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_eq!(world.players()[1].position.y, right_platform.y);
+    assert!(world.players()[1].grounded);
+}
+
+#[test]
+fn render_snapshot_exposes_active_gameplay_ecb_from_sampled_action_pose() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::EscapeAir;
+    player.motion_frame = 2;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    player.ecb_bottom_offset_y = 2_790;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 3_568 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 14_449
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 4_360, y: 9_008 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -2_360,
+            y: 9_008
+        }
+    );
+    assert_ne!(ecb.bottom.y, player.position.y + player.ecb_bottom_offset_y);
+}
+
+#[test]
+fn render_snapshot_exposes_generated_dash_ecb_from_action_pose_table() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Dash;
+    player.motion_frame = 2;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 4_726 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 14_759
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 3_570, y: 9_742 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -1_570,
+            y: 9_742
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_exposes_generated_fall_aerial_ecb_from_action_pose_table() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::FallAerial;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 4_815 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 13_574
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 3_655, y: 9_195 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -1_655,
+            y: 9_195
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_uses_fall_directional_submotion_ecb_without_changing_state() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    player.velocity.x = player.profile.air_drift_max_velocity_per_tick;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let player_snapshot = snapshot.players[0];
+    let ecb = player_snapshot.active_ecb;
+
+    assert_eq!(player_snapshot.motion_state, MotionState::Fall);
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 3_385 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 12_695
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 4_208, y: 8_040 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -2_208,
+            y: 8_040
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_uses_fall_aerial_directional_submotion_ecb_without_changing_state() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::FallAerial;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    player.velocity.x = -player.profile.air_drift_max_velocity_per_tick;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let player_snapshot = snapshot.players[0];
+    let ecb = player_snapshot.active_ecb;
+
+    assert_eq!(player_snapshot.motion_state, MotionState::FallAerial);
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 4_939 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 16_803
+        }
+    );
+    assert_eq!(
+        ecb.right,
+        Vec2 {
+            x: 3_253,
+            y: 10_871
+        }
+    );
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -1_253,
+            y: 10_871
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_uses_fall_special_directional_submotion_ecb_without_changing_state() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::FallSpecial;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    player.velocity.x = player.profile.air_drift_max_velocity_per_tick;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let player_snapshot = snapshot.players[0];
+    let ecb = player_snapshot.active_ecb;
+
+    assert_eq!(player_snapshot.motion_state, MotionState::FallSpecial);
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 2_803 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 15_271
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 7_490, y: 9_037 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -5_474,
+            y: 9_037
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_exposes_generated_fall_special_forward_ecb_from_action_pose_table() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::FallSpecialF;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 2_803 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 15_271
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 7_490, y: 9_037 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -5_474,
+            y: 9_037
+        }
+    );
+}
+
+#[test]
+fn render_snapshot_exposes_generated_landing_fall_special_ecb_from_exact_submotion() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::LandingFallSpecial;
+    player.motion_frame = 0;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 2_000 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 11_637
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 5_423, y: 6_818 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -3_423,
+            y: 6_818
+        }
+    );
+}
+
+#[test]
+fn landing_fall_special_render_pose_uses_source_scaled_landing_animation_rate() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::LandingFallSpecial;
+    player.motion_frame = 5;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    // ftCo_LandingFallSpecial_Enter sets anim_speed to
+    // (0.1 + Landing figatree frames) / x344. Falcon's LandingFallSpecial
+    // uses the 30-frame Landing figatree, so lag tick 5 samples action frame 15.
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 2_159 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 10_359
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 4_103, y: 6_259 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -2_103,
+            y: 6_259
+        }
+    );
+}
+
+#[test]
+fn ground_jump_escape_air_preserves_locked_bottom_probe_for_same_frame_floor_landing() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::JumpF;
+    player.motion_frame = 0;
+    player.position = Vec2 {
+        x: melee_units_f32(33.349),
+        y: melee_units_f32(1.900_1),
+    };
+    player.velocity = Vec2 {
+        x: melee_units_f32(-2.006),
+        y: melee_units_f32(1.9),
+    };
+    player.ecb_bottom_offset_y = 0;
+    player.ecb_bottom_lock_timer = 8;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(178),
+        &[
+            PlayerInput::neutral()
+                .with_left_stick(-90, -87)
+                .with_left_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
+    assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
+    assert_eq!(world.players()[0].velocity.y, 0);
+    assert!(world.players()[0].grounded);
+}
+
+#[test]
+fn pass_landing_uses_source_bottom_floor_probe_after_skipping_platform() {
+    let mut world = World::for_two_players();
+    let frame = enter_pass_from_left_platform(&mut world);
+
+    let mut player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Pass);
+    assert_eq!(player.ecb_bottom_offset_y, 0);
+    player.position.x = melee_units_f32(-19.669_746);
+    player.position.y = melee_units_f32(1.520_097);
+    player.velocity.x = melee_units_f32(0.75);
+    player.velocity.y = melee_units_f32(-2.58);
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(frame + 1),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
+}
+
+#[test]
+fn held_shield_does_not_interrupt_ordinary_landing_even_after_lag_gate() {
     let mut world = World::for_two_players();
     let shield = [
         PlayerInput::neutral().with_left_trigger_analog(80),
@@ -4373,7 +5779,7 @@ fn held_shield_does_not_skip_ordinary_landing_lag() {
 
     assert_eq!(world.players()[0].motion_state, MotionState::Landing);
 
-    for expected_motion_frame in 1..4 {
+    for expected_motion_frame in 1..=4 {
         step_world(&mut world, Frame(frame), &shield);
         frame += 1;
         assert_eq!(world.players()[0].motion_state, MotionState::Landing);
@@ -4381,26 +5787,34 @@ fn held_shield_does_not_skip_ordinary_landing_lag() {
     }
 
     step_world(&mut world, Frame(frame), &shield);
-    frame += 1;
-
-    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
-
-    step_world(&mut world, Frame(frame), &shield);
-
-    assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
 }
 
 #[test]
-fn ordinary_landing_duration_uses_player_profile_normal_landing_lag() {
+fn ordinary_landing_lag_gates_iasa_without_ending_landing_state() {
     let profile = FighterProfile {
         normal_landing_lag_ticks: 2,
         ..FighterProfile::falcon_like()
     };
     let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let platform = world.stage().soft_platforms[0];
+    let mut player = world.players()[0];
+    player.position = Vec2 {
+        x: (platform.left_x + platform.right_x) / 2,
+        y: platform.y + 2_000,
+    };
+    player.velocity = Vec2 { x: 0, y: -1_000 };
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 0;
+    player.grounded = false;
+    world.set_player_state_for_diagnostic(0, player);
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let walk = [
+        PlayerInput::neutral().with_left_stick(64, 0),
+        PlayerInput::neutral(),
+    ];
 
-    advance_to_air(&mut world);
-    let mut frame = 4;
+    let mut frame = 0;
     while !world.players()[0].grounded && frame < 120 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4417,9 +5831,20 @@ fn ordinary_landing_duration_uses_player_profile_normal_landing_lag() {
     assert_eq!(world.players()[0].motion_frame, 1);
 
     step_world(&mut world, Frame(frame), &neutral);
+    frame += 1;
 
-    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
-    assert_eq!(world.players()[0].motion_frame, 0);
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].motion_frame, 2);
+
+    step_world(&mut world, Frame(frame), &neutral);
+    frame += 1;
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Landing);
+    assert_eq!(world.players()[0].motion_frame, 3);
+
+    step_world(&mut world, Frame(frame), &walk);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
 }
 
 #[test]
@@ -4445,7 +5870,7 @@ fn fall_special_accepts_air_jump_like_source_iasa() {
         step_world(&mut world, Frame(frame), &neutral);
     }
     step_world(&mut world, Frame(8), &up_air_dodge);
-    let escape_air_end = 8 + MeleeCommonData::provisional_mole().escapeair_animation_ticks as u32;
+    let escape_air_end = 8 + falcon_escape_air_action_frames();
     for frame in 9..=escape_air_end {
         step_world(&mut world, Frame(frame), &neutral);
     }
@@ -4496,7 +5921,7 @@ fn fall_special_after_air_dodge_applies_source_air_drift() {
     }
     step_world(&mut world, Frame(8), &up_air_dodge);
 
-    let escape_air_end = 8 + MeleeCommonData::provisional_mole().escapeair_animation_ticks as u32;
+    let escape_air_end = 8 + falcon_escape_air_action_frames();
     for frame in 9..=escape_air_end {
         step_world(&mut world, Frame(frame), &neutral);
     }
@@ -4536,7 +5961,7 @@ fn aerial_jump_enters_jump_aerial_forward_state() {
 }
 
 #[test]
-fn aerial_jump_first_tick_uses_falcon_air_jump_force_before_gravity() {
+fn aerial_jump_first_tick_applies_falcon_gravity_before_translation() {
     let mut world = World::for_two_players();
     let profile = FighterProfile::falcon_like();
     let jump = [
@@ -4561,12 +5986,59 @@ fn aerial_jump_first_tick_uses_falcon_air_jump_force_before_gravity() {
     assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
     assert_eq!(
         world.players()[0].position.y - before_y,
-        profile.air_jump_force_per_tick
+        profile.air_jump_force_per_tick - profile.gravity_per_tick
     );
     assert_eq!(
         world.players()[0].velocity.y,
         profile.air_jump_force_per_tick - profile.gravity_per_tick
     );
+}
+
+#[test]
+fn aerial_jump_animation_completion_enters_fall_aerial_not_base_fall() {
+    let mut world = World::for_two_players();
+    let mut player = PlayerState::new(0, 30_000, 1);
+    player.grounded = false;
+    player.motion_state = MotionState::JumpAerialF;
+    player.motion_frame = 49;
+    player.velocity.y = -100;
+    player.jumps_remaining = 0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::FallAerial);
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert!(!world.players()[0].grounded);
+}
+
+#[test]
+fn ground_jump_animation_completion_enters_base_fall() {
+    for (motion_state, final_animation_frame) in
+        [(MotionState::JumpF, 34), (MotionState::JumpB, 49)]
+    {
+        let mut world = World::for_two_players();
+        let mut player = PlayerState::new(0, 30_000, 1);
+        player.grounded = false;
+        player.motion_state = motion_state;
+        player.motion_frame = final_animation_frame;
+        player.velocity.y = -100;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        step_world(
+            &mut world,
+            Frame(0),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+
+        assert_eq!(world.players()[0].motion_state, MotionState::Fall);
+        assert_eq!(world.players()[0].motion_frame, 0);
+        assert!(!world.players()[0].grounded);
+    }
 }
 
 #[test]
@@ -4644,8 +6116,9 @@ fn escape_air_landing_enters_landing_fall_special_instead_of_wait() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &down_air_dodge);
-    for frame in 5..80 {
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &down_air_dodge);
+    for frame in 6..80 {
         if world.players()[0].grounded {
             break;
         }
@@ -4680,10 +6153,10 @@ fn fall_special_with_stick_above_x25c_lands_on_soft_platform() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    let mut frame = 4;
+    let mut frame = 5;
     while world.players()[0].position.y <= platform.y && frame < 60 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4736,10 +6209,10 @@ fn fall_special_holding_down_skips_soft_platform_until_main_floor() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    let mut frame = 4;
+    let mut frame = 5;
     while world.players()[0].position.y <= platform.y && frame < 60 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4794,13 +6267,13 @@ fn fall_special_platform_gate_is_deterministic_from_input_snapshots() {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut left, Frame(frame), &jump);
         step_world(&mut right, Frame(frame), &jump);
         assert_eq!(left.checksum(), right.checksum());
     }
 
-    let mut frame = 4;
+    let mut frame = 5;
     while left.players()[0].position.y <= platform.y && frame < 60 {
         step_world(&mut left, Frame(frame), &neutral);
         step_world(&mut right, Frame(frame), &neutral);
@@ -4848,10 +6321,17 @@ fn air_dodge_landing_uses_existing_melee_states_not_wavedash_state() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &diagonal_air_dodge);
+    step_world(&mut world, Frame(5), &diagonal_air_dodge);
+
+    let mut frame = 6;
+    while !world.players()[0].grounded && frame < 80 {
+        step_world(&mut world, Frame(frame), &neutral);
+        assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
+        frame += 1;
+    }
 
     assert!(world.players()[0].grounded);
     assert_eq!(
@@ -4860,13 +6340,6 @@ fn air_dodge_landing_uses_existing_melee_states_not_wavedash_state() {
     );
     assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
     assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
-
-    let mut frame = 5;
-    while !world.players()[0].grounded && frame < 80 {
-        step_world(&mut world, Frame(frame), &neutral);
-        assert_ne!(format!("{:?}", world.players()[0].motion_state), "Wavedash");
-        frame += 1;
-    }
 
     assert_eq!(
         world.players()[0].motion_state,
@@ -4894,8 +6367,9 @@ fn landing_fall_special_preserves_slide_before_returning_to_wait() {
     step_world(&mut world, Frame(1), &jump);
     step_world(&mut world, Frame(2), &jump);
     step_world(&mut world, Frame(3), &jump);
-    step_world(&mut world, Frame(4), &down_air_dodge);
-    let mut frame = 5;
+    step_world(&mut world, Frame(4), &jump);
+    step_world(&mut world, Frame(5), &down_air_dodge);
+    let mut frame = 6;
     while !world.players()[0].grounded && frame < 80 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -4921,6 +6395,38 @@ fn landing_fall_special_preserves_slide_before_returning_to_wait() {
 }
 
 #[test]
+fn landing_fall_special_completion_runs_wait_followup_on_same_frame() {
+    let mut world = World::for_two_players();
+    let top_platform = world.stage().soft_platforms[2];
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::LandingFallSpecial;
+    player.motion_frame = world.common_data().escapeair_landing_lag_ticks - 1;
+    player.position = Vec2 {
+        x: melee_units_f32(16.909),
+        y: top_platform.y,
+    };
+    player.velocity = Vec2 {
+        x: melee_units_f32(0.319),
+        y: 0,
+    };
+    player.grounded = true;
+    player.facing = -1;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(141),
+        &[
+            PlayerInput::neutral().with_left_stick(119, 41),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(world.players()[0].position.y, top_platform.y);
+}
+
+#[test]
 fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration() {
     let mut world = World::for_two_players();
     let jump = [
@@ -4935,10 +6441,16 @@ fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration(
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(&mut world, Frame(frame), &jump);
     }
-    step_world(&mut world, Frame(4), &down_forward_air_dodge);
+    step_world(&mut world, Frame(5), &down_forward_air_dodge);
+
+    let mut frame = 6;
+    while !world.players()[0].grounded && frame < 80 {
+        step_world(&mut world, Frame(frame), &neutral);
+        frame += 1;
+    }
 
     let player = world.players()[0];
     assert!(player.grounded);
@@ -4952,7 +6464,7 @@ fn landing_fall_special_slide_uses_falcon_ground_friction_as_fixed_deceleration(
         * common.high_speed_ground_friction_multiplier_milli
         / 1000;
     let expected_after_one_slide_tick = landing_velocity - expected_friction;
-    step_world(&mut world, Frame(5), &neutral);
+    step_world(&mut world, Frame(frame), &neutral);
 
     assert_eq!(
         world.players()[0].motion_state,
@@ -4972,38 +6484,24 @@ fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
         y: 0,
     };
     let mut world = World::for_two_players_on_stage(stage);
-    let jump = [
-        PlayerInput::neutral().with_jump(true),
-        PlayerInput::neutral(),
-    ];
-    let down_forward_air_dodge = [
-        PlayerInput::neutral()
-            .with_right_trigger_digital(true)
-            .with_left_stick(80, -127),
-        PlayerInput::neutral(),
-    ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
-        step_world(&mut world, Frame(frame), &jump);
-    }
-    step_world(&mut world, Frame(4), &down_forward_air_dodge);
-
-    let mut frame = 5;
-    while matches!(
-        world.players()[0].motion_state,
-        MotionState::EscapeAir | MotionState::FallSpecial
-    ) && frame < 12
-    {
-        step_world(&mut world, Frame(frame), &neutral);
-        frame += 1;
-    }
+    let mut player = world.players()[0];
+    player.position.x = melee_units_f32(-20.4);
+    player.position.y = world.stage().main_floor.y;
+    player.motion_state = MotionState::LandingFallSpecial;
+    player.motion_frame = 0;
+    player.grounded = true;
+    player.velocity.x = melee_units_f32(1.6);
+    player.velocity.y = 0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
 
     assert_eq!(
         world.players()[0].motion_state,
         MotionState::LandingFallSpecial
     );
 
+    let mut frame = 0;
     while world.players()[0].motion_state == MotionState::LandingFallSpecial && frame < 20 {
         step_world(&mut world, Frame(frame), &neutral);
         frame += 1;
@@ -5025,11 +6523,16 @@ fn grounded_state_moving_past_floor_edge_enters_fall() {
     };
     let mut world = World::for_two_players_on_stage(stage);
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
     step_world(&mut world, Frame(0), &dash_right);
+
+    assert!(world.players()[0].grounded);
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+
+    step_world(&mut world, Frame(1), &dash_right);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::Fall);
@@ -5037,7 +6540,7 @@ fn grounded_state_moving_past_floor_edge_enters_fall() {
 }
 
 #[test]
-fn shield_jump_digital_trigger_on_takeoff_tick_does_not_escape_air() {
+fn shield_jump_digital_trigger_on_takeoff_frame_can_airdodge_and_land() {
     let mut world = World::for_two_players();
     let shield = [
         PlayerInput::neutral().with_left_trigger_analog(80),
@@ -5062,10 +6565,14 @@ fn shield_jump_digital_trigger_on_takeoff_tick_does_not_escape_air() {
     step_world(&mut world, Frame(1), &shield_jump);
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
-    step_world(&mut world, Frame(4), &shield_jump_with_other_digital);
+    step_world(&mut world, Frame(4), &shield_jump);
+    step_world(&mut world, Frame(5), &shield_jump_with_other_digital);
 
-    assert!(!world.players()[0].grounded);
-    assert_eq!(world.players()[0].motion_state, MotionState::JumpF);
+    assert!(world.players()[0].grounded);
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::LandingFallSpecial
+    );
 }
 
 #[test]
@@ -5094,7 +6601,8 @@ fn shield_jump_first_airborne_fresh_other_digital_trigger_enters_escape_air() {
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
     step_world(&mut world, Frame(4), &shield_jump);
-    step_world(&mut world, Frame(5), &air_dodge);
+    step_world(&mut world, Frame(5), &shield_jump);
+    step_world(&mut world, Frame(6), &air_dodge);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
@@ -5128,7 +6636,8 @@ fn shield_jump_first_airborne_fresh_same_trigger_digital_enters_escape_air() {
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
     step_world(&mut world, Frame(4), &shield_jump);
-    step_world(&mut world, Frame(5), &bottomed_left_air_dodge);
+    step_world(&mut world, Frame(5), &shield_jump);
+    step_world(&mut world, Frame(6), &bottomed_left_air_dodge);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
@@ -5162,7 +6671,8 @@ fn shield_jump_first_airborne_air_dodge_beats_aerial_attack() {
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
     step_world(&mut world, Frame(4), &shield_jump);
-    step_world(&mut world, Frame(5), &attack_air_dodge);
+    step_world(&mut world, Frame(5), &shield_jump);
+    step_world(&mut world, Frame(6), &attack_air_dodge);
 
     assert!(!world.players()[0].grounded);
     assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
@@ -5194,10 +6704,14 @@ fn shield_jump_first_airborne_b_special_beats_air_dodge() {
     step_world(&mut world, Frame(2), &shield_jump);
     step_world(&mut world, Frame(3), &shield_jump);
     step_world(&mut world, Frame(4), &shield_jump);
-    step_world(&mut world, Frame(5), &side_b_air_dodge);
+    step_world(&mut world, Frame(5), &shield_jump);
+    step_world(&mut world, Frame(6), &side_b_air_dodge);
 
     assert!(!world.players()[0].grounded);
-    assert_eq!(world.players()[0].motion_state, MotionState::SpecialAirS);
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::SpecialAirSStart
+    );
     assert_eq!(world.players()[0].facing, -1);
 }
 
@@ -5319,7 +6833,7 @@ fn b_special_direction_in_air_matches_air_priority() {
     let side_special = [
         PlayerInput::neutral()
             .with_special(true)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral_special = [
@@ -5329,13 +6843,13 @@ fn b_special_direction_in_air_matches_air_priority() {
     let diagonal_up_special = [
         PlayerInput::neutral()
             .with_special(true)
-            .with_left_stick(-90, 90),
+            .with_left_stick(-dash_stick_x(), 90),
         PlayerInput::neutral(),
     ];
     let diagonal_down_special = [
         PlayerInput::neutral()
             .with_special(true)
-            .with_left_stick(-90, -90),
+            .with_left_stick(-dash_stick_x(), -90),
         PlayerInput::neutral(),
     ];
 
@@ -5354,7 +6868,10 @@ fn b_special_direction_in_air_matches_air_priority() {
 
     assert_eq!(up.players()[0].motion_state, MotionState::SpecialAirHi);
     assert_eq!(down.players()[0].motion_state, MotionState::SpecialAirLw);
-    assert_eq!(side.players()[0].motion_state, MotionState::SpecialAirS);
+    assert_eq!(
+        side.players()[0].motion_state,
+        MotionState::SpecialAirSStart
+    );
     assert_eq!(side.players()[0].facing, -1);
     assert_eq!(neutral.players()[0].motion_state, MotionState::SpecialAirN);
     assert_eq!(
@@ -5382,7 +6899,7 @@ fn air_special_has_priority_over_air_jump_and_escape_air() {
         PlayerInput::neutral()
             .with_special(true)
             .with_right_trigger_digital(true)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -5397,7 +6914,7 @@ fn air_special_has_priority_over_air_jump_and_escape_air() {
     );
     assert_eq!(
         escape_priority.players()[0].motion_state,
-        MotionState::SpecialAirS
+        MotionState::SpecialAirSStart
     );
 }
 
@@ -5415,13 +6932,13 @@ fn a_press_air_attack_direction_matches_stick_angle_and_facing() {
     let forward_air = [
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let back_air = [
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let up_air = [
@@ -5466,7 +6983,7 @@ fn fresh_cstick_air_attack_works_without_a_and_overrides_main_stick() {
     let a_forward_cstick_back = [
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(90, 0)
+            .with_left_stick(dash_stick_x(), 0)
             .with_c_stick(-90, 0),
         PlayerInput::neutral(),
     ];
@@ -5548,7 +7065,7 @@ fn air_dodge_beats_aerial_attack_and_aerial_attack_beats_air_jump() {
         PlayerInput::neutral()
             .with_attack(true)
             .with_right_trigger_digital(true)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let attack_with_jump = [
@@ -5592,7 +7109,7 @@ fn airborne_z_without_item_or_tether_enters_aerial_attack_not_generic_catch() {
 fn fresh_forward_dash_tap_from_wait_enters_dash_and_consumes_x_tap() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -5608,7 +7125,7 @@ fn fresh_forward_dash_tap_from_wait_enters_dash_and_consumes_x_tap() {
 fn fresh_opposite_dash_tap_from_wait_enters_turn_not_dash() {
     let mut world = World::for_two_players();
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -5632,7 +7149,7 @@ fn fresh_opposite_dash_tap_from_wait_enters_turn_not_dash() {
 fn fresh_opposite_dash_tap_from_wait_beats_crouch() {
     let mut world = World::for_two_players();
     let dash_left_down = [
-        PlayerInput::neutral().with_left_stick(-90, -90),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), -90),
         PlayerInput::neutral(),
     ];
 
@@ -5676,7 +7193,7 @@ fn wait_enters_walk_slow_from_soft_forward_stick() {
 }
 
 #[test]
-fn wait_enters_walk_middle_from_mid_forward_stick() {
+fn wait_enters_walk_slow_from_standstill_even_with_mid_forward_stick() {
     let mut world = World::for_two_players();
     let walk = [
         PlayerInput::neutral().with_left_stick(64, 0),
@@ -5685,7 +7202,7 @@ fn wait_enters_walk_middle_from_mid_forward_stick() {
 
     step_world(&mut world, Frame(0), &walk);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkMiddle);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
     assert_eq!(world.players()[0].facing, 1);
     assert_eq!(world.players()[0].motion_frame, 0);
     assert!(world.players()[0].velocity.x > 0);
@@ -5693,42 +7210,35 @@ fn wait_enters_walk_middle_from_mid_forward_stick() {
 }
 
 #[test]
-fn wait_enters_walk_fast_after_dash_tap_window_expires() {
+fn walk_type_promotes_from_ground_velocity_not_stick_bucket() {
     let mut world = World::for_two_players();
     let hard_walk = [
         PlayerInput::neutral().with_left_stick(100, 0),
         PlayerInput::neutral(),
     ];
-    let shield_hard_walk = [
-        PlayerInput::neutral()
-            .with_left_stick(100, 0)
-            .with_left_trigger_analog(80),
-        PlayerInput::neutral(),
-    ];
 
-    step_world(&mut world, Frame(0), &shield_hard_walk);
-    step_world(&mut world, Frame(1), &hard_walk);
-    for frame in 2..=16 {
+    step_world(&mut world, Frame(0), &hard_walk);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkSlow);
+
+    for frame in 1..=20 {
         step_world(&mut world, Frame(frame), &hard_walk);
     }
 
-    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
-
-    step_world(&mut world, Frame(17), &hard_walk);
-
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    assert_eq!(world.players()[0].facing, 1);
-    assert_eq!(world.players()[0].motion_frame, 0);
-    assert!(world.players()[0].velocity.x > 0);
-    assert!(world.players()[0].velocity.x <= 100 * 6);
+    assert_eq!(world.players()[0].motion_state, MotionState::WalkMiddle);
+    assert!(
+        world.players()[0].ground_velocity_x
+            >= world.players()[0].profile.walk_speed_per_tick
+                * MeleeCommonData::provisional_mole().walk_middle_velocity_ratio_milli
+                / 1000
+    );
 }
 
 #[test]
 fn rollback_owned_input_snapshots_deterministically_select_walk_bands() {
-    for (stick_x, expected_state) in [
-        (30, MotionState::WalkSlow),
-        (64, MotionState::WalkMiddle),
-        (100, MotionState::WalkFast),
+    for (stick_x, expected_state, frames_to_hold) in [
+        (30, MotionState::WalkSlow, 0),
+        (64, MotionState::WalkMiddle, 20),
+        (127, MotionState::WalkFast, 20),
     ] {
         let mut a = World::for_two_players();
         let mut b = World::for_two_players();
@@ -5737,23 +7247,13 @@ fn rollback_owned_input_snapshots_deterministically_select_walk_bands() {
             PlayerInput::neutral(),
         ];
 
-        if expected_state == MotionState::WalkFast {
-            let shield_walk = [
-                PlayerInput::neutral()
-                    .with_left_stick(stick_x, 0)
-                    .with_left_trigger_analog(80),
-                PlayerInput::neutral(),
-            ];
-
-            step_world(&mut a, Frame(0), &shield_walk);
-            step_world(&mut b, Frame(0), &shield_walk);
-            for frame in 1..=17 {
-                step_world(&mut a, Frame(frame), &walk);
-                step_world(&mut b, Frame(frame), &walk);
-            }
-        } else {
-            step_world(&mut a, Frame(0), &walk);
-            step_world(&mut b, Frame(0), &walk);
+        a.set_input_history_for_diagnostic(walk, *a.input_timers());
+        b.set_input_history_for_diagnostic(walk, *b.input_timers());
+        step_world(&mut a, Frame(0), &walk);
+        step_world(&mut b, Frame(0), &walk);
+        for frame in 1..=frames_to_hold {
+            step_world(&mut a, Frame(frame), &walk);
+            step_world(&mut b, Frame(frame), &walk);
         }
 
         assert_eq!(a.players()[0].motion_state, expected_state);
@@ -5891,7 +7391,7 @@ fn walk_state_accepts_specials_in_source_priority_order() {
     step_world(&mut neutral, Frame(1), &neutral_special);
     step_world(&mut down, Frame(1), &down_special);
 
-    assert_eq!(side.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(side.players()[0].motion_state, MotionState::SpecialSStart);
     assert_eq!(up.players()[0].motion_state, MotionState::SpecialHi);
     assert_eq!(neutral.players()[0].motion_state, MotionState::SpecialN);
     assert_eq!(down.players()[0].motion_state, MotionState::SpecialLw);
@@ -5925,7 +7425,7 @@ fn walk_state_fresh_forward_dash_tap_enters_dash() {
         PlayerInput::neutral(),
     ];
     let full_dash = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -5939,20 +7439,30 @@ fn walk_state_fresh_forward_dash_tap_enters_dash() {
 #[test]
 fn walk_state_fresh_opposite_dash_tap_enters_turn() {
     let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
     let soft_walk = [
         PlayerInput::neutral().with_left_stick(40, 0),
         PlayerInput::neutral(),
     ];
     let full_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
     step_world(&mut world, Frame(0), &soft_walk);
+    let carried_walk_velocity = world.players()[0].velocity.x;
     step_world(&mut world, Frame(1), &full_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        source_general_grounded_friction_velocity(
+            carried_walk_velocity,
+            world.players()[0].profile,
+            common
+        )
+    );
 }
 
 #[test]
@@ -5972,7 +7482,200 @@ fn walk_state_soft_opposite_stick_exits_to_wait_without_flipping_facing() {
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     assert_eq!(world.players()[0].facing, 1);
-    assert_eq!(world.players()[0].velocity.x, 0);
+    assert!(world.players()[0].velocity.x > 0);
+}
+
+#[test]
+fn walk_rollout_frame_routes_opposite_dash_through_turn_physics_before_dash_entry() {
+    let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
+    let soft_right = [
+        PlayerInput::neutral().with_left_stick(40, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_walk_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let below_walk = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let dash_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let mid_right = [
+        PlayerInput::neutral().with_left_stick(60, 0),
+        PlayerInput::neutral(),
+    ];
+    let near_right = [
+        PlayerInput::neutral().with_left_stick(70, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..=2 {
+        step_world(&mut world, Frame(frame), &soft_right);
+    }
+    for frame in 3..=40 {
+        step_world(&mut world, Frame(frame), &full_walk_right);
+    }
+
+    assert!(matches!(
+        world.players()[0].motion_state,
+        MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast
+    ));
+    let full_walk_velocity = world.players()[0].velocity.x;
+    assert!(close_to(
+        full_walk_velocity,
+        world.players()[0].profile.walk_speed_per_tick,
+        10
+    ));
+
+    step_world(&mut world, Frame(41), &below_walk);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].velocity.x, full_walk_velocity);
+
+    step_world(&mut world, Frame(42), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    let turn_frame_velocity = source_general_grounded_friction_velocity(
+        full_walk_velocity,
+        world.players()[0].profile,
+        common,
+    );
+    assert_eq!(world.players()[0].velocity.x, turn_frame_velocity);
+
+    step_world(&mut world, Frame(43), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, -1);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        turn_frame_velocity - world.players()[0].profile.initial_dash_speed_per_tick
+    );
+    assert!(
+        world.players()[0].velocity.x > -world.players()[0].profile.initial_dash_speed_per_tick
+    );
+    let dash_entry_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(44), &soft_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert!(world.players()[0].velocity.x > dash_entry_velocity);
+
+    step_world(&mut world, Frame(45), &mid_right);
+    step_world(&mut world, Frame(46), &near_right);
+    step_world(&mut world, Frame(47), &full_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, -1);
+    assert!(world.players()[0].velocity.x > dash_entry_velocity);
+}
+
+#[test]
+fn dash_entry_delta_updates_ground_velocity_after_translation_only() {
+    let mut world = World::for_two_players();
+    let full_dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    let start_x = world.players()[0].position.x;
+
+    step_world(&mut world, Frame(0), &full_dash_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        world.players()[0].profile.initial_dash_speed_per_tick
+    );
+    assert_eq!(world.players()[0].position.x, start_x);
+}
+
+#[test]
+fn dash_entry_uses_source_xe8_staging_before_next_dash_phys() {
+    let mut world = World::for_two_players();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    let start_x = world.players()[0].position.x;
+
+    step_world(&mut world, Frame(0), &dash_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].position.x, start_x);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        world.players()[0].profile.initial_dash_speed_per_tick
+    );
+    assert_eq!(
+        world.players()[0].dash_entry_velocity_delta,
+        0,
+        "ftCo_Dash_Phys consumes mv.co.dash.x0 during the same engine frame"
+    );
+
+    step_world(&mut world, Frame(1), &dash_right);
+
+    assert!(
+        world.players()[0].position.x > start_x,
+        "the next frame moves using committed gr_vel"
+    );
+    assert!(
+        world.players()[0].velocity.x > world.players()[0].profile.initial_dash_speed_per_tick,
+        "ordinary Dash_Phys live-stick acceleration runs after xE8 entry staging"
+    );
+}
+
+#[test]
+fn dash_to_turn_applies_source_iasa_decay_then_same_frame_turn_physics() {
+    let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let dash_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    for frame in 1..=common.dash_early_action_window {
+        step_world(&mut world, Frame(frame as u32), &dash_right);
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    let carried_dash_velocity = world.players()[0].velocity.x;
+    let expected_velocity = source_dash_to_turn_frame_velocity(
+        carried_dash_velocity,
+        world.players()[0].profile,
+        common,
+    );
+    let start_x = world.players()[0].position.x;
+
+    step_world(
+        &mut world,
+        Frame((common.dash_early_action_window + 1) as u32),
+        &dash_left,
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_velocity,
+        "Dash->Turn runs ftCo_Dash_IASA x54, then Fighter_procUpdate uses Turn_Phys/ft_80084F3C in the same frame"
+    );
+    assert_eq!(
+        world.players()[0].position.x - start_x,
+        expected_velocity,
+        "same-frame Turn_Phys contributes xE4 to both position and committed gr_vel"
+    );
 }
 
 #[test]
@@ -5983,7 +7686,7 @@ fn walk_state_slow_rise_to_full_stick_keeps_walking() {
         PlayerInput::neutral(),
     ];
     let full_stick = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -5992,7 +7695,10 @@ fn walk_state_slow_rise_to_full_stick_keeps_walking() {
     step_world(&mut world, Frame(2), &soft_walk);
     step_world(&mut world, Frame(3), &full_stick);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
+    assert!(matches!(
+        world.players()[0].motion_state,
+        MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast
+    ));
     assert_eq!(world.players()[0].facing, 1);
 }
 
@@ -6064,7 +7770,7 @@ fn standing_turn_fresh_outward_dash_tap_dashes_on_turn_frame() {
         PlayerInput::neutral(),
     ];
     let full_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6084,6 +7790,36 @@ fn standing_turn_fresh_outward_dash_tap_dashes_on_turn_frame() {
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert_eq!(world.players()[0].facing, -1);
     assert_eq!(world.input_timers()[0].x_tap, 0xfe);
+}
+
+#[test]
+fn ucf_dashback_amendment_applies_source_turn_hook_without_changing_vanilla_turn() {
+    let soft_left = [
+        PlayerInput::neutral().with_left_stick(-40, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let ucf_full_left = [
+        full_left[0].with_ucf_dashback_amendment(true),
+        PlayerInput::neutral(),
+    ];
+
+    let mut vanilla = World::for_two_players();
+    step_world(&mut vanilla, Frame(0), &soft_left);
+    step_world(&mut vanilla, Frame(1), &full_left);
+
+    assert_eq!(vanilla.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(vanilla.players()[0].facing, 1);
+
+    let mut ucf = World::for_two_players();
+    step_world(&mut ucf, Frame(0), &soft_left);
+    step_world(&mut ucf, Frame(1), &ucf_full_left);
+
+    assert_eq!(ucf.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(ucf.players()[0].facing, -1);
 }
 
 #[test]
@@ -6107,7 +7843,7 @@ fn turn_state_accepts_grounded_action_inputs_before_shield_jump_or_walk() {
     step_world(&mut world, Frame(0), &soft_left);
     step_world(&mut world, Frame(1), &turn_side_special);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
 }
 
 #[test]
@@ -6174,7 +7910,7 @@ fn neutral_special_latched_during_turn_replays_with_current_stick_on_turn_frame(
 
     step_world(&mut world, Frame(6), &soft_left);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
     assert_eq!(world.players()[0].facing, -1);
 }
 
@@ -6215,18 +7951,13 @@ fn walk_state_dash_strength_on_last_valid_tap_frame_enters_dash() {
         PlayerInput::neutral().with_left_stick(40, 0),
         PlayerInput::neutral(),
     ];
-    let mid_walk = [
-        PlayerInput::neutral().with_left_stick(60, 0),
-        PlayerInput::neutral(),
-    ];
     let full_walk = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
     step_world(&mut world, Frame(0), &soft_walk);
-    step_world(&mut world, Frame(1), &mid_walk);
-    step_world(&mut world, Frame(2), &full_walk);
+    step_world(&mut world, Frame(1), &full_walk);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert_eq!(world.players()[0].facing, 1);
@@ -6236,36 +7967,89 @@ fn walk_state_dash_strength_on_last_valid_tap_frame_enters_dash() {
 #[test]
 fn fresh_opposite_dash_tap_during_dash_enters_turn() {
     let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
     step_world(&mut world, Frame(0), &dash_right);
-    step_world(&mut world, Frame(1), &neutral);
-    step_world(&mut world, Frame(2), &dash_left);
+    for frame in 1..=4 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    let carried_dash_velocity = world.players()[0].velocity.x;
+    let dash_to_turn_velocity = source_dash_to_turn_frame_velocity(
+        carried_dash_velocity,
+        world.players()[0].profile,
+        common,
+    );
+    step_world(&mut world, Frame(5), &dash_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, 1);
-    assert_eq!(world.players()[0].velocity.x, 0);
+    assert_eq!(world.players()[0].velocity.x, dash_to_turn_velocity);
     assert_eq!(world.input_timers()[0].x_tap, 0);
 
-    step_world(&mut world, Frame(3), &neutral);
+    step_world(&mut world, Frame(6), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, -1);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.x < dash_to_turn_velocity);
+}
+
+#[test]
+fn dash_out_of_smash_turn_uses_source_initial_dash_delta_from_carried_ground_velocity() {
+    let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let dash_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    for frame in 1..=4 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    let carried_dash_velocity = world.players()[0].velocity.x;
+    let dash_to_turn_velocity = source_dash_to_turn_frame_velocity(
+        carried_dash_velocity,
+        world.players()[0].profile,
+        common,
+    );
+    step_world(&mut world, Frame(5), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(world.players()[0].velocity.x, dash_to_turn_velocity);
+
+    step_world(&mut world, Frame(6), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, -1);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        dash_to_turn_velocity - world.players()[0].profile.initial_dash_speed_per_tick
+    );
+    assert!(
+        world.players()[0].velocity.x > -world.players()[0].profile.initial_dash_speed_per_tick
+    );
 }
 
 #[test]
 fn smash_turn_can_dash_out_on_the_turn_frame_if_stick_is_still_outward() {
     let mut world = World::for_two_players();
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6284,11 +8068,11 @@ fn smash_turn_can_dash_out_on_the_turn_frame_if_stick_is_still_outward() {
 fn smash_turn_dash_out_requires_dash_threshold_not_run_threshold() {
     let mut world = World::for_two_players();
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let below_dash_left = [
-        PlayerInput::neutral().with_left_stick(-70, 0),
+        PlayerInput::neutral().with_left_stick(-run_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6303,7 +8087,7 @@ fn smash_turn_dash_out_requires_dash_threshold_not_run_threshold() {
 fn dash_uses_current_stick_for_moonwalk_like_acceleration_after_opposite_tap_ages_out() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let soft_left = [
@@ -6319,7 +8103,7 @@ fn dash_uses_current_stick_for_moonwalk_like_acceleration_after_opposite_tap_age
         PlayerInput::neutral(),
     ];
     let full_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6343,10 +8127,141 @@ fn dash_uses_current_stick_for_moonwalk_like_acceleration_after_opposite_tap_age
 }
 
 #[test]
+fn tap_start_dash_blocks_fresh_opposite_dashback_during_early_branch() {
+    let mut world = World::for_two_players();
+    let full_dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let full_left = [
+        PlayerInput::neutral().with_left_stick(-128, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &full_dash_right);
+    let dash_entry_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(1), &full_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].motion_frame, 1);
+    assert_eq!(world.input_timers()[0].x_tap, 0);
+    assert!(world.players()[0].velocity.x < dash_entry_velocity);
+}
+
+#[test]
+fn moonwalk_payload_bottom_gate_trace_stays_dash_and_applies_opposite_influence() {
+    let mut world = World::for_two_players();
+    let full_dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let opposite_bottom_gate = [
+        PlayerInput::neutral().with_left_stick(-101, -45),
+        PlayerInput::neutral(),
+    ];
+    let full_left = [
+        PlayerInput::neutral().with_left_stick(-128, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &full_dash_right);
+    let dash_entry_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(1), &opposite_bottom_gate);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].motion_frame, 1);
+    assert!(world.players()[0].velocity.x < dash_entry_velocity);
+    assert_eq!(world.input_timers()[0].x_tap, 0);
+
+    step_world(&mut world, Frame(2), &opposite_bottom_gate);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].motion_frame, 2);
+    assert_eq!(world.input_timers()[0].x_tap, 1);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.x < dash_entry_velocity);
+    let bottom_gate_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(3), &full_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.players()[0].motion_frame, 3);
+    assert_eq!(world.input_timers()[0].x_tap, 2);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.x < bottom_gate_velocity);
+
+    let first_full_left_velocity = world.players()[0].velocity.x;
+    step_world(&mut world, Frame(4), &full_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert_eq!(world.input_timers()[0].x_tap, 3);
+    assert!(world.players()[0].velocity.x < first_full_left_velocity);
+}
+
+#[test]
+fn dash_can_relay_moonwalk_like_stick_rolls_before_initial_dash_resolves() {
+    let mut world = World::for_two_players();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let inputs = [
+        -40,
+        -60,
+        -70,
+        -dash_stick_x(),
+        -dash_stick_x(),
+        40,
+        60,
+        70,
+        dash_stick_x(),
+        dash_stick_x(),
+        -40,
+        -60,
+        -70,
+        -dash_stick_x(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    let initial_dash_velocity = world.players()[0].velocity.x;
+    let mut velocity_after_first_left_chain = 0;
+    let mut velocity_after_right_chain = 0;
+
+    for (index, stick_x) in inputs.into_iter().enumerate() {
+        let frame = Frame((index + 1) as u32);
+        let input = [
+            PlayerInput::neutral().with_left_stick(stick_x, 0),
+            PlayerInput::neutral(),
+        ];
+        step_world(&mut world, frame, &input);
+
+        if frame == Frame(5) {
+            velocity_after_first_left_chain = world.players()[0].velocity.x;
+        } else if frame == Frame(10) {
+            velocity_after_right_chain = world.players()[0].velocity.x;
+        }
+    }
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].facing, 1);
+    assert!(world.players()[0].motion_frame < world.players()[0].profile.dash_frames);
+    assert!(velocity_after_first_left_chain < initial_dash_velocity);
+    assert!(velocity_after_right_chain > velocity_after_first_left_chain);
+    assert!(world.players()[0].velocity.x < velocity_after_right_chain);
+}
+
+#[test]
 fn dash_neutral_stick_applies_dash_friction_before_dash_ends() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -6358,6 +8273,29 @@ fn dash_neutral_stick_applies_dash_friction_before_dash_ends() {
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     assert!(world.players()[0].velocity.x > 0);
     assert!(world.players()[0].velocity.x < dash_velocity);
+}
+
+#[test]
+fn dash_entry_delta_is_consumed_before_next_dash_physics_tick() {
+    let mut world = World::for_two_players();
+    let full_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &full_right);
+    let dash_entry_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(1), &full_right);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(world.players()[0].motion_frame, 1);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        dash_entry_velocity
+            + world.players()[0].profile.dash_run_accel_stick_per_tick
+            + world.players()[0].profile.dash_run_accel_base_per_tick
+    );
 }
 
 #[test]
@@ -6373,7 +8311,7 @@ fn dash_acceleration_uses_profile_source_accel_and_stick_scaled_target() {
     };
     let mut world = World::for_two_players_with_profiles([profile; 2]);
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6381,14 +8319,95 @@ fn dash_acceleration_uses_profile_source_accel_and_stick_scaled_target() {
     step_world(&mut world, Frame(1), &dash_right);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
-    assert_eq!(world.players()[0].velocity.x, 64);
+    assert_eq!(world.players()[0].velocity.x, 66);
+}
+
+#[test]
+fn dash_iasa_side_special_applies_source_x54_velocity_decay() {
+    let profile = FighterProfile {
+        initial_dash_speed_per_tick: 2_000,
+        dash_run_accel_stick_per_tick: 0,
+        dash_run_accel_base_per_tick: 0,
+        run_speed_per_tick: 2_000,
+        traction_per_tick: 80,
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        dash_velocity_decay_milli: 750,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [profile; 2],
+        common,
+    );
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let side_special = [
+        PlayerInput::neutral()
+            .with_left_stick(dash_stick_x(), 0)
+            .with_special(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    assert_eq!(world.players()[0].velocity.x, 2_000);
+
+    step_world(&mut world, Frame(1), &side_special);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
+    assert_eq!(world.players()[0].velocity.x, 500);
+}
+
+#[test]
+fn dash_iasa_action_runs_before_dash_phys_acceleration() {
+    let profile = FighterProfile {
+        initial_dash_speed_per_tick: 2_000,
+        dash_run_accel_stick_per_tick: 150,
+        dash_run_accel_base_per_tick: 10,
+        run_speed_per_tick: 2_300,
+        traction_per_tick: 80,
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        dash_velocity_decay_milli: 750,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [profile; 2],
+        common,
+    );
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let opposite_side_special = [
+        PlayerInput::neutral()
+            .with_left_stick(-127, 0)
+            .with_special(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    let dash_entry_velocity = world.players()[0].velocity.x;
+
+    step_world(&mut world, Frame(1), &opposite_side_special);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        dash_entry_velocity - dash_entry_velocity * common.dash_velocity_decay_milli / 1000
+    );
 }
 
 #[test]
 fn dash_state_accepts_side_special_before_shield_or_jump() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let side_special = [
@@ -6403,14 +8422,14 @@ fn dash_state_accepts_side_special_before_shield_or_jump() {
     step_world(&mut world, Frame(0), &dash_right);
     step_world(&mut world, Frame(1), &side_special);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
 }
 
 #[test]
 fn dash_state_dash_grab_beats_dash_attack_and_guard() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield_attack = [
@@ -6431,7 +8450,7 @@ fn dash_state_dash_grab_beats_dash_attack_and_guard() {
 fn dash_state_early_defensive_window_shield_enters_escape_forward() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield = [
@@ -6451,7 +8470,7 @@ fn dash_state_early_defensive_window_shield_enters_escape_forward() {
 fn dash_state_after_defensive_window_shield_enters_guard_on() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield = [
@@ -6462,30 +8481,119 @@ fn dash_state_after_defensive_window_shield_enters_guard_on() {
     ];
 
     step_world(&mut world, Frame(0), &dash_right);
-    step_world(&mut world, Frame(1), &dash_right);
-    step_world(&mut world, Frame(2), &shield);
+    for frame in 1..=3 {
+        step_world(&mut world, Frame(frame), &dash_right);
+    }
+    step_world(&mut world, Frame(4), &shield);
 
     assert_eq!(world.players()[0].motion_state, MotionState::GuardOn);
+}
+
+#[test]
+fn dash_fresh_digital_lr_enters_guard_reflect_with_source_x54_decay() {
+    let mut world = World::for_two_players();
+    let common = MeleeCommonData::provisional_mole();
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let fresh_digital_r = [
+        PlayerInput::neutral()
+            .with_left_stick(121, -37)
+            .with_right_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &dash_right);
+    for frame in 1..=common.dash_early_action_window {
+        step_world(&mut world, Frame(frame as u32), &dash_right);
+    }
+
+    let carried_dash_velocity = world.players()[0].velocity.x;
+    let expected_velocity = source_dash_iasa_decay(carried_dash_velocity, common);
+
+    step_world(
+        &mut world,
+        Frame((common.dash_early_action_window + 1) as u32),
+        &fresh_digital_r,
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::GuardReflect);
+    assert_eq!(
+        player.velocity.x, expected_velocity,
+        "ftCo_Dash_IASA falls through to the x54 gr_vel decay after ftCo_80091AD8 enters GuardReflect"
+    );
+}
+
+#[test]
+fn guard_reflect_with_held_lr_can_pass_through_soft_platform() {
+    let mut world = World::for_two_players();
+    let stage = world.stage();
+    let platform = stage.soft_platforms[0];
+    let common = MeleeCommonData::provisional_mole();
+    let mut player = world.players()[0];
+    player.position = Vec2 {
+        x: platform.left_x + (platform.right_x - platform.left_x) / 2,
+        y: platform.y,
+    };
+    player.velocity = Vec2 { x: 495, y: 0 };
+    player.ground_velocity_x = 495;
+    player.motion_state = MotionState::GuardReflect;
+    player.motion_frame = 0;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    world.set_input_history_for_diagnostic(
+        [
+            PlayerInput::neutral()
+                .with_right_trigger_digital(true)
+                .with_left_stick(89, 0),
+            PlayerInput::neutral(),
+        ],
+        *world.input_timers(),
+    );
+    let held_lr_down = [
+        PlayerInput::neutral()
+            .with_right_trigger_digital(true)
+            .with_left_stick(89, -common.platform_pass_y),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &held_lr_down);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Pass);
+    assert!(!player.grounded);
+    assert_eq!(
+        player.velocity.y,
+        common.pass_initial_y_velocity - player.profile.gravity_per_tick
+    );
+    assert_eq!(
+        player.position.y,
+        platform.y + common.pass_initial_y_velocity - player.profile.gravity_per_tick
+    );
 }
 
 #[test]
 fn dash_state_late_window_opposite_dash_tap_beats_guard() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
     let shield_dash_left = [
         PlayerInput::neutral()
-            .with_left_stick(-90, 0)
+            .with_left_stick(-dash_stick_x(), 0)
             .with_left_trigger_analog(80),
         PlayerInput::neutral(),
     ];
 
     step_world(&mut world, Frame(0), &dash_right);
-    step_world(&mut world, Frame(1), &neutral);
-    step_world(&mut world, Frame(2), &shield_dash_left);
+    for frame in 1..=4 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(5), &shield_dash_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     assert_eq!(world.players()[0].facing, 1);
@@ -6496,7 +8604,7 @@ fn dash_state_late_window_opposite_dash_tap_beats_guard() {
 fn dash_state_z_grab_enters_catch_dash() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let z_grab = [
@@ -6516,7 +8624,7 @@ fn dash_state_z_grab_enters_catch_dash() {
 fn dash_state_early_window_attack_pressed_without_shield_stays_dash() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_attack = [
@@ -6534,12 +8642,12 @@ fn dash_state_early_window_attack_pressed_without_shield_stays_dash() {
 fn dash_state_early_window_forward_attack_enters_side_smash() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let forward_attack = [
         PlayerInput::neutral()
-            .with_left_stick(80, 0)
+            .with_left_stick(dash_stick_x(), 0)
             .with_attack(true),
         PlayerInput::neutral(),
     ];
@@ -6554,7 +8662,7 @@ fn dash_state_early_window_forward_attack_enters_side_smash() {
 fn dash_state_early_window_cstick_side_enters_side_smash() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let cstick_side = [
@@ -6572,7 +8680,7 @@ fn dash_state_early_window_cstick_side_enters_side_smash() {
 fn dash_state_late_window_attack_pressed_without_shield_enters_attack_dash() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_attack = [
@@ -6581,8 +8689,10 @@ fn dash_state_late_window_attack_pressed_without_shield_enters_attack_dash() {
     ];
 
     step_world(&mut world, Frame(0), &dash_right);
-    step_world(&mut world, Frame(1), &dash_right);
-    step_world(&mut world, Frame(2), &dash_attack);
+    for frame in 1..=4 {
+        step_world(&mut world, Frame(frame), &dash_right);
+    }
+    step_world(&mut world, Frame(5), &dash_attack);
 
     assert_eq!(world.players()[0].motion_state, MotionState::AttackDash);
 }
@@ -6591,7 +8701,7 @@ fn dash_state_late_window_attack_pressed_without_shield_enters_attack_dash() {
 fn dash_holding_forward_exits_to_run_after_falcon_dash_frames() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6651,7 +8761,7 @@ fn run_state_accepts_specials_in_source_priority_order() {
     step_world(&mut neutral, Frame(16), &neutral_special);
     step_world(&mut down, Frame(16), &down_special);
 
-    assert_eq!(side.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(side.players()[0].motion_state, MotionState::SpecialSStart);
     assert_eq!(up.players()[0].motion_state, MotionState::SpecialHi);
     assert_eq!(neutral.players()[0].motion_state, MotionState::SpecialN);
     assert_eq!(down.players()[0].motion_state, MotionState::SpecialLw);
@@ -6707,10 +8817,64 @@ fn run_state_attack_pressed_without_shield_enters_dash_attack() {
 }
 
 #[test]
+fn run_direct_same_direction_run_input_handoffs_to_run_preserving_anim_frame() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::RunDirect;
+    player.motion_frame = 7;
+    player.facing = 1;
+    player.ground_velocity_x = player.profile.run_speed_per_tick;
+    player.velocity.x = player.ground_velocity_x;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let run_right = [
+        PlayerInput::neutral().with_left_stick(run_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &run_right);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::Run,
+        "ftCo_RunDirect_IASA reaches fn_800CA698 when same-facing run input is held"
+    );
+    assert_eq!(
+        world.players()[0].motion_frame,
+        7,
+        "fn_800CA698 enters Run with the current animation frame"
+    );
+}
+
+#[test]
+fn run_direct_release_exits_to_wait_through_ft_8008a244() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::RunDirect;
+    player.motion_frame = 3;
+    player.facing = 1;
+    player.ground_velocity_x = player.profile.run_speed_per_tick;
+    player.velocity.x = player.ground_velocity_x;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &neutral);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::Wait,
+        "ftCo_RunDirect_IASA falls through to ft_8008A244 when the stick leaves the source run gate"
+    );
+    assert!(
+        world.players()[0].velocity.x > 0,
+        "ft_8008A244 changes to Wait without clearing carried gr_vel"
+    );
+}
+
+#[test]
 fn dash_releasing_to_neutral_exits_to_wait_after_falcon_dash_frames() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -6721,14 +8885,21 @@ fn dash_releasing_to_neutral_exits_to_wait_after_falcon_dash_frames() {
     }
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
-    assert_eq!(world.players()[0].velocity.x, 0);
+    assert!(world.players()[0].velocity.x > 0);
+
+    let wait_entry_velocity = world.players()[0].velocity.x;
+    step_world(&mut world, Frame(16), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert!(world.players()[0].velocity.x > 0);
+    assert!(world.players()[0].velocity.x < wait_entry_velocity);
 }
 
 #[test]
-fn holding_opposite_after_moonwalk_exits_dash_to_walk_not_run() {
+fn holding_aged_opposite_after_moonwalk_exits_dash_to_wait_not_walk() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let soft_left = [
@@ -6744,7 +8915,7 @@ fn holding_opposite_after_moonwalk_exits_dash_to_walk_not_run() {
         PlayerInput::neutral(),
     ];
     let full_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6756,21 +8927,22 @@ fn holding_opposite_after_moonwalk_exits_dash_to_walk_not_run() {
         step_world(&mut world, Frame(frame), &full_left);
     }
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    assert_eq!(world.players()[0].facing, -1);
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(world.players()[0].facing, 1);
+    let wait_entry_velocity = world.players()[0].velocity.x;
 
     step_world(&mut world, Frame(16), &full_left);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    assert_eq!(world.players()[0].facing, -1);
-    assert!(world.players()[0].velocity.x < 2_000);
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(world.players()[0].facing, 1);
+    assert!(world.players()[0].velocity.x.abs() <= wait_entry_velocity.abs());
 }
 
 #[test]
-fn walk_after_moonwalk_carry_speed_decays_toward_walk_target_instead_of_snapping() {
+fn wait_after_moonwalk_carry_slides_under_ground_friction_instead_of_snapping_to_walk() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let soft_left = [
@@ -6786,9 +8958,10 @@ fn walk_after_moonwalk_carry_speed_decays_toward_walk_target_instead_of_snapping
         PlayerInput::neutral(),
     ];
     let full_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
     step_world(&mut world, Frame(0), &dash_right);
     step_world(&mut world, Frame(1), &soft_left);
@@ -6798,25 +8971,21 @@ fn walk_after_moonwalk_carry_speed_decays_toward_walk_target_instead_of_snapping
         step_world(&mut world, Frame(frame), &full_left);
     }
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     let carried_velocity = world.players()[0].velocity.x;
 
-    step_world(&mut world, Frame(16), &full_left);
+    step_world(&mut world, Frame(16), &neutral);
 
-    assert_eq!(world.players()[0].motion_state, MotionState::WalkFast);
-    let walk_target = -((90 * FighterProfile::falcon_like().walk_speed_per_tick + 63) / 127);
-    assert!(
-        (world.players()[0].velocity.x - walk_target).abs()
-            < (carried_velocity - walk_target).abs()
-    );
-    assert_ne!(world.players()[0].velocity.x, walk_target);
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert!(world.players()[0].velocity.x.abs() < carried_velocity.abs());
+    assert_ne!(world.players()[0].velocity.x, 0);
 }
 
 #[test]
 fn run_neutral_stick_enters_run_brake_without_zeroing_velocity() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -6928,14 +9097,14 @@ fn run_acceleration_uses_source_x5c_remaining_velocity_taper() {
 }
 
 #[test]
-fn run_opposite_stick_enters_turn_run_without_opposite_acceleration_same_tick() {
+fn run_opposite_stick_enters_turn_run_with_source_turnrun_phys_on_entry_tick() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6946,22 +9115,46 @@ fn run_opposite_stick_enters_turn_run_without_opposite_acceleration_same_tick() 
     let run_velocity = world.players()[0].velocity.x;
 
     step_world(&mut world, Frame(16), &dash_left);
+    let expected_velocity = source_turn_run_phys_velocity(
+        run_velocity,
+        -dash_stick_x() as i32,
+        1,
+        world.players()[0].profile,
+        world.common_data(),
+    );
 
     assert_eq!(world.players()[0].motion_state, MotionState::TurnRun);
     assert_eq!(world.players()[0].facing, 1);
     assert!(world.players()[0].velocity.x > 0);
-    assert!(world.players()[0].velocity.x < run_velocity);
+    assert_eq!(world.players()[0].velocity.x, expected_velocity);
+}
+
+#[test]
+fn run_turnaround_uses_source_x38_turn_run_threshold_not_x58_run_threshold() {
+    let mut world = World::for_two_players();
+    let turn_run_left = [
+        PlayerInput::neutral().with_left_stick(-turn_run_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+
+    advance_player_to_run(&mut world);
+
+    step_world(&mut world, Frame(16), &turn_run_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::TurnRun);
+    assert_eq!(world.players()[0].facing, 1);
+    assert!(world.players()[0].velocity.x > 0);
 }
 
 #[test]
 fn turn_run_keeps_old_facing_until_velocity_crosses_zero() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -6981,16 +9174,16 @@ fn turn_run_keeps_old_facing_until_velocity_crosses_zero() {
 fn turn_run_shield_input_does_not_cancel_before_source_jump_iasa() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield_left = [
         PlayerInput::neutral()
-            .with_left_stick(-90, 0)
+            .with_left_stick(-dash_stick_x(), 0)
             .with_left_trigger_analog(70),
         PlayerInput::neutral(),
     ];
@@ -7010,11 +9203,11 @@ fn turn_run_shield_input_does_not_cancel_before_source_jump_iasa() {
 fn run_entered_from_turn_run_keeps_source_no_interrupt_window() {
     let mut world = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let dash_left = [
-        PlayerInput::neutral().with_left_stick(-90, 0),
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -7045,11 +9238,70 @@ fn run_entered_from_turn_run_keeps_source_no_interrupt_window() {
 }
 
 #[test]
+fn full_run_turnaround_followthrough_can_chain_back_into_run_states() {
+    let mut world = World::for_two_players();
+    let dash_left = [
+        PlayerInput::neutral().with_left_stick(-dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+    let dash_right = [
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
+        PlayerInput::neutral(),
+    ];
+
+    advance_player_to_run(&mut world);
+
+    let mut frame = 16;
+    let mut saw_left_turn_run = false;
+    while frame <= 60 {
+        step_world(&mut world, Frame(frame), &dash_left);
+        assert!(!matches!(
+            world.players()[0].motion_state,
+            MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast
+        ));
+        saw_left_turn_run |= world.players()[0].motion_state == MotionState::TurnRun;
+        if saw_left_turn_run
+            && world.players()[0].motion_state == MotionState::Run
+            && world.players()[0].facing == -1
+        {
+            break;
+        }
+        frame += 1;
+    }
+
+    assert!(saw_left_turn_run);
+    assert_eq!(world.players()[0].motion_state, MotionState::Run);
+    assert_eq!(world.players()[0].facing, -1);
+
+    frame += 1;
+    let mut saw_right_turn_run = false;
+    while frame <= 110 {
+        step_world(&mut world, Frame(frame), &dash_right);
+        assert!(!matches!(
+            world.players()[0].motion_state,
+            MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast
+        ));
+        saw_right_turn_run |= world.players()[0].motion_state == MotionState::TurnRun;
+        if saw_right_turn_run
+            && world.players()[0].motion_state == MotionState::Run
+            && world.players()[0].facing == 1
+        {
+            break;
+        }
+        frame += 1;
+    }
+
+    assert!(saw_right_turn_run);
+    assert_eq!(world.players()[0].motion_state, MotionState::Run);
+    assert_eq!(world.players()[0].facing, 1);
+}
+
+#[test]
 fn run_brake_forward_or_soft_stick_keeps_braking_until_source_exit() {
     let mut forward = World::for_two_players();
     let mut soft = World::for_two_players();
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -7086,7 +9338,7 @@ fn run_brake_uses_extracted_profile_max_frames_when_available() {
     };
     let mut world = World::for_two_players_with_profiles([profile; 2]);
     let dash_right = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -7117,7 +9369,7 @@ fn run_brake_uses_extracted_profile_max_frames_when_available() {
 fn down_stick_from_wait_enters_squat() {
     let mut world = World::for_two_players();
     let down = [
-        PlayerInput::neutral().with_left_stick(0, -80),
+        PlayerInput::neutral().with_left_stick(0, crouch_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -7131,7 +9383,7 @@ fn down_stick_from_wait_enters_squat() {
 fn diagonal_down_walk_input_from_wait_enters_squat_not_walk() {
     let mut world = World::for_two_players();
     let down_forward = [
-        PlayerInput::neutral().with_left_stick(40, -80),
+        PlayerInput::neutral().with_left_stick(40, crouch_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -7144,7 +9396,7 @@ fn diagonal_down_walk_input_from_wait_enters_squat_not_walk() {
 fn dash_threshold_input_keeps_priority_over_crouch_from_wait() {
     let mut world = World::for_two_players();
     let dash_down_forward = [
-        PlayerInput::neutral().with_left_stick(90, -80),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), crouch_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -7157,7 +9409,7 @@ fn dash_threshold_input_keeps_priority_over_crouch_from_wait() {
 fn crouch_has_priority_over_turn_from_wait() {
     let mut world = World::for_two_players();
     let down_back = [
-        PlayerInput::neutral().with_left_stick(-40, -80),
+        PlayerInput::neutral().with_left_stick(-40, crouch_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -7179,20 +9431,20 @@ fn squat_startup_does_not_release_before_squat_wait_but_jump_or_shield_take_prio
     let mut jump = World::for_two_players_with_profiles([profile; 2]);
     let mut shield = World::for_two_players_with_profiles([profile; 2]);
     let down = [
-        PlayerInput::neutral().with_left_stick(0, -80),
+        PlayerInput::neutral().with_left_stick(0, crouch_stick_y()),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
     let down_jump = [
         PlayerInput::neutral()
-            .with_left_stick(0, -80)
+            .with_left_stick(0, crouch_stick_y())
             .with_jump(true),
         PlayerInput::neutral(),
     ];
     let down_shield = [
         PlayerInput::neutral()
-            .with_left_stick(0, -80)
-            .with_left_trigger_analog(80),
+            .with_left_stick(0, crouch_stick_y())
+            .with_left_trigger_analog(shield_analog()),
         PlayerInput::neutral(),
     ];
 
@@ -7220,7 +9472,7 @@ fn squat_enters_squat_wait_after_profile_startup_frames() {
     };
     let mut world = World::for_two_players_with_profiles([profile; 2]);
     let down = [
-        PlayerInput::neutral().with_left_stick(0, -80),
+        PlayerInput::neutral().with_left_stick(0, crouch_stick_y()),
         PlayerInput::neutral(),
     ];
 
@@ -7293,7 +9545,7 @@ fn squat_wait_dash_check_runs_before_squat_release() {
         PlayerInput::neutral(),
     ];
     let forward_dash_release = [
-        PlayerInput::neutral().with_left_stick(90, 0),
+        PlayerInput::neutral().with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
 
@@ -7418,7 +9670,7 @@ fn b_special_direction_from_wait_matches_ground_priority() {
     let side_special = [
         PlayerInput::neutral()
             .with_special(true)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let up_special = [
@@ -7442,7 +9694,7 @@ fn b_special_direction_from_wait_matches_ground_priority() {
     let diagonal_special = [
         PlayerInput::neutral()
             .with_special(true)
-            .with_left_stick(-90, 90),
+            .with_left_stick(-dash_stick_x(), 90),
         PlayerInput::neutral(),
     ];
 
@@ -7452,14 +9704,14 @@ fn b_special_direction_from_wait_matches_ground_priority() {
     step_world(&mut down_boundary, Frame(0), &down_boundary_special);
     step_world(&mut diagonal_side_first, Frame(0), &diagonal_special);
 
-    assert_eq!(side.players()[0].motion_state, MotionState::SpecialS);
+    assert_eq!(side.players()[0].motion_state, MotionState::SpecialSStart);
     assert_eq!(side.players()[0].facing, -1);
     assert_eq!(up.players()[0].motion_state, MotionState::SpecialHi);
     assert_eq!(down.players()[0].motion_state, MotionState::SpecialLw);
-    assert_eq!(down_boundary.players()[0].motion_state, MotionState::Squat);
+    assert_eq!(down_boundary.players()[0].motion_state, MotionState::Wait);
     assert_eq!(
         diagonal_side_first.players()[0].motion_state,
-        MotionState::SpecialS
+        MotionState::SpecialSStart
     );
     assert_eq!(diagonal_side_first.players()[0].facing, -1);
 }
@@ -7471,7 +9723,7 @@ fn grab_from_wait_has_priority_over_smash_and_shield() {
         PlayerInput::neutral()
             .with_grab(true)
             .with_attack(true)
-            .with_left_stick(90, 0)
+            .with_left_stick(dash_stick_x(), 0)
             .with_left_trigger_analog(80),
         PlayerInput::neutral(),
     ];
@@ -7505,7 +9757,7 @@ fn a_press_attack_priority_resolves_jab_tilt_and_smash_before_movement() {
         PlayerInput::neutral()
             .with_attack(true)
             .with_jump(true)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shallow_diagonal_attack = [
@@ -7602,7 +9854,7 @@ fn grounded_a_side_smash_beats_simultaneous_cstick_up_smash() {
     let attack = [
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(90, 0)
+            .with_left_stick(dash_stick_x(), 0)
             .with_c_stick(0, 90),
         PlayerInput::neutral(),
     ];
@@ -7639,7 +9891,7 @@ fn advance_to_air(world: &mut World) {
         PlayerInput::neutral(),
     ];
 
-    for frame in 0..=3 {
+    for frame in 0..=4 {
         step_world(world, Frame(frame), &jump);
     }
 
@@ -7656,11 +9908,11 @@ fn land_player_one_on_left_platform(world: &mut World) -> (StageProfile, u32) {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    for frame in 0..4 {
+    for frame in 0..=4 {
         step_world(world, Frame(frame), &jump);
     }
 
-    let mut frame = 4;
+    let mut frame = 5;
     while !world.players()[0].grounded && frame < 120 {
         step_world(world, Frame(frame), &neutral);
         frame += 1;
@@ -7669,11 +9921,12 @@ fn land_player_one_on_left_platform(world: &mut World) -> (StageProfile, u32) {
     assert!(world.players()[0].grounded);
     assert_eq!(world.players()[0].position.y, platform.y);
 
-    while world.players()[0].motion_state != MotionState::Wait && frame < 160 {
-        step_world(world, Frame(frame), &neutral);
-        frame += 1;
-    }
-
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Wait;
+    player.motion_frame = 0;
+    player.velocity.y = 0;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     (stage, frame)
 }
@@ -7704,58 +9957,6 @@ fn enter_pass_from_left_platform(world: &mut World) -> u32 {
     assert_eq!(world.players()[0].motion_state, MotionState::Pass);
 
     frame
-}
-
-fn run_ucf_assisted_pass_entry(world: &mut World, start_frame: u32) -> [u64; 7] {
-    let shield = [
-        PlayerInput::neutral().with_left_trigger_digital(true),
-        PlayerInput::neutral(),
-    ];
-    let shield_ucf_setup = [
-        PlayerInput::neutral()
-            .with_left_trigger_digital(true)
-            .with_left_stick(0, -80),
-        PlayerInput::neutral(),
-    ];
-    let ucf_shield_drop = [
-        PlayerInput::neutral()
-            .with_left_trigger_digital(true)
-            .with_left_stick(0, -127)
-            .with_ucf_shield_drop_tilt_intent(true),
-        PlayerInput::neutral(),
-    ];
-    let mut frame = start_frame;
-    let mut checksums = [0; 7];
-
-    step_world(world, Frame(frame), &shield);
-    checksums[0] = world.checksum();
-    frame += 1;
-    while world.players()[0].motion_state != MotionState::Guard && frame < start_frame + 20 {
-        step_world(world, Frame(frame), &shield);
-        frame += 1;
-    }
-
-    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
-
-    for slot in checksums.iter_mut().take(5).skip(1) {
-        step_world(world, Frame(frame), &shield_ucf_setup);
-        *slot = world.checksum();
-        frame += 1;
-    }
-
-    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
-    assert!(
-        world.input_timers()[0].y_tap
-            >= MeleeCommonData::provisional_mole().platform_pass_y_tap_window
-    );
-
-    step_world(world, Frame(frame), &ucf_shield_drop);
-    checksums[5] = world.checksum();
-    frame += 1;
-    step_world(world, Frame(frame), &ucf_shield_drop);
-    checksums[6] = world.checksum();
-
-    checksums
 }
 
 fn assert_current_action_returns_to_wait_after_frames(
@@ -7806,8 +10007,6 @@ fn snapshot_with_timers(
         x_tap_timer,
         y_tap_timer,
         trigger_timer: 254,
-        ucf_x_tilt_intent: false,
-        ucf_shield_drop_tilt_intent: false,
     }
 }
 
@@ -7821,7 +10020,7 @@ fn grounded_action_states_end_after_falcon_total_frames() {
     assert_action_returns_to_wait_after_frames(
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         MotionState::AttackS4,
         64,
     );
@@ -8076,13 +10275,13 @@ fn roll_durations_use_profile_action_frames() {
     let shield_forward = [
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let shield_back = [
         PlayerInput::neutral()
             .with_left_trigger_analog(80)
-            .with_left_stick(-90, 0),
+            .with_left_stick(-dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let mut forward = World::for_two_players_with_profiles([profile; 2]);
@@ -8148,7 +10347,7 @@ fn fsmash_does_not_interrupt_before_falcon_iasa_but_can_after() {
     let fsmash = [
         PlayerInput::neutral()
             .with_attack(true)
-            .with_left_stick(90, 0),
+            .with_left_stick(dash_stick_x(), 0),
         PlayerInput::neutral(),
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
