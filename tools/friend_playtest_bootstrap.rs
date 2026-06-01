@@ -25,16 +25,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&base_dir)?;
     fs::write(&zip_path, PACKAGE_ZIP)?;
 
+    let extract_command = format!(
+        "Expand-Archive -LiteralPath {} -DestinationPath {} -Force",
+        powershell_path_literal(&zip_path),
+        powershell_path_literal(&base_dir)
+    );
     let status = Command::new("powershell")
         .args([
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
-            "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force",
+            &extract_command,
         ])
-        .arg(&zip_path)
-        .arg(&base_dir)
         .status()?;
 
     if !status.success() {
@@ -50,6 +53,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .into());
     }
 
+    if extract_only() {
+        println!(
+            "Extracted Mole Game playtest package to {}",
+            base_dir.display()
+        );
+        return Ok(());
+    }
+
     Command::new("cmd")
         .args(["/C", "start", "", launcher.to_string_lossy().as_ref()])
         .current_dir(&base_dir)
@@ -62,6 +73,17 @@ fn local_app_data_dir() -> PathBuf {
     env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(env::temp_dir)
+}
+
+fn powershell_path_literal(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\'', "''");
+    format!("'{text}'")
+}
+
+fn extract_only() -> bool {
+    env::args().any(|arg| arg == "--extract-only")
+        || env::var_os("MOLE_PLAYTEST_EXTRACT_ONLY")
+            .is_some_and(|value| value.to_string_lossy() == "1")
 }
 
 fn remove_existing_package(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
