@@ -1,5 +1,15 @@
 # First Game
 
+## Friend Playtest Download
+
+Download the one-file Windows playtest build:
+
+[Download MoleGame-FriendPlaytest.exe](https://github.com/Robbiemas/First_Game/raw/refs/heads/playtest/friend-native-rust-baseline/playtest/MoleGame-FriendPlaytest.exe)
+
+After download, double-click the `.exe`. It extracts the minimal native Rust
+SDL3/WUP package under local app data and launches the game. Windows may show a
+SmartScreen warning because this is an unsigned early test build.
+
 Native Rust rollback platform-fighter work-in-progress, descended from a small
 Pygame prototype.
 
