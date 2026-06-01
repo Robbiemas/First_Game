@@ -13,6 +13,9 @@ generic controller, and standalone smoke launchers live in `depreciated/`.
 - `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.
 - `Setup SDL3.cmd`: helper used by the SDL3 launchers.
 - `Open State Graphs.cmd`: opens the Mole Game Dev Tool without launching the game.
+- `Build Friend Playtest Package.cmd`: builds a minimal Windows playtest folder,
+  zip, and one-file bootstrap exe under `dist/` for someone who only needs to
+  run the native SDL3/WUP baseline.
 
 Deprecated launchers kept for old-reference/manual recovery work:
 

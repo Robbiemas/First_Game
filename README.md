@@ -118,6 +118,14 @@ For vanilla controller-path testing, double-click
 runtime and input trace logging, but passes `--no-ucf` so the WUP/native
 pre-UCF path is visible before UCF amendments are layered on top.
 
+For a small Windows handoff package, double-click
+`execs\Build Friend Playtest Package.cmd`. It creates
+`dist\MoleGame-FriendPlaytest\`, `dist\MoleGame-FriendPlaytest.zip`, and
+`dist\MoleGame-FriendPlaytest.exe` with only the native runtime executable,
+SDL3 runtime DLL, Dolphin Mole assets, background, and launch scripts needed for
+a quick playtest. The `.exe` is a small bootstrapper that extracts the package
+under the tester's local app data and launches the game.
+
 For Slippi replay diagnostics, place local `.slp` files under `replays\` and
 run `node tools\slippi_replay_to_inputs.cjs --replay replays\Game.slp --frames
 1800`. The first setup is `npm install --prefix tools\slippi`. Generated JSON

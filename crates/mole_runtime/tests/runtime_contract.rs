@@ -7,13 +7,14 @@ use mole_core::{
 use mole_runtime::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, parse_wup_report, project_asset_root, slippi_core_report_path,
-    trace_slippi_export_from_match_start_with_core, write_slippi_core_trace_report,
-    ControllerInputTraceLog, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog,
-    InputReadout, InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue,
-    PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform,
-    ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreTraceConfig, UdpRuntimeConfig,
-    UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    native_replay_path, packaged_asset_root_for_exe, parse_wup_report, project_asset_root,
+    slippi_core_report_path, trace_slippi_export_from_match_start_with_core,
+    write_slippi_core_trace_report, ControllerInputTraceLog, DebugOverlay,
+    DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout, InputSource,
+    InputTraceWriter, LegacyAnimationKey, LegacySpriteCue, PhysicalInput, RenderColor, RenderFrame,
+    RenderRect, RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig,
+    SlippiCoreTraceConfig, UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig, WupInputMapper,
+    WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -852,6 +853,24 @@ fn runtime_asset_root_contains_background_and_sprite_files() {
         .join("standing")
         .join("Standing1.png")
         .is_file());
+}
+
+#[test]
+fn packaged_runtime_asset_root_can_resolve_next_to_executable() {
+    let root = std::env::temp_dir().join(format!(
+        "mole-runtime-package-assets-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("DolphinMole").join("standing"))
+        .expect("test asset directory should be created");
+    std::fs::write(root.join("background.png"), b"png")
+        .expect("test background marker should be created");
+
+    let resolved = packaged_asset_root_for_exe(&root.join("mole_runtime.exe"));
+
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(resolved, Some(root));
 }
 
 #[test]

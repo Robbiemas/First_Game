@@ -576,7 +576,33 @@ impl RenderScene {
 }
 
 pub fn project_asset_root() -> PathBuf {
+    if let Ok(root) = std::env::var("MOLE_ASSET_ROOT") {
+        let root = PathBuf::from(root);
+        if !root.as_os_str().is_empty() {
+            return root;
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(root) = packaged_asset_root_for_exe(&exe_path) {
+            return root;
+        }
+    }
+
+    source_asset_root()
+}
+
+pub fn packaged_asset_root_for_exe(exe_path: &Path) -> Option<PathBuf> {
+    let root = exe_path.parent()?;
+    has_runtime_assets(root).then(|| root.to_path_buf())
+}
+
+fn source_asset_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+fn has_runtime_assets(root: &Path) -> bool {
+    root.join("background.png").is_file() && root.join("DolphinMole").is_dir()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
