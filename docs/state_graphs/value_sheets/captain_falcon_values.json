@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "milli",
           "converted_value": 150,
           "kind": "milli",
           "offset": 0,
@@ -13,6 +14,7 @@
           "source_name": "walk_initial_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 100,
           "kind": "milli",
           "offset": 4,
@@ -23,6 +25,7 @@
           "source_name": "walk_accel"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 850,
           "kind": "milli",
           "offset": 8,
@@ -33,6 +36,7 @@
           "source_name": "walk_max_vel"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 165,
           "kind": "milli",
           "offset": 12,
@@ -43,6 +47,7 @@
           "source_name": "slow_walk_max_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 407,
           "kind": "milli",
           "offset": 16,
@@ -53,6 +58,7 @@
           "source_name": "mid_walk_threshold"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 660,
           "kind": "milli",
           "offset": 20,
@@ -63,6 +69,7 @@
           "source_name": "fast_walk_threshold"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 80,
           "kind": "milli",
           "offset": 24,
@@ -73,8 +80,9 @@
           "source_name": "gr_friction"
         },
         {
-          "converted_value": 2300,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.299999952316284,
+          "kind": "source_f32",
           "offset": 40,
           "offset_hex": "0x28",
           "provenance": "extracted_melee_dat",
@@ -83,6 +91,7 @@
           "source_name": "dash_run_terminal_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 2330,
           "kind": "milli",
           "offset": 44,
@@ -93,6 +102,7 @@
           "source_name": "run_animation_scaling"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 30,
           "kind": "f32_ticks",
           "offset": 48,
@@ -103,6 +113,7 @@
           "source_name": "max_run_brake_frames"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 3000,
           "kind": "milli",
           "offset": 52,
@@ -119,6 +130,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "milli",
           "converted_value": 2000,
           "kind": "milli",
           "offset": 28,
@@ -129,8 +141,9 @@
           "source_name": "dash_initial_velocity"
         },
         {
-          "converted_value": 150,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.15000000596046448,
+          "kind": "source_f32",
           "offset": 32,
           "offset_hex": "0x20",
           "provenance": "extracted_melee_dat",
@@ -139,8 +152,9 @@
           "source_name": "dash_run_acceleration_a"
         },
         {
-          "converted_value": 10,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.009999999776482582,
+          "kind": "source_f32",
           "offset": 36,
           "offset_hex": "0x24",
           "provenance": "extracted_melee_dat",
@@ -149,6 +163,7 @@
           "source_name": "dash_run_acceleration_b"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 6,
           "kind": "f32_ticks",
           "offset": 132,
@@ -165,6 +180,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "f32_ticks",
           "offset": 56,
@@ -175,6 +191,7 @@
           "source_name": "jump_startup_time"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 950,
           "kind": "milli",
           "offset": 60,
@@ -185,6 +202,7 @@
           "source_name": "jump_h_initial_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 3100,
           "kind": "milli",
           "offset": 64,
@@ -195,6 +213,7 @@
           "source_name": "jump_v_initial_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 750,
           "kind": "milli",
           "offset": 68,
@@ -205,6 +224,7 @@
           "source_name": "ground_to_air_jump_momentum_multiplier"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 2100,
           "kind": "milli",
           "offset": 72,
@@ -215,6 +235,7 @@
           "source_name": "jump_h_max_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 1900,
           "kind": "milli",
           "offset": 76,
@@ -225,6 +246,7 @@
           "source_name": "hop_v_initial_velocity"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 900,
           "kind": "milli",
           "offset": 80,
@@ -235,6 +257,7 @@
           "source_name": "air_jump_v_multiplier"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 900,
           "kind": "milli",
           "offset": 84,
@@ -245,6 +268,7 @@
           "source_name": "air_jump_h_multiplier"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 2,
           "kind": "i32_ticks",
           "offset": 88,
@@ -255,6 +279,7 @@
           "source_name": "max_jumps"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 40,
           "kind": "milli",
           "offset": 100,
@@ -265,6 +290,7 @@
           "source_name": "air_drift_stick_mul"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 20,
           "kind": "milli",
           "offset": 104,
@@ -275,6 +301,7 @@
           "source_name": "aerial_drift_base"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 1120,
           "kind": "milli",
           "offset": 108,
@@ -285,6 +312,7 @@
           "source_name": "air_drift_max"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 10,
           "kind": "milli",
           "offset": 112,
@@ -295,6 +323,7 @@
           "source_name": "aerial_friction"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 3000,
           "kind": "milli",
           "offset": 120,
@@ -311,6 +340,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "milli",
           "converted_value": 130,
           "kind": "milli",
           "offset": 92,
@@ -321,6 +351,7 @@
           "source_name": "grav"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 2900,
           "kind": "milli",
           "offset": 96,
@@ -331,6 +362,7 @@
           "source_name": "terminal_vel"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 3500,
           "kind": "milli",
           "offset": 116,
@@ -341,6 +373,7 @@
           "source_name": "fast_fall_velocity"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "f32_ticks",
           "offset": 228,
@@ -351,6 +384,7 @@
           "source_name": "normal_landing_lag"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 15,
           "kind": "f32_ticks",
           "offset": 232,
@@ -361,6 +395,7 @@
           "source_name": "landingairn_lag"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 19,
           "kind": "f32_ticks",
           "offset": 236,
@@ -371,6 +406,7 @@
           "source_name": "landingairf_lag"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 18,
           "kind": "f32_ticks",
           "offset": 240,
@@ -381,6 +417,7 @@
           "source_name": "landingairb_lag"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 15,
           "kind": "f32_ticks",
           "offset": 244,
@@ -391,6 +428,7 @@
           "source_name": "landingairhi_lag"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 24,
           "kind": "f32_ticks",
           "offset": 248,
@@ -407,6 +445,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "milli",
           "converted_value": 1647,
           "kind": "entry_platform_offset_milli",
           "offset": 272,

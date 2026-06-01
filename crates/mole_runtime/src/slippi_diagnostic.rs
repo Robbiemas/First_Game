@@ -21,6 +21,7 @@ const HSD_B: u32 = 1 << 9;
 const HSD_X: u32 = 1 << 10;
 const HSD_Y: u32 = 1 << 11;
 const HSD_START: u32 = 1 << 12;
+const SIGNIFICANT_POSITION_DRIFT_MILLI: i32 = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlippiCoreComparisonConfig {
@@ -40,6 +41,24 @@ impl Default for SlippiCoreComparisonConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlippiCoreMismatch {
     pub frame: Frame,
+    pub source_frame: i32,
+    pub player_index: usize,
+    pub expected_slippi_state_id: u16,
+    pub expected_motion_state: MotionState,
+    pub actual_motion_state: MotionState,
+    pub expected_position: Vec2,
+    pub actual_position: Vec2,
+    pub expected_ground_velocity_x: i32,
+    pub expected_air_velocity_x: i32,
+    pub expected_velocity_y: i32,
+    pub actual_velocity_x: i32,
+    pub actual_velocity_y: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlippiCorePositionDrift {
+    pub frame: Frame,
+    pub source_frame: i32,
     pub player_index: usize,
     pub expected_slippi_state_id: u16,
     pub expected_motion_state: MotionState,
@@ -91,7 +110,47 @@ pub struct SlippiCoreComparison {
     pub unsupported_states: Vec<(u16, usize)>,
     pub state_mismatch_count: usize,
     pub max_abs_ground_velocity_diff: [i32; PLAYER_COUNT],
+    pub first_position_drift: Option<SlippiCorePositionDrift>,
+    pub first_position_drift_by_player: [Option<SlippiCorePositionDrift>; PLAYER_COUNT],
     pub first_state_mismatch: Option<SlippiCoreMismatch>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlippiCoreTraceConfig {
+    pub player_index: usize,
+    pub source_frame_start: i32,
+    pub source_frame_end: i32,
+    pub max_frames: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlippiCoreTraceRow {
+    pub core_frame: Frame,
+    pub source_frame: i32,
+    pub player_index: usize,
+    pub input_stick_x: i8,
+    pub input_stick_y: i8,
+    pub input_button_bits: u32,
+    pub input_left_trigger: u8,
+    pub input_right_trigger: u8,
+    pub input_ucf_dashback_amendment: bool,
+    pub expected_slippi_state_id: u16,
+    pub expected_motion_state: Option<MotionState>,
+    pub actual_motion_state: MotionState,
+    pub expected_position: Vec2,
+    pub actual_position: Vec2,
+    pub expected_ground_velocity_x: i32,
+    pub expected_air_velocity_x: i32,
+    pub expected_velocity_y: i32,
+    pub actual_velocity_x: i32,
+    pub actual_velocity_y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlippiCoreTrace {
+    pub source_replay_path: Option<String>,
+    pub config: SlippiCoreTraceConfig,
+    pub rows: Vec<SlippiCoreTraceRow>,
 }
 
 impl SlippiCoreComparison {
@@ -136,11 +195,89 @@ impl SlippiCoreComparison {
             String::new(),
         ]);
 
+        if let Some(drift) = self.first_position_drift {
+            lines.extend([
+                "## First Significant Position Drift".to_string(),
+                String::new(),
+                format!("- Core frame: {}", drift.frame.0),
+                format!("- Slippi frame: {}", drift.source_frame),
+                format!("- Player: {}", drift.player_index + 1),
+                format!(
+                    "- Motion state: {:?} ({})",
+                    drift.expected_motion_state, drift.expected_slippi_state_id
+                ),
+                format!(
+                    "- Position: Melee ({}, {}) vs Rust ({}, {})",
+                    drift.expected_position.x,
+                    drift.expected_position.y,
+                    drift.actual_position.x,
+                    drift.actual_position.y
+                ),
+                format!(
+                    "- Position delta: Rust - Melee ({}, {})",
+                    drift.actual_position.x - drift.expected_position.x,
+                    drift.actual_position.y - drift.expected_position.y
+                ),
+                format!(
+                    "- Ground velocity X: Melee {} vs Rust {}",
+                    drift.expected_ground_velocity_x, drift.actual_velocity_x
+                ),
+                format!(
+                    "- Air velocity X: Melee {} vs Rust {}",
+                    drift.expected_air_velocity_x, drift.actual_velocity_x
+                ),
+                format!(
+                    "- Velocity Y: Melee {} vs Rust {}",
+                    drift.expected_velocity_y, drift.actual_velocity_y
+                ),
+                String::new(),
+            ]);
+        } else {
+            lines.extend([
+                "## First Significant Position Drift".to_string(),
+                String::new(),
+                format!(
+                    "No matching-state position drift of at least {} milli-units found in this comparison window.",
+                    SIGNIFICANT_POSITION_DRIFT_MILLI
+                ),
+                String::new(),
+            ]);
+        }
+
+        if self
+            .first_position_drift_by_player
+            .iter()
+            .any(Option::is_some)
+        {
+            lines.extend([
+                "## First Significant Position Drift By Player".to_string(),
+                String::new(),
+                "| Player | Core frame | Slippi frame | State | Delta X | Delta Y |".to_string(),
+                "| ---: | ---: | ---: | --- | ---: | ---: |".to_string(),
+            ]);
+            for (player_index, drift) in self.first_position_drift_by_player.iter().enumerate() {
+                if let Some(drift) = drift {
+                    lines.push(format!(
+                        "| {} | {} | {} | {:?} ({}) | {} | {} |",
+                        player_index + 1,
+                        drift.frame.0,
+                        drift.source_frame,
+                        drift.expected_motion_state,
+                        drift.expected_slippi_state_id,
+                        drift.actual_position.x - drift.expected_position.x,
+                        drift.actual_position.y - drift.expected_position.y
+                    ));
+                }
+            }
+            lines.push(String::new());
+        }
+
         if let Some(mismatch) = self.first_state_mismatch {
             lines.extend([
                 "## First State Mismatch".to_string(),
                 String::new(),
-                format!("- Frame: {}", mismatch.frame.0),
+                format!("- Core frame: {}", mismatch.frame.0),
+                format!("- Slippi frame: {}", mismatch.source_frame),
                 format!("- Player: {}", mismatch.player_index + 1),
                 format!(
                     "- Melee expected: {:?} ({})",
@@ -155,16 +292,33 @@ impl SlippiCoreComparison {
                     mismatch.actual_position.y
                 ),
                 format!(
+                    "- Position delta: Rust - Melee ({}, {})",
+                    mismatch.actual_position.x - mismatch.expected_position.x,
+                    mismatch.actual_position.y - mismatch.expected_position.y
+                ),
+                format!(
                     "- Ground velocity X: Melee {} vs Rust {}",
                     mismatch.expected_ground_velocity_x, mismatch.actual_velocity_x
+                ),
+                format!(
+                    "- Ground velocity X delta: Rust - Melee {}",
+                    mismatch.actual_velocity_x - mismatch.expected_ground_velocity_x
                 ),
                 format!(
                     "- Air velocity X: Melee {} vs Rust {}",
                     mismatch.expected_air_velocity_x, mismatch.actual_velocity_x
                 ),
                 format!(
+                    "- Air velocity X delta: Rust - Melee {}",
+                    mismatch.actual_velocity_x - mismatch.expected_air_velocity_x
+                ),
+                format!(
                     "- Velocity Y: Melee {} vs Rust {}",
                     mismatch.expected_velocity_y, mismatch.actual_velocity_y
+                ),
+                format!(
+                    "- Velocity Y delta: Rust - Melee {}",
+                    mismatch.actual_velocity_y - mismatch.expected_velocity_y
                 ),
                 String::new(),
             ]);
@@ -200,6 +354,66 @@ impl SlippiCoreComparison {
                 .to_string(),
         );
         lines.push(String::new());
+        lines.join("\n")
+    }
+}
+
+impl SlippiCoreTrace {
+    pub fn report_markdown(&self) -> String {
+        let mut lines = vec![
+            "# Slippi Core Trace Window".to_string(),
+            String::new(),
+            "This report replays Slippi-exported game-facing inputs from match start and records a compact per-frame comparison window.".to_string(),
+        ];
+        if let Some(path) = &self.source_replay_path {
+            lines.push(format!("- Source replay: `{path}`"));
+        }
+        lines.push(format!("- Player: {}", self.config.player_index + 1));
+        lines.push(format!(
+            "- Source frame window: {}..={}",
+            self.config.source_frame_start, self.config.source_frame_end
+        ));
+        lines.push(String::new());
+        lines.push("| Core | Source | Player | Stick X | Stick Y | Buttons | L | R | UCF DB | Expected | Actual | Exp X | Act X | dX | Exp Y | Act Y | dY | Exp Gx | Exp Ax | Act Vx | Exp Vy | Act Vy |".to_string());
+        lines.push("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |".to_string());
+        for row in &self.rows {
+            let expected_name = row
+                .expected_motion_state
+                .map(|state| format!("{state:?}"))
+                .unwrap_or_else(|| {
+                    slippi_action_state_name(row.expected_slippi_state_id).to_string()
+                });
+            lines.push(format!(
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {:?} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+                row.core_frame.0,
+                row.source_frame,
+                row.player_index,
+                row.input_stick_x,
+                row.input_stick_y,
+                row.input_button_bits,
+                row.input_left_trigger,
+                row.input_right_trigger,
+                if row.input_ucf_dashback_amendment { "yes" } else { "no" },
+                expected_name,
+                row.expected_slippi_state_id,
+                row.actual_motion_state,
+                row.expected_position.x,
+                row.actual_position.x,
+                row.actual_position.x - row.expected_position.x,
+                row.expected_position.y,
+                row.actual_position.y,
+                row.actual_position.y - row.expected_position.y,
+                row.expected_ground_velocity_x,
+                row.expected_air_velocity_x,
+                row.actual_velocity_x,
+                row.expected_velocity_y,
+                row.actual_velocity_y
+            ));
+        }
+        if self.rows.is_empty() {
+            lines.push(String::new());
+            lines.push("No comparable rows were found in the requested window.".to_string());
+        }
         lines.join("\n")
     }
 }
@@ -327,6 +541,22 @@ pub fn compare_slippi_export_with_core(
             let velocity_diff = (expected_ground_velocity - actual_velocity).abs();
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
+            record_first_position_drift(
+                &mut comparison,
+                diagnostic_core_frame(frame.frame),
+                frame.frame,
+                player_index,
+                post.action_state_id,
+                expected_motion_state,
+                actual,
+                expected_position,
+                actual_position,
+                expected_ground_velocity,
+                expected_air_velocity,
+                expected_velocity_y,
+                actual_velocity,
+                actual_velocity_y,
+            );
 
             if actual != expected_motion_state {
                 comparison.state_mismatch_count += 1;
@@ -334,6 +564,7 @@ pub fn compare_slippi_export_with_core(
                     .first_state_mismatch
                     .get_or_insert(SlippiCoreMismatch {
                         frame: diagnostic_core_frame(frame.frame),
+                        source_frame: frame.frame,
                         player_index,
                         expected_slippi_state_id: post.action_state_id,
                         expected_motion_state,
@@ -434,6 +665,22 @@ pub fn compare_slippi_export_from_match_start_with_core(
             let velocity_diff = (expected_ground_velocity - actual_velocity).abs();
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
+            record_first_position_drift(
+                &mut comparison,
+                core_frame,
+                frame.frame,
+                player_index,
+                post.action_state_id,
+                expected_motion_state,
+                actual,
+                expected_position,
+                actual_position,
+                expected_ground_velocity,
+                expected_air_velocity,
+                expected_velocity_y,
+                actual_velocity,
+                actual_velocity_y,
+            );
 
             if actual != expected_motion_state {
                 comparison.state_mismatch_count += 1;
@@ -441,6 +688,7 @@ pub fn compare_slippi_export_from_match_start_with_core(
                     .first_state_mismatch
                     .get_or_insert(SlippiCoreMismatch {
                         frame: core_frame,
+                        source_frame: frame.frame,
                         player_index,
                         expected_slippi_state_id: post.action_state_id,
                         expected_motion_state,
@@ -464,6 +712,101 @@ pub fn compare_slippi_export_from_match_start_with_core(
     Ok(comparison)
 }
 
+pub fn trace_slippi_export_from_match_start_with_core(
+    text: &str,
+    config: SlippiCoreTraceConfig,
+) -> Result<SlippiCoreTrace, SlippiCoreDiagnosticError> {
+    let mut export: SlippiExport = serde_json::from_str(text)?;
+    let source_replay_path = export
+        .source
+        .as_ref()
+        .and_then(|source| source.replay_path.clone());
+    let frame_limit = config.max_frames.unwrap_or(usize::MAX);
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut rows = Vec::new();
+    export.frames.sort_by_key(|frame| frame.frame);
+
+    for (core_frame_index, frame) in export.frames.into_iter().take(frame_limit).enumerate() {
+        let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
+        let mut raw_inputs = [SlippiRustPlayerInput::default(); PLAYER_COUNT];
+        for (player_index, input_slot) in inputs.iter_mut().enumerate() {
+            if let Some(input) = frame
+                .players
+                .get(&player_index.to_string())
+                .and_then(|player_frame| player_frame.pre.as_ref())
+                .and_then(|pre| pre.rust_player_input.as_ref())
+            {
+                raw_inputs[player_index] = *input;
+                *input_slot = input.to_player_input();
+            }
+        }
+
+        let core_frame = Frame(core_frame_index as u32);
+        step_world(&mut world, core_frame, &inputs);
+        if frame.frame < config.source_frame_start || frame.frame > config.source_frame_end {
+            continue;
+        }
+        if config.player_index >= PLAYER_COUNT {
+            continue;
+        }
+        let Some(player_frame) = frame.players.get(&config.player_index.to_string()) else {
+            continue;
+        };
+        let Some(post) = &player_frame.post else {
+            continue;
+        };
+        let snapshot = world.snapshot();
+        let expected_position = post
+            .position
+            .map(slippi_position_to_core_milli)
+            .unwrap_or_default();
+        let expected_ground_velocity_x = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_core_milli(speeds.ground_x))
+            .unwrap_or_default();
+        let expected_air_velocity_x = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_core_milli(speeds.air_x))
+            .unwrap_or_default();
+        let expected_velocity_y = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_core_milli(speeds.y))
+            .unwrap_or_default();
+        let player = snapshot.players[config.player_index];
+        let raw_input = raw_inputs[config.player_index];
+        rows.push(SlippiCoreTraceRow {
+            core_frame,
+            source_frame: frame.frame,
+            player_index: config.player_index,
+            input_stick_x: raw_input.stick_x,
+            input_stick_y: raw_input.stick_y,
+            input_button_bits: raw_input.physical_button_bits,
+            input_left_trigger: raw_input.left_trigger,
+            input_right_trigger: raw_input.right_trigger,
+            input_ucf_dashback_amendment: raw_input.ucf_dashback_amendment,
+            expected_slippi_state_id: post.action_state_id,
+            expected_motion_state: slippi_action_state_to_motion(post.action_state_id),
+            actual_motion_state: player.motion_state,
+            expected_position,
+            actual_position: player.position,
+            expected_ground_velocity_x,
+            expected_air_velocity_x,
+            expected_velocity_y,
+            actual_velocity_x: player.velocity.x,
+            actual_velocity_y: player.velocity.y,
+        });
+    }
+
+    Ok(SlippiCoreTrace {
+        source_replay_path,
+        config,
+        rows,
+    })
+}
+
 fn empty_comparison(export: &SlippiExport, mode: SlippiCoreComparisonMode) -> SlippiCoreComparison {
     SlippiCoreComparison {
         mode,
@@ -479,8 +822,57 @@ fn empty_comparison(export: &SlippiExport, mode: SlippiCoreComparisonMode) -> Sl
         unsupported_states: Vec::new(),
         state_mismatch_count: 0,
         max_abs_ground_velocity_diff: [0; PLAYER_COUNT],
+        first_position_drift: None,
+        first_position_drift_by_player: [None; PLAYER_COUNT],
         first_state_mismatch: None,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_first_position_drift(
+    comparison: &mut SlippiCoreComparison,
+    frame: Frame,
+    source_frame: i32,
+    player_index: usize,
+    expected_slippi_state_id: u16,
+    expected_motion_state: MotionState,
+    actual_motion_state: MotionState,
+    expected_position: Vec2,
+    actual_position: Vec2,
+    expected_ground_velocity_x: i32,
+    expected_air_velocity_x: i32,
+    expected_velocity_y: i32,
+    actual_velocity_x: i32,
+    actual_velocity_y: i32,
+) {
+    if actual_motion_state != expected_motion_state {
+        return;
+    }
+
+    let delta_x = actual_position.x - expected_position.x;
+    let delta_y = actual_position.y - expected_position.y;
+    let max_abs_delta = delta_x.abs().max(delta_y.abs());
+    if max_abs_delta < SIGNIFICANT_POSITION_DRIFT_MILLI {
+        return;
+    }
+
+    let drift = SlippiCorePositionDrift {
+        frame,
+        source_frame,
+        player_index,
+        expected_slippi_state_id,
+        expected_motion_state,
+        actual_motion_state,
+        expected_position,
+        actual_position,
+        expected_ground_velocity_x,
+        expected_air_velocity_x,
+        expected_velocity_y,
+        actual_velocity_x,
+        actual_velocity_y,
+    };
+    comparison.first_position_drift.get_or_insert(drift);
+    comparison.first_position_drift_by_player[player_index].get_or_insert(drift);
 }
 
 fn controller_fix_label(is_ucf: bool) -> &'static str {
@@ -596,6 +988,18 @@ pub fn write_slippi_core_report(
         fs::create_dir_all(parent)?;
     }
     fs::write(path, comparison.report_markdown())?;
+    Ok(())
+}
+
+pub fn write_slippi_core_trace_report(
+    path: impl AsRef<Path>,
+    trace: &SlippiCoreTrace,
+) -> Result<(), SlippiCoreDiagnosticError> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, trace.report_markdown())?;
     Ok(())
 }
 
@@ -785,7 +1189,7 @@ struct SlippiPreFrame {
     rust_player_input: Option<SlippiRustPlayerInput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 struct SlippiRustPlayerInput {
     #[serde(default)]
     stick_x: i8,

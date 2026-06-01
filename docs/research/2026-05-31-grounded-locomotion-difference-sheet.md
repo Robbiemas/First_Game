@@ -82,15 +82,15 @@ human-noticeable grounded movement gaps.
 
 | Factor | Melee source | Rust current | Status |
 | --- | --- | --- | --- |
-| Input thresholds | PlCo fields such as `x24`, `x34`, `x38`, `x3C`, `x40`, `x44`, `x48`, `x4C`, `x54`, `x58`, `x5C`, `x60`, `x430` | Extracted through `MeleeCommonData`; value ledger is 102/102 | Mostly aligned |
-| Dash/run accel and target | `getAccelAndTarget` in `inlines.h:130-137` | `dash_run_accel_and_target` in `sim.rs:2050` | Aligned in shape |
+| Input thresholds | PlCo fields such as `x24`, `x34`, `x38`, `x3C`, `x40`, `x44`, `x48`, `x4C`, `x54`, `x58`, `x5C`, `x60`, `x42C`, `x430` | Extracted through `MeleeCommonData`; value ledger is 103/103 | Mostly aligned |
+| Dash/run accel and target | `getAccelAndTarget` in `inlines.h:130-137`: HSD-clamped fighter stick `f32` times source `f32` acceleration/terminal velocity | `fighter_stick_axis_to_f32` plus `dash_run_accel_and_target` in `sim.rs` | Aligned for the current integer-position bridge; source floats are stored and hashed by raw bits |
 | Ground accel toward target | `ftCommon_8007C98C` in `ftcommon.c:71-105` | `apply_ground_accel_toward_target` in `sim.rs:2174` | Partial: source max clamp inside some branches is simplified |
 | General ground friction | `ft_80084F3C` in `ft_084E.c:41-52` with high-speed multiplier over walk max | `apply_ground_traction` in `sim.rs:2009` | Mostly aligned for flat Battlefield |
 | Run friction | run/turn/brake use `gr_friction * x60` | `run_ground_friction` in `sim.rs:2027` | Aligned in value, simplified surface multiplier |
 | Ground movement projection | `ftCommon_ApplyGroundMovement` in `ftcommon.c:143-160` projects through floor normal into anim/self velocity | Rust uses flat-stage integer `ground_velocity_x`, `ground_accel_x`, `ground_accel_x2` | Partial: Battlefield main floor ok, slopes/normal projection not complete |
 | Ground collision | `ft_80084280` and `ft_800844EC` in `ft_081B.c:1069-1142` handle ledges, nudges, fall, edge behavior | `has_floor_support` plus fall transition after position commit | Partial, acceptable on center Battlefield floor only |
-| Motion command vars | source `cmd_vars[0]`, `cmd_vars[1]` gate Dash, RunBrake, TurnRun behavior | mostly absent from Rust locomotion state | Gap |
-| Animation-frame gates | source `cur_anim_frame`, `ftAnim_IsFramesRemaining`, anim rate, and motion vars gate exits | Rust uses `motion_frame`, fixed profile frame counts, and immediate branch checks | Gap for TurnRun/RunBrake, risk for Dash/Walk |
+| Motion command vars | source `cmd_vars[0]`, `cmd_vars[1]` gate Dash, RunBrake, TurnRun behavior | Dash, RunBrake, and TurnRun command vars are deterministic Rust fields driven by extracted Falcon action-script events | Mostly aligned for current grounded slice |
+| Animation-frame gates | source `cur_anim_frame`, `ftAnim_IsFramesRemaining`, anim rate, and motion vars gate exits | Walk, Run, Dash, RunBrake, and TurnRun carry source-shaped motion vars/rate gates for the current grounded slice | Mostly aligned for flat-ground Falcon locomotion |
 
 ## State Differences
 
@@ -136,20 +136,26 @@ Source:
 Rust:
 - `walk_motion_state` in `sim.rs:1038` chooses walk bucket from
   `ground_velocity_x`.
+- `walk_anim_tick` carries the source-shaped animation-rate update and
+  remap timing.
 - `apply_walk_velocity` in `sim.rs:1900` implements source-shaped initial
-  velocity, accel, target, and taper.
+  velocity, accel, target, taper, and `mv.co.walk.x0`-style animation
+  velocity storage.
 - Graph marks WalkSlow/Middle/Fast aligned.
 
 Differences:
-- Rust does not model walk animation phase remap from `ftWalkCommon_800DFEC8`.
-- Rust does not carry `mv.co.walk.x0` as a separate animation-rate source.
+- Exact source animation-frame seed values passed through `ftCo_Walk_Enter`
+  still use the current Rust frame counter rather than extracted per-bucket
+  animation-frame constants.
 - Metal/scale/item held movement multipliers in `ftCo_Walk_Enter` are absent.
 - Input debug buckets still have provisional `walk_slow_x`, `walk_middle_x`,
   and `walk_fast_x` values. State selection itself is velocity-based.
 
 Impact:
 - Low for raw flat-ground displacement.
-- Medium for visible animation feel and walk bucket transitions.
+- Lower than before this slice for visible animation feel and walk bucket
+  transitions; remaining gaps are outside the no-item flat-ground Falcon
+  sandbox or need exact per-bucket animation-frame constants.
 
 ### Turn
 
@@ -165,18 +171,23 @@ Rust:
 - Turn lives in `sim.rs:273-320`, with `advance_turn_anim`,
   `turn_effective_input_facts`, `arm_turn_dash_after_if_fresh`, and same-frame
   ground traction on entry.
-- UCF dashback amendment is adapter/runtime-owned, not core-owned.
+- `turn_effective_input_facts` now applies the source temporary-facing action
+  pass before grounded attack resolution, so pre-flip old-forward soft A falls
+  through to jab instead of becoming a side tilt.
+- The runtime input trace exposes Turn's hidden facing/latch vars alongside
+  the controller samples.
+- UCF dashback amendment remains adapter-owned and is consumed at the source
+  Turn hook point as a flag.
 - Graph marks Turn partial.
 
 Differences:
-- Rust approximates the temporary-facing IASA behavior rather than carrying the
-  exact source facing-flip sequence through all source helper calls.
-- Rust has button latching, but not the exact `x1C` helper behavior for every
-  action branch.
+- Rust has the source-shaped temporary-facing action pass and A/B latch fields,
+  but not every source helper called from `ftCo_Turn_IASA` has a one-to-one
+  Rust identity yet.
 - Turn collision remains simplified relative to `ft_80083F88`.
 
 Impact:
-- Medium for dashback and turnaround input edge cases.
+- Lower than before this slice for turnaround attack direction edge cases.
 - Lower for normal standing turn on flat floor.
 
 ### Dash
@@ -197,21 +208,25 @@ Rust:
 - Dash lives in `sim.rs:136-178`.
 - Entry stages the dash delta as `ground_accel_x2`, matching the source shape
   where dash-entry velocity commits after same-frame translation.
+- `dash_anim_tick` applies extracted Falcon Dash action-script `cmd_vars[0]`
+  events: clear on frame 0, set on frame 16, and animation-completion fallback
+  on frame 29.
+- `apply_dash_physics` consumes `mv.co.dash.x0` on the first Dash physics tick,
+  then later frames use live-stick dash/run accel and target.
+- Dash-to-Run applies the Run physics helper on the same handoff frame, matching
+  source callback order where `Fighter_procUpdate` follows `Dash_IASA` with the
+  updated Run `phys_cb`.
 - `apply_dash_velocity` and `dash_iasa_decayed_ground_velocity` cover live dash
   accel and x54 decay.
 - Graph marks Dash and `Dash -> Run` aligned.
 
 Differences:
-- Rust does not model `cmd_vars[0]` as an animation-script output. Run exit is
-  modeled by `profile.dash_frames` and source windows rather than the actual
-  animation command variable.
-- Source `Dash_Anim` can move to Wait before IASA/Phys on animation completion;
-  Rust exits Dash near the end of its Dash branch after physics staging.
 - Dash collision/edge handling is simplified.
 
 Impact:
-- Low to medium. Existing tests cover a lot of dash and moonwalk-like payload,
-  but exact animation-command timing can still show up as one-frame feel errors.
+- Lower than before this slice for Dash-to-Run and non-run Dash fallback timing.
+  Remaining Dash risk is mostly collision/edge handling and still-uncovered
+  late-window action branches.
 
 ### Run
 
@@ -235,14 +250,12 @@ Rust:
 - `is_same_direction_run` uses extracted `x58`.
 - `is_opposite_run_turn` uses extracted `x38`.
 - `run_no_interrupt_frames` models `x430`.
+- `run_anim_tick` decrements `run_no_interrupt_frames` before IASA, matching
+  `ftCo_Run_Anim -> ftCo_Run_IASA`.
 - `apply_run_velocity` implements dash/run accel, target, and `x5C` taper.
 - Graph marks Run partial.
 
 Differences:
-- `run_no_interrupt_frames` decrements inside the Run state branch. In source,
-  `mv.co.run.x0` is decremented in `Run_Anim` before `Run_IASA`. If the counter
-  reaches zero on a frame, source can evaluate TurnRun/RunBrake on that same
-  frame; Rust waits until the next tick.
 - Rust does not carry `mv.co.run.x4` for animation-rate behavior.
 - Rust has no source animation-rate feedback into visible Run/RunDirect.
 - Run collision uses simplified floor support.
@@ -268,23 +281,23 @@ Source:
 - `ftCo_RunBrake_Coll` uses `ft_80084280`.
 
 Rust:
-- RunBrake lives in `sim.rs:230-248`.
-- Rust covers jump, crouch, run friction, zero-velocity exit, and extracted
-  Falcon max brake frames.
-- Graph marks RunBrake and `Run -> RunBrake` partial.
+- RunBrake lives in the `MotionState::RunBrake` branch.
+- `run_brake_anim_tick` models the Falcon action-script `cmd_vars[0]` window,
+  the `cmd_vars[1]`/PlCo `x42C` animation pause slot, and extracted
+  `max_run_brake_frames`.
+- IASA now checks jump, then `cmd_vars[0] && fn_800C9CEC`-shaped opposite
+  TurnRun, then squat/braking fallback.
+- Graph marks `RunBrake -> TurnRun` aligned for this locomotion path while the
+  broader RunBrake state remains partial.
 
 Differences:
-- Rust does not model `cmd_vars[0]`, so RunBrake cannot source-transition into
-  TurnRun through `fn_800C9CEC`.
-- Rust does not model `cmd_vars[1]` or PlCo `x42C` animation pause/resume.
-- Rust exits to Wait when velocity reaches zero or max brake frames expire.
-  With held stick, the next Wait tick can become Walk. That is a plausible
-  route for the reported "run turnaround just becomes walk" symptom when the
-  source would still allow a RunBrake-to-TurnRun branch.
+- RunBrake collision remains simplified relative to `ft_80084280`.
+- Non-locomotion interrupts outside jump/squat/TurnRun still need the broader
+  source-callback audit.
 
 Impact:
-- High. This is the clearest missing source transition adjacent to the user's
-  run-turnaround complaint.
+- Lower than before this slice for run-turnaround miss recovery; still medium
+  until the wider callback/collision pass is complete.
 
 ### TurnRun
 
@@ -305,27 +318,26 @@ Source:
 - `ftCo_TurnRun_Coll` handles floor loss and edge behavior.
 
 Rust:
-- TurnRun lives in `sim.rs:250-271`.
+- TurnRun lives in the `MotionState::TurnRun` branch.
 - Entry stores `turn_run_accel_mul`, applies source-shaped TurnRun physics on
   the entry tick, and preserves old facing until velocity crosses zero.
-- `advance_turn_run_facing` flips facing when velocity crosses zero.
-- Rust enters Run immediately after `turn_has_turned`, same-direction velocity,
-  and same-facing `x58` run input.
-- Graph marks TurnRun and `TurnRun -> Run` partial.
+- `turn_run_anim_tick` models the Falcon action-script `cmd_vars[1]` frame,
+  animation pause slot `x14`, velocity-crossing resume/facing flip, and
+  completion-gated `fn_800CA644`-style Run handoff.
+- Graph marks `TurnRun -> Run` aligned for this grounded locomotion path while
+  the broader TurnRun state remains partial.
 
 Differences:
-- Rust does not model `cmd_vars[1]`, `mv.co.turnrun.x14`, animation-rate pause,
-  or animation-completion-gated `fn_800CA644`.
-- Rust flips facing from velocity crossing in the physics/result path; source
-  flips facing in the animation callback when the command-var gate says it can.
-- Rust can enter Run before the source animation completion point, or miss the
-  source's fallback timing.
-- Rust's `TurnRun -> Wait` fallback is only velocity-zero plus neutral stick;
-  source fallback is animation-completion plus failed `fn_800CA644`.
+- The velocity-crossing resume uses the extracted source shape, but the exact
+  floating-point comparison and floor-normal projection are still simplified in
+  Rust's integer flat-Battlefield physics.
+- TurnRun collision remains simplified relative to the source collision
+  callback.
 
 Impact:
-- High. This is the other major gap for run turnaround feel, dash-dance miss
-  recovery, and "run back and forth with turnarounds between run states."
+- Lower than before this slice for run-turnaround follow-through; remaining
+  differences are now more likely in Dash command-var timing, Turn temporary
+  facing/latches, Walk animation vars, or collision/projection.
 
 ### RunDirect
 
@@ -356,34 +368,39 @@ Impact:
 
 | Priority | Gap | Source anchor | Rust anchor | Why it matters | Next evidence/test |
 | --- | --- | --- | --- | --- | --- |
-| P0 | RunBrake cannot branch into TurnRun through `cmd_vars[0] && fn_800C9CEC` | `ftCo_RunBrake.c:85-92`, `ftCo_TurnRun.c:21-31` | `sim.rs:230-248` | Likely route for held reverse input degrading into Wait/Walk after a missed run-turn timing | Add a source-shaped test where Run enters RunBrake, holds opposite past x38 during the command-var window, and must reach TurnRun/Run rather than Wait/Walk |
-| P0 | TurnRun exit is velocity-crossing based instead of animation-command/completion based | `ftCo_TurnRun.c:60-78`, `ftCo_Run.c:40-50` | `sim.rs:250-271`, `sim.rs:1266` | Core run-turnaround follow-through can happen too early, too late, or via wrong fallback | Add tests around TurnRun frames: no Run before source completion, Run on completion with x58, Wait fallback on completion without x58 |
-| P0 | Run no-interrupt counter is decremented in the state branch, not source Anim before IASA | `ftCo_Run.c:81-104`, `ftCo_Run.c:106-132` | `sim.rs:180-204` | Can shift the first actionable TurnRun/RunBrake frame after `x430` by one tick | Add x430 boundary test with counter == 1 and reverse input; source should evaluate after Anim decrement |
-| P1 | Dash exit uses fixed Rust frame logic instead of `cmd_vars[0]` and Anim completion | `ftCo_Dash.c:76-135` | `sim.rs:136-178`, `sim.rs:1983` | One-frame differences can affect dash dance, moonwalk, and Dash-to-Run feel | Add frame trace comparing Dash command-var run gate against current `profile.dash_frames` exit |
-| P1 | Walk animation bucket remap and `mv.co.walk.x0` are not modeled | `ftwalkcommon.c:98-166` | `sim.rs:1038`, `sim.rs:1900` | Visual walk/run feel and bucket switches can look wrong despite correct displacement | Add walk bucket transition tests that verify animation frame/rate once animation vars exist |
-| P1 | Turn temporary-facing IASA and button latch are approximated | `ftCo_Turn.c:99-150` | `sim.rs:273-320` | Dashback and turnaround attack/special edge cases can differ | Add narrow tests for pre-turn and post-turn action priority with latched A/B |
-| P1 | Runtime trace lacks hidden locomotion vars | `readout.rs:224-480` | `state.rs:539-552` | Hard to diagnose user playtests that say "it walked out" when state labels/velocity are not enough | Add trace fields for `ground_velocity_x`, accels, dash delta, run no-interrupt, turn flags, and turn-run accel mul |
+| Done P0 | RunBrake command-var TurnRun branch | `ftCo_RunBrake.c:85-92`, `ftCo_TurnRun.c:21-31` | `MotionState::RunBrake`, `run_brake_anim_tick` | Prevents held reverse input from falling through to Wait/Walk when source still allows TurnRun | Covered by `run_brake_cmd_var0_window_can_branch_to_turnrun_before_wait_or_walk` |
+| Done P0 | TurnRun completion-gated Run handoff | `ftCo_TurnRun.c:60-78`, `ftCo_Run.c:40-50` | `MotionState::TurnRun`, `turn_run_anim_tick` | Stops velocity crossing from directly entering Run before source animation completion | Covered by `turn_run_does_not_enter_run_before_source_animation_completion` and `turn_run_completion_enters_run_through_source_x58_gate` |
+| Done P0 | Run no-interrupt counter decrement before IASA | `ftCo_Run.c:81-104`, `ftCo_Run.c:106-132` | `MotionState::Run`, `run_anim_tick` | Keeps the first actionable TurnRun/RunBrake frame after `x430` on the source frame | Covered by `run_x430_decrements_before_iasa_allows_turnrun_on_boundary_frame` |
+| Done P1 | Dash command-var Run gate, same-frame Run physics, and animation-completion fallback | `ftCo_Dash.c:76-163`, `fighter.c:2120-2161` | `MotionState::Dash`, `dash_anim_tick`, `apply_dash_physics`, `apply_run_velocity` | Removes the fixed-frame shortcut from Dash-to-Run and keeps the handoff frame on the source callback order | Covered by `dash_holding_forward_waits_for_source_cmd_var0_before_run_gate`, `dash_neutral_falls_back_on_animation_completion_not_profile_dash_frames`, `dash_entry_x0_suppresses_first_normal_dash_physics_tick`, and `run_acceleration_uses_source_x5c_remaining_velocity_taper` |
+| Done P1 | Walk animation bucket remap and `mv.co.walk.x0` source fields | `ftwalkcommon.c:98-166` | `walk_anim_tick`, `walk_motion_state`, `apply_walk_velocity` | Keeps walk bucket transitions/rate fields source-shaped instead of only moving the character correctly | Covered by `walk_records_source_x0_and_anim_rate_from_bucket_velocity`, `walk_bucket_remap_preserves_source_motion_frame_and_resets_change_state_rate`, and checksum/snapshot coverage |
+| Done P1 | Turn temporary-facing action pass and latch trace fields | `ftCo_Turn.c:99-150` | `turn_effective_input_facts`, `apply_turn_temporary_facing_to_attack_facts`, runtime trace | Prevents old-facing soft A during pre-flip Turn from resolving as forward side tilt; exposes hidden Turn vars for controller-log diagnosis | Covered by `turn_pre_flip_old_forward_tilt_uses_temporary_source_facing_for_attack_checks`, existing Turn latch tests, and trace-field coverage |
+| Done P1 | Runtime trace lacked hidden locomotion vars | `readout.rs`, `mole_runtime/src/lib.rs` | `PlayerRenderSnapshot`, `RenderFrame`, `core_player_to_json` | Gives controller logs enough state/velocity context for playtest diagnosis | Trace now includes ground velocity/accels, dash delta, run no-interrupt, cmd vars, RunBrake fields, TurnRun pause, and animation rate |
+| Done P2 | Replay oracle report collapsed source and core frame numbers | Slippi negative-frame export, `slippi_diagnostic.rs` | `SlippiCoreMismatch::source_frame`, report deltas | Prevents match-start reports from pointing at a core-frame index when the actionable source replay frame differs | Covered by `slippi_match_start_report_distinguishes_core_frame_from_source_replay_frame`; current replay first useful mismatch is source frame 17, P2 LandingFallSpecial vs Rust Fall with +2112 milli x drift |
+| Done P2 | Fighter stick normalization used legacy percent/asymmetric scaling for dash/run helper paths | `controller.c` `HSD_PadScale`, `fighter.c` input copy, `inlines.h::getAccelAndTarget` | `fighter_stick_axis_to_f32`, `dash_run_accel_and_target`, value sheets | Keeps full HSD-clamped left/right stick at `-1.0/+1.0` and compares Falcon dash/run attrs as source `f32` values instead of old milli aliases | Covered by HSD `/127.0` stick tests, dash target/accel tests, and Slippi P2 dash-to-kneebend trace matching frames -20..-13 exactly |
 | P2 | Collision helpers are simplified for ledges/edges | `ft_081B.c:1069-1142` | `sim.rs:692-699` | Not urgent on center Battlefield, important near ledges | Later edge/ledge movement parity pass |
 | P2 | Wait/Walk item, metal, scale, and special-case helpers are outside current Rust slice | `ftCo_Wait.c`, `ftCo_Walk.c` | `sim.rs:780`, `sim.rs:1900` | Not current Falcon no-item sandbox, but needed for completeness | Track separately from movement feel work |
 
 ## Current User-Facing Expectation
 
-Based on this audit, the current engine should not be expected to have full
-human-noticeable grounded movement parity yet.
+Based on this audit, the current engine is closer but still should not be
+treated as complete human-noticeable grounded movement parity.
 
 What should be reasonably testable:
 
-- Dash starts, Dash-to-Run, basic Run, Run-to-TurnRun through x38, and a core
-  full-stick `Run -> TurnRun -> Run` chain have test coverage.
+- Dash starts, Dash-to-Run, basic Run, Run-to-TurnRun through x38, RunBrake
+  command-var TurnRun, source-shaped TurnRun completion, and the x430 boundary
+  have test coverage.
 - Moonwalk-like dash payload behavior has tests, but the graph still notes the
   human feel is under review.
 - Value and ECB data for the current Falcon movement sandbox are in good shape.
 
 What should not be expected yet:
 
-- Frame-perfect RunBrake-to-TurnRun behavior after a missed timing.
-- Source-accurate TurnRun animation pause, facing flip, and Run exit timing.
-- Source-accurate animation-rate feel for Walk/Run/RunDirect.
+- Remaining Dash late-window action branches and edge collision behavior.
+- One-to-one helper identity for every Turn action branch and full Turn
+  collision/edge behavior.
+- Full source animation-rate feel for Run/RunDirect and exact Walk per-bucket
+  seed frames.
 - Full grounded edge/ledge collision behavior.
 
 ## Recommended Next Slice
@@ -392,16 +409,16 @@ Do not tune speeds or add gameplay states.
 
 The next implementation slice should be:
 
-1. Add source-shaped motion vars needed for RunBrake and TurnRun:
-   `cmd_vars[0]`, `cmd_vars[1]`, RunBrake `x0`, RunBrake frame timer,
-   TurnRun `x14`, and a source-equivalent animation-completion gate.
-2. Add failing tests for:
-   - RunBrake command-var-gated `fn_800C9CEC`.
-   - TurnRun completion-gated `fn_800CA644`.
-   - `x430` counter decrement before Run IASA.
-3. Keep the Rust core deterministic and vanilla.
-4. Update state graphs, value refs, parity report notes, and runtime trace fields
-   when behavior changes.
+1. Investigate the current replay oracle's earliest remaining drift, now around
+   P1 `Pass`/platform drop horizontal velocity, before tuning grounded feel.
+2. Continue migrating Melee-owned physics scalars to source `f32` only where the
+   decomp uses floats, while hashing exact float bits for deterministic replay.
+3. Add failing tests around the chosen source callback behavior before changing
+   implementation.
+4. Keep the Rust core deterministic and vanilla; UCF stays in the input/replay
+   adapter layer.
+5. Update state graphs, value refs, parity report notes, and runtime trace
+   fields when behavior changes.
 
 For live playtest diagnosis, use:
 
@@ -410,6 +427,6 @@ For live playtest diagnosis, use:
 ```
 
 or run the runtime with `--input-trace`. The trace currently records WUP raw,
-native, UCF, mapped input, before/after motion state, facing, velocity, and core
-input facts. It does not yet expose all hidden locomotion vars listed in the P1
-tooling gap.
+native, UCF, mapped input, before/after motion state, facing, velocity, hidden
+ground locomotion vars, command vars, animation-rate fields, and core input
+facts.

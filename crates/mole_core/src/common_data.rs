@@ -124,6 +124,7 @@ pub struct MeleeCommonData {
     pub run_accel_taper_milli: i32,
     pub run_ground_friction_multiplier_milli: i32,
     pub high_speed_ground_friction_multiplier_milli: i32,
+    pub run_brake_animation_pause_velocity_milli: i32,
     pub animation_velocity_scale_milli: i32,
     pub fall_animation_drift_threshold_milli: i32,
     pub fall_animation_blend_milli: i32,
@@ -200,6 +201,7 @@ impl MeleeCommonData {
         run_accel_taper_milli: 400,
         run_ground_friction_multiplier_milli: 1_000,
         high_speed_ground_friction_multiplier_milli: 2_000,
+        run_brake_animation_pause_velocity_milli: 0,
         animation_velocity_scale_milli: 1_300,
         fall_animation_drift_threshold_milli: 100,
         fall_animation_blend_milli: 500,
@@ -284,6 +286,7 @@ impl MeleeCommonData {
         data.escapeair_force = read_milli_i32(bytes, 0x338, "escapeair_force")?;
         data.escapeair_decay_milli = read_milli_i32(bytes, 0x33c, "escapeair_decay")?;
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
+        data.run_brake_animation_pause_velocity_milli = read_milli_i32(bytes, 0x42c, "x42C")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
         data.animation_velocity_scale_milli = read_milli_i32(bytes, 0x440, "x440")?;
         data.fall_animation_drift_threshold_milli = read_milli_i32(bytes, 0x444, "x444")?;
@@ -680,6 +683,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "run_turn_run_no_interrupt_frames",
         source_name: "x430",
         offset: 0x430,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "run_brake_animation_pause_velocity_milli",
+        source_name: "x42C",
+        offset: 0x42c,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {

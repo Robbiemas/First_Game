@@ -8,11 +8,12 @@ use mole_runtime::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
     native_replay_path, parse_wup_report, project_asset_root, slippi_core_report_path,
+    trace_slippi_export_from_match_start_with_core, write_slippi_core_trace_report,
     ControllerInputTraceLog, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog,
     InputReadout, InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue,
     PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform,
-    ReplayCapture, SlippiCoreComparisonConfig, UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig,
-    WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreTraceConfig, UdpRuntimeConfig,
+    UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -355,9 +356,60 @@ fn slippi_core_comparison_reports_first_state_mismatch() {
     assert!(comparison
         .report_markdown()
         .contains("Position: Melee (1500, 2250)"));
+    assert!(comparison.report_markdown().contains("Position delta:"));
+    assert!(comparison
+        .report_markdown()
+        .contains("Ground velocity X delta:"));
     assert!(comparison
         .report_markdown()
         .contains("Air velocity X: Melee 500"));
+}
+
+#[test]
+fn slippi_core_comparison_reports_first_position_drift_without_state_mismatch() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "action_state_id": 14,
+            "position": [0.0, 0.0],
+            "facing": 1.0,
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 14,
+            "position": [2.0, 0.0],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+    let drift = comparison
+        .first_position_drift
+        .expect("matching states with divergent positions should be reported");
+
+    assert!(comparison.first_state_mismatch.is_none());
+    assert_eq!(drift.frame, Frame(0));
+    assert_eq!(drift.source_frame, 0);
+    assert_eq!(drift.player_index, 0);
+    assert_eq!(drift.expected_motion_state, MotionState::Wait);
+    assert_eq!(drift.actual_motion_state, MotionState::Wait);
+    assert_eq!(drift.expected_position, Vec2 { x: 2_000, y: 0 });
+    assert_eq!(drift.actual_position, Vec2 { x: 0, y: 0 });
+
+    let report = comparison.report_markdown();
+    assert!(report.contains("First Significant Position Drift"));
+    assert!(report.contains("Position delta: Rust - Melee (-2000, 0)"));
 }
 
 #[test]
@@ -511,6 +563,50 @@ fn slippi_match_start_comparison_replays_entry_frames_without_pre_state_seeding(
 }
 
 #[test]
+fn slippi_match_start_report_distinguishes_core_frame_from_source_replay_frame() {
+    let export = r#"{
+      "schema_version": 1,
+      "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+      "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+      "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 0},
+      "export": {
+        "first_frame": -123,
+        "last_frame": -123,
+        "frame_count": 1,
+        "included_negative_frames": true
+      },
+      "frames": [
+        {"frame": -123, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 15,
+            "position": [0.0, 0.0],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }}}
+      ]
+    }"#;
+
+    let comparison = compare_slippi_export_from_match_start_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("match-start export should parse");
+    let report = comparison.report_markdown();
+
+    assert!(report.contains("- Core frame: 0"));
+    assert!(report.contains("- Slippi frame: -123"));
+}
+
+#[test]
 fn slippi_core_report_path_uses_local_debug_slippi_directory() {
     let path = slippi_core_report_path(Path::new("replays/Game_Example.slp"));
 
@@ -520,6 +616,99 @@ fn slippi_core_report_path_uses_local_debug_slippi_directory() {
             .join("slippi")
             .join("Game_Example.core.report.md")
     );
+}
+
+#[test]
+fn slippi_match_start_trace_reports_expected_and_actual_frame_window() {
+    let export = r#"{
+      "schema_version": 1,
+      "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+      "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+      "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": -16},
+      "export": {
+        "first_frame": -17,
+        "last_frame": -16,
+        "frame_count": 2,
+        "included_negative_frames": true
+      },
+      "frames": [
+        {"frame": -17, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+              "ucf_dashback_amendment": false
+            }
+          },
+          "post": {
+            "action_state_id": 24,
+            "position": [32.2, 27.2],
+            "self_induced_speeds": {"ground_x": -2.14, "air_x": -2.14, "y": 0.0}
+          }
+        }}},
+        {"frame": -16, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+              "ucf_dashback_amendment": false
+            }
+          },
+          "post": {
+            "action_state_id": 24,
+            "position": [30.22, 27.2],
+            "self_induced_speeds": {"ground_x": -1.98, "air_x": -1.98, "y": 0.0}
+          }
+        }}}
+      ]
+    }"#;
+
+    let trace = trace_slippi_export_from_match_start_with_core(
+        export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: -17,
+            source_frame_end: -17,
+            max_frames: None,
+        },
+    )
+    .expect("trace window should parse");
+
+    assert_eq!(trace.rows.len(), 1);
+    assert_eq!(trace.rows[0].source_frame, -17);
+    assert_eq!(trace.rows[0].input_stick_x, -125);
+    assert_eq!(trace.rows[0].input_button_bits, 2048);
+
+    let report = trace.report_markdown();
+    assert!(report.contains("# Slippi Core Trace Window"));
+    assert!(report.contains("| 0 | -17 | 0 | -125 | 0 | 2048 |"));
+    assert!(report.contains("KneeBend"));
+}
+
+#[test]
+fn slippi_core_trace_report_writer_uses_markdown() {
+    let trace = trace_slippi_export_from_match_start_with_core(
+        r#"{
+          "source": {"replay_path": "fixture.slp"},
+          "settings": {"players": {}},
+          "frames": []
+        }"#,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 0,
+            source_frame_end: 0,
+            max_frames: None,
+        },
+    )
+    .expect("empty trace should parse");
+    let path =
+        std::env::temp_dir().join(format!("mole-slippi-core-trace-{}.md", std::process::id()));
+
+    write_slippi_core_trace_report(&path, &trace).expect("trace report should write");
+
+    let text = std::fs::read_to_string(&path).expect("trace report should be readable");
+    let _ = std::fs::remove_file(&path);
+    assert!(text.contains("# Slippi Core Trace Window"));
 }
 
 #[test]
@@ -1384,7 +1573,7 @@ fn wup_input_mapper_uses_first_connected_raw_sample_as_console_origin() {
     ]);
 
     assert_eq!(moved[0].stick_x(), 89);
-    assert_eq!(moved[0].stick_y(), -90);
+    assert_eq!(moved[0].stick_y(), -89);
     assert_eq!(moved[0].left_trigger_analog(), source_shield_trigger());
     assert_eq!(moved[0].right_trigger_analog(), 0);
     assert!(moved[0].shield());
@@ -1476,9 +1665,9 @@ fn wup_input_mapper_preserves_native_gate_distance_after_origin() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].stick_x(), 88);
-    assert_eq!(moved[0].stick_y(), -91);
-    assert_eq!(moved[0].c_stick_x(), -91);
+    assert_eq!(moved[0].stick_x(), 87);
+    assert_eq!(moved[0].stick_y(), -90);
+    assert_eq!(moved[0].c_stick_x(), -90);
     assert_eq!(moved[0].c_stick_y(), 87);
 }
 
@@ -1515,7 +1704,7 @@ fn wup_input_mapper_preserves_c_stick_and_dpad_in_player_input() {
         WupPort::default(),
     ]);
 
-    assert_eq!(moved[0].c_stick_x(), -91);
+    assert_eq!(moved[0].c_stick_x(), -90);
     assert_eq!(moved[0].c_stick_y(), 87);
     assert!(moved[0].dpad_left());
     assert!(moved[0].dpad_up());
@@ -1737,8 +1926,8 @@ fn wup_input_mapper_feeds_console_origin_pads_through_melee_processor() {
     let moved_p1 = moved[0].expect("connected port should produce player one snapshot");
 
     assert_eq!(moved_p1.prev_lstick, (0, 0));
-    assert_eq!(moved_p1.lstick, (89, -90));
-    assert_eq!(moved_p1.cstick, (89, -90));
+    assert_eq!(moved_p1.lstick, (89, -89));
+    assert_eq!(moved_p1.cstick, (89, -89));
     assert_eq!(moved_p1.left_trigger, source_shield_trigger());
     assert_eq!(moved_p1.right_trigger, 0);
     assert!(moved_p1.pressed.a());
@@ -1749,13 +1938,88 @@ fn wup_input_mapper_feeds_console_origin_pads_through_melee_processor() {
     let held = mapper.map_ports_to_melee_snapshots(moved_ports);
     let held_p1 = held[0].expect("connected port should produce player one snapshot");
 
-    assert_eq!(held_p1.prev_lstick, (89, -90));
+    assert_eq!(held_p1.prev_lstick, (89, -89));
     assert_eq!(held_p1.lstick, (89, -84));
     assert!(held_p1.held.a());
     assert!(!held_p1.pressed.a());
     assert!(!held_p1.shield_pressed);
     assert_eq!(held_p1.x_tap_timer, 1);
     assert_eq!(held_p1.trigger_timer, 1);
+}
+
+#[test]
+fn wup_input_mapper_collapses_subframe_capture_window_before_melee_processing() {
+    let mut mapper = WupInputMapper::new(WupInputConfig { ucf_enabled: false });
+    mapper.map_ports_to_input_trace(connected_wup_pad(GameCubePadStatus::neutral()));
+
+    let early_button = connected_wup_pad(GameCubePadStatus {
+        stick_x: 144,
+        buttons: GameCubeButtonState::empty().with_a(true),
+        ..GameCubePadStatus::neutral()
+    });
+    let latest_analog = connected_wup_pad(GameCubePadStatus {
+        stick_x: 232,
+        buttons: GameCubeButtonState::empty(),
+        ..GameCubePadStatus::neutral()
+    });
+
+    let trace = mapper.map_capture_window_to_input_trace(&[early_button, latest_analog]);
+    let p1 = trace.players[0].expect("connected capture window should produce player one");
+
+    assert_eq!(trace.capture_report_count, 2);
+    assert_eq!(p1.raw.stick_x, 232);
+    assert!(p1.raw.buttons.a());
+    assert!(p1.snapshot.held.a());
+    assert!(p1.input.attack());
+    assert!(p1.input.stick_x() > 0);
+}
+
+#[test]
+fn wup_input_mapper_capture_window_keeps_latest_analog_sample_not_stale_queue_head() {
+    let mut mapper = WupInputMapper::new(WupInputConfig { ucf_enabled: false });
+    mapper.map_ports_to_input_trace(connected_wup_pad(GameCubePadStatus::neutral()));
+
+    let stale_left = connected_wup_pad(GameCubePadStatus {
+        stick_x: 0,
+        ..GameCubePadStatus::neutral()
+    });
+    let fresh_right = connected_wup_pad(GameCubePadStatus {
+        stick_x: 255,
+        ..GameCubePadStatus::neutral()
+    });
+
+    let trace = mapper.map_capture_window_to_input_trace(&[stale_left, fresh_right]);
+    let p1 = trace.players[0].expect("connected capture window should produce player one");
+
+    assert_eq!(trace.capture_report_count, 2);
+    assert_eq!(p1.raw.stick_x, 255);
+    assert!(p1.input.stick_x() > 0);
+}
+
+#[test]
+fn wup_input_mapper_capture_window_uses_first_connected_sample_as_origin_before_collapsing() {
+    let mut mapper = WupInputMapper::new(WupInputConfig { ucf_enabled: false });
+
+    let first_origin = connected_wup_pad(GameCubePadStatus {
+        stick_x: 131,
+        stick_y: 125,
+        buttons: GameCubeButtonState::empty(),
+        ..GameCubePadStatus::neutral()
+    });
+    let latest_gameplay = connected_wup_pad(GameCubePadStatus {
+        stick_x: 232,
+        stick_y: 125,
+        buttons: GameCubeButtonState::empty(),
+        ..GameCubePadStatus::neutral()
+    });
+
+    let trace = mapper.map_capture_window_to_input_trace(&[first_origin, latest_gameplay]);
+    let p1 = trace.players[0].expect("connected capture window should produce player one");
+
+    assert_eq!(trace.capture_report_count, 2);
+    assert_eq!(p1.origin.stick_x, 131);
+    assert_eq!(p1.raw.stick_x, 232);
+    assert!(p1.input.stick_x() > 0);
 }
 
 #[test]
@@ -1835,7 +2099,8 @@ fn wup_input_mapper_can_disable_ucf_preprocessing() {
     ]);
     let p1 = snapshots[0].expect("connected port should produce player one snapshot");
 
-    assert_eq!(p1.lstick, (81, 0));
+    assert_eq!(p1.lstick, (125, 0));
+    assert_eq!(p1.facts(Default::default()).dash_direction, 1);
 }
 
 #[test]
@@ -1915,7 +2180,7 @@ fn wup_input_mapper_leaves_non_ucf_cardinal_cross_axis_for_vanilla_deadzone_clea
     let p1 = snapshots[0].expect("connected port should produce player one snapshot");
     let facts = p1.facts(Default::default());
 
-    assert_eq!(p1.lstick, (103, 0));
+    assert_eq!(p1.lstick, (124, 0));
     assert_eq!(facts.horizontal_smash_direction, 1);
     assert_eq!(facts.dash_direction, 1);
 }
@@ -2071,7 +2336,7 @@ fn wup_input_mapper_trace_exposes_raw_origin_native_ucf_and_core_input() {
     assert_eq!(p1.raw.stick_x, 255);
     assert_eq!(p1.origin.stick_x, 131);
     assert_eq!(p1.origin_adjusted.stick_x, 252);
-    assert_eq!(p1.native.stick_x, 252);
+    assert_eq!(p1.native.stick_x, 255);
     assert_eq!(p1.ucf.stick_x, 255);
     assert_eq!(p1.snapshot.lstick, (127, 0));
     assert_eq!(p1.input.stick_x(), 127);
@@ -2117,9 +2382,10 @@ fn controller_input_trace_log_joins_wup_stages_with_core_state_and_facts() {
 
     assert!(line.contains("\"frame\":0"));
     assert!(line.contains("\"ucf_enabled\":true"));
+    assert!(line.contains("\"capture_report_count\":1"));
     assert!(line.contains("\"raw\":{\"stick_x\":232"));
     assert!(line.contains("\"origin\":{\"stick_x\":128"));
-    assert!(line.contains("\"native\":{\"stick_x\":232"));
+    assert!(line.contains("\"native\":{\"stick_x\":255"));
     assert!(line.contains("\"ucf\":{\"stick_x\":255"));
     assert!(line.contains("\"input\":{\"bits\":"));
     assert!(line.contains("\"stick_x\":127"));
@@ -2129,6 +2395,23 @@ fn controller_input_trace_log_joins_wup_stages_with_core_state_and_facts() {
     assert!(line.contains("\"after\":{\"frame\":1"));
     assert!(line.contains("\"motion_state\":\"Dash\""));
     assert!(line.contains("\"velocity_x\":"));
+    assert!(line.contains("\"ground_velocity_x\":"));
+    assert!(line.contains("\"ground_accel_x\":"));
+    assert!(line.contains("\"dash_x0\":"));
+    assert!(line.contains("\"walk_anim_velocity_x\":"));
+    assert!(line.contains("\"walk_accel_mul_milli\":"));
+    assert!(line.contains("\"turn_facing_after\":"));
+    assert!(line.contains("\"turn_has_turned\":"));
+    assert!(line.contains("\"turn_just_turned\":"));
+    assert!(line.contains("\"turn_frames_to_turn\":"));
+    assert!(line.contains("\"turn_dash_after_direction\":"));
+    assert!(line.contains("\"turn_latched_buttons\":"));
+    assert!(line.contains("\"run_no_interrupt_frames\":"));
+    assert!(line.contains("\"motion_cmd_var0\":"));
+    assert!(line.contains("\"motion_cmd_var1\":"));
+    assert!(line.contains("\"run_brake_frames_remaining\":"));
+    assert!(line.contains("\"turn_run_x14\":"));
+    assert!(line.contains("\"motion_anim_rate_milli\":"));
     assert!(line.contains("\"core_facts\":{"));
     assert!(line.contains("\"checksum\":"));
 }
@@ -2405,9 +2688,21 @@ fn input_readout_stream_json_can_include_melee_snapshot_facts() {
     assert!(line.contains("\"left_trigger_analog_pressed\":true"));
     assert!(line.contains("\"right_trigger_analog_pressed\":false"));
     assert!(line.contains("\"cstick_x\":89"));
-    assert!(line.contains("\"cstick_y\":-90"));
+    assert!(line.contains("\"cstick_y\":-89"));
     assert!(line.contains("\"cstick_smash_direction_x\":1"));
     assert!(line.contains("\"cstick_smash_direction_y\":0"));
+}
+
+fn connected_wup_pad(pad: GameCubePadStatus) -> [WupPort; 4] {
+    [
+        WupPort {
+            connected: true,
+            pad,
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]
 }
 
 struct ScriptedInputSource {

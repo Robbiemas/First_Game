@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 36,
           "kind": "stick",
           "offset": 0,
@@ -13,6 +14,7 @@
           "source_name": "x0"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 36,
           "kind": "stick",
           "offset": 4,
@@ -23,6 +25,7 @@
           "source_name": "x4"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 36,
           "kind": "stick",
           "offset": 0,
@@ -33,6 +36,7 @@
           "source_name": "x0"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 36,
           "kind": "stick",
           "offset": 4,
@@ -43,6 +47,7 @@
           "source_name": "x4"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 8,
@@ -53,6 +58,7 @@
           "source_name": "x8_someStickThreshold"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 12,
@@ -63,6 +69,7 @@
           "source_name": "xC"
         },
         {
+          "comparison_value_kind": "trigger_byte",
           "converted_value": 77,
           "kind": "trigger",
           "offset": 16,
@@ -73,6 +80,7 @@
           "source_name": "x10"
         },
         {
+          "comparison_value_kind": "trigger_byte",
           "converted_value": 64,
           "kind": "trigger",
           "offset": 24,
@@ -83,6 +91,7 @@
           "source_name": "x18"
         },
         {
+          "comparison_value_kind": "trigger_byte",
           "converted_value": 89,
           "kind": "trigger",
           "offset": 20,
@@ -99,6 +108,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 23,
           "kind": "stick",
           "offset": 36,
@@ -109,6 +119,7 @@
           "source_name": "x24"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 400,
           "kind": "milli",
           "offset": 40,
@@ -119,6 +130,7 @@
           "source_name": "x28"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 800,
           "kind": "milli",
           "offset": 44,
@@ -129,6 +141,7 @@
           "source_name": "x2C"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 500,
           "kind": "milli",
           "offset": 48,
@@ -139,6 +152,7 @@
           "source_name": "x30"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": -32,
           "kind": "stick",
           "offset": 52,
@@ -149,6 +163,7 @@
           "source_name": "x34"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": -48,
           "kind": "stick",
           "offset": 56,
@@ -159,6 +174,7 @@
           "source_name": "x38_someLStickXThreshold"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 102,
           "kind": "stick",
           "offset": 60,
@@ -169,6 +185,7 @@
           "source_name": "x3C"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 2,
           "kind": "i32_ticks",
           "offset": 64,
@@ -179,6 +196,7 @@
           "source_name": "x40"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "f32_ticks",
           "offset": 68,
@@ -189,6 +207,7 @@
           "source_name": "x44"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 3,
           "kind": "f32_ticks",
           "offset": 72,
@@ -199,6 +218,7 @@
           "source_name": "x48"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 20,
           "kind": "f32_ticks",
           "offset": 76,
@@ -209,6 +229,7 @@
           "source_name": "x4C"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 750,
           "kind": "milli",
           "offset": 84,
@@ -219,6 +240,7 @@
           "source_name": "x54"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 79,
           "kind": "stick",
           "offset": 88,
@@ -229,6 +251,7 @@
           "source_name": "x58_someLStickXThreshold"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 400,
           "kind": "milli",
           "offset": 92,
@@ -239,6 +262,7 @@
           "source_name": "x5C"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 1000,
           "kind": "milli",
           "offset": 96,
@@ -249,6 +273,7 @@
           "source_name": "x60_someFrictionMul"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 2000,
           "kind": "milli",
           "offset": 108,
@@ -259,6 +284,7 @@
           "source_name": "x6C"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 10,
           "kind": "f32_ticks",
           "offset": 1072,
@@ -269,6 +295,18 @@
           "source_name": "x430"
         },
         {
+          "comparison_value_kind": "milli",
+          "converted_value": 0,
+          "kind": "milli",
+          "offset": 1068,
+          "offset_hex": "0x42c",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.0,
+          "rust_name": "run_brake_animation_pause_velocity_milli",
+          "source_name": "x42C"
+        },
+        {
+          "comparison_value_kind": "milli",
           "converted_value": 1300,
           "kind": "milli",
           "offset": 1088,
@@ -285,6 +323,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 84,
           "kind": "stick",
           "offset": 112,
@@ -295,6 +334,7 @@
           "source_name": "tap_jump_threshold"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "i32_ticks",
           "offset": 116,
@@ -305,6 +345,7 @@
           "source_name": "x74"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 16,
           "kind": "stick",
           "offset": 120,
@@ -315,6 +356,7 @@
           "source_name": "x78"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 38,
           "kind": "stick",
           "offset": 124,
@@ -325,6 +367,7 @@
           "source_name": "tap_jump_release_threshold"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 84,
           "kind": "stick",
           "offset": 136,
@@ -335,6 +378,7 @@
           "source_name": "x88"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "i32_ticks",
           "offset": 140,
@@ -345,6 +389,7 @@
           "source_name": "x8C"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 220,
@@ -355,6 +400,7 @@
           "source_name": "xDC"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 224,
@@ -365,6 +411,7 @@
           "source_name": "xE0"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 1192,
           "kind": "radian_tangent_milli",
           "offset": 32,
@@ -375,6 +422,7 @@
           "source_name": "x20_radians"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 100,
           "kind": "milli",
           "offset": 1092,
@@ -385,6 +433,7 @@
           "source_name": "x444"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 500,
           "kind": "milli",
           "offset": 1096,
@@ -401,6 +450,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 87,
           "kind": "stick",
           "offset": 144,
@@ -411,6 +461,7 @@
           "source_name": "x90"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 79,
           "kind": "stick",
           "offset": 148,
@@ -421,6 +472,7 @@
           "source_name": "x94"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 152,
@@ -431,6 +483,7 @@
           "source_name": "x98"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 172,
@@ -441,6 +494,7 @@
           "source_name": "attackhi3_stick_threshold_y"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 89,
           "kind": "stick",
           "offset": 796,
@@ -451,6 +505,7 @@
           "source_name": "x31C"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "i32_ticks",
           "offset": 800,
@@ -461,6 +516,7 @@
           "source_name": "x320"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": -89,
           "kind": "stick",
           "offset": 788,
@@ -471,6 +527,7 @@
           "source_name": "x314"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 4,
           "kind": "i32_ticks",
           "offset": 792,
@@ -481,6 +538,7 @@
           "source_name": "x318"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": -71,
           "kind": "stick",
           "offset": 604,
@@ -491,6 +549,7 @@
           "source_name": "x25C"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 84,
           "kind": "stick",
           "offset": 1124,
@@ -501,6 +560,7 @@
           "source_name": "x464"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 6,
           "kind": "f32_ticks",
           "offset": 1128,
@@ -511,6 +571,7 @@
           "source_name": "x468"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": -500,
           "kind": "milli",
           "offset": 1132,
@@ -521,6 +582,7 @@
           "source_name": "x46C"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 2,
           "kind": "f32_ticks",
           "offset": 1136,
@@ -531,6 +593,7 @@
           "source_name": "x470"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 3,
           "kind": "f32_ticks",
           "offset": 104,
@@ -541,6 +604,7 @@
           "source_name": "x68"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 2,
           "kind": "i32_ticks",
           "offset": 672,
@@ -557,6 +621,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 812,
@@ -567,6 +632,7 @@
           "source_name": "escapeair_deadzone.x"
         },
         {
+          "comparison_value_kind": "stick_byte",
           "converted_value": 32,
           "kind": "stick",
           "offset": 816,
@@ -577,6 +643,7 @@
           "source_name": "escapeair_deadzone.y"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 3,
           "kind": "i32_ticks",
           "offset": 820,
@@ -587,6 +654,7 @@
           "source_name": "x334"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 3100,
           "kind": "milli",
           "offset": 824,
@@ -597,6 +665,7 @@
           "source_name": "escapeair_force"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 900,
           "kind": "milli",
           "offset": 828,
@@ -607,6 +676,7 @@
           "source_name": "escapeair_decay"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 10,
           "kind": "f32_ticks",
           "offset": 836,
@@ -623,6 +693,7 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 30,
           "kind": "i32_ticks",
           "offset": 1724,
@@ -633,6 +704,7 @@
           "source_name": "x6BC"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 30,
           "kind": "i32_ticks",
           "offset": 1728,
@@ -643,6 +715,7 @@
           "source_name": "x6C0"
         },
         {
+          "comparison_value_kind": "milli",
           "converted_value": 10,
           "kind": "milli",
           "offset": 1732,
@@ -653,6 +726,7 @@
           "source_name": "x6C4"
         },
         {
+          "comparison_value_kind": "ticks",
           "converted_value": 120,
           "kind": "i32_ticks",
           "offset": 1736,

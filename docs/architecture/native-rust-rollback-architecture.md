@@ -95,6 +95,23 @@ References:
 - [Dolphin Netplay Guide](https://dolphin-emu.org/docs/guides/netplay-guide/)
 - [Dolphin Netplay Server Browser](https://docs.dolphin-emu.org/blog/2019/04/06/netplay-server-browser/)
 
+For controller input, Dolphin's native GameCube adapter path is also useful as
+a runtime-boundary reference: it treats WUP-028 as a direct adapter rather than
+a generic remapped gamepad, uses a background adapter read thread, and exposes
+raw port status to the emulator/GameCube input path. Jeff Longo's adapter
+reverse-engineering notes add the important origin caveat: the adapter has a
+separate Origins command, but reliable synchronous origin retrieval requires
+deliberate polling/reset control, so this project must keep raw samples and
+origin diagnostics visible instead of letting UCF hide a bad pre-UCF layer.
+
+References:
+
+- [Dolphin official GameCube adapter guide](https://dolphin-emu.org/docs/guides/how-use-official-gc-controller-adapter-wii-u/)
+- [Dolphin GameCube adapter source](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/InputCommon/GCAdapter.cpp)
+- [Dolphin WUP-028 udev rule](https://github.com/dolphin-emu/dolphin/blob/master/Data/51-usb-device.rules)
+- [GameCube adapter reverse engineering notes](https://jefflongo.dev/posts/gc-adapter-reverse-engineering/)
+- [Delfinovin WUP/native adapter project](https://github.com/Struggleton/Delfinovin)
+
 Slippi adds rollback, matchmaking, replay support, and a Dolphin fork plus
 Melee-side ASM/Gecko support. Its public docs and repositories show the pieces,
 but not every production matchmaking detail. The useful architectural lesson is
@@ -418,6 +435,7 @@ The first-class path is:
 ```text
 WUP-028 adapter
   -> raw USB report
+  -> subframe capture-window collapse
   -> per-port GameCubePadStatus
   -> console-style origin capture
   -> PADRead-style origin subtraction
@@ -448,6 +466,15 @@ experience.
 
 This origin is not a gameplay mechanic. It is controller preprocessing.
 
+When multiple WUP reports are available before one 60 Hz core tick, the input
+adapter collapses that in-memory capture window before origin/HSD/UCF
+processing. USB reads must run outside the gameplay thread, following the same
+broad shape as Dolphin/Slippi's GC adapter read thread; the gameplay tick should
+never block trying to drain multiple hardware interrupt transfers. Latest raw
+analog and trigger bytes win; digital buttons are OR-merged across the window to
+preserve short edges, matching the HSD raw-queue merge shape. A newly connected
+port still uses the first connected sample as its origin.
+
 ### Native Pre-UCF Pad Processing
 
 The native WUP path mirrors the Melee pad stack before UCF is layered on top:
@@ -455,10 +482,18 @@ The native WUP path mirrors the Melee pad stack before UCF is layered on top:
 ```text
 raw WUP bytes
   -> PADRead-style origin subtraction
-  -> HSD radius clamp for main stick and C-stick
+  -> HSD radius clamp / scale for main stick and C-stick
   -> optional UCF
   -> vanilla Melee input facts
 ```
+
+Melee configures the HSD pad layer with stick clamp max `80` and
+`scale_stick = 80`, then fighter code consumes `nml_stickX/Y` as floats. The
+current compact Rust input bridge preserves rollback-friendly signed axes by
+encoding that HSD normalized float into the temporary signed-127 core scale. A
+physical cardinal gate near `+80` must therefore arrive at the core as full
+positive stick before UCF; UCF cardinal snap is not allowed to compensate for a
+bad native scale.
 
 Do not apply the SDK `PADClamp` trigger rest band as a WUP gameplay rule.
 Melee's HSD fighter-input path subtracts the trigger origin, then fighter common

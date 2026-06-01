@@ -4,6 +4,8 @@ pub use mole_core::{GameCubeButtonState, GameCubePadStatus, PlayerInput};
 
 const GAMECUBE_STICK_CENTER: i16 = 128;
 pub const HSD_STICK_RADIUS: i8 = 127;
+pub const HSD_PAD_STICK_CLAMP_MAX: i8 = 80;
+pub const HSD_PAD_STICK_SCALE: i8 = 80;
 pub const UCF_VERSION: &str = "0.84";
 pub const UCF_CARDINAL_AXIS: i8 = 80;
 pub const UCF_CARDINAL_SNAP_RANGE: i8 = 6;
@@ -151,16 +153,27 @@ pub fn hsd_clamp_gamecube_pad(pad: GameCubePadStatus) -> GameCubePadStatus {
 }
 
 fn hsd_clamp_stick(stick: (i8, i8)) -> (i8, i8) {
-    let x = stick.0 as f32;
-    let y = stick.1 as f32;
+    let mut x = stick.0 as f32;
+    let mut y = stick.1 as f32;
     let radius = (x * x + y * y).sqrt();
-    let max = HSD_STICK_RADIUS as f32;
+    let max = HSD_PAD_STICK_CLAMP_MAX as f32;
 
     if radius > max {
-        ((x * max / radius) as i8, (y * max / radius) as i8)
-    } else {
-        stick
+        x = (x * max / radius) as i8 as f32;
+        y = (y * max / radius) as i8 as f32;
     }
+
+    (
+        hsd_scaled_axis_to_core_axis(x),
+        hsd_scaled_axis_to_core_axis(y),
+    )
+}
+
+fn hsd_scaled_axis_to_core_axis(value: f32) -> i8 {
+    let normalized = value / HSD_PAD_STICK_SCALE as f32;
+    (normalized * HSD_STICK_RADIUS as f32)
+        .round()
+        .clamp(-HSD_STICK_RADIUS as f32, HSD_STICK_RADIUS as f32) as i8
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

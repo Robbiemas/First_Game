@@ -41,8 +41,28 @@ fn gamecube_input_mapper_can_disable_ucf_preprocessing() {
         ..GameCubePadStatus::neutral()
     });
 
-    assert_eq!(unsnapped.stick_x(), 80);
-    assert_eq!(unsnapped.stick_y(), 5);
+    assert_eq!(unsnapped.stick_x(), 125);
+    assert_eq!(unsnapped.stick_y(), 6);
+}
+
+#[test]
+fn vanilla_gamecube_input_uses_hsd_scaled_cardinal_gate_without_ucf_snap() {
+    let mut mapper = GameCubeInputMapper::new(InputMappingConfig {
+        ucf_enabled: false,
+        ..InputMappingConfig::default()
+    });
+
+    mapper.map_gamecube_pad(GameCubePadStatus::neutral());
+    let right_gate = mapper.map_gamecube_pad(GameCubePadStatus {
+        stick_x: 208,
+        ..GameCubePadStatus::neutral()
+    });
+    let snapshot = right_gate.melee_snapshot(PlayerInput::neutral(), MeleeInputTimers::expired());
+    let facts = snapshot.facts(MeleeInputThresholds::default());
+
+    assert_eq!(right_gate.stick_x(), 127);
+    assert_eq!(facts.dash_direction, 1);
+    assert_eq!(right_gate.bits() & UCF_DASHBACK_AMENDMENT_BIT, 0);
 }
 
 #[test]
@@ -94,7 +114,7 @@ fn gamecube_input_mapper_translates_ucf_shield_drop_after_source_two_frame_count
 
     mapper.map_gamecube_pad(GameCubePadStatus::neutral());
     let shallow_down = mapper.map_gamecube_pad(GameCubePadStatus {
-        stick_y: 104,
+        stick_y: 112,
         ..GameCubePadStatus::neutral()
     });
     let shield_drop = mapper.map_gamecube_pad(GameCubePadStatus {
@@ -109,7 +129,7 @@ fn gamecube_input_mapper_translates_ucf_shield_drop_after_source_two_frame_count
     });
     let common = MeleeCommonData::provisional_mole();
 
-    assert_eq!(shallow_down.stick_y(), -24);
+    assert_eq!(shallow_down.stick_y(), -25);
     assert_eq!(shield_drop.stick_y(), -127);
     assert_eq!(shield_drop_ready.stick_y(), -common.platform_pass_y);
     assert!(shield_drop_ready.stick_y() > common.escape_y);

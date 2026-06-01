@@ -13,6 +13,15 @@ use crate::InputSource;
 use mole_core::Frame;
 
 #[cfg(feature = "wup")]
+use std::collections::VecDeque;
+#[cfg(feature = "wup")]
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Condvar, Mutex,
+};
+#[cfg(feature = "wup")]
+use std::thread::{self, JoinHandle};
+#[cfg(feature = "wup")]
 use std::time::Duration;
 
 #[cfg(feature = "wup")]
@@ -28,6 +37,12 @@ const WUP_REPORT_ID: u8 = 0x21;
 const PORT_COUNT: usize = 4;
 const PORT_STRIDE: usize = 9;
 const PORTS_OFFSET: usize = 1;
+#[cfg(feature = "wup")]
+const WUP_CAPTURE_DRAIN_LIMIT: usize = 32;
+#[cfg(feature = "wup")]
+const WUP_CAPTURE_QUEUE_CAPACITY: usize = 128;
+#[cfg(feature = "wup")]
+const WUP_GAMEPLAY_CAPTURE_POLL_TIMEOUT: Duration = Duration::ZERO;
 pub const GAMECUBE_RECENTER_FRAMES: u16 = 180;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +65,7 @@ pub struct WupPort {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct WupInputTrace {
     pub ucf_enabled: bool,
+    pub capture_report_count: u8,
     pub adapter_ports: [bool; PORT_COUNT],
     pub inputs: [PlayerInput; 2],
     pub players: [Option<WupPlayerInputTrace>; 2],
@@ -140,6 +156,26 @@ impl WupInputMapper {
     }
 
     pub fn map_ports_to_input_trace(&mut self, ports: [WupPort; PORT_COUNT]) -> WupInputTrace {
+        let mut trace = self.map_collapsed_ports_to_input_trace(ports);
+        trace.capture_report_count = 1;
+        trace
+    }
+
+    pub fn map_capture_window_to_input_trace(
+        &mut self,
+        samples: &[[WupPort; PORT_COUNT]],
+    ) -> WupInputTrace {
+        self.prime_origins_from_capture_window(samples);
+        let mut trace =
+            self.map_collapsed_ports_to_input_trace(collapse_wup_capture_window(samples));
+        trace.capture_report_count = samples.len().min(u8::MAX as usize) as u8;
+        trace
+    }
+
+    fn map_collapsed_ports_to_input_trace(
+        &mut self,
+        ports: [WupPort; PORT_COUNT],
+    ) -> WupInputTrace {
         let mut trace = WupInputTrace {
             ucf_enabled: self.config.ucf_enabled,
             ..WupInputTrace::default()
@@ -201,6 +237,25 @@ impl WupInputMapper {
         trace
     }
 
+    fn prime_origins_from_capture_window(&mut self, samples: &[[WupPort; PORT_COUNT]]) {
+        for port_index in 0..PORT_COUNT {
+            if self.origins[port_index].is_some() {
+                continue;
+            }
+            let Some(first_connected) = samples.iter().find_map(|sample| {
+                sample[port_index]
+                    .connected
+                    .then_some(sample[port_index].pad)
+            }) else {
+                continue;
+            };
+            self.origins[port_index] = Some(first_connected);
+            self.recenter_frames[port_index] = 0;
+            self.melee_processors[port_index] = MeleeInputProcessor::default();
+            self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
+        }
+    }
+
     fn update_recenter_combo(&mut self, port_index: usize, pad: GameCubePadStatus) -> bool {
         if pad.buttons.x() && pad.buttons.y() && pad.buttons.start() {
             self.recenter_frames[port_index] += 1;
@@ -215,6 +270,29 @@ impl WupInputMapper {
         self.recenter_frames[port_index] = 0;
         false
     }
+}
+
+pub fn collapse_wup_capture_window(samples: &[[WupPort; PORT_COUNT]]) -> [WupPort; PORT_COUNT] {
+    let Some(latest) = samples.last() else {
+        return [WupPort::default(); PORT_COUNT];
+    };
+    let mut collapsed = *latest;
+
+    for port_index in 0..PORT_COUNT {
+        if !collapsed[port_index].connected {
+            continue;
+        }
+
+        let mut button_bits = 0u16;
+        for sample in samples {
+            if sample[port_index].connected {
+                button_bits |= sample[port_index].pad.buttons.bits();
+            }
+        }
+        collapsed[port_index].pad.buttons = GameCubeButtonState::from_bits(button_bits);
+    }
+
+    collapsed
 }
 
 fn player_input_from_snapshot(snapshot: MeleeInputSnapshot) -> PlayerInput {
@@ -262,10 +340,88 @@ fn parse_port(bytes: &[u8]) -> WupPort {
 
 #[cfg(feature = "wup")]
 pub struct WupInputSource {
-    handle: rusb::DeviceHandle<rusb::GlobalContext>,
+    capture: Arc<WupCaptureQueue>,
+    worker: Option<JoinHandle<()>>,
     mapper: WupInputMapper,
     latest: [PlayerInput; 2],
     latest_trace: Option<WupInputTrace>,
+}
+
+#[cfg(feature = "wup")]
+#[derive(Debug)]
+struct WupCaptureQueue {
+    samples: Mutex<VecDeque<[WupPort; PORT_COUNT]>>,
+    available: Condvar,
+    stop: AtomicBool,
+    last_error: Mutex<Option<rusb::Error>>,
+}
+
+#[cfg(feature = "wup")]
+impl WupCaptureQueue {
+    fn new() -> Self {
+        Self {
+            samples: Mutex::new(VecDeque::with_capacity(WUP_CAPTURE_QUEUE_CAPACITY)),
+            available: Condvar::new(),
+            stop: AtomicBool::new(false),
+            last_error: Mutex::new(None),
+        }
+    }
+
+    fn push_sample(&self, ports: [WupPort; PORT_COUNT]) {
+        {
+            let mut samples = self.samples.lock().expect("WUP sample mutex poisoned");
+            if samples.len() >= WUP_CAPTURE_QUEUE_CAPACITY {
+                samples.pop_front();
+            }
+            samples.push_back(ports);
+        }
+        *self.last_error.lock().expect("WUP error mutex poisoned") = None;
+        self.available.notify_one();
+    }
+
+    fn record_error(&self, error: rusb::Error) {
+        *self.last_error.lock().expect("WUP error mutex poisoned") = Some(error);
+        self.available.notify_one();
+    }
+
+    fn stop(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+        self.available.notify_all();
+    }
+
+    fn should_stop(&self) -> bool {
+        self.stop.load(Ordering::Relaxed)
+    }
+
+    fn drain_capture_window(
+        &self,
+        wait_timeout: Duration,
+    ) -> Result<Vec<[WupPort; PORT_COUNT]>, rusb::Error> {
+        let mut samples = self.samples.lock().expect("WUP sample mutex poisoned");
+        if samples.is_empty() && !self.should_stop() {
+            let (guard, _) = self
+                .available
+                .wait_timeout(samples, wait_timeout)
+                .expect("WUP sample condvar poisoned");
+            samples = guard;
+        }
+
+        if samples.is_empty() {
+            drop(samples);
+            if let Some(error) = *self.last_error.lock().expect("WUP error mutex poisoned") {
+                return Err(error);
+            }
+            return Err(rusb::Error::Timeout);
+        }
+
+        let count = samples.len().min(WUP_CAPTURE_DRAIN_LIMIT);
+        let skip = samples.len().saturating_sub(count);
+        for _ in 0..skip {
+            samples.pop_front();
+        }
+
+        Ok(samples.drain(..).collect())
+    }
 }
 
 #[cfg(feature = "wup")]
@@ -289,9 +445,36 @@ impl WupInputSource {
         handle
             .write_interrupt(WUP_WRITE_ENDPOINT, &[0x13], Duration::from_millis(100))
             .map_err(|error| error.to_string())?;
+        let capture = Arc::new(WupCaptureQueue::new());
+        let worker_capture = Arc::clone(&capture);
+        let worker = thread::spawn(move || {
+            let mut report = [0u8; 37];
+            while !worker_capture.should_stop() {
+                match handle.read_interrupt(
+                    WUP_READ_ENDPOINT,
+                    &mut report,
+                    Duration::from_millis(2),
+                ) {
+                    Ok(_) => worker_capture.push_sample(parse_wup_report(report)),
+                    Err(rusb::Error::Timeout) => {}
+                    Err(error) => {
+                        worker_capture.record_error(error);
+                        thread::sleep(Duration::from_millis(2));
+                    }
+                }
+            }
+
+            let _ = handle.write_interrupt(
+                WUP_WRITE_ENDPOINT,
+                &[0x11, 0, 0, 0, 0],
+                Duration::from_millis(100),
+            );
+            let _ = handle.release_interface(0);
+        });
 
         Ok(Self {
-            handle,
+            capture,
+            worker: Some(worker),
             mapper: WupInputMapper::new(config),
             latest: [PlayerInput::neutral(), PlayerInput::neutral()],
             latest_trace: None,
@@ -304,8 +487,10 @@ impl WupInputSource {
     }
 
     pub fn poll_traced_adapter(&mut self) -> Result<WupInputTrace, rusb::Error> {
-        let ports = self.poll_ports()?;
-        let trace = self.mapper.map_ports_to_input_trace(ports);
+        let samples = self
+            .capture
+            .drain_capture_window(WUP_GAMEPLAY_CAPTURE_POLL_TIMEOUT)?;
+        let trace = self.mapper.map_capture_window_to_input_trace(&samples);
         self.latest = trace.inputs;
         self.latest_trace = Some(trace);
         Ok(trace)
@@ -320,10 +505,10 @@ impl WupInputSource {
     }
 
     pub fn poll_ports(&mut self) -> Result<[WupPort; PORT_COUNT], rusb::Error> {
-        let mut report = [0u8; 37];
-        self.handle
-            .read_interrupt(WUP_READ_ENDPOINT, &mut report, Duration::from_millis(2))?;
-        Ok(parse_wup_report(report))
+        let samples = self
+            .capture
+            .drain_capture_window(Duration::from_millis(2))?;
+        samples.last().copied().ok_or(rusb::Error::Timeout)
     }
 }
 
@@ -341,11 +526,59 @@ impl InputSource for WupInputSource {
 #[cfg(feature = "wup")]
 impl Drop for WupInputSource {
     fn drop(&mut self) {
-        let _ = self.handle.write_interrupt(
-            WUP_WRITE_ENDPOINT,
-            &[0x11, 0, 0, 0, 0],
-            Duration::from_millis(100),
-        );
-        let _ = self.handle.release_interface(0);
+        self.capture.stop();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+#[cfg(all(test, feature = "wup"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capture_queue_drains_only_the_newest_bounded_window() {
+        let queue = WupCaptureQueue::new();
+        for stick_x in 0..40 {
+            queue.push_sample(connected_sample(stick_x));
+        }
+
+        let samples = queue
+            .drain_capture_window(Duration::from_millis(0))
+            .expect("queued samples should drain without waiting");
+
+        assert_eq!(samples.len(), WUP_CAPTURE_DRAIN_LIMIT);
+        assert_eq!(samples[0][0].pad.stick_x, 8);
+        assert_eq!(samples[31][0].pad.stick_x, 39);
+    }
+
+    #[test]
+    fn capture_queue_empty_drain_times_out_without_blocking_for_usb() {
+        let queue = WupCaptureQueue::new();
+
+        let result = queue.drain_capture_window(Duration::from_millis(0));
+
+        assert_eq!(result, Err(rusb::Error::Timeout));
+    }
+
+    #[test]
+    fn gameplay_capture_poll_timeout_is_nonblocking() {
+        assert_eq!(WUP_GAMEPLAY_CAPTURE_POLL_TIMEOUT, Duration::ZERO);
+    }
+
+    fn connected_sample(stick_x: u8) -> [WupPort; PORT_COUNT] {
+        [
+            WupPort {
+                connected: true,
+                pad: GameCubePadStatus {
+                    stick_x,
+                    ..GameCubePadStatus::neutral()
+                },
+            },
+            WupPort::default(),
+            WupPort::default(),
+            WupPort::default(),
+        ]
     }
 }

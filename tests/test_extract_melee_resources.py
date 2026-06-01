@@ -5,6 +5,7 @@ from tools.extract_melee_resources import (
     DatExtractError,
     PROJECT_ROOT,
     compute_ecb_from_jobj_pose,
+    extract_action_script_cmd_var_events,
     extract_captain_costume_skeleton_from_plcanr,
     extract_captain_action_animation_table,
     extract_captain_action_ecb_samples,
@@ -218,6 +219,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x338, 3.1)
     put_f32(data_block, common_offset + 0x33C, 0.915)
     put_f32(data_block, common_offset + 0x344, 10.0)
+    put_f32(data_block, common_offset + 0x42C, 1.25)
     put_f32(data_block, common_offset + 0x430, 2.0)
     put_f32(data_block, common_offset + 0x444, 0.18)
     put_f32(data_block, common_offset + 0x448, 0.42)
@@ -243,6 +245,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["fields"]["escapeair_landing_lag_ticks"]["ticks"] == 10
     assert extracted["fields"]["high_speed_ground_friction_multiplier_milli"]["milli"] == 2000
     assert extracted["fields"]["turn_run_x"]["stick_byte"] == -44
+    assert extracted["fields"]["run_brake_animation_pause_velocity_milli"]["milli"] == 1250
     assert extracted["fields"]["turn_run_x"]["source_name"] == "x38_someLStickXThreshold"
     assert extracted["fields"]["fall_animation_drift_threshold_milli"]["milli"] == 180
     assert extracted["fields"]["fall_animation_blend_milli"]["milli"] == 420
@@ -588,6 +591,44 @@ def test_extract_captain_action_animation_table_links_plca_records_to_plcaaj_chu
     assert extracted["actions"][1]["figatree"]["track_counts_by_node"] == [2, 0, 1]
     assert extracted["actions"][1]["flags_raw"] == "0x80000002"
     assert extracted["actions"][1]["status"] == "available_for_jobj_sampling"
+
+
+def test_extract_action_script_cmd_var_events_decodes_minimal_fighter_scripts():
+    script = bytearray()
+    script += be32(0x28000000)  # fighter opcode 10, length 5
+    script += be32(0x04010000) + be32(0) + be32(0) + be32(0)
+    script += be32(0x08000009)  # async timer frame 9
+    script += be32(0x4D000001)  # set cmd_vars[1] = 1
+    script += be32(0x0800000F)  # async timer frame 15
+    script += be32(0x4C000000)  # set cmd_vars[0] = 0
+    script += be32(0)
+
+    events = extract_action_script_cmd_var_events(bytes(script), 0)
+
+    assert events == [
+        {"frame": 9, "cmd_var": 1, "value": 1, "word_offset": 6},
+        {"frame": 15, "cmd_var": 0, "value": 0, "word_offset": 8},
+    ]
+
+
+def test_extract_captain_dash_script_cmd_var0_run_gate_from_real_resources():
+    plca = (PROJECT_ROOT / "resources/melee/raw/PlCa.dat").read_bytes()
+    plcaaj = (PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat").read_bytes()
+
+    extracted = extract_captain_action_animation_table(
+        plca,
+        PROJECT_ROOT / "resources/melee/raw/PlCa.dat",
+        plcaaj,
+        PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat",
+    )
+    dash = extracted["actions"][12]
+
+    assert dash["figatree_root"] == "PlyCaptain5K_Share_ACTION_Dash_figatree"
+    assert dash["figatree"]["frames_ticks"] == 29
+    assert dash["cmd_var_events"] == [
+        {"frame": 0, "cmd_var": 0, "value": 0, "word_offset": 5},
+        {"frame": 16, "cmd_var": 0, "value": 1, "word_offset": 13},
+    ]
 
 
 def test_extract_captain_profile_rejects_non_captain_roots():

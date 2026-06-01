@@ -3,6 +3,14 @@
 Native Rust rollback platform-fighter work-in-progress, descended from a small
 Pygame prototype.
 
+Current playtest milestone: the Rust SDL3/WUP runtime has reached the first
+human-confirmed Captain Falcon-style movement-feel checkpoint. Use
+`execs\Run SDL3 Runtime.cmd` for normal UCF-on testing and
+`execs\Run SDL3 Runtime Vanilla No UCF.cmd` to test the native pre-UCF
+GameCube input path directly. See
+`docs/release_notes/2026-05-31-rust-melee-feel-baseline.md` for the saved
+checkpoint notes.
+
 This repo has two tracks:
 
 - `crates/`: the Rust rollback architecture and normal development path.

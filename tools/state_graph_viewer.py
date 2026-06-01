@@ -51,13 +51,10 @@ CHARACTER_RUST_FIELD_MAP = {
     "mid_walk_threshold": "mid_walk_animation_rate_per_tick",
     "fast_walk_threshold": "fast_walk_animation_rate_per_tick",
     "traction_per_tick": "traction_per_tick",
-    "dash_run_terminal_velocity": "run_speed_per_tick",
     "run_animation_scaling": "run_animation_scaling_per_tick",
     "max_run_brake_frames": "max_run_brake_frames",
     "ground_max_horizontal_velocity": "ground_max_horizontal_velocity_per_tick",
     "dash_initial_velocity": "initial_dash_speed_per_tick",
-    "dash_run_acceleration_a": "dash_run_accel_stick_per_tick",
-    "dash_run_acceleration_b": "dash_run_accel_base_per_tick",
     "frames_to_change_direction_on_standing_turn": "standing_turn_direction_change_frames",
     "jump_startup_time": "jumpsquat_frames",
     "jump_h_initial_velocity": "jump_horizontal_initial_velocity_per_tick",
@@ -713,6 +710,8 @@ def _parse_rust_scalar(value: str) -> Any:
         return value[1:-1]
     if re.fullmatch(r"-?\d[\d_]*", value):
         return int(value.replace("_", ""))
+    if re.fullmatch(r"-?(?:\d[\d_]*)?\.\d[\d_]*(?:[eE][+-]?\d[\d_]*)?", value):
+        return float(value.replace("_", ""))
     return value
 
 

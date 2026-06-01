@@ -57,22 +57,19 @@
       "source_name": "dash_initial_velocity"
     },
     "dash_run_acceleration_a": {
-      "kind": "milli",
-      "milli": 150,
+      "kind": "source_f32",
       "offset": 32,
       "raw": 0.15000000596046448,
       "source_name": "dash_run_acceleration_a"
     },
     "dash_run_acceleration_b": {
-      "kind": "milli",
-      "milli": 10,
+      "kind": "source_f32",
       "offset": 36,
       "raw": 0.009999999776482582,
       "source_name": "dash_run_acceleration_b"
     },
     "dash_run_terminal_velocity": {
-      "kind": "milli",
-      "milli": 2300,
+      "kind": "source_f32",
       "offset": 40,
       "raw": 2.299999952316284,
       "source_name": "dash_run_terminal_velocity"

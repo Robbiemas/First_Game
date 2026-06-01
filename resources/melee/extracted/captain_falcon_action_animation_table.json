@@ -2,6 +2,7 @@
   "actions": [
     {
       "action_state_id": 0,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -1351,6 +1352,7 @@
     },
     {
       "action_state_id": 1,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -2556,6 +2558,7 @@
     },
     {
       "action_state_id": 2,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -3761,6 +3764,7 @@
     },
     {
       "action_state_id": 3,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -4966,6 +4970,7 @@
     },
     {
       "action_state_id": 4,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -6171,6 +6176,7 @@
     },
     {
       "action_state_id": 5,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -6183,6 +6189,7 @@
     },
     {
       "action_state_id": 6,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -7388,6 +7395,7 @@
     },
     {
       "action_state_id": 7,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -8548,6 +8556,7 @@
     },
     {
       "action_state_id": 8,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -9708,6 +9717,7 @@
     },
     {
       "action_state_id": 9,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -10868,6 +10878,7 @@
     },
     {
       "action_state_id": 10,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -12073,6 +12084,14 @@
     },
     {
       "action_state_id": 11,
+      "cmd_var_events": [
+        {
+          "cmd_var": 1,
+          "frame": 9,
+          "value": 1,
+          "word_offset": 6
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -13278,6 +13297,20 @@
     },
     {
       "action_state_id": 12,
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 0,
+          "word_offset": 5
+        },
+        {
+          "cmd_var": 0,
+          "frame": 16,
+          "value": 1,
+          "word_offset": 13
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -14483,6 +14516,7 @@
     },
     {
       "action_state_id": 13,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -15688,6 +15722,20 @@
     },
     {
       "action_state_id": 14,
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 0,
+          "frame": 15,
+          "value": 0,
+          "word_offset": 11
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -16893,6 +16941,7 @@
     },
     {
       "action_state_id": 15,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -18566,6 +18615,7 @@
     },
     {
       "action_state_id": 16,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -19879,6 +19929,7 @@
     },
     {
       "action_state_id": 17,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -21192,6 +21243,7 @@
     },
     {
       "action_state_id": 18,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -22505,6 +22557,7 @@
     },
     {
       "action_state_id": 19,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -23818,6 +23871,7 @@
     },
     {
       "action_state_id": 20,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -25023,6 +25077,7 @@
     },
     {
       "action_state_id": 21,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -26228,6 +26283,7 @@
     },
     {
       "action_state_id": 22,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -27433,6 +27489,7 @@
     },
     {
       "action_state_id": 23,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -28638,6 +28695,7 @@
     },
     {
       "action_state_id": 24,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -29843,6 +29901,7 @@
     },
     {
       "action_state_id": 25,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -31048,6 +31107,7 @@
     },
     {
       "action_state_id": 26,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -32253,6 +32313,7 @@
     },
     {
       "action_state_id": 27,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -33458,6 +33519,7 @@
     },
     {
       "action_state_id": 28,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -34663,6 +34725,7 @@
     },
     {
       "action_state_id": 29,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -35868,6 +35931,7 @@
     },
     {
       "action_state_id": 30,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -37541,6 +37605,7 @@
     },
     {
       "action_state_id": 31,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -39214,6 +39279,7 @@
     },
     {
       "action_state_id": 32,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -39226,6 +39292,7 @@
     },
     {
       "action_state_id": 33,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -39238,6 +39305,7 @@
     },
     {
       "action_state_id": 34,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -40911,6 +40979,7 @@
     },
     {
       "action_state_id": 35,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -42584,6 +42653,7 @@
     },
     {
       "action_state_id": 36,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -44257,6 +44327,7 @@
     },
     {
       "action_state_id": 37,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -45417,6 +45488,7 @@
     },
     {
       "action_state_id": 38,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -46577,6 +46649,7 @@
     },
     {
       "action_state_id": 39,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -47737,6 +47810,7 @@
     },
     {
       "action_state_id": 40,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -48906,6 +48980,7 @@
     },
     {
       "action_state_id": 41,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -50219,6 +50294,7 @@
     },
     {
       "action_state_id": 42,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -51532,6 +51608,7 @@
     },
     {
       "action_state_id": 43,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -52845,6 +52922,7 @@
     },
     {
       "action_state_id": 44,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -54158,6 +54236,7 @@
     },
     {
       "action_state_id": 45,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -55471,6 +55550,7 @@
     },
     {
       "action_state_id": 46,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -56694,6 +56774,7 @@
     },
     {
       "action_state_id": 47,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -57917,6 +57998,7 @@
     },
     {
       "action_state_id": 48,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -59140,6 +59222,7 @@
     },
     {
       "action_state_id": 49,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -60363,6 +60446,7 @@
     },
     {
       "action_state_id": 50,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -61586,6 +61670,7 @@
     },
     {
       "action_state_id": 51,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -62809,6 +62894,7 @@
     },
     {
       "action_state_id": 52,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -64032,6 +64118,7 @@
     },
     {
       "action_state_id": 53,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -65156,6 +65243,7 @@
     },
     {
       "action_state_id": 54,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -66280,6 +66368,7 @@
     },
     {
       "action_state_id": 55,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -67404,6 +67493,7 @@
     },
     {
       "action_state_id": 56,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -68528,6 +68618,7 @@
     },
     {
       "action_state_id": 57,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -69652,6 +69743,7 @@
     },
     {
       "action_state_id": 58,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -70920,6 +71012,7 @@
     },
     {
       "action_state_id": 59,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -72188,6 +72281,7 @@
     },
     {
       "action_state_id": 60,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -73735,6 +73829,7 @@
     },
     {
       "action_state_id": 61,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -73747,6 +73842,7 @@
     },
     {
       "action_state_id": 62,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -75294,6 +75390,7 @@
     },
     {
       "action_state_id": 63,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -75306,6 +75403,7 @@
     },
     {
       "action_state_id": 64,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -76853,6 +76951,7 @@
     },
     {
       "action_state_id": 65,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -76865,6 +76964,7 @@
     },
     {
       "action_state_id": 66,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -78007,6 +78107,7 @@
     },
     {
       "action_state_id": 67,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -79149,6 +79250,7 @@
     },
     {
       "action_state_id": 68,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -80606,6 +80708,7 @@
     },
     {
       "action_state_id": 69,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -82063,6 +82166,7 @@
     },
     {
       "action_state_id": 70,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -83520,6 +83624,7 @@
     },
     {
       "action_state_id": 71,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -84977,6 +85082,7 @@
     },
     {
       "action_state_id": 72,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -86434,6 +86540,7 @@
     },
     {
       "action_state_id": 73,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -87891,6 +87998,7 @@
     },
     {
       "action_state_id": 74,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -89348,6 +89456,7 @@
     },
     {
       "action_state_id": 75,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -90805,6 +90914,7 @@
     },
     {
       "action_state_id": 76,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -92262,6 +92372,7 @@
     },
     {
       "action_state_id": 77,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -93719,6 +93830,7 @@
     },
     {
       "action_state_id": 78,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -95374,6 +95486,7 @@
     },
     {
       "action_state_id": 79,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -97029,6 +97142,7 @@
     },
     {
       "action_state_id": 80,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -98684,6 +98798,7 @@
     },
     {
       "action_state_id": 81,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -100339,6 +100454,7 @@
     },
     {
       "action_state_id": 82,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -101994,6 +102110,7 @@
     },
     {
       "action_state_id": 83,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -103649,6 +103766,7 @@
     },
     {
       "action_state_id": 84,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -105304,6 +105422,7 @@
     },
     {
       "action_state_id": 85,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -106500,6 +106619,7 @@
     },
     {
       "action_state_id": 86,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -107696,6 +107816,7 @@
     },
     {
       "action_state_id": 87,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -108892,6 +109013,7 @@
     },
     {
       "action_state_id": 88,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -110088,6 +110210,7 @@
     },
     {
       "action_state_id": 89,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -111410,6 +111533,7 @@
     },
     {
       "action_state_id": 90,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -112732,6 +112856,7 @@
     },
     {
       "action_state_id": 91,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -114054,6 +114179,7 @@
     },
     {
       "action_state_id": 92,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -115376,6 +115502,7 @@
     },
     {
       "action_state_id": 93,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -116698,6 +116825,7 @@
     },
     {
       "action_state_id": 94,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -118020,6 +118148,7 @@
     },
     {
       "action_state_id": 95,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -119342,6 +119471,7 @@
     },
     {
       "action_state_id": 96,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -120997,6 +121127,7 @@
     },
     {
       "action_state_id": 97,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -122652,6 +122783,7 @@
     },
     {
       "action_state_id": 98,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -124307,6 +124439,7 @@
     },
     {
       "action_state_id": 99,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -125962,6 +126095,7 @@
     },
     {
       "action_state_id": 100,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -127158,6 +127292,7 @@
     },
     {
       "action_state_id": 101,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -128354,6 +128489,7 @@
     },
     {
       "action_state_id": 102,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -129550,6 +129686,7 @@
     },
     {
       "action_state_id": 103,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -130746,6 +130883,7 @@
     },
     {
       "action_state_id": 104,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -132068,6 +132206,7 @@
     },
     {
       "action_state_id": 105,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -133390,6 +133529,7 @@
     },
     {
       "action_state_id": 106,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -134712,6 +134852,7 @@
     },
     {
       "action_state_id": 107,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -136034,6 +136175,7 @@
     },
     {
       "action_state_id": 108,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -137401,6 +137543,7 @@
     },
     {
       "action_state_id": 109,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -138768,6 +138911,7 @@
     },
     {
       "action_state_id": 110,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -140135,6 +140279,7 @@
     },
     {
       "action_state_id": 111,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -141502,6 +141647,7 @@
     },
     {
       "action_state_id": 112,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -142869,6 +143015,7 @@
     },
     {
       "action_state_id": 113,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -144236,6 +144383,7 @@
     },
     {
       "action_state_id": 114,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -145603,6 +145751,7 @@
     },
     {
       "action_state_id": 115,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -146970,6 +147119,7 @@
     },
     {
       "action_state_id": 116,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -148337,6 +148487,7 @@
     },
     {
       "action_state_id": 117,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -149704,6 +149855,7 @@
     },
     {
       "action_state_id": 118,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -151071,6 +151223,7 @@
     },
     {
       "action_state_id": 119,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -152438,6 +152591,7 @@
     },
     {
       "action_state_id": 120,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -153805,6 +153959,7 @@
     },
     {
       "action_state_id": 121,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -155172,6 +155327,7 @@
     },
     {
       "action_state_id": 122,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -156539,6 +156695,7 @@
     },
     {
       "action_state_id": 123,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -157906,6 +158063,7 @@
     },
     {
       "action_state_id": 124,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -159273,6 +159431,7 @@
     },
     {
       "action_state_id": 125,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -160640,6 +160799,7 @@
     },
     {
       "action_state_id": 126,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -162007,6 +162167,7 @@
     },
     {
       "action_state_id": 127,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -163374,6 +163535,7 @@
     },
     {
       "action_state_id": 128,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -164741,6 +164903,7 @@
     },
     {
       "action_state_id": 129,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -166108,6 +166271,7 @@
     },
     {
       "action_state_id": 130,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -167475,6 +167639,7 @@
     },
     {
       "action_state_id": 131,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -168842,6 +169007,7 @@
     },
     {
       "action_state_id": 132,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -170056,6 +170222,7 @@
     },
     {
       "action_state_id": 133,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -171270,6 +171437,7 @@
     },
     {
       "action_state_id": 134,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -172484,6 +172652,7 @@
     },
     {
       "action_state_id": 135,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -173698,6 +173867,7 @@
     },
     {
       "action_state_id": 136,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -174912,6 +175082,7 @@
     },
     {
       "action_state_id": 137,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -176117,6 +176288,7 @@
     },
     {
       "action_state_id": 138,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -177286,6 +177458,7 @@
     },
     {
       "action_state_id": 139,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -178455,6 +178628,7 @@
     },
     {
       "action_state_id": 140,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -179624,6 +179798,7 @@
     },
     {
       "action_state_id": 141,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -180793,6 +180968,7 @@
     },
     {
       "action_state_id": 142,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -181962,6 +182138,7 @@
     },
     {
       "action_state_id": 143,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -183131,6 +183308,7 @@
     },
     {
       "action_state_id": 144,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -184318,6 +184496,7 @@
     },
     {
       "action_state_id": 145,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -185505,6 +185684,7 @@
     },
     {
       "action_state_id": 146,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -186692,6 +186872,7 @@
     },
     {
       "action_state_id": 147,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -187879,6 +188060,7 @@
     },
     {
       "action_state_id": 148,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -189039,6 +189221,7 @@
     },
     {
       "action_state_id": 149,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -190280,6 +190463,7 @@
     },
     {
       "action_state_id": 150,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -191521,6 +191705,7 @@
     },
     {
       "action_state_id": 151,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -192762,6 +192947,7 @@
     },
     {
       "action_state_id": 152,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -194003,6 +194189,7 @@
     },
     {
       "action_state_id": 153,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -195244,6 +195431,7 @@
     },
     {
       "action_state_id": 154,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -196485,6 +196673,7 @@
     },
     {
       "action_state_id": 155,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -197726,6 +197915,7 @@
     },
     {
       "action_state_id": 156,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -198967,6 +199157,7 @@
     },
     {
       "action_state_id": 157,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -200208,6 +200399,7 @@
     },
     {
       "action_state_id": 158,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -201449,6 +201641,7 @@
     },
     {
       "action_state_id": 159,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -202690,6 +202883,7 @@
     },
     {
       "action_state_id": 160,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -203931,6 +204125,7 @@
     },
     {
       "action_state_id": 161,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -205172,6 +205367,7 @@
     },
     {
       "action_state_id": 162,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -206413,6 +206609,7 @@
     },
     {
       "action_state_id": 163,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -207654,6 +207851,7 @@
     },
     {
       "action_state_id": 164,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -208895,6 +209093,7 @@
     },
     {
       "action_state_id": 165,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -210163,6 +210362,7 @@
     },
     {
       "action_state_id": 166,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -211431,6 +211631,7 @@
     },
     {
       "action_state_id": 167,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -212699,6 +212900,7 @@
     },
     {
       "action_state_id": 168,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -213967,6 +214169,7 @@
     },
     {
       "action_state_id": 169,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -215235,6 +215438,7 @@
     },
     {
       "action_state_id": 170,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -216503,6 +216707,7 @@
     },
     {
       "action_state_id": 171,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -217771,6 +217976,7 @@
     },
     {
       "action_state_id": 172,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -219039,6 +219245,7 @@
     },
     {
       "action_state_id": 173,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -220307,6 +220514,7 @@
     },
     {
       "action_state_id": 174,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -221575,6 +221783,7 @@
     },
     {
       "action_state_id": 175,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -222843,6 +223052,7 @@
     },
     {
       "action_state_id": 176,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -224111,6 +224321,7 @@
     },
     {
       "action_state_id": 177,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -225379,6 +225590,7 @@
     },
     {
       "action_state_id": 178,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -226647,6 +226859,7 @@
     },
     {
       "action_state_id": 179,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -227915,6 +228128,7 @@
     },
     {
       "action_state_id": 180,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -229183,6 +229397,7 @@
     },
     {
       "action_state_id": 181,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -230451,6 +230666,7 @@
     },
     {
       "action_state_id": 182,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -230463,6 +230679,7 @@
     },
     {
       "action_state_id": 183,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -231947,6 +232164,7 @@
     },
     {
       "action_state_id": 184,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -233431,6 +233649,7 @@
     },
     {
       "action_state_id": 185,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -234915,6 +235134,7 @@
     },
     {
       "action_state_id": 186,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -236399,6 +236619,7 @@
     },
     {
       "action_state_id": 187,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -237883,6 +238104,7 @@
     },
     {
       "action_state_id": 188,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -239367,6 +239589,7 @@
     },
     {
       "action_state_id": 189,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -240851,6 +241074,7 @@
     },
     {
       "action_state_id": 190,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -240863,6 +241087,7 @@
     },
     {
       "action_state_id": 191,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -242752,6 +242977,7 @@
     },
     {
       "action_state_id": 192,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -244641,6 +244867,7 @@
     },
     {
       "action_state_id": 193,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -246530,6 +246757,7 @@
     },
     {
       "action_state_id": 194,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -248419,6 +248647,7 @@
     },
     {
       "action_state_id": 195,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -250308,6 +250537,7 @@
     },
     {
       "action_state_id": 196,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -252197,6 +252427,7 @@
     },
     {
       "action_state_id": 197,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -254086,6 +254317,7 @@
     },
     {
       "action_state_id": 198,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -255975,6 +256207,7 @@
     },
     {
       "action_state_id": 199,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -257360,6 +257593,7 @@
     },
     {
       "action_state_id": 200,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -258745,6 +258979,7 @@
     },
     {
       "action_state_id": 201,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -260130,6 +260365,7 @@
     },
     {
       "action_state_id": 202,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -261515,6 +261751,7 @@
     },
     {
       "action_state_id": 203,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -262900,6 +263137,7 @@
     },
     {
       "action_state_id": 204,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -264285,6 +264523,7 @@
     },
     {
       "action_state_id": 205,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -265418,6 +265657,7 @@
     },
     {
       "action_state_id": 206,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -266704,6 +266944,7 @@
     },
     {
       "action_state_id": 207,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -267990,6 +268231,7 @@
     },
     {
       "action_state_id": 208,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -269276,6 +269518,7 @@
     },
     {
       "action_state_id": 209,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -270625,6 +270868,7 @@
     },
     {
       "action_state_id": 210,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -271974,6 +272218,7 @@
     },
     {
       "action_state_id": 211,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -273323,6 +273568,7 @@
     },
     {
       "action_state_id": 212,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -274672,6 +274918,7 @@
     },
     {
       "action_state_id": 213,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -276021,6 +276268,7 @@
     },
     {
       "action_state_id": 214,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -277370,6 +277618,7 @@
     },
     {
       "action_state_id": 215,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -278719,6 +278968,7 @@
     },
     {
       "action_state_id": 216,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -280212,6 +280462,7 @@
     },
     {
       "action_state_id": 217,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -281705,6 +281956,7 @@
     },
     {
       "action_state_id": 218,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -283198,6 +283450,7 @@
     },
     {
       "action_state_id": 219,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -284691,6 +284944,7 @@
     },
     {
       "action_state_id": 220,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -286184,6 +286438,7 @@
     },
     {
       "action_state_id": 221,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -287677,6 +287932,7 @@
     },
     {
       "action_state_id": 222,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -289170,6 +289426,7 @@
     },
     {
       "action_state_id": 223,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -290663,6 +290920,7 @@
     },
     {
       "action_state_id": 224,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -292156,6 +292414,7 @@
     },
     {
       "action_state_id": 225,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -293649,6 +293908,7 @@
     },
     {
       "action_state_id": 226,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -295142,6 +295402,7 @@
     },
     {
       "action_state_id": 227,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -296635,6 +296896,7 @@
     },
     {
       "action_state_id": 228,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -298128,6 +298390,7 @@
     },
     {
       "action_state_id": 229,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298140,6 +298403,7 @@
     },
     {
       "action_state_id": 230,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298152,6 +298416,7 @@
     },
     {
       "action_state_id": 231,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298164,6 +298429,7 @@
     },
     {
       "action_state_id": 232,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298176,6 +298442,7 @@
     },
     {
       "action_state_id": 233,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298188,6 +298455,7 @@
     },
     {
       "action_state_id": 234,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298200,6 +298468,7 @@
     },
     {
       "action_state_id": 235,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298212,6 +298481,7 @@
     },
     {
       "action_state_id": 236,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298224,6 +298494,7 @@
     },
     {
       "action_state_id": 237,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -298236,6 +298507,7 @@
     },
     {
       "action_state_id": 238,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -299288,6 +299560,7 @@
     },
     {
       "action_state_id": 239,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -301060,6 +301333,7 @@
     },
     {
       "action_state_id": 240,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -302832,6 +303106,7 @@
     },
     {
       "action_state_id": 241,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -302844,6 +303119,7 @@
     },
     {
       "action_state_id": 242,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -304058,6 +304334,7 @@
     },
     {
       "action_state_id": 243,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -305272,6 +305549,7 @@
     },
     {
       "action_state_id": 244,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -306486,6 +306764,7 @@
     },
     {
       "action_state_id": 245,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -307700,6 +307979,7 @@
     },
     {
       "action_state_id": 246,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -308914,6 +309194,7 @@
     },
     {
       "action_state_id": 247,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -310245,6 +310526,7 @@
     },
     {
       "action_state_id": 248,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -311576,6 +311858,7 @@
     },
     {
       "action_state_id": 249,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -312907,6 +313190,7 @@
     },
     {
       "action_state_id": 250,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -314238,6 +314522,7 @@
     },
     {
       "action_state_id": 251,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -315479,6 +315764,7 @@
     },
     {
       "action_state_id": 252,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -316720,6 +317006,7 @@
     },
     {
       "action_state_id": 253,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -317961,6 +318248,7 @@
     },
     {
       "action_state_id": 254,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -319193,6 +319481,7 @@
     },
     {
       "action_state_id": 255,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -320425,6 +320714,7 @@
     },
     {
       "action_state_id": 256,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -321657,6 +321947,7 @@
     },
     {
       "action_state_id": 257,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -322889,6 +323180,7 @@
     },
     {
       "action_state_id": 258,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -324121,6 +324413,7 @@
     },
     {
       "action_state_id": 259,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -324133,6 +324426,7 @@
     },
     {
       "action_state_id": 260,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -324145,6 +324439,7 @@
     },
     {
       "action_state_id": 261,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -324157,6 +324452,7 @@
     },
     {
       "action_state_id": 262,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
         "flags_raw": "0x00000000",
@@ -324883,6 +325179,7 @@
     },
     {
       "action_state_id": 263,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
         "flags_raw": "0x00000000",
@@ -325609,6 +325906,7 @@
     },
     {
       "action_state_id": 264,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
         "flags_raw": "0x00000000",
@@ -326335,6 +326633,7 @@
     },
     {
       "action_state_id": 265,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
         "flags_raw": "0x00000000",
@@ -327061,6 +327360,7 @@
     },
     {
       "action_state_id": 266,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327073,6 +327373,7 @@
     },
     {
       "action_state_id": 267,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327085,6 +327386,7 @@
     },
     {
       "action_state_id": 268,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327097,6 +327399,7 @@
     },
     {
       "action_state_id": 269,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327109,6 +327412,7 @@
     },
     {
       "action_state_id": 270,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327121,6 +327425,7 @@
     },
     {
       "action_state_id": 271,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327133,6 +327438,7 @@
     },
     {
       "action_state_id": 272,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327145,6 +327451,7 @@
     },
     {
       "action_state_id": 273,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327157,6 +327464,7 @@
     },
     {
       "action_state_id": 274,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327169,6 +327477,7 @@
     },
     {
       "action_state_id": 275,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327181,6 +327490,7 @@
     },
     {
       "action_state_id": 276,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 53,
         "flags_raw": "0x00000000",
@@ -327962,6 +328272,7 @@
     },
     {
       "action_state_id": 277,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327974,6 +328285,7 @@
     },
     {
       "action_state_id": 278,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327986,6 +328298,7 @@
     },
     {
       "action_state_id": 279,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -327998,6 +328311,7 @@
     },
     {
       "action_state_id": 280,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328010,6 +328324,7 @@
     },
     {
       "action_state_id": 281,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328022,6 +328337,7 @@
     },
     {
       "action_state_id": 282,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328034,6 +328350,7 @@
     },
     {
       "action_state_id": 283,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328046,6 +328363,7 @@
     },
     {
       "action_state_id": 284,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328058,6 +328376,7 @@
     },
     {
       "action_state_id": 285,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -328070,6 +328389,7 @@
     },
     {
       "action_state_id": 286,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -329338,6 +329658,7 @@
     },
     {
       "action_state_id": 287,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -330543,6 +330864,7 @@
     },
     {
       "action_state_id": 288,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -332027,6 +332349,7 @@
     },
     {
       "action_state_id": 289,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -333916,6 +334239,7 @@
     },
     {
       "action_state_id": 290,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -335400,6 +335724,7 @@
     },
     {
       "action_state_id": 291,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -337289,6 +337614,7 @@
     },
     {
       "action_state_id": 292,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -337301,6 +337627,7 @@
     },
     {
       "action_state_id": 293,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -337313,6 +337640,7 @@
     },
     {
       "action_state_id": 294,
+      "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
@@ -337325,6 +337653,7 @@
     },
     {
       "action_state_id": 295,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -338692,6 +339021,7 @@
     },
     {
       "action_state_id": 296,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -340059,6 +340389,7 @@
     },
     {
       "action_state_id": 297,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -341426,6 +341757,7 @@
     },
     {
       "action_state_id": 298,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -342793,6 +343125,7 @@
     },
     {
       "action_state_id": 299,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -344160,6 +344493,7 @@
     },
     {
       "action_state_id": 300,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -345527,6 +345861,7 @@
     },
     {
       "action_state_id": 301,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -346768,6 +347103,7 @@
     },
     {
       "action_state_id": 302,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -348009,6 +348345,7 @@
     },
     {
       "action_state_id": 303,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -349214,6 +349551,7 @@
     },
     {
       "action_state_id": 304,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -350419,6 +350757,7 @@
     },
     {
       "action_state_id": 305,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -351624,6 +351963,7 @@
     },
     {
       "action_state_id": 306,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -352829,6 +353169,7 @@
     },
     {
       "action_state_id": 307,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -355105,6 +355446,7 @@
     },
     {
       "action_state_id": 308,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -357381,6 +357723,7 @@
     },
     {
       "action_state_id": 309,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -359657,6 +360000,7 @@
     },
     {
       "action_state_id": 310,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -361933,6 +362277,7 @@
     },
     {
       "action_state_id": 311,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -363228,6 +363573,7 @@
     },
     {
       "action_state_id": 312,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -364523,6 +364869,7 @@
     },
     {
       "action_state_id": 313,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -365818,6 +366165,7 @@
     },
     {
       "action_state_id": 314,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -367113,6 +367461,7 @@
     },
     {
       "action_state_id": 315,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -368408,6 +368757,7 @@
     },
     {
       "action_state_id": 316,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -369703,6 +370053,7 @@
     },
     {
       "action_state_id": 317,
+      "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",

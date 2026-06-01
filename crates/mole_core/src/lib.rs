@@ -16,8 +16,8 @@ pub use common_data::{
     CommonDataProvenance, MeleeCommonData,
 };
 pub use input::{
-    gamecube_axis_to_i16, gamecube_axis_to_i8, GameCubeButtonState, GameCubePadStatus,
-    MeleeInputConfig, MeleeInputFacts, MeleeInputProcessor, MeleeInputSnapshot,
+    fighter_stick_axis_to_f32, gamecube_axis_to_i16, gamecube_axis_to_i8, GameCubeButtonState,
+    GameCubePadStatus, MeleeInputConfig, MeleeInputFacts, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MeleeSourceButtonState, PlayerInput,
     WalkSpeedBucket, UCF_DASHBACK_AMENDMENT_BIT,
 };

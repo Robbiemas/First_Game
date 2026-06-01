@@ -162,7 +162,7 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     text = build_parity_ledger_overview(graphs, sheets)
 
     assert "Parity Ledger" in text
-    assert "global_common_values: 6 categories, 63 fields" in text
+    assert "global_common_values: 6 categories, 64 fields" in text
     assert "captain_falcon_values: 5 categories, 39 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text
     assert "Dash-related physics edges:" in text
@@ -206,8 +206,11 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
     entry_start = next(row for row in rows if row["field"] == "entry_start_ticks")
 
     turn_run_x = next(row for row in rows if row["field"] == "turn_run_x")
+    run_brake_pause = next(
+        row for row in rows if row["field"] == "run_brake_animation_pause_velocity_milli"
+    )
 
-    assert len(rows) == 63
+    assert len(rows) == 64
     assert dash_x["source_field"] == "x3C"
     assert dash_x["decomp_value"] == 102
     assert dash_x["rust_field"] == "dash_x"
@@ -218,6 +221,10 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
     assert turn_run_x["rust_field"] == "turn_run_x"
     assert turn_run_x["rust_value"] == -48
     assert turn_run_x["status"] == "match"
+    assert run_brake_pause["source_field"] == "x42C"
+    assert run_brake_pause["decomp_value"] == 0
+    assert run_brake_pause["rust_value"] == 0
+    assert run_brake_pause["status"] == "match"
     assert platform_drop["decomp_value"] == 2
     assert platform_drop["rust_value"] == 2
     assert platform_drop["status"] == "match"
@@ -248,6 +255,8 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
         character_value=True,
     )
     dash_initial = next(row for row in rows if row["field"] == "dash_initial_velocity")
+    dash_run_accel_a = next(row for row in rows if row["field"] == "dash_run_acceleration_a")
+    dash_run_terminal = next(row for row in rows if row["field"] == "dash_run_terminal_velocity")
     max_jumps = next(row for row in rows if row["field"] == "max_jumps")
     air_jump_v = next(row for row in rows if row["field"] == "air_jump_v_multiplier")
 
@@ -259,6 +268,14 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     assert dash_initial["rust_field"] == "initial_dash_speed_per_tick"
     assert dash_initial["rust_value"] == 2000
     assert dash_initial["status"] == "match"
+    assert dash_run_accel_a["decomp_value"] == 0.15000000596046448
+    assert dash_run_accel_a["rust_field"] == "dash_run_acceleration_a"
+    assert dash_run_accel_a["rust_value"] == 0.15000000596046448
+    assert dash_run_accel_a["status"] == "match"
+    assert dash_run_terminal["decomp_value"] == 2.299999952316284
+    assert dash_run_terminal["rust_field"] == "dash_run_terminal_velocity"
+    assert dash_run_terminal["rust_value"] == 2.299999952316284
+    assert dash_run_terminal["status"] == "match"
     assert max_jumps["decomp_value"] == 2
     assert max_jumps["rust_field"] == "max_jumps"
     assert max_jumps["rust_value"] == 2

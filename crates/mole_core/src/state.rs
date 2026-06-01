@@ -86,11 +86,19 @@ pub struct FighterActionFrames {
     pub attack1_iasa_frame: u8,
     pub attack_dash_total_frames: u8,
     pub attack_dash_iasa_frame: u8,
+    pub dash_total_frames: u8,
+    pub dash_cmd_var0_clear_frame: u8,
+    pub dash_cmd_var0_set_frame: u8,
     pub guard_on_total_frames: u8,
     pub guard_off_total_frames: u8,
     pub escape_n_total_frames: u8,
     pub escape_f_total_frames: u8,
     pub escape_b_total_frames: u8,
+    pub turn_run_total_frames: u8,
+    pub turn_run_cmd_var1_frame: u8,
+    pub run_brake_total_frames: u8,
+    pub run_brake_cmd_var0_set_frame: u8,
+    pub run_brake_cmd_var0_clear_frame: u8,
     pub squat_total_frames: u8,
     pub squat_rv_total_frames: u8,
 }
@@ -101,11 +109,19 @@ impl FighterActionFrames {
         attack1_iasa_frame: 16,
         attack_dash_total_frames: 39,
         attack_dash_iasa_frame: 38,
+        dash_total_frames: 29,
+        dash_cmd_var0_clear_frame: 0,
+        dash_cmd_var0_set_frame: 16,
         guard_on_total_frames: 4,
         guard_off_total_frames: 15,
         escape_n_total_frames: 23,
         escape_f_total_frames: 31,
         escape_b_total_frames: 31,
+        turn_run_total_frames: 22,
+        turn_run_cmd_var1_frame: 9,
+        run_brake_total_frames: 28,
+        run_brake_cmd_var0_set_frame: 0,
+        run_brake_cmd_var0_clear_frame: 15,
         squat_total_frames: 4,
         squat_rv_total_frames: 4,
     };
@@ -115,7 +131,7 @@ impl FighterActionFrames {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FighterProfile {
     pub reference_character: &'static str,
     pub action_frames: FighterActionFrames,
@@ -128,6 +144,9 @@ pub struct FighterProfile {
     pub run_speed_per_tick: i32,
     pub run_animation_scaling_per_tick: i32,
     pub initial_dash_speed_per_tick: i32,
+    pub dash_run_acceleration_a: f32,
+    pub dash_run_acceleration_b: f32,
+    pub dash_run_terminal_velocity: f32,
     pub dash_run_accel_stick_per_tick: i32,
     pub dash_run_accel_base_per_tick: i32,
     pub max_run_brake_frames: Option<u8>,
@@ -180,6 +199,9 @@ impl FighterProfile {
         run_speed_per_tick: 2_300,
         run_animation_scaling_per_tick: 2_330,
         initial_dash_speed_per_tick: 2_000,
+        dash_run_acceleration_a: 0.15000000596046448,
+        dash_run_acceleration_b: 0.009999999776482582,
+        dash_run_terminal_velocity: 2.299999952316284,
         dash_run_accel_stick_per_tick: 150,
         dash_run_accel_base_per_tick: 10,
         max_run_brake_frames: Some(30),
@@ -255,12 +277,25 @@ impl FighterProfile {
         profile.traction_per_tick = read_profile_milli_i32(bytes, 0x18, "gr_friction")?;
         profile.initial_dash_speed_per_tick =
             read_profile_milli_i32(bytes, 0x1c, "dash_initial_velocity")?;
-        profile.dash_run_accel_stick_per_tick =
-            read_profile_milli_i32(bytes, 0x20, "dash_run_acceleration_a")?;
-        profile.dash_run_accel_base_per_tick =
-            read_profile_milli_i32(bytes, 0x24, "dash_run_acceleration_b")?;
-        profile.run_speed_per_tick =
-            read_profile_milli_i32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.dash_run_acceleration_a = read_profile_f32(bytes, 0x20, "dash_run_acceleration_a")?;
+        profile.dash_run_accel_stick_per_tick = round_profile_f32_to_i32(
+            profile.dash_run_acceleration_a * 1000.0,
+            "dash_run_acceleration_a",
+            0x20,
+        )?;
+        profile.dash_run_acceleration_b = read_profile_f32(bytes, 0x24, "dash_run_acceleration_b")?;
+        profile.dash_run_accel_base_per_tick = round_profile_f32_to_i32(
+            profile.dash_run_acceleration_b * 1000.0,
+            "dash_run_acceleration_b",
+            0x24,
+        )?;
+        profile.dash_run_terminal_velocity =
+            read_profile_f32(bytes, 0x28, "dash_run_terminal_velocity")?;
+        profile.run_speed_per_tick = round_profile_f32_to_i32(
+            profile.dash_run_terminal_velocity * 1000.0,
+            "dash_run_terminal_velocity",
+            0x28,
+        )?;
         profile.run_animation_scaling_per_tick =
             read_profile_milli_i32(bytes, 0x2c, "run_animation_scaling")?;
         profile.max_run_brake_frames = Some(read_profile_u8_from_f32(
@@ -523,7 +558,7 @@ pub enum MotionState {
     Pass,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerState {
     pub profile: FighterProfile,
     pub position: Vec2,
@@ -541,7 +576,10 @@ pub struct PlayerState {
     pub ground_accel_x: i32,
     pub ground_accel_x2: i32,
     pub dash_entry_velocity_delta: i32,
+    pub dash_x0: i32,
     pub dash_started_from_tap: bool,
+    pub walk_anim_velocity_x: i32,
+    pub walk_accel_mul_milli: i32,
     pub turn_facing_after: i8,
     pub turn_has_turned: bool,
     pub turn_just_turned: bool,
@@ -550,6 +588,12 @@ pub struct PlayerState {
     pub turn_latched_buttons: u8,
     pub turn_run_accel_mul: i8,
     pub run_no_interrupt_frames: u8,
+    pub motion_cmd_var0: u32,
+    pub motion_cmd_var1: u32,
+    pub run_brake_x0: bool,
+    pub run_brake_frames_remaining: u8,
+    pub turn_run_x14: bool,
+    pub motion_anim_rate_milli: i32,
     pub shield_turn_facing_after: i8,
     pub shield_turn_frame: u8,
     pub guard_catch_dash_window: u8,
@@ -587,7 +631,10 @@ impl PlayerState {
             ground_accel_x: 0,
             ground_accel_x2: 0,
             dash_entry_velocity_delta: 0,
+            dash_x0: 0,
             dash_started_from_tap: false,
+            walk_anim_velocity_x: 0,
+            walk_accel_mul_milli: 1_000,
             turn_facing_after: facing,
             turn_has_turned: false,
             turn_just_turned: false,
@@ -596,6 +643,12 @@ impl PlayerState {
             turn_latched_buttons: 0,
             turn_run_accel_mul: facing,
             run_no_interrupt_frames: 0,
+            motion_cmd_var0: 0,
+            motion_cmd_var1: 0,
+            run_brake_x0: false,
+            run_brake_frames_remaining: 0,
+            turn_run_x14: false,
+            motion_anim_rate_milli: 1_000,
             shield_turn_facing_after: facing,
             shield_turn_frame: 0,
             guard_catch_dash_window: 0,
@@ -789,6 +842,27 @@ pub struct PlayerRenderSnapshot {
     pub motion_state: MotionState,
     pub state_frame: u8,
     pub animation_frame: u8,
+    pub ground_velocity_x: i32,
+    pub ground_accel_x: i32,
+    pub ground_accel_x2: i32,
+    pub dash_entry_velocity_delta: i32,
+    pub dash_x0: i32,
+    pub walk_anim_velocity_x: i32,
+    pub walk_accel_mul_milli: i32,
+    pub turn_facing_after: i8,
+    pub turn_has_turned: bool,
+    pub turn_just_turned: bool,
+    pub turn_frames_to_turn: u8,
+    pub turn_dash_after_direction: i8,
+    pub turn_latched_buttons: u8,
+    pub run_no_interrupt_frames: u8,
+    pub motion_cmd_var0: u32,
+    pub motion_cmd_var1: u32,
+    pub run_brake_x0: bool,
+    pub run_brake_frames_remaining: u8,
+    pub turn_run_accel_mul: i8,
+    pub turn_run_x14: bool,
+    pub motion_anim_rate_milli: i32,
     pub debug_input_facts: MeleeInputFacts,
 }
 
@@ -806,6 +880,27 @@ impl PlayerRenderSnapshot {
             motion_state: player.motion_state,
             state_frame: player.motion_frame,
             animation_frame: player.attack_frame,
+            ground_velocity_x: player.ground_velocity_x,
+            ground_accel_x: player.ground_accel_x,
+            ground_accel_x2: player.ground_accel_x2,
+            dash_entry_velocity_delta: player.dash_entry_velocity_delta,
+            dash_x0: player.dash_x0,
+            walk_anim_velocity_x: player.walk_anim_velocity_x,
+            walk_accel_mul_milli: player.walk_accel_mul_milli,
+            turn_facing_after: player.turn_facing_after,
+            turn_has_turned: player.turn_has_turned,
+            turn_just_turned: player.turn_just_turned,
+            turn_frames_to_turn: player.turn_frames_to_turn,
+            turn_dash_after_direction: player.turn_dash_after_direction,
+            turn_latched_buttons: player.turn_latched_buttons,
+            run_no_interrupt_frames: player.run_no_interrupt_frames,
+            motion_cmd_var0: player.motion_cmd_var0,
+            motion_cmd_var1: player.motion_cmd_var1,
+            run_brake_x0: player.run_brake_x0,
+            run_brake_frames_remaining: player.run_brake_frames_remaining,
+            turn_run_accel_mul: player.turn_run_accel_mul,
+            turn_run_x14: player.turn_run_x14,
+            motion_anim_rate_milli: player.motion_anim_rate_milli,
             debug_input_facts,
         }
     }
@@ -818,7 +913,7 @@ pub struct WorldSnapshot {
     pub checksum: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct World {
     frame: Frame,
     stage: StageProfile,
@@ -1034,7 +1129,10 @@ impl World {
             mix_i32(&mut hash, player.ground_accel_x);
             mix_i32(&mut hash, player.ground_accel_x2);
             mix_i32(&mut hash, player.dash_entry_velocity_delta);
+            mix_i32(&mut hash, player.dash_x0);
             mix_u8(&mut hash, player.dash_started_from_tap as u8);
+            mix_i32(&mut hash, player.walk_anim_velocity_x);
+            mix_i32(&mut hash, player.walk_accel_mul_milli);
             mix_u8(&mut hash, player.turn_facing_after as u8);
             mix_u8(&mut hash, player.turn_has_turned as u8);
             mix_u8(&mut hash, player.turn_just_turned as u8);
@@ -1043,6 +1141,12 @@ impl World {
             mix_u8(&mut hash, player.turn_latched_buttons);
             mix_u8(&mut hash, player.turn_run_accel_mul as u8);
             mix_u8(&mut hash, player.run_no_interrupt_frames);
+            mix_u32(&mut hash, player.motion_cmd_var0);
+            mix_u32(&mut hash, player.motion_cmd_var1);
+            mix_u8(&mut hash, player.run_brake_x0 as u8);
+            mix_u8(&mut hash, player.run_brake_frames_remaining);
+            mix_u8(&mut hash, player.turn_run_x14 as u8);
+            mix_i32(&mut hash, player.motion_anim_rate_milli);
             mix_u8(&mut hash, player.shield_turn_facing_after as u8);
             mix_u8(&mut hash, player.shield_turn_frame);
             mix_u8(&mut hash, player.guard_catch_dash_window);
@@ -1165,6 +1269,10 @@ fn mix_u32(hash: &mut u64, value: u32) {
     }
 }
 
+fn mix_f32(hash: &mut u64, value: f32) {
+    mix_u32(hash, value.to_bits());
+}
+
 fn mix_u64(hash: &mut u64, value: u64) {
     for byte in value.to_le_bytes() {
         mix_u8(hash, byte);
@@ -1262,6 +1370,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_i32(hash, common.run_accel_taper_milli);
     mix_i32(hash, common.run_ground_friction_multiplier_milli);
     mix_i32(hash, common.high_speed_ground_friction_multiplier_milli);
+    mix_i32(hash, common.run_brake_animation_pause_velocity_milli);
     mix_i32(hash, common.animation_velocity_scale_milli);
     mix_i32(hash, common.fall_animation_drift_threshold_milli);
     mix_i32(hash, common.fall_animation_blend_milli);
@@ -1295,6 +1404,9 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.run_speed_per_tick);
     mix_i32(hash, profile.run_animation_scaling_per_tick);
     mix_i32(hash, profile.initial_dash_speed_per_tick);
+    mix_f32(hash, profile.dash_run_acceleration_a);
+    mix_f32(hash, profile.dash_run_acceleration_b);
+    mix_f32(hash, profile.dash_run_terminal_velocity);
     mix_i32(hash, profile.dash_run_accel_stick_per_tick);
     mix_i32(hash, profile.dash_run_accel_base_per_tick);
     match profile.max_run_brake_frames {
@@ -1345,11 +1457,19 @@ fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames)
     mix_u8(hash, action_frames.attack1_iasa_frame);
     mix_u8(hash, action_frames.attack_dash_total_frames);
     mix_u8(hash, action_frames.attack_dash_iasa_frame);
+    mix_u8(hash, action_frames.dash_total_frames);
+    mix_u8(hash, action_frames.dash_cmd_var0_clear_frame);
+    mix_u8(hash, action_frames.dash_cmd_var0_set_frame);
     mix_u8(hash, action_frames.guard_on_total_frames);
     mix_u8(hash, action_frames.guard_off_total_frames);
     mix_u8(hash, action_frames.escape_n_total_frames);
     mix_u8(hash, action_frames.escape_f_total_frames);
     mix_u8(hash, action_frames.escape_b_total_frames);
+    mix_u8(hash, action_frames.turn_run_total_frames);
+    mix_u8(hash, action_frames.turn_run_cmd_var1_frame);
+    mix_u8(hash, action_frames.run_brake_total_frames);
+    mix_u8(hash, action_frames.run_brake_cmd_var0_set_frame);
+    mix_u8(hash, action_frames.run_brake_cmd_var0_clear_frame);
     mix_u8(hash, action_frames.squat_total_frames);
     mix_u8(hash, action_frames.squat_rv_total_frames);
 }

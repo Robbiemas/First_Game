@@ -27,6 +27,7 @@ DEFAULT_OUT_DIR = PROJECT_ROOT / "resources" / "melee" / "extracted"
 DEFAULT_ISO_FILES = ("PlCo.dat", "PlCa.dat", "PlCaAJ.dat", "PlCaNr.dat")
 ECB_SAMPLE_ACTION_STATE_IDS = sampled_action_ids()
 CAPTAIN_ACTION_COUNT = 318
+LOCOMOTION_CMD_VAR_ACTION_STATE_IDS = {11, 12, 14}
 FIGHTER_WAIT_ANIM_DATA_SIZE = 0x18
 FIGA_TRACK_SIZE = 0x0C
 FIGA_TREE_SIZE = 0x14
@@ -119,6 +120,7 @@ COMMON_FIELDS = (
     Field("escapeair_force", "escapeair_force", 0x338, "milli"),
     Field("escapeair_decay_milli", "escapeair_decay", 0x33C, "milli"),
     Field("escapeair_landing_lag_ticks", "x344", 0x344, "f32_ticks"),
+    Field("run_brake_animation_pause_velocity_milli", "x42C", 0x42C, "milli"),
     Field("run_turn_run_no_interrupt_frames", "x430", 0x430, "f32_ticks"),
     Field("animation_velocity_scale_milli", "x440", 0x440, "milli"),
     Field("fall_animation_drift_threshold_milli", "x444", 0x444, "milli"),
@@ -133,6 +135,58 @@ COMMON_FIELDS = (
     Field("entry_collision_landing_lag_ticks", "x6C8", 0x6C8, "i32_ticks"),
 )
 
+FIGHTER_CMD_LENGTHS = (
+    5,
+    5,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    1,
+    1,
+    1,
+    7,
+    4,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    3,
+    2,
+    1,
+    4,
+)
+
 
 PROFILE_FIELDS = (
     Field("walk_initial_velocity", "walk_initial_velocity", 0x00, "milli"),
@@ -143,9 +197,9 @@ PROFILE_FIELDS = (
     Field("fast_walk_threshold", "fast_walk_threshold", 0x14, "milli"),
     Field("traction_per_tick", "gr_friction", 0x18, "milli"),
     Field("dash_initial_velocity", "dash_initial_velocity", 0x1C, "milli"),
-    Field("dash_run_acceleration_a", "dash_run_acceleration_a", 0x20, "milli"),
-    Field("dash_run_acceleration_b", "dash_run_acceleration_b", 0x24, "milli"),
-    Field("dash_run_terminal_velocity", "dash_run_terminal_velocity", 0x28, "milli"),
+    Field("dash_run_acceleration_a", "dash_run_acceleration_a", 0x20, "source_f32"),
+    Field("dash_run_acceleration_b", "dash_run_acceleration_b", 0x24, "source_f32"),
+    Field("dash_run_terminal_velocity", "dash_run_terminal_velocity", 0x28, "source_f32"),
     Field("run_animation_scaling", "run_animation_scaling", 0x2C, "milli"),
     Field("max_run_brake_frames", "max_run_brake_frames", 0x30, "f32_ticks"),
     Field("ground_max_horizontal_velocity", "ground_max_horizontal_velocity", 0x34, "milli"),
@@ -328,6 +382,8 @@ def field_value(block: bytes, field: Field) -> dict[str, object]:
         result["trigger_byte"] = rust_round(float(raw) * 255.0)
     elif field.kind == "milli":
         result["milli"] = rust_round(float(raw) * 1000.0)
+    elif field.kind == "source_f32":
+        pass
     elif field.kind == "f32_ticks":
         result["ticks"] = rust_round(float(raw))
     elif field.kind == "i32_ticks":
@@ -339,6 +395,62 @@ def field_value(block: bytes, field: Field) -> dict[str, object]:
     else:
         raise DatExtractError(f"unknown field kind {field.kind!r}")
     return result
+
+
+def _command_frame_value(raw_value: int) -> int:
+    if raw_value >= 0x10000 and raw_value & 0xFFFF == 0:
+        return raw_value >> 16
+    return raw_value
+
+
+def extract_action_script_cmd_var_events(script_bytes: bytes, script_offset: int) -> list[dict[str, int]]:
+    """Decode the minimal fighter command subset needed for locomotion cmd vars."""
+    events: list[dict[str, int]] = []
+    word_offset = 0
+    current_frame = 0
+
+    while script_offset + word_offset * 4 + 4 <= len(script_bytes):
+        word = read_u32(script_bytes, script_offset + word_offset * 4)
+        opcode = word >> 26
+        value = word & 0x03FF_FFFF
+
+        if opcode == 0:
+            break
+        if opcode == 1:
+            current_frame += _command_frame_value(value)
+            word_offset += 1
+            continue
+        if opcode == 2:
+            current_frame = _command_frame_value(value)
+            word_offset += 1
+            continue
+        if opcode == 8:
+            word_offset += 1
+            continue
+        if opcode == 19:
+            events.append(
+                {
+                    "frame": current_frame,
+                    "cmd_var": (word >> 24) & 0x03,
+                    "value": word & 0x00FF_FFFF,
+                    "word_offset": word_offset,
+                }
+            )
+            word_offset += 1
+            continue
+
+        if opcode < 10:
+            raise DatExtractError(
+                f"unsupported common action script command opcode {opcode} at word {word_offset}"
+            )
+        fighter_index = opcode - 10
+        if fighter_index >= len(FIGHTER_CMD_LENGTHS):
+            raise DatExtractError(
+                f"unsupported fighter action script opcode {opcode} at word {word_offset}"
+            )
+        word_offset += FIGHTER_CMD_LENGTHS[fighter_index]
+
+    return events
 
 
 def vec3_raw(dat: bytes, data_block_offset: int) -> dict[str, float]:
@@ -1240,6 +1352,12 @@ def extract_captain_action_animation_table(
                 "figatree_root": figatree_root,
                 "figatree": figatree,
                 "subaction_script_offset": subaction_script_offset,
+                "cmd_var_events": (
+                    extract_action_script_cmd_var_events(plca, 0x20 + subaction_script_offset)
+                    if subaction_script_offset != 0
+                    and action_state_id in LOCOMOTION_CMD_VAR_ACTION_STATE_IDS
+                    else []
+                ),
                 "flags_raw": f"0x{flags:08x}",
                 "runtime_archive_pointer_raw": runtime_archive_pointer,
                 "status": (

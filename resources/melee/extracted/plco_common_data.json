@@ -308,6 +308,13 @@
       "raw": 0.4000000059604645,
       "source_name": "x5C"
     },
+    "run_brake_animation_pause_velocity_milli": {
+      "kind": "milli",
+      "milli": 0,
+      "offset": 1068,
+      "raw": 0.0,
+      "source_name": "x42C"
+    },
     "run_ground_friction_multiplier_milli": {
       "kind": "milli",
       "milli": 1000,

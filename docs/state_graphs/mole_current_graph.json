@@ -189,7 +189,7 @@
         1
       ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts.",
+      "notes": "Explicit Rust MotionState selected from current gr_vel; carries source-shaped walk anim rate and mv.co.walk.x0-style animation velocity.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -206,10 +206,10 @@
         {
           "label": "Rust walk simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "enter_walk / apply_walk_velocity"
+          "function": "walk_anim_tick / enter_walk / walk_motion_state / apply_walk_velocity"
         },
         {
-          "label": "Walk bucket contract tests",
+          "label": "Walk source-motion contract tests",
           "path": "crates/mole_core/tests/core_contract.rs"
         }
       ],
@@ -218,6 +218,7 @@
         "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -235,7 +236,7 @@
         1
       ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState selected from Melee-style walk-speed bucket facts.",
+      "notes": "Explicit Rust MotionState selected from current gr_vel; bucket remap preserves source motion frame and resets change-state rate to 1.0.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -252,10 +253,10 @@
         {
           "label": "Rust walk simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "enter_walk / apply_walk_velocity"
+          "function": "walk_anim_tick / enter_walk / walk_motion_state / apply_walk_velocity"
         },
         {
-          "label": "Walk bucket contract tests",
+          "label": "Walk source-motion contract tests",
           "path": "crates/mole_core/tests/core_contract.rs"
         }
       ],
@@ -264,6 +265,7 @@
         "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -281,7 +283,7 @@
         1
       ],
       "status": "aligned",
-      "notes": "Explicit Rust MotionState below dash threshold; analog speed remains profile-driven.",
+      "notes": "Explicit Rust MotionState below dash threshold; analog speed, walk x0, and animation rate remain profile/common-data driven.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -298,10 +300,10 @@
         {
           "label": "Rust walk simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "enter_walk / apply_walk_velocity"
+          "function": "walk_anim_tick / enter_walk / walk_motion_state / apply_walk_velocity"
         },
         {
-          "label": "Walk-to-dash contract tests",
+          "label": "Walk source-motion and walk-to-dash contract tests",
           "path": "crates/mole_core/tests/core_contract.rs"
         }
       ],
@@ -310,6 +312,7 @@
         "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
         "global_common_values.grounded_locomotion.walk_accel_taper_milli",
+        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -328,7 +331,7 @@
         1
       ],
       "status": "partial",
-      "notes": "Rust has a standing turn state, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, and same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn. Exact broader Turn frame data still needs deeper coverage.",
+      "notes": "Rust has a standing turn state, source-shaped temporary-facing action checks, A/B latch fields, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn, and runtime trace fields for hidden Turn vars. Exact source helper identity and Turn collision still need deeper coverage.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -350,7 +353,7 @@
         {
           "label": "Rust turn helpers",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "enter_smash_turn / enter_standing_turn / apply_ground_traction / dash-out branch"
+          "function": "enter_smash_turn / enter_standing_turn / turn_effective_input_facts / apply_turn_temporary_facing_to_attack_facts / apply_ground_traction / dash-out branch"
         },
         {
           "label": "Turn and dash-back contract tests",
@@ -366,6 +369,8 @@
       ],
       "physics": [
         "Rust now models the input-callback-then-physics order for movement paths entering Turn: Wait, Walk, and Dash transitions stage Turn friction in the same frame.",
+        "Before has_turned, Turn action checks use turn_facing_after like the source's temporary facing flip; shield/jump/dash logic keeps the restored-facing path.",
+        "Turn latch/debug fields are deterministic state and exposed through runtime traces.",
         "Dash->Turn applies Dash IASA x54 first, then Turn's general grounded ft_80084F3C friction before position and gr_vel commit.",
         "Walk/Wait carried gr_vel entering Turn receives the same Turn friction before any next-frame dash-out."
       ],
@@ -379,7 +384,7 @@
         1
       ],
       "status": "aligned",
-      "notes": "Rust owns extracted PlCo dash facts: x0/x4 deadzones, x8/xC tap thresholds, x3C dash threshold, x40 tap window, x44/x48/x4C IASA windows, x54 Dash IASA velocity decay, source-shaped entry delta, tap-start early-Dash gating, non-run Dash completion to Wait, and moonwalk-like payload/relay tests without a Moonwalk state. Grounded horizontal movement now stages source-shaped gr_vel, xE4_ground_accel_1, and xE8_ground_accel_2 equivalents: xE4 contributes to same-frame translation and ground velocity, while Dash-entry xE8 commits after translation.",
+      "notes": "Rust owns extracted PlCo dash facts: x0/x4 deadzones, x8/xC tap thresholds, x3C dash threshold, x40 tap window, x44/x48/x4C IASA windows, x54 Dash IASA velocity decay, source-shaped entry delta, tap-start early-Dash gating, Falcon Dash action-script cmd_var[0] timing, cmd-var-gated Dash-to-Run, source animation-completion fallback to Wait, and moonwalk-like payload/relay tests without a Moonwalk state. Grounded horizontal movement now stages source-shaped gr_vel, xE4_ground_accel_1, and xE8_ground_accel_2 equivalents: xE4 contributes to same-frame translation and ground velocity, while Dash-entry xE8 commits after translation and mv.co.dash.x0 suppresses the first ordinary Dash_Phys acceleration tick.",
       "source_refs": [
         {
           "label": "Melee Dash source",
@@ -396,7 +401,7 @@
         {
           "label": "Rust Dash simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "enter_dash / stage_dash_entry_ground_accel2 / commit_ground_velocity / apply_dash_velocity / exit_dash"
+      "function": "enter_dash / dash_anim_tick / apply_dash_script_events / apply_dash_physics / stage_dash_entry_ground_accel2"
         },
         {
           "label": "Dash and moonwalk contract tests",
@@ -413,7 +418,8 @@
         "captain_falcon_values.dash_and_turn.dash_initial_velocity",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_b",
-        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity"
+      "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
+      "captain_falcon_action_animation_table.actions[12].cmd_var_events"
       ],
       "known_gaps": [
         "Human moonwalk feel is still short/not chainable in playtest; ledger should isolate whether remaining gap is input timing, stick path capture, Dash live accel, follow-up state timing, or another decomp update-order path."
@@ -502,7 +508,7 @@
         2
       ],
       "status": "partial",
-      "notes": "Rust has sustained run with extracted x58 run threshold, extracted x38 Run-to-TurnRun threshold, and x430 TurnRun no-interrupt window; remaining run exits need continued Melee parity review.",
+      "notes": "Rust has sustained run with extracted x58 run threshold, extracted x38 Run-to-TurnRun threshold, and source-shaped x430 ordering: Run_Anim decrements the no-interrupt counter before Run_IASA. Remaining run exits stay partial until the full callback surface is audited.",
       "source_refs": [
         {
           "label": "Melee Run source",
@@ -519,7 +525,7 @@
         {
           "label": "Rust Run simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "GroundState::Run branch / apply_run_accel"
+          "function": "MotionState::Run branch / run_anim_tick / apply_run_velocity"
         },
         {
           "label": "Run and run-exit contract tests",
@@ -534,7 +540,8 @@
         "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
         "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
         "captain_falcon_values.walk_and_run.run_animation_scaling",
-        "captain_falcon_values.walk_and_run.ground_max_horizontal_velocity"
+        "captain_falcon_values.walk_and_run.ground_max_horizontal_velocity",
+        "global_common_values.grounded_locomotion.run_turn_run_no_interrupt_frames"
       ],
       "known_gaps": [
         "Run exits remain marked partial until deeper Melee parity review covers every release/turn/brake timing path."
@@ -640,7 +647,7 @@
         3
       ],
       "status": "partial",
-      "notes": "Explicit Rust state applies source-shaped run ground traction, honors extracted Captain Falcon max_run_brake_frames == 30, and covers jump/squat IASA interrupts. Source RunBrake animation command-vars can pause the animation around PlCo x42C and gate a later TurnRun branch; those command-var paths remain partial.",
+      "notes": "Explicit Rust state now mirrors the source-shaped RunBrake motion vars: cmd_vars[0] is set/cleared by the Falcon subaction script, x0 tracks the animation pause gate, frames count down from extracted max_run_brake_frames, and cmd_vars[0] plus the source stick/facing gate can branch into TurnRun before fallback.",
       "source_refs": [
         {
           "label": "Melee RunBrake source",
@@ -652,21 +659,23 @@
         {
           "label": "Rust RunBrake simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "MotionState::RunBrake branch / apply_run_ground_traction"
+          "function": "MotionState::RunBrake branch / run_brake_anim_tick"
         },
         {
           "label": "Run brake contract tests",
-          "path": "crates/mole_core/tests/core_contract.rs"
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "run_brake_cmd_var0_window_can_branch_to_turnrun_before_wait_or_walk / run_brake_*"
         }
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
         "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
         "captain_falcon_values.walk_and_run.traction_per_tick",
-        "captain_falcon_values.walk_and_run.max_run_brake_frames"
+        "captain_falcon_values.walk_and_run.max_run_brake_frames",
+        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity_milli"
       ],
       "known_gaps": [
-        "RunBrake animation command-var pause around PlCo x42C and command-var-gated TurnRun behavior remain partial."
+        "RunBrake remains partial until every non-locomotion interrupt and animation command path is audited."
       ]
     },
     {
@@ -677,7 +686,7 @@
         3
       ],
       "status": "partial",
-      "notes": "Rust preserves old-facing behavior while velocity crosses zero. Run IASA enters TurnRun through the extracted PlCo x38 threshold, then applies the source-shaped TurnRun_Phys path on the entry tick, so opposite acceleration is accepted through the stored old-facing accel_mul before facing flips at the velocity crossing. Exact animation command pause and completion timing still need frame-perfect reference checks.",
+      "notes": "Rust preserves old-facing accel_mul behavior and now gates TurnRun completion through the extracted Falcon animation duration and the source cmd_vars[1] pause/resume point before fn_800CA644-style Run handoff. Facing flips only after the source velocity-crossing pause gate resolves.",
       "source_refs": [
         {
           "label": "Melee TurnRun source",
@@ -694,12 +703,12 @@
         {
           "label": "Rust TurnRun simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "MotionState::TurnRun branch / enter_turn_run / apply_turn_run_velocity"
+          "function": "MotionState::TurnRun branch / turn_run_anim_tick / apply_turn_run_velocity"
         },
         {
           "label": "TurnRun contract tests",
           "path": "crates/mole_core/tests/core_contract.rs",
-          "function": "run_opposite_stick_enters_turn_run_with_source_turnrun_phys_on_entry_tick / turn_run_*"
+          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate / run_x430_decrements_before_iasa_allows_turnrun_on_boundary_frame"
         }
       ],
       "value_refs": [
@@ -708,10 +717,11 @@
         "global_common_values.grounded_locomotion.run_x",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_b",
-        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity"
+        "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
+        "captain_falcon_action_animation_table.actions[11].cmd_var_events"
       ],
       "known_gaps": [
-        "TurnRun is still partial until animation command pause and completion timing have frame-perfect reference checks."
+        "TurnRun remains partial until every source callback side path outside grounded locomotion is audited."
       ]
     },
     {
@@ -875,7 +885,7 @@
         4
       ],
       "status": "partial",
-      "notes": "Rust double-jump backward state exists and uses profile-owned air-jump force with native -128 full-stick scaling; broader aerial physics still needs Falcon parity work."
+      "notes": "Rust double-jump backward state exists and uses profile-owned air-jump force with HSD-clamped /127.0 fighter stick scaling; raw adapter -128 is preserved only before the fighter-facing clamp. Broader aerial physics still needs Falcon parity work."
     },
     {
       "id": "Fall",
@@ -988,7 +998,7 @@
         }
       ],
       "known_gaps": [
-        "The full Slippi replay still diverges before the local EscapeAir landing slice, so earlier JumpAerialF/position history and remaining collision callbacks still need source-shaped parity."
+        "The current negative-frame Slippi match-start oracle first diverges at source frame 17, player 2: Melee is LandingFallSpecial on Battlefield top platform while Rust has entered Fall with about +2.112 Melee units of x-position drift. Earlier position history and remaining collision/projection callbacks still need source-shaped parity."
       ]
     },
     {
@@ -1849,10 +1859,10 @@
     {
       "from": "Dash",
       "to": "Run",
-      "input": "dash animation completes while run-zone stick is held",
-      "frames": "after Falcon dash frames; 15f reference",
+      "input": "Dash cmd_var[0] script gate is set while run-zone stick is held",
+      "frames": "Falcon Dash action script sets cmd_var[0] at frame 16",
       "status": "aligned",
-      "notes": "Run-zone comparison uses extracted PlCo x58 == 79; carried gr_vel remains the base velocity for Run physics.",
+      "notes": "Run-zone comparison uses extracted PlCo x58 == 79 and is gated by Falcon Dash cmd_var[0], matching ftCo_Dash_IASA -> fn_800CA5F0 rather than the old fixed profile.dash_frames shortcut. The handoff frame immediately runs the Run physics helper, matching the source callback order where Fighter_procUpdate follows input_cb with the updated phys_cb.",
       "source_refs": [
         {
           "label": "Melee Dash completion to Run",
@@ -1864,7 +1874,7 @@
         {
           "label": "Rust Dash-to-Run handoff",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "exit_dash / enter_run"
+      "function": "dash_anim_tick / apply_dash_script_events / Dash IASA cmd_var[0] run gate / enter_run"
         },
         {
           "label": "Dash-to-run contract tests",
@@ -1874,12 +1884,14 @@
       "value_refs": [
         "global_common_values.grounded_locomotion.run_x",
         "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
-        "captain_falcon_values.walk_and_run.run_animation_scaling"
+      "captain_falcon_values.walk_and_run.run_animation_scaling",
+      "captain_falcon_action_animation_table.actions[12].cmd_var_events"
       ],
       "physics": [
-        "dash animation completion",
-        "same-facing run-zone stick held",
-        "terminal run velocity target"
+      "cmd_var[0] frame-16 script gate",
+      "same-facing run-zone stick held",
+      "same-frame Run_Phys acceleration/taper",
+      "terminal run velocity target"
       ],
       "known_gaps": []
     },
@@ -1887,9 +1899,9 @@
       "from": "Dash",
       "to": "Wait",
       "input": "dash animation completes without same-facing run handoff",
-      "frames": "after Falcon dash frames",
+      "frames": "Falcon Dash figatree completion at frame 29 when cmd-var Run handoff does not occur",
       "status": "aligned",
-      "notes": "Non-run completion preserves carried gr_vel; held opposite or walk-zone stick is resolved by Wait's next-frame priority and grounded friction stages through xE4-equivalent acceleration.",
+      "notes": "Non-run completion is owned by Dash_Anim/ft_8008A2BC and preserves carried gr_vel; held opposite or walk-zone stick is resolved by Wait's next-frame priority and grounded friction stages through xE4-equivalent acceleration.",
       "source_refs": [
         {
           "label": "Melee Dash completion to Wait",
@@ -1901,7 +1913,7 @@
         {
           "label": "Rust Dash-to-Wait fallback",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "exit_dash / GroundState::Wait"
+      "function": "dash_anim_tick / enter_wait_from_walk"
         },
         {
           "label": "Non-run dash completion contract tests",
@@ -2060,8 +2072,8 @@
       "from": "Run",
       "to": "TurnRun",
       "input": "opposite stick at PlCo x38 after run can accept turn",
-      "frames": "current frame after no-interrupt window",
-      "status": "partial",
+      "frames": "Run_Anim decrements x430 before Run_IASA; eligible when the counter reaches zero on that source frame",
+      "status": "aligned",
       "source_refs": [
         {
           "label": "Melee Run to TurnRun",
@@ -2091,13 +2103,13 @@
         "global_common_values.grounded_locomotion.run_x"
       ],
       "physics": [
-        "opposite stick at x38 after run no-interrupt window",
+        "Run_Anim decrements x430 before IASA",
+        "opposite stick at x38 after no-interrupt counter reaches zero",
         "same-frame TurnRun_Phys entry tick",
         "old-facing turn-run carry"
       ],
-      "known_gaps": [
-        "TurnRun animation command pause and completion timing remain partial."
-      ]
+      "known_gaps": [],
+      "notes": "Rust now runs x430 in the animation phase before IASA, matching ftCo_Run_Anim -> ftCo_Run_IASA ordering before fn_800C9D40 can enter TurnRun."
     },
     {
       "from": "Run",
@@ -2130,16 +2142,19 @@
       ],
       "value_refs": [
         "captain_falcon_values.walk_and_run.traction_per_tick",
-        "captain_falcon_values.walk_and_run.max_run_brake_frames"
+        "captain_falcon_values.walk_and_run.max_run_brake_frames",
+        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity_milli"
       ],
       "physics": [
         "stick leaves same-direction run condition",
-        "traction deceleration",
-        "profile max run brake frames"
+        "RunBrake cmd vars cleared on entry",
+        "profile max run brake frames seeded",
+        "run-ground traction deceleration"
       ],
       "known_gaps": [
-        "RunBrake remains partial pending exact Falcon braking timing review."
-      ]
+        "RunBrake remains partial until all non-locomotion IASA interrupts are audited."
+      ],
+      "notes": "Rust enters RunBrake through the Run IASA release/brake branch and seeds source-shaped RunBrake motion vars before applying run-ground traction."
     },
     {
       "from": "Run",
@@ -2198,59 +2213,63 @@
     {
       "from": "RunBrake",
       "to": "Wait",
-      "input": "ground traction settles X velocity to zero or extracted Falcon max_run_brake_frames expires",
-      "frames": "variable physics duration or 30-frame Falcon max_run_brake window",
-      "status": "partial"
+      "input": "RunBrake animation/fallback completes without command-var TurnRun, jump, or squat interrupt",
+      "frames": "RunBrake animation completion or extracted max_run_brake_frames countdown",
+      "status": "partial",
+      "notes": "RunBrake_Anim fallback is represented by animation/frame countdown rather than the old velocity-only shortcut."
     },
     {
       "from": "TurnRun",
       "to": "Run",
-      "input": "facing has flipped and same-direction run input is held",
-      "frames": "after turn-run crossing resolves",
-      "status": "partial",
+      "input": "TurnRun animation completes and fn_800CA644 sees same-direction run input after facing flip",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "status": "aligned",
       "source_refs": [
         {
           "label": "Melee TurnRun completion",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
-          "function": "ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+          "function": "ftCo_TurnRun_Anim / fn_800CA644"
         },
         {
-          "label": "Melee Run source",
-          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Run.c",
-          "function": "ftCo_Run_Enter"
+          "label": "Falcon TurnRun action script",
+          "path": "resources/melee/extracted/captain_falcon_action_animation_table.json",
+          "function": "actions[11].cmd_var_events"
         }
       ],
       "rust_refs": [
         {
-          "label": "Rust TurnRun-to-Run transition",
+          "label": "Rust TurnRun completion gate",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "turn_run crossing / enter_run"
+          "function": "turn_run_anim_tick / enter_run_from_turn_run"
         },
         {
-          "label": "TurnRun contract tests",
-          "path": "crates/mole_core/tests/core_contract.rs"
+          "label": "TurnRun completion contract tests",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate"
         }
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.run_x",
         "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
-        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a"
+        "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
+        "global_common_values.grounded_locomotion.run_turn_run_no_interrupt_frames",
+        "captain_falcon_action_animation_table.actions[11].cmd_var_events"
       ],
       "physics": [
-        "facing flip after velocity crossing",
-        "same-direction run input held",
-        "run acceleration target resumes"
+        "cmd_vars[1] pauses animation at frame 9",
+        "animation resumes after velocity-crossing gate",
+        "completion calls fn_800CA644-style same-facing run gate",
+        "Run receives x430 no-interrupt frames"
       ],
-      "known_gaps": [
-        "TurnRun-to-Run remains partial pending source-frame timing review."
-      ]
+      "known_gaps": []
     },
     {
       "from": "TurnRun",
       "to": "Wait",
-      "input": "neutral stick and X velocity reaches zero",
-      "frames": "variable physics duration",
-      "status": "partial"
+      "input": "TurnRun animation completes without same-direction run input",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "status": "partial",
+      "notes": "Fallback is completion-gated, not direct velocity-crossing-gated."
     },
     {
       "from": "Squat",
@@ -2483,7 +2502,7 @@
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
       "status": "partial",
-      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. The full Slippi oracle still diverges before this local slice, so earlier position/state history remains the next investigation target."
+      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. The current Slippi oracle reaches this family but first diverges at source frame 17 because Rust's earlier x-position drift carries player 2 off the top platform into Fall."
     },
     {
       "from": "FallSpecial",
@@ -2668,6 +2687,48 @@
       "frames": "collision frame",
       "status": "partial",
       "notes": "Rust includes FallAerial in the shared airborne collision path to Landing; exact FallAerial collision callback parity remains under source audit."
+    },
+    {
+      "from": "RunBrake",
+      "to": "TurnRun",
+      "input": "opposite stick while cmd_vars[0] is set by the RunBrake action script",
+      "frames": "Falcon RunBrake cmd_vars[0] window: frame 0 through before frame 15 clear event",
+      "status": "aligned",
+      "notes": "Matches ftCo_RunBrake_IASA: after jump, cmd_vars[0] && fn_800C9CEC can enter TurnRun before squat/braking fallback.",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_IASA / fn_800C9CEC"
+        },
+        {
+          "label": "Falcon RunBrake action script",
+          "path": "resources/melee/extracted/captain_falcon_action_animation_table.json",
+          "function": "actions[14].cmd_var_events"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust RunBrake command-var branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "run_brake_anim_tick / MotionState::RunBrake IASA branch"
+        },
+        {
+          "label": "RunBrake branch contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "run_brake_cmd_var0_window_can_branch_to_turnrun_before_wait_or_walk"
+        }
+      ],
+      "value_refs": [
+        "captain_falcon_action_animation_table.actions[14].cmd_var_events",
+        "global_common_values.grounded_locomotion.turn_run_x"
+      ],
+      "physics": [
+        "command-var-gated turnaround",
+        "same frame TurnRun entry",
+        "no custom moonwalk or foxtrot state"
+      ],
+      "known_gaps": []
     }
   ]
 }

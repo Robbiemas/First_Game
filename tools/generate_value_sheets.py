@@ -10,6 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_COMMON = ROOT / "resources" / "melee" / "extracted" / "plco_common_data.json"
 DEFAULT_FALCON = ROOT / "resources" / "melee" / "extracted" / "captain_falcon_profile.json"
 DEFAULT_OUTPUT = ROOT / "docs" / "state_graphs" / "value_sheets"
+SOURCE_FLOAT_COMPARISON_FIELDS = {
+    "dash_run_acceleration_a",
+    "dash_run_acceleration_b",
+    "dash_run_terminal_velocity",
+}
 
 GLOBAL_CATEGORIES = {
     "input": [
@@ -41,6 +46,7 @@ GLOBAL_CATEGORIES = {
         "run_ground_friction_multiplier_milli",
         "high_speed_ground_friction_multiplier_milli",
         "run_turn_run_no_interrupt_frames",
+        "run_brake_animation_pause_velocity_milli",
         "animation_velocity_scale_milli",
     ],
     "jump_and_air": [
@@ -229,16 +235,28 @@ def _field_row(rust_name: str, field: dict[str, Any]) -> dict[str, Any]:
         "offset_hex": f"0x{field['offset']:x}",
         "kind": field["kind"],
         "raw": field.get("raw"),
-        "converted_value": _converted_value(field),
+        "converted_value": _converted_value(rust_name, field),
+        "comparison_value_kind": _comparison_value_kind(rust_name, field),
         "provenance": "extracted_melee_dat",
     }
 
 
-def _converted_value(field: dict[str, Any]) -> int | float | None:
+def _converted_value(rust_name: str, field: dict[str, Any]) -> int | float | None:
+    if rust_name in SOURCE_FLOAT_COMPARISON_FIELDS or field.get("kind") == "source_f32":
+        return field.get("raw")
     for key in ("stick_byte", "trigger_byte", "ticks", "milli"):
         if key in field:
             return field[key]
     return field.get("raw")
+
+
+def _comparison_value_kind(rust_name: str, field: dict[str, Any]) -> str:
+    if rust_name in SOURCE_FLOAT_COMPARISON_FIELDS or field.get("kind") == "source_f32":
+        return "source_f32"
+    for key in ("stick_byte", "trigger_byte", "ticks", "milli"):
+        if key in field:
+            return key
+    return "raw"
 
 
 def _read_json(path: Path) -> dict[str, Any]:

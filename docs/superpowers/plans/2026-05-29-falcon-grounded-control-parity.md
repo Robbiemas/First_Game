@@ -67,7 +67,7 @@ Run: `cargo test -p mole_core melee_common_data_provisional -- --nocapture`
 
 - [x] **Step 1: Add failing tests for Melee-style stick normalization**
 
-Prove positive full stick uses `127` as full scale and negative full stick uses `128` as full scale, so raw full-left does not overdrive movement beyond full magnitude.
+Superseded by `docs/superpowers/plans/2026-05-31-source-float-domain-migration.md`: raw adapter diagnostics may still observe `-128`, but fighter-facing HSD axes clamp to `-127..127` and source physics normalizes with `/127.0f` for both directions.
 
 - [x] **Step 2: Add failing golden tests for the Dash boundary**
 

@@ -16,6 +16,8 @@ const MELEE_DASH_X = 102;
 const MAX_MELEE_INPUT_TIMER = 0xfe;
 const UCF_PAD_BUFFER_SIZE = 4;
 const UCF_PAD_BUFFER_MASK = UCF_PAD_BUFFER_SIZE - 1;
+const UCF_CARDINAL_AXIS = 80;
+const UCF_CARDINAL_SNAP_RANGE = 6;
 const UCF_TILT_INTENT_DELTA = 75;
 
 const HSD_BUTTON_BITS = [
@@ -251,6 +253,7 @@ function convertPreFrame(pre) {
     physical_l_trigger: roundFloat(pre.physicalLTrigger),
     physical_r_trigger: roundFloat(pre.physicalRTrigger),
     raw_joystick_x: numberOrNull(pre.rawJoystickX),
+    raw_joystick_y: numberOrNull(pre.rawJoystickY),
     rust_player_input: {
       stick_x: slippiStickToNative(pre.joystickX),
       stick_y: slippiStickToNative(pre.joystickY),
@@ -344,7 +347,7 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
       replay_path: path.resolve(replayPath),
       parser: SLIPPI_NODE_ENTRYPOINT,
       parser_note:
-        "Slippi pre-frame joystick floats are exported as observed; rust_player_input scales them with round(value * 127) for the current Rust core harness.",
+        "Slippi pre-frame joystick floats are exported as observed; rust_player_input scales them with round(value * 127) into HSD-clamped signed bytes before the Rust core derives fighter f32 stick values.",
     },
     settings: {
       slp_version: settings.slpVersion,
@@ -456,7 +459,14 @@ function annotateUcfDashbackAmendments(frames, playerSettings) {
       }
       const state = states[playerIndex];
       const rawX = rawStickXFromPreFrame(playerFrame.pre);
-      const processedX = nativeStickXFromPreFrame(playerFrame.pre);
+      const rawY = rawStickYFromPreFrame(playerFrame.pre);
+      let processedX = nativeStickXFromPreFrame(playerFrame.pre);
+      let processedY = nativeStickYFromPreFrame(playerFrame.pre);
+      if (isUcfPlayer(playerSettings[playerIndex])) {
+        [processedX, processedY] = applyUcfCardinals(rawX, rawY, processedX, processedY);
+        rustInput.stick_x = processedX;
+        rustInput.stick_y = processedY;
+      }
       state.padBufferIndex = (state.padBufferIndex + 1) & UCF_PAD_BUFFER_MASK;
       state.padBuffer[state.padBufferIndex] = rawX;
       const previousRawX =
@@ -501,8 +511,29 @@ function rawStickXFromPreFrame(pre) {
   return nativeStickXFromPreFrame(pre);
 }
 
+function rawStickYFromPreFrame(pre) {
+  if (Number.isFinite(pre?.raw_joystick_y)) {
+    return clamp(Math.round(pre.raw_joystick_y), -127, 127);
+  }
+  return nativeStickYFromPreFrame(pre);
+}
+
 function nativeStickXFromPreFrame(pre) {
   return clamp(Math.round(pre?.rust_player_input?.stick_x || 0), -127, 127);
+}
+
+function nativeStickYFromPreFrame(pre) {
+  return clamp(Math.round(pre?.rust_player_input?.stick_y || 0), -127, 127);
+}
+
+function applyUcfCardinals(rawX, rawY, nativeX, nativeY) {
+  if (Math.abs(rawX) >= UCF_CARDINAL_AXIS && Math.abs(rawY) <= UCF_CARDINAL_SNAP_RANGE) {
+    return [fullAxis(rawX), 0];
+  }
+  if (Math.abs(rawY) >= UCF_CARDINAL_AXIS && Math.abs(rawX) <= UCF_CARDINAL_SNAP_RANGE) {
+    return [0, fullAxis(rawY)];
+  }
+  return [nativeX, nativeY];
 }
 
 function cleanAxis(value, deadzone) {
@@ -521,6 +552,10 @@ function updateAxisHoldTimer(timer, previous, current, threshold) {
 
 function incrementMeleeTimer(timer) {
   return Math.min(timer + 1, MAX_MELEE_INPUT_TIMER);
+}
+
+function fullAxis(value) {
+  return value < 0 ? -127 : 127;
 }
 
 function ucfAxisDeltaExceeds(previous, current, threshold) {
@@ -624,6 +659,8 @@ function runSelfTest() {
     dashbackFrames[2].players["0"].pre.rust_player_input.ucf_dashback_amendment,
     true,
   );
+  assert.strictEqual(dashbackFrames[2].players["0"].pre.rust_player_input.stick_x, -127);
+  assert.strictEqual(dashbackFrames[2].players["0"].pre.rust_player_input.stick_y, 0);
 
   const vanillaFrames = [
     slippiUcfSelfTestFrame(46, 1, 0),
@@ -647,8 +684,10 @@ function slippiUcfSelfTestFrame(frame, rawJoystickX, stickX) {
       0: {
         pre: {
           raw_joystick_x: rawJoystickX,
+          raw_joystick_y: 0,
           rust_player_input: {
             stick_x: stickX,
+            stick_y: 0,
           },
         },
         post: null,

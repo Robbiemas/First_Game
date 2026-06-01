@@ -101,7 +101,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Low analog walk bucket.",
+      "notes": "Low walk bucket selected from current gr_vel; Walk_Anim rate uses gr_vel or mv.co.walk.x0.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -123,7 +123,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Middle analog walk bucket.",
+      "notes": "Middle walk bucket selected from current gr_vel; bucket remap preserves animation phase.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -145,7 +145,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Fast analog walk bucket below dash/run threshold.",
+      "notes": "Fast walk bucket below dash/run threshold; Walk_Phys stores mv.co.walk.x0 = target_vel * x440.",
       "source_refs": [
         {
           "label": "Melee Walk source",
@@ -167,7 +167,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Standing/smash turn spine. Turn IASA can be entered by an earlier state input callback, and the same frame's Fighter_procUpdate then uses Turn_Phys through the swapped phys_cb.",
+      "notes": "Standing/smash turn spine. Turn IASA temporarily flips facing for early action checks, replays x1C latched A/B on the just-turned frame, arms dash-out through fn_800C9C2C, and can be entered by an earlier state input callback before same-frame Turn_Phys.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -187,6 +187,8 @@
       ],
       "physics": [
         "Fighter_Spaghetti_8006AD10 runs the current input_cb before Fighter_procUpdate runs phys_cb.",
+        "ftCo_Turn_IASA flips facing_dir before source action helpers when has_turned is false, then restores it before guard/jump/dash checks.",
+        "On the just-turned frame, input.x668 is ORed with mv.co.turn.x1C so latched A/B can be replayed through the normal source action priority.",
         "Fighter_ChangeMotionState updates phys_cb immediately, so a state that enters Turn during IASA receives Turn_Phys later in that same engine frame.",
         "ftCo_Turn_Phys calls ft_80084F3C: gr_friction is doubled by common x6C when ABS(gr_vel) exceeds walk_max_vel, then staged as xE4_ground_accel_1."
       ]
@@ -292,7 +294,7 @@
         2
       ],
       "status": "reference",
-      "notes": "Sustained run after initial dash.",
+      "notes": "Sustained run after initial dash. Run_Anim decrements mv.co.run.x0 before Run_IASA tests the TurnRun no-interrupt boundary.",
       "source_refs": [
         {
           "label": "Melee Run source",
@@ -359,7 +361,7 @@
         3
       ],
       "status": "reference",
-      "notes": "Explicit run braking state. RunBrake_Enter stores max_run_brake_frames, RunBrake_Anim decrements that timer and handles command-var animation pause near PlCo x42C, RunBrake_IASA checks jump, command-var-gated TurnRun, then squat, and RunBrake_Phys applies gr_friction * x60.",
+      "notes": "Explicit run braking state. RunBrake_Enter clears cmd vars, seeds max_run_brake_frames, RunBrake_Anim handles command-var animation pause around PlCo x42C and countdown fallback, RunBrake_IASA checks jump, cmd_vars[0] && fn_800C9CEC TurnRun, then squat, and RunBrake_Phys applies gr_friction * x60.",
       "source_refs": [
         {
           "label": "Melee RunBrake source",
@@ -376,7 +378,7 @@
         3
       ],
       "status": "reference",
-      "notes": "Run turnaround entered through PlCo x38_someLStickXThreshold with old-facing accel_mul persistence until velocity crossing; TurnRun_Phys accepts opposite acceleration while accel_mul * accel < 0.",
+      "notes": "Run turnaround entered through PlCo x38 with old-facing accel_mul persistence. TurnRun_Anim uses cmd_vars[1] to pause at the action-script gate until velocity crosses, then completion calls fn_800CA644 to enter Run or fallback.",
       "source_refs": [
         {
           "label": "Melee TurnRun source",
@@ -904,14 +906,20 @@
     {
       "from": "Dash",
       "to": "Run",
-      "input": "dash animation completes while run-zone stick is held",
-      "frames": "after character dash frames; Falcon reference 15f",
+      "input": "Dash cmd_vars[0] script gate is set while run-zone stick is held",
+      "frames": "Falcon Dash action script sets cmd_vars[0] at frame 16",
       "status": "reference",
+      "notes": "ftCo_Dash_IASA can enter Run through fn_800CA5F0 only after the Dash action script has set cmd_vars[0]. Because Fighter_procUpdate runs after input_cb, the new Run phys_cb can apply Run_Phys on that same frame. This is separate from Dash_Anim's non-run completion fallback.",
       "source_refs": [
         {
-          "label": "Melee Dash completion to Run",
+          "label": "Melee Dash cmd-var Run gate",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
-          "function": "ftCo_Dash_IASA / ftCo_Dash_Anim"
+          "function": "ftCo_Dash_IASA / fn_800CA5F0"
+        },
+        {
+          "label": "Falcon Dash action script",
+          "path": "resources/melee/extracted/captain_falcon_action_animation_table.json",
+          "function": "actions[12].cmd_var_events"
         }
       ]
     },
@@ -919,7 +927,7 @@
       "from": "Dash",
       "to": "Wait",
       "input": "dash animation completes without same-facing run handoff",
-      "frames": "after character dash frames",
+      "frames": "Falcon Dash figatree completion at frame 29 when cmd-var Run handoff does not occur",
       "status": "reference",
       "notes": "Melee Dash animation completion returns to Wait with carried gr_vel; any held walk/opposite intent is handled by the next Wait IASA priority pass.",
       "source_refs": [
@@ -978,9 +986,9 @@
       "from": "Run",
       "to": "TurnRun",
       "input": "opposite stick at PlCo x38 after run can accept turn",
-      "frames": "current frame after no-interrupt window",
+      "frames": "Run_Anim decrements x430 before Run_IASA; eligible when the counter reaches zero on that source frame",
       "status": "reference",
-      "notes": "ftCo_Run_IASA enters TurnRun through fn_800C9D40 when input.lstick.x * facing_dir <= PlCo x38_someLStickXThreshold; the TurnRun phys callback then uses getAccelAndTarget with old-facing accel_mul to accept opposite acceleration on the entry tick.",
+      "notes": "ftCo_Run_Anim decrements mv.co.run.x0 before ftCo_Run_IASA checks fn_800C9D40 for TurnRun.",
       "source_refs": [
         {
           "label": "Melee Run to TurnRun",
@@ -1053,30 +1061,38 @@
     {
       "from": "RunBrake",
       "to": "Wait",
-      "input": "ground traction settles X velocity to zero",
-      "frames": "variable physics duration",
-      "status": "reference"
+      "input": "RunBrake animation/fallback completes without command-var TurnRun, jump, or squat interrupt",
+      "frames": "RunBrake animation completion or extracted max_run_brake_frames countdown",
+      "status": "reference",
+      "notes": "RunBrake_Anim fallback occurs when the animation completes or the seeded frame countdown expires."
     },
     {
       "from": "TurnRun",
       "to": "Run",
-      "input": "facing has flipped and same-direction run input is held",
-      "frames": "after turn-run crossing resolves",
+      "input": "TurnRun animation completes and fn_800CA644 sees same-direction run input after facing flip",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
       "status": "reference",
       "source_refs": [
         {
           "label": "Melee TurnRun completion",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_TurnRun.c",
-          "function": "ftCo_TurnRun_IASA / ftCo_TurnRun_Phys"
+          "function": "ftCo_TurnRun_Anim / fn_800CA644"
+        },
+        {
+          "label": "Falcon TurnRun action script",
+          "path": "resources/melee/extracted/captain_falcon_action_animation_table.json",
+          "function": "actions[11].cmd_var_events"
         }
-      ]
+      ],
+      "notes": "TurnRun_Anim completion calls fn_800CA644; this is not a direct velocity-crossing transition."
     },
     {
       "from": "TurnRun",
       "to": "Wait",
-      "input": "neutral stick and X velocity reaches zero",
-      "frames": "variable physics duration",
-      "status": "reference"
+      "input": "TurnRun animation completes without same-direction run input",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "status": "reference",
+      "notes": "Fallback is completion-gated by the TurnRun animation callback."
     },
     {
       "from": "Squat",
@@ -1439,6 +1455,26 @@
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "reference"
+    },
+    {
+      "from": "RunBrake",
+      "to": "TurnRun",
+      "input": "opposite stick while cmd_vars[0] is set by the RunBrake action script",
+      "frames": "Falcon RunBrake cmd_vars[0] window: frame 0 through before frame 15 clear event",
+      "status": "reference",
+      "notes": "ftCo_RunBrake_IASA checks cmd_vars[0] && fn_800C9CEC after jump and before squat.",
+      "source_refs": [
+        {
+          "label": "Melee RunBrake IASA",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_RunBrake.c",
+          "function": "ftCo_RunBrake_IASA / fn_800C9CEC"
+        },
+        {
+          "label": "Falcon RunBrake action script",
+          "path": "resources/melee/extracted/captain_falcon_action_animation_table.json",
+          "function": "actions[14].cmd_var_events"
+        }
+      ]
     }
   ]
 }

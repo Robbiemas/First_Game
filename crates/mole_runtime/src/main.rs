@@ -46,6 +46,23 @@ fn main() {
     if let Some(path) = value_after(&args, "--compare-slippi") {
         let frame_limit = has_flag(&args, "--frames").then_some(frames as usize);
         let report_path = value_after(&args, "--slippi-core-report").map(PathBuf::from);
+        if let Some(trace_report_path) = value_after(&args, "--slippi-core-trace-report") {
+            match run_slippi_core_trace(
+                Path::new(&path),
+                Path::new(&trace_report_path),
+                frame_limit,
+                parse_slippi_trace_player(&args),
+                parse_i32_after(&args, "--slippi-trace-start").unwrap_or_default(),
+                parse_i32_after(&args, "--slippi-trace-end").unwrap_or_default(),
+            ) {
+                Ok(()) => {}
+                Err(error) => {
+                    eprintln!("{error}");
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
         let comparison_mode = parse_slippi_compare_mode(&args);
         match run_slippi_core_compare(
             Path::new(&path),
@@ -263,6 +280,32 @@ fn run_slippi_core_compare(
         comparison.state_mismatch_count,
         comparison.unsupported_state_count
     );
+    Ok(())
+}
+
+fn run_slippi_core_trace(
+    path: &Path,
+    report_path: &Path,
+    frame_limit: Option<usize>,
+    player_index: usize,
+    source_frame_start: i32,
+    source_frame_end: i32,
+) -> Result<(), String> {
+    let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let trace = mole_runtime::trace_slippi_export_from_match_start_with_core(
+        &text,
+        mole_runtime::SlippiCoreTraceConfig {
+            player_index,
+            source_frame_start,
+            source_frame_end,
+            max_frames: frame_limit,
+        },
+    )
+    .map_err(|error| error.to_string())?;
+    mole_runtime::write_slippi_core_trace_report(report_path, &trace)
+        .map_err(|error| error.to_string())?;
+    println!("slippi_core_trace_report={}", report_path.display());
+    println!("trace_rows={}", trace.rows.len());
     Ok(())
 }
 
@@ -1131,6 +1174,17 @@ fn parse_slippi_compare_mode(args: &[String]) -> mole_runtime::SlippiCoreCompari
     }
 }
 
+fn parse_slippi_trace_player(args: &[String]) -> usize {
+    value_after(args, "--slippi-trace-player")
+        .and_then(|value| value.parse::<usize>().ok())
+        .and_then(|one_based| one_based.checked_sub(1))
+        .unwrap_or_default()
+}
+
+fn parse_i32_after(args: &[String], flag: &str) -> Option<i32> {
+    value_after(args, flag).and_then(|value| value.parse::<i32>().ok())
+}
+
 fn parse_replay_path(args: &[String], frames: u32) -> Option<PathBuf> {
     value_after(args, "--replay-path")
         .map(PathBuf::from)
@@ -1147,7 +1201,10 @@ fn value_after(args: &[String], flag: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_frames, parse_slippi_compare_mode, parse_ucf_enabled};
+    use super::{
+        parse_frames, parse_i32_after, parse_slippi_compare_mode, parse_slippi_trace_player,
+        parse_ucf_enabled,
+    };
     use mole_runtime::SlippiCoreComparisonMode;
 
     #[test]
@@ -1195,6 +1252,25 @@ mod tests {
         assert_eq!(
             parse_slippi_compare_mode(&["--slippi-match-start".to_string()]),
             SlippiCoreComparisonMode::SequentialMatchStart
+        );
+    }
+
+    #[test]
+    fn parse_slippi_trace_player_uses_one_based_cli_values() {
+        assert_eq!(
+            parse_slippi_trace_player(&["--slippi-trace-player".to_string(), "2".to_string()]),
+            1
+        );
+    }
+
+    #[test]
+    fn parse_i32_after_supports_negative_slippi_frames() {
+        assert_eq!(
+            parse_i32_after(
+                &["--slippi-trace-start".to_string(), "-20".to_string()],
+                "--slippi-trace-start"
+            ),
+            Some(-20)
         );
     }
 }

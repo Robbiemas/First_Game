@@ -31,9 +31,10 @@ pub use readout::{
 mod slippi_diagnostic;
 pub use slippi_diagnostic::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
-    slippi_core_report_path, write_slippi_core_report, SlippiCoreComparison,
+    slippi_core_report_path, trace_slippi_export_from_match_start_with_core,
+    write_slippi_core_report, write_slippi_core_trace_report, SlippiCoreComparison,
     SlippiCoreComparisonConfig, SlippiCoreComparisonMode, SlippiCoreDiagnosticError,
-    SlippiCoreMismatch,
+    SlippiCoreMismatch, SlippiCoreTrace, SlippiCoreTraceConfig, SlippiCoreTraceRow,
 };
 
 pub mod wup_input;
@@ -208,6 +209,27 @@ pub struct RenderFrame {
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
     pub player_animation_frames: [u8; 2],
+    pub player_ground_velocity_x: [i32; 2],
+    pub player_ground_accel_x: [i32; 2],
+    pub player_ground_accel_x2: [i32; 2],
+    pub player_dash_entry_velocity_delta: [i32; 2],
+    pub player_dash_x0: [i32; 2],
+    pub player_walk_anim_velocity_x: [i32; 2],
+    pub player_walk_accel_mul_milli: [i32; 2],
+    pub player_turn_facing_after: [i8; 2],
+    pub player_turn_has_turned: [bool; 2],
+    pub player_turn_just_turned: [bool; 2],
+    pub player_turn_frames_to_turn: [u8; 2],
+    pub player_turn_dash_after_direction: [i8; 2],
+    pub player_turn_latched_buttons: [u8; 2],
+    pub player_run_no_interrupt_frames: [u8; 2],
+    pub player_motion_cmd_var0: [u32; 2],
+    pub player_motion_cmd_var1: [u32; 2],
+    pub player_run_brake_x0: [bool; 2],
+    pub player_run_brake_frames_remaining: [u8; 2],
+    pub player_turn_run_accel_mul: [i8; 2],
+    pub player_turn_run_x14: [bool; 2],
+    pub player_motion_anim_rate_milli: [i32; 2],
     pub player_debug_input_facts: [MeleeInputFacts; 2],
     pub checksum: u64,
 }
@@ -238,6 +260,87 @@ impl RenderFrame {
             player_animation_frames: [
                 snapshot.players[0].animation_frame,
                 snapshot.players[1].animation_frame,
+            ],
+            player_ground_velocity_x: [
+                snapshot.players[0].ground_velocity_x,
+                snapshot.players[1].ground_velocity_x,
+            ],
+            player_ground_accel_x: [
+                snapshot.players[0].ground_accel_x,
+                snapshot.players[1].ground_accel_x,
+            ],
+            player_ground_accel_x2: [
+                snapshot.players[0].ground_accel_x2,
+                snapshot.players[1].ground_accel_x2,
+            ],
+            player_dash_entry_velocity_delta: [
+                snapshot.players[0].dash_entry_velocity_delta,
+                snapshot.players[1].dash_entry_velocity_delta,
+            ],
+            player_dash_x0: [snapshot.players[0].dash_x0, snapshot.players[1].dash_x0],
+            player_walk_anim_velocity_x: [
+                snapshot.players[0].walk_anim_velocity_x,
+                snapshot.players[1].walk_anim_velocity_x,
+            ],
+            player_walk_accel_mul_milli: [
+                snapshot.players[0].walk_accel_mul_milli,
+                snapshot.players[1].walk_accel_mul_milli,
+            ],
+            player_turn_facing_after: [
+                snapshot.players[0].turn_facing_after,
+                snapshot.players[1].turn_facing_after,
+            ],
+            player_turn_has_turned: [
+                snapshot.players[0].turn_has_turned,
+                snapshot.players[1].turn_has_turned,
+            ],
+            player_turn_just_turned: [
+                snapshot.players[0].turn_just_turned,
+                snapshot.players[1].turn_just_turned,
+            ],
+            player_turn_frames_to_turn: [
+                snapshot.players[0].turn_frames_to_turn,
+                snapshot.players[1].turn_frames_to_turn,
+            ],
+            player_turn_dash_after_direction: [
+                snapshot.players[0].turn_dash_after_direction,
+                snapshot.players[1].turn_dash_after_direction,
+            ],
+            player_turn_latched_buttons: [
+                snapshot.players[0].turn_latched_buttons,
+                snapshot.players[1].turn_latched_buttons,
+            ],
+            player_run_no_interrupt_frames: [
+                snapshot.players[0].run_no_interrupt_frames,
+                snapshot.players[1].run_no_interrupt_frames,
+            ],
+            player_motion_cmd_var0: [
+                snapshot.players[0].motion_cmd_var0,
+                snapshot.players[1].motion_cmd_var0,
+            ],
+            player_motion_cmd_var1: [
+                snapshot.players[0].motion_cmd_var1,
+                snapshot.players[1].motion_cmd_var1,
+            ],
+            player_run_brake_x0: [
+                snapshot.players[0].run_brake_x0,
+                snapshot.players[1].run_brake_x0,
+            ],
+            player_run_brake_frames_remaining: [
+                snapshot.players[0].run_brake_frames_remaining,
+                snapshot.players[1].run_brake_frames_remaining,
+            ],
+            player_turn_run_accel_mul: [
+                snapshot.players[0].turn_run_accel_mul,
+                snapshot.players[1].turn_run_accel_mul,
+            ],
+            player_turn_run_x14: [
+                snapshot.players[0].turn_run_x14,
+                snapshot.players[1].turn_run_x14,
+            ],
+            player_motion_anim_rate_milli: [
+                snapshot.players[0].motion_anim_rate_milli,
+                snapshot.players[1].motion_anim_rate_milli,
             ],
             player_debug_input_facts: [
                 snapshot.players[0].debug_input_facts,

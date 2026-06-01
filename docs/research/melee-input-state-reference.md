@@ -26,6 +26,10 @@ Secondary sources:
 - [GameCube Controller Compendium: Analog sticks](https://compendium.dol-003.info/analog-sticks)
 - [Revolution SDK PAD manual mirror](https://pokeacer.xyz/wii/pdf/PAD.pdf)
 - [GameCube adapter reverse engineering notes](https://jefflongo.dev/posts/gc-adapter-reverse-engineering/)
+- [Dolphin official GameCube adapter guide](https://dolphin-emu.org/docs/guides/how-use-official-gc-controller-adapter-wii-u/)
+- [Dolphin GameCube adapter source](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/InputCommon/GCAdapter.cpp)
+- [Dolphin WUP-028 udev rule](https://github.com/dolphin-emu/dolphin/blob/master/Data/51-usb-device.rules)
+- [Delfinovin WUP/native adapter project](https://github.com/Struggleton/Delfinovin)
 - [AltimorTASDK SSBM stick map](https://github.com/AltimorTASDK/ssbm-stickmap)
 - [Universal Controller Fix 0.84 official Smashboards page](https://smashboards.com/ucf/)
 - [AltimorTASDK UCF source repository](https://github.com/AltimorTASDK/ucf)
@@ -82,13 +86,17 @@ The `HSD_PadStatus` model stores:
   `nml_subStickY`, `nml_analogL`, `nml_analogR`.
 - Button masks: `button`, `last_button`, `trigger`, `release`, `repeat`.
 
-The default pad config in `controller.c` maps to a positive stick scale of
-`0x7F` and analog trigger scale of `0xFF`, so the HSD layer's normalized values
-are conceptually signed-stick-over-127 and analog-trigger-over-255 after clamp
-and origin handling. The signed byte domain is asymmetric: full right/up is
-`+127`, while full left/down can be `-128`. Rust movement helpers therefore use
-`127` for positive full-stick scaling and `128` for negative full-stick scaling
-when converting profile-owned stick velocity into fixed-point movement units.
+The default pad config in `gmmain.c` sets `clamp_stickMax = 80`,
+`clamp_stickMin = 0`, `clamp_stickShift = 1`, and `scale_stick = 80`.
+`controller.c` therefore treats post-origin stick values as signed PAD bytes,
+clamps the vector to radius `80`, and computes fighter-facing normalized floats
+as `stick / 80.0f`. The raw signed byte domain is wider and asymmetric
+(`+127` right/up, `-128` left/down), but fighter-owned movement math should see
+the HSD-scaled float domain, not raw adapter distance. While the Rust core still
+stores compact rollback axes as `i8`, the input layer encodes this HSD normalized
+float into the temporary signed-127 core axis representation; a physical
+cardinal gate around `+80` therefore becomes core `+127` before vanilla dash
+threshold checks.
 
 The Revolution SDK PAD manual notes that standard GameCube controllers reset
 origin on power-on or insertion, and support X + Y + Start origin reset. The WUP
@@ -105,9 +113,11 @@ behavior. It then derives the same pre-UCF native sample shape Melee receives:
 
 1. `PADRead`-style origin subtraction recenters stick bytes around `128` and
    subtracts trigger origins with unsigned saturation.
-2. Melee's HSD pad layer clamps stick vectors to radius `127` before fighter
-   input sees them. A full diagonal `(+127,+127)` becomes approximately
-   `(+89,+89)`; a full negative cardinal clamps from `-128` to `-127`.
+2. Melee's HSD pad layer clamps stick vectors to radius `80` and scales by
+   `80.0f` before fighter input sees normalized floats. The current compact Rust
+   bridge stores that normalized value in signed-127 form: a physical `+80`
+   cardinal becomes core `+127`, and a full diagonal becomes approximately
+   `(+89,+89)`.
 3. HSD's default fighter path does not apply the SDK `PADClamp` trigger rest
    band (`30`) or SDK trigger max (`180`). Trigger deadzones are gameplay
    common-data thresholds later in the fighter input path, not WUP adapter
@@ -120,17 +130,46 @@ Raw adapter bytes are still preserved for readouts. The gameplay sample is the
 native `PADRead`/HSD-shaped sample, not a stretched rectangle and not a
 controller-driver guess.
 
+### Subframe Pad Capture
+
+Melee's fighter callbacks still consume one current/previous pad snapshot per
+game frame, but the pad layer can collect raw controller samples between those
+frames. Public latency research describes console Melee as effectively polling
+controllers around twice per 60 Hz frame, and the local decomp shows the same
+layering shape: `HSD_PadRenewRawStatus` calls `PADRead`, stores samples in the
+HSD raw queue, `HSD_PadRenewMasterStatus` consumes queued samples, and
+`HSD_PadRenewGameStatus` exposes the game-facing snapshot consumed by
+`Fighter_Spaghetti_8006AD10`.
+
+For the native WUP path, this means the adapter should capture raw USB reports
+off the gameplay thread and collapse the in-memory capture window before the
+normal origin/HSD/UCF chain. Dolphin and Slippi use the same broad shape: a GC
+adapter read thread updates the current controller payload/state, and the emu/SI
+path later asks for the current `GCPadStatus` instead of blocking gameplay on
+many USB reads. The collapse is intentionally narrow and source-shaped: the
+latest raw report provides analog stick, C-stick, trigger, and connection state,
+while digital button bits are OR-merged across the capture window like
+`HSD_PadRawMerge`. If a port has no captured origin yet, the first connected
+sample in the window establishes origin before the collapsed gameplay sample is
+processed. This keeps low-latency capture outside `mole_core`; the Rust core
+still advances deterministic fighter simulation at 60 Hz from a single
+rollback-owned input snapshot.
+
 Source comparison note: the local Dolphin/Slippi adapter sources keep the WUP
 payload as raw `0..255` stick/trigger bytes, mark a newly connected controller
 with `PAD_GET_ORIGIN`, then let the SI/PAD path expose that origin to the game.
 The SDK `SPEC2_MakeStatus` path subtracts `128`, subtracts the recorded origin,
 and HSD later clamps/scales the signed pad sample before fighter input stores
-`nml_stickX/Y`. UCF 0.84 reads the HSD raw queue sample after PAD origin
-subtraction and before player-input cardinal amendment. That means the project
-should keep UCF outside the core, but native-origin diagnostics remain important:
-the May 2026 WUP trace showed one controller origin/gate combination where raw
-rightward input reached the `x3C` dash gate while origin-adjusted native input
-fell just below it unless UCF cardinal snapping fired. Use
+`nml_stickX/Y`. Jeff Longo's adapter reverse-engineering notes confirm the WUP
+polling report format, the adapter's separate Origins command, and the fact that
+adapter/JoyBus polling is asynchronous enough that origin retrieval must be
+treated deliberately rather than guessed. UCF 0.84 reads the HSD raw queue sample
+after PAD origin subtraction and before player-input cardinal amendment. That
+means the project should keep UCF outside the core, but native-origin
+diagnostics remain important: the May 2026 WUP trace showed one controller
+origin/gate combination where raw rightward input only felt correct when UCF
+cardinal snapping hid the fact that Rust was comparing raw-ish `80`-scale values
+against `127`-scale core thresholds. Use
 `execs\Run SDL3 Runtime Vanilla No UCF.cmd` to test that pre-UCF layer directly.
 
 ## UCF Baseline
@@ -353,7 +392,9 @@ Common data exposes source-offset metadata through
 `MeleeCommonData::from_plco_bytes` extractor for the known
 big-endian common-data offsets. The extractor reads real source field types
 (`float`, `int`, and `Vec2`) and converts them into the current Rust core units:
-normalized stick thresholds use the signed-byte stick scale (`-128..127`),
+normalized stick thresholds use the temporary compact fighter-facing core scale
+(`-127..127`, representing HSD `stick / 80.0f`; raw adapter diagnostics may
+still record `-128` before clamp),
 normalized trigger thresholds use byte trigger scale (`0..255`), frame windows
 become integer ticks, `x54`/`escapeair_decay` become milli fixed-point
 multipliers, and `escapeair_force` becomes milli-units. `World` now carries
@@ -462,8 +503,8 @@ tap timer has aged out.
 The current golden moonwalk payload for a right-facing dash is therefore:
 frame 1 full right `(1.0, 0.0)`, frames 2-3 bottom-left sub-smash
 `(-0.7875, -0.35)`, then frame 4 onward full left `(-1.0, 0.0)`. In Rust's
-signed fixed stick units this is `(+127, 0)`, `(-101, -45)`, `(-101, -45)`,
-then `(-128, 0)`. The `-101` X value is deliberately below extracted
+signed raw/input-test stick units this is `(+127, 0)`, `(-101, -45)`,
+`(-101, -45)`, then full left. The `-101` X value is deliberately below extracted
 `x3C == 102`, while two sampled frames on that side age the X tap timer to the
 exclusive `x40 == 2` boundary before full opposite influence arrives.
 
@@ -538,19 +579,25 @@ physics now keeps existing `gr_vel` alive and applies the same `ft_80084F3C`
 ground-friction path as the decomp; it does not zero horizontal velocity.
 
 The simplified Rust `Dash` state now preserves facing but applies acceleration
-from current stick x. This lets an aged opposite-side input create moonwalk-like
-backward velocity without a moonwalk flag, while a fresh opposite x tap during
-dash still enters `MotionState::Turn`. Neutral stick during dash now applies
-ground traction instead of preserving speed unchanged, matching the source shape
-where `Dash_IASA` falls through to friction and `Dash_Phys` applies
-accel/target/friction. After Falcon's 15-frame dash window, same-direction stick
-exits to `MotionState::Run`, neutral exits to `MotionState::Wait` while
-preserving carried ground velocity for Wait friction, and aged opposite-side or
-walk-zone holds also return to `Wait` rather than taking a direct Dash-to-Walk
-shortcut. The next actionable Wait tick then applies the normal Melee priority
-order (`Dash_CheckInput`, crouch, `Turn_CheckInput`, then `Walk_CheckInput`), so
-an aged held-back moonwalk follow-through becomes the ordinary Wait-to-Turn
-path instead of a new dash/run/walk handoff. Current Rust `Run` state status:
+from current stick x after the first Dash physics tick consumes
+`mv.co.dash.x0`, matching the source rule that skips ordinary Dash_Phys
+acceleration on the staged entry frame. This lets an aged opposite-side input
+create moonwalk-like backward velocity without a moonwalk flag, while a fresh
+opposite x tap during dash still enters `MotionState::Turn`. Neutral stick
+during dash now applies ground traction instead of preserving speed unchanged,
+matching the source shape where `Dash_IASA` falls through to friction and later
+`Dash_Phys` frames apply accel/target/friction. Falcon Dash action-script
+`cmd_var[0]` sets on frame 16; only then can same-direction run-zone stick enter
+`MotionState::Run`, and that handoff frame immediately uses the Run physics
+helper because the source `phys_cb` pass follows `Dash_IASA` with updated motion
+callbacks. If that Run handoff does not happen, Falcon's Dash figatree
+completion falls back to `MotionState::Wait` on frame 29 while preserving
+carried ground velocity for Wait friction. Aged opposite-side or walk-zone holds
+therefore return to `Wait` rather than taking a direct Dash-to-Walk shortcut.
+The next actionable Wait tick then applies the normal Melee priority order
+(`Dash_CheckInput`, crouch, `Turn_CheckInput`, then `Walk_CheckInput`), so an
+aged held-back moonwalk follow-through becomes the ordinary Wait-to-Turn path
+instead of a new dash/run/walk handoff. Current Rust `Run` state status:
 neutral stick enters
 `MotionState::RunBrake`, and full opposite stick enters `MotionState::TurnRun`
 through extracted `MeleeCommonData::turn_run_x` /
@@ -672,17 +719,15 @@ mirror.
 
 Current Rust core status: `WalkSlow`, `WalkMiddle`, and `WalkFast` now share
 this source-shaped target/approach model instead of assigning velocity directly
-from stick X. The walk response values live on deterministic
-`FighterProfile` data, with the default Falcon-like profile still using
-provisional fixed-point stand-ins until exact character DAT attributes are
-extracted. The important engine behavior is in place: first-frame walk velocity
-starts below the final analog target, later walk frames continue approaching
-that target, and leftover dash/moonwalk speed decays toward the held walk target
-instead of being snapped away. Walk buckets are derived from rollback-owned
-`MeleeInputSnapshot` facts through `MeleeCommonData` thresholds, and identical
-input snapshots plus profile data produce identical walk states and checksums.
-This keeps moonwalk follow-through emergent from velocity plus state transition
-timing, not from a moonwalk-specific patch.
+from stick X. The walk response values live on deterministic Falcon profile and
+common data extracted into the value ledger. The important engine behavior is in
+place: first-frame walk velocity starts below the final analog target, later
+walk frames continue approaching that target, and leftover dash/moonwalk speed
+decays toward the held walk target instead of being snapped away. Walk buckets
+are selected from current `gr_vel`, and Rust now carries `mv.co.walk.x0`-style
+animation velocity, animation-rate updates, source-shaped bucket remap, and
+checksum/snapshot fields. This keeps moonwalk follow-through emergent from
+velocity plus state transition timing, not from a moonwalk-specific patch.
 Walk exit now follows the same source-shaped `ft_8008A244` rule: if the sampled
 stick leaves the walk condition or points opposite without a dash-strength tap,
 Rust enters `Wait` without clearing `gr_vel`. That matters for max-length Falcon
@@ -1081,8 +1126,10 @@ Applied movement/stat values:
 | Weight | 104 | `weight` |
 | Initial dash | 2.0 | `initialDash` |
 | Run speed | 2.3 | `runSpeed` |
-| Dash frames | 15 | `dashFrames` |
-| Dash acceleration | 0.15 stick-scaled, 0.01 base | `FighterProfile::dash_run_accel_stick_per_tick`, `FighterProfile::dash_run_accel_base_per_tick` |
+| Dash action-script run gate | frame 16 | `FighterActionFrames::dash_cmd_var0_set_frame` |
+| Dash figatree completion | frame 29 | `FighterActionFrames::dash_total_frames` |
+| Dash frames profile field | 15 | retained as extracted legacy profile data; no longer used as the Dash-to-Run exit gate |
+| Dash acceleration | source `f32` 0.15000000596046448 stick-scaled, source `f32` 0.009999999776482582 base | `FighterProfile::dash_run_acceleration_a`, `FighterProfile::dash_run_acceleration_b` |
 | Walk speed | 0.85 | `walkSpeed` |
 | Traction | 0.08 | `traction` |
 | Air speed | 1.12 | `FighterProfile::air_drift_max_velocity_per_tick` |
@@ -1121,10 +1168,10 @@ vertical velocity, horizontal velocity combines carried ground speed with
 common fall step reduces stored velocity by profile gravity for the next tick.
 Air jump state entry follows `ftCo_JumpAerial.c` by using profile-owned
 `air_jump_h_multiplier` and `jump_v_initial_velocity * air_jump_v_multiplier`
-attributes. Native stick scaling treats `127` as Melee's `1.0` stick magnitude
-when multiplying profile velocity/acceleration values; this avoids the old
-percent-scale behavior where full GameCube input over-drove air speed and jump
-horizontal velocity by roughly 27%. Ordinary airborne drift now follows the
+attributes. Fighter-facing stick scaling treats HSD-clamped `127` as Melee's
+`1.0` stick magnitude when multiplying profile velocity/acceleration values;
+this avoids the old percent-scale behavior where full GameCube input over-drove
+air speed and jump horizontal velocity by roughly 27%. Ordinary airborne drift now follows the
 `ftCommon_8007D28C` / `ftCommon_8007D174` shape: main-stick X scales
 `air_drift_stick_mul`, same-side input adds `aerial_drift_base`, target velocity
 scales `air_drift_max`, and `aerial_friction` is used for neutral input or
@@ -1176,12 +1223,12 @@ Grounded locomotion callback audit for the current Falcon movement slice:
 | State | Source callback order and field ownership | Current Rust parity note |
 | --- | --- | --- |
 | `Wait` | `Wait_Anim` may enter `DownSpot`, otherwise loops wait animation; `Wait_IASA` owns action, shield, jump, dash, squat, turn, then walk priority; `Wait_Phys` applies `ft_80084F3C` friction through `xE4_ground_accel_1`; `Wait_Coll` uses the grounded cliff/floor callback. | Rust preserves carried `gr_vel` through Wait and applies source-shaped friction before collision. |
-| `WalkSlow/Middle/Fast` | `Walk_IASA` checks catch/action/special/jump/dash/squat, then `ft_8008A244`, then walk bucket update; `Walk_Phys` is `ftWalkCommon_800E0060`, using stick-scaled target, `walk_accel`, PlCo `x30` taper, and `gr_friction`. | Rust keeps explicit walk bucket states and uses deterministic Falcon profile/common-data values for the walk helper. |
-| `Turn` | `Turn_Anim_Inner` decrements `frames_to_turn`, flips facing when it reaches zero, and `Turn_IASA` temporarily flips facing for pre-turn action checks; dash-out arms through `fn_800C9C2C`; `Turn_Phys` is `ft_80084F3C`. | Rust covers delayed facing flip, carried `gr_vel`, dash-out, and same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn. |
-| `Dash` | `Dash_Enter` stores the initial dash delta in `mv.co.dash.x0` and stages it through `ftCommon_800804A0`/`xE8_ground_accel_2`; `Dash_IASA` has early and late action windows plus `x54` fall-through decay; `Dash_Phys` consumes `x0` on the same engine frame, then later uses `getAccelAndTarget`. | Rust models the entry delta, same-frame physics callback, live-stick acceleration, IASA decay, dash-back gating, and non-run completion to Wait with carried `gr_vel`. |
-| `Run` | `Run_Anim` derives animation rate from `gr_vel` or stored `mv.co.run.x4`; `Run_IASA` checks specials, dash catch, dash attack, guard, jump, then TurnRun through PlCo `x38` or RunBrake after the no-interrupt timer; `Run_Phys` uses `getAccelAndTarget`, PlCo `x5C`, and records `mv.co.run.x4`. | Rust covers source action priority, run acceleration taper, RunBrake entry, extracted `x38` TurnRun entry after no-interrupt, and same-frame TurnRun_Phys on the entry tick. |
-| `RunBrake` | `RunBrake_Enter` stores `max_run_brake_frames`; `RunBrake_Anim` decrements that timer and may pause animation through command vars around PlCo `x42C`; `RunBrake_IASA` checks jump, command-var-gated TurnRun, then squat; `RunBrake_Phys` applies `gr_friction * x60`; `RunBrake_Coll` stays grounded. | Rust covers explicit state identity, extracted Falcon `max_run_brake_frames == 30`, jump/squat interrupts, and `x60` friction. Animation command-var pause and command-var-gated TurnRun remain partial. |
-| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at velocity crossing, jump-only IASA, and provisional Run handoff. Animation command pause/completion timing remains partial. |
+| `WalkSlow/Middle/Fast` | `Walk_IASA` checks catch/action/special/jump/dash/squat, then `ft_8008A244`, then walk bucket update; `Walk_Anim` updates animation rate from `gr_vel`/`mv.co.walk.x0`; `Walk_Phys` is `ftWalkCommon_800E0060`, using stick-scaled target, `walk_accel`, PlCo `x30` taper, `x440`, and `gr_friction`. | Rust keeps explicit walk bucket states, deterministic Falcon profile/common-data values, `mv.co.walk.x0`-style storage, animation-rate updates, and source-shaped bucket remap for the walk helper. |
+| `Turn` | `Turn_Anim_Inner` decrements `frames_to_turn`, flips facing when it reaches zero, and `Turn_IASA` temporarily flips facing for pre-turn action checks; `x1C` can replay latched A/B on the turn frame; dash-out arms through `fn_800C9C2C`; `Turn_Phys` is `ft_80084F3C`. | Rust covers delayed facing flip, carried `gr_vel`, source-shaped temporary-facing attack checks, A/B latch fields, dash-out, trace exposure for Turn vars, and same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn. |
+| `Dash` | `Dash_Enter` stores the initial dash delta in `mv.co.dash.x0` and stages it through `ftCommon_800804A0`/`xE8_ground_accel_2`; `Dash_Anim` owns animation-completion fallback; `Dash_IASA` has early and late action windows plus `cmd_vars[0]` Run handoff and `x54` fall-through decay; `Dash_Phys` consumes `x0` on the same engine frame, then later uses `getAccelAndTarget`. | Rust models the entry delta, same-frame physics callback, `cmd_var[0]` frame-16 Run gate, same-frame Run_Phys handoff, frame-29 non-run fallback, live-stick acceleration after `x0` consumption, IASA decay, dash-back gating, and non-run completion to Wait with carried `gr_vel`. |
+| `Run` | `Run_Anim` derives animation rate from `gr_vel` or stored `mv.co.run.x4` and decrements `mv.co.run.x0` before `Run_IASA`; `Run_IASA` checks specials, dash catch, dash attack, guard, jump, then TurnRun through PlCo `x38` or RunBrake after the no-interrupt timer; `Run_Phys` uses `getAccelAndTarget`, PlCo `x5C`, and records `mv.co.run.x4`. | Rust covers source action priority, animation-phase no-interrupt decrement, run acceleration taper, RunBrake entry, extracted `x38` TurnRun entry after no-interrupt, and same-frame TurnRun_Phys on the entry tick. |
+| `RunBrake` | `RunBrake_Enter` stores `max_run_brake_frames`; `RunBrake_Anim` decrements that timer and may pause animation through command vars around PlCo `x42C`; `RunBrake_IASA` checks jump, command-var-gated TurnRun, then squat; `RunBrake_Phys` applies `gr_friction * x60`; `RunBrake_Coll` stays grounded. | Rust covers explicit state identity, extracted Falcon `max_run_brake_frames == 30`, `cmd_vars[0]` TurnRun branch, `cmd_vars[1]`/`x42C` pause slot, jump/squat interrupts, and `x60` friction. Remaining gap is broader callback/collision parity, not the grounded locomotion TurnRun branch. |
+| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at the source pause/resume gate, jump-only IASA, and completion-gated `fn_800CA644` Run handoff. Remaining gap is broader callback/collision parity. |
 | `RunDirect` | `RunDirect_Anim/Phys/Coll` delegate to Run; `RunDirect_IASA` mirrors Run action priority but uses `fp->mv.ca.specials.grav <= 0` before `fn_800CA698` same-facing Run handoff, then falls through to `ft_8008A244`. | Rust keeps RunDirect as explicit diagnostic/Slippi state identity and covers same-facing Run handoff plus Wait fallback for injected RunDirect; no normal source entry path has been found in the current decomp search. |
 
 ## Fast Fall
@@ -1717,6 +1764,16 @@ the original `0..255` USB report exactly like GameCube/PAD/HSD before UCF. When
 the replay metadata says a player used UCF, the main recorded player input
 floats should be treated as the game-facing UCF-influenced inputs for that
 frame, while the small raw analog fields are only partial lower-level evidence.
+
+Current Rust diagnostic status: the sequential match-start oracle should be run
+from an export that includes negative pre-game frames. Reports now separate the
+Rust core frame from the source Slippi frame and print position/velocity deltas
+on the first state mismatch. In the current local replay, the first useful
+match-start mismatch is source frame `17`, player 2: Melee is still in
+`LandingFallSpecial` on Battlefield top platform while Rust has entered `Fall`
+with an x-position delta of about `2.112` Melee units. Treat that as a
+position/history or platform collision diagnostic, not as evidence for a custom
+landing state.
 
 Local source anchors:
 

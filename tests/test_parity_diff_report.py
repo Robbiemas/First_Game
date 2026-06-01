@@ -21,8 +21,8 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
     character_values = report["sections"]["test_character_values"]
 
     assert global_values["summary"] == {
-        "total": 63,
-        "match": 63,
+        "total": 64,
+        "match": 64,
         "diff": 0,
         "derived": 0,
         "missing": 0,
