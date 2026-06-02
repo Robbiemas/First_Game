@@ -956,8 +956,13 @@ pub const fn gamecube_axis_to_i8(value: u8) -> i8 {
 }
 
 pub fn fighter_stick_axis_to_f32(value: i8) -> f32 {
-    const HSD_STICK_SCALE: f32 = 127.0;
-    (value.clamp(-127, 127) as f32) / HSD_STICK_SCALE
+    const EXPORT_STICK_SCALE: f32 = 127.0;
+    const HSD_STICK_SCALE: f32 = 80.0;
+    let exported_axis = (value.clamp(-127, 127) as f32) / EXPORT_STICK_SCALE;
+    (exported_axis * HSD_STICK_SCALE)
+        .round()
+        .clamp(-HSD_STICK_SCALE, HSD_STICK_SCALE)
+        / HSD_STICK_SCALE
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

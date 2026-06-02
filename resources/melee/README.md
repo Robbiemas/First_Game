@@ -37,8 +37,10 @@ The script writes small JSON snapshots to:
 - `resources/melee/extracted/plco_common_data.json`
 - `resources/melee/extracted/captain_falcon_profile.json`
 - `resources/melee/extracted/captain_falcon_ecb_source.json`
+- `resources/melee/extracted/captain_falcon_hurtbox_inits.json`
 - `resources/melee/extracted/captain_falcon_action_animation_table.json`
 - `resources/melee/extracted/captain_falcon_costume_skeleton.json`
+- `resources/melee/extracted/captain_falcon_action_hurtbox_samples.json`
 - `resources/melee/extracted/captain_falcon_action_ecb_samples.json`
 
 Those JSON files are the reviewable resource snapshots we can use while this
@@ -51,6 +53,13 @@ table that points at action animation figatrees. `PlCaAJ.dat` contains those
 figatree chunks. The generated action-animation table records the action-state
 id, action name, chunk offset, chunk size, figatree root, frame count, node track
 counts, and raw `FigaTrack` descriptors for each Captain Falcon action.
+
+`captain_falcon_hurtbox_inits.json` decodes `ftDataCaptain.x30`, the static
+hurt capsule init table copied by `ftColl_8007B320` into
+`Fighter.hurt_capsules[15]`. `captain_falcon_action_hurtbox_samples.json`
+samples those capsule offsets against the Captain Falcon neutral skeleton and
+per-action FigaTree pose. Source `{x, y, z}` capsule endpoints are preserved in
+the sample data; current 2D view/import endpoints flatten Z separately.
 
 `PlCaNr.dat` contains Captain Falcon's neutral costume joint tree. The generated
 costume skeleton snapshot records the HSD joint preorder used by
@@ -72,3 +81,8 @@ is an explicit Captain Falcon action-table equivalent. The generator also writes
 derived or still-abstract Rust states visible. Those states must be split or
 replaced with their decomp-backed equivalents before receiving ECB samples;
 they should not be aliased to visually similar states.
+
+Hurt capsule samples are distinct from ECB/body-volume samples. Hurt capsules
+are the attack-victim collision targets sourced from `ftDataCaptain.x30`, while
+ECB samples remain the environment/body-volume path sourced from
+`ftDataCaptain.x44`.

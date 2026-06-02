@@ -27,11 +27,12 @@ DEFAULT_OUT_DIR = PROJECT_ROOT / "resources" / "melee" / "extracted"
 DEFAULT_ISO_FILES = ("PlCo.dat", "PlCa.dat", "PlCaAJ.dat", "PlCaNr.dat")
 ECB_SAMPLE_ACTION_STATE_IDS = sampled_action_ids()
 CAPTAIN_ACTION_COUNT = 318
-LOCOMOTION_CMD_VAR_ACTION_STATE_IDS = {11, 12, 14}
+LOCOMOTION_CMD_VAR_ACTION_STATE_IDS = {11, 12, 14, 44}
 FIGHTER_WAIT_ANIM_DATA_SIZE = 0x18
 FIGA_TRACK_SIZE = 0x0C
 FIGA_TREE_SIZE = 0x14
 HSD_JOINT_SIZE = 0x40
+FT_HURTBOX_INIT_SIZE = 0x28
 JOBJ_INSTANCE = 1 << 12
 HSD_A_OP_CON = 1
 HSD_A_OP_LIN = 2
@@ -80,9 +81,9 @@ COMMON_FIELDS = (
     Field("trigger_timer_threshold", "x18", 0x18, "trigger"),
     Field("aerial_vertical_angle_tan_milli", "x20_radians", 0x20, "radian_tangent_milli"),
     Field("walk_x", "x24", 0x24, "stick"),
-    Field("walk_middle_velocity_ratio_milli", "x28", 0x28, "milli"),
-    Field("walk_fast_velocity_ratio_milli", "x2C", 0x2C, "milli"),
-    Field("walk_accel_taper_milli", "x30", 0x30, "milli"),
+    Field("walk_middle_velocity_ratio", "x28", 0x28, "source_f32"),
+    Field("walk_fast_velocity_ratio", "x2C", 0x2C, "source_f32"),
+    Field("walk_accel_taper", "x30", 0x30, "source_f32"),
     Field("turn_x", "x34", 0x34, "stick"),
     Field("turn_run_x", "x38_someLStickXThreshold", 0x38, "stick"),
     Field("dash_x", "x3C", 0x3C, "stick"),
@@ -90,12 +91,12 @@ COMMON_FIELDS = (
     Field("dash_early_action_window", "x44", 0x44, "f32_ticks"),
     Field("dash_defensive_action_window", "x48", 0x48, "f32_ticks"),
     Field("dash_late_action_window", "x4C", 0x4C, "f32_ticks"),
-    Field("dash_velocity_decay_milli", "x54", 0x54, "milli"),
+    Field("dash_velocity_decay", "x54", 0x54, "source_f32"),
     Field("run_x", "x58_someLStickXThreshold", 0x58, "stick"),
-    Field("run_accel_taper_milli", "x5C", 0x5C, "milli"),
-    Field("run_ground_friction_multiplier_milli", "x60_someFrictionMul", 0x60, "milli"),
+    Field("run_accel_taper", "x5C", 0x5C, "source_f32"),
+    Field("run_ground_friction_multiplier", "x60_someFrictionMul", 0x60, "source_f32"),
     Field("guard_on_catch_dash_window", "x68", 0x68, "f32_ticks"),
-    Field("high_speed_ground_friction_multiplier_milli", "x6C", 0x6C, "milli"),
+    Field("high_speed_ground_friction_multiplier", "x6C", 0x6C, "source_f32"),
     Field("tap_jump_y", "tap_jump_threshold", 0x70, "stick"),
     Field("tap_jump_window", "x74", 0x74, "i32_ticks"),
     Field("air_jump_backward_x", "x78", 0x78, "stick"),
@@ -117,21 +118,21 @@ COMMON_FIELDS = (
     Field("escapeair_deadzone_x", "escapeair_deadzone.x", 0x32C, "stick"),
     Field("escapeair_deadzone_y", "escapeair_deadzone.y", 0x330, "stick"),
     Field("escapeair_iasa_timer_ticks", "x334", 0x334, "i32_ticks"),
-    Field("escapeair_force", "escapeair_force", 0x338, "milli"),
-    Field("escapeair_decay_milli", "escapeair_decay", 0x33C, "milli"),
+    Field("escapeair_force", "escapeair_force", 0x338, "source_f32"),
+    Field("escapeair_decay", "escapeair_decay", 0x33C, "source_f32"),
     Field("escapeair_landing_lag_ticks", "x344", 0x344, "f32_ticks"),
-    Field("run_brake_animation_pause_velocity_milli", "x42C", 0x42C, "milli"),
+    Field("run_brake_animation_pause_velocity", "x42C", 0x42C, "source_f32"),
     Field("run_turn_run_no_interrupt_frames", "x430", 0x430, "f32_ticks"),
-    Field("animation_velocity_scale_milli", "x440", 0x440, "milli"),
-    Field("fall_animation_drift_threshold_milli", "x444", 0x444, "milli"),
-    Field("fall_animation_blend_milli", "x448", 0x448, "milli"),
+    Field("animation_velocity_scale", "x440", 0x440, "source_f32"),
+    Field("fall_animation_drift_threshold", "x444", 0x444, "source_f32"),
+    Field("fall_animation_blend", "x448", 0x448, "source_f32"),
     Field("platform_pass_y", "x464", 0x464, "stick"),
     Field("platform_pass_y_tap_window", "x468", 0x468, "f32_ticks"),
-    Field("pass_initial_y_velocity", "x46C", 0x46C, "milli"),
+    Field("pass_initial_y_velocity", "x46C", 0x46C, "source_f32"),
     Field("platform_drop_delay_ticks", "x470", 0x470, "f32_ticks"),
     Field("entry_start_ticks", "x6BC", 0x6BC, "i32_ticks"),
     Field("entry_end_ticks", "x6C0", 0x6C0, "i32_ticks"),
-    Field("entry_initial_scale_y_milli", "x6C4", 0x6C4, "milli"),
+    Field("entry_initial_scale_y", "x6C4", 0x6C4, "source_f32"),
     Field("entry_collision_landing_lag_ticks", "x6C8", 0x6C8, "i32_ticks"),
 )
 
@@ -189,37 +190,37 @@ FIGHTER_CMD_LENGTHS = (
 
 
 PROFILE_FIELDS = (
-    Field("walk_initial_velocity", "walk_initial_velocity", 0x00, "milli"),
-    Field("walk_accel", "walk_accel", 0x04, "milli"),
-    Field("walk_max_vel", "walk_max_vel", 0x08, "milli"),
-    Field("slow_walk_max_velocity", "slow_walk_max_velocity", 0x0C, "milli"),
-    Field("mid_walk_threshold", "mid_walk_threshold", 0x10, "milli"),
-    Field("fast_walk_threshold", "fast_walk_threshold", 0x14, "milli"),
-    Field("traction_per_tick", "gr_friction", 0x18, "milli"),
-    Field("dash_initial_velocity", "dash_initial_velocity", 0x1C, "milli"),
+    Field("walk_initial_velocity", "walk_initial_velocity", 0x00, "source_f32"),
+    Field("walk_accel", "walk_accel", 0x04, "source_f32"),
+    Field("walk_max_vel", "walk_max_vel", 0x08, "source_f32"),
+    Field("slow_walk_max_velocity", "slow_walk_max_velocity", 0x0C, "source_f32"),
+    Field("mid_walk_threshold", "mid_walk_threshold", 0x10, "source_f32"),
+    Field("fast_walk_threshold", "fast_walk_threshold", 0x14, "source_f32"),
+    Field("ground_friction", "gr_friction", 0x18, "source_f32"),
+    Field("dash_initial_velocity", "dash_initial_velocity", 0x1C, "source_f32"),
     Field("dash_run_acceleration_a", "dash_run_acceleration_a", 0x20, "source_f32"),
     Field("dash_run_acceleration_b", "dash_run_acceleration_b", 0x24, "source_f32"),
     Field("dash_run_terminal_velocity", "dash_run_terminal_velocity", 0x28, "source_f32"),
-    Field("run_animation_scaling", "run_animation_scaling", 0x2C, "milli"),
+    Field("run_animation_scaling", "run_animation_scaling", 0x2C, "source_f32"),
     Field("max_run_brake_frames", "max_run_brake_frames", 0x30, "f32_ticks"),
-    Field("ground_max_horizontal_velocity", "ground_max_horizontal_velocity", 0x34, "milli"),
+    Field("ground_max_horizontal_velocity", "ground_max_horizontal_velocity", 0x34, "source_f32"),
     Field("jump_startup_time", "jump_startup_time", 0x38, "f32_ticks"),
-    Field("jump_h_initial_velocity", "jump_h_initial_velocity", 0x3C, "milli"),
-    Field("jump_v_initial_velocity", "jump_v_initial_velocity", 0x40, "milli"),
-    Field("ground_to_air_jump_momentum_multiplier", "ground_to_air_jump_momentum_multiplier", 0x44, "milli"),
-    Field("jump_h_max_velocity", "jump_h_max_velocity", 0x48, "milli"),
-    Field("hop_v_initial_velocity", "hop_v_initial_velocity", 0x4C, "milli"),
-    Field("air_jump_v_multiplier", "air_jump_v_multiplier", 0x50, "milli"),
-    Field("air_jump_h_multiplier", "air_jump_h_multiplier", 0x54, "milli"),
+    Field("jump_h_initial_velocity", "jump_h_initial_velocity", 0x3C, "source_f32"),
+    Field("jump_v_initial_velocity", "jump_v_initial_velocity", 0x40, "source_f32"),
+    Field("ground_to_air_jump_momentum_multiplier", "ground_to_air_jump_momentum_multiplier", 0x44, "source_f32"),
+    Field("jump_h_max_velocity", "jump_h_max_velocity", 0x48, "source_f32"),
+    Field("hop_v_initial_velocity", "hop_v_initial_velocity", 0x4C, "source_f32"),
+    Field("air_jump_v_multiplier", "air_jump_v_multiplier", 0x50, "source_f32"),
+    Field("air_jump_h_multiplier", "air_jump_h_multiplier", 0x54, "source_f32"),
     Field("max_jumps", "max_jumps", 0x58, "i32_ticks"),
-    Field("grav", "grav", 0x5C, "milli"),
-    Field("terminal_vel", "terminal_vel", 0x60, "milli"),
-    Field("air_drift_stick_mul", "air_drift_stick_mul", 0x64, "milli"),
-    Field("aerial_drift_base", "aerial_drift_base", 0x68, "milli"),
-    Field("air_drift_max", "air_drift_max", 0x6C, "milli"),
-    Field("aerial_friction", "aerial_friction", 0x70, "milli"),
-    Field("fast_fall_velocity", "fast_fall_velocity", 0x74, "milli"),
-    Field("air_max_horizontal_velocity", "air_max_horizontal_velocity", 0x78, "milli"),
+    Field("grav", "grav", 0x5C, "source_f32"),
+    Field("terminal_vel", "terminal_vel", 0x60, "source_f32"),
+    Field("air_drift_stick_mul", "air_drift_stick_mul", 0x64, "source_f32"),
+    Field("aerial_drift_base", "aerial_drift_base", 0x68, "source_f32"),
+    Field("air_drift_max", "air_drift_max", 0x6C, "source_f32"),
+    Field("aerial_friction", "aerial_friction", 0x70, "source_f32"),
+    Field("fast_fall_velocity", "fast_fall_velocity", 0x74, "source_f32"),
+    Field("air_max_horizontal_velocity", "air_max_horizontal_velocity", 0x78, "source_f32"),
     Field("frames_to_change_direction_on_standing_turn", "frames_to_change_direction_on_standing_turn", 0x84, "f32_ticks"),
     Field("normal_landing_lag", "normal_landing_lag", 0xE4, "f32_ticks"),
     Field("landingairn_lag", "landingairn_lag", 0xE8, "f32_ticks"),
@@ -403,6 +404,11 @@ def _command_frame_value(raw_value: int) -> int:
     return raw_value
 
 
+def _bitfield(word: int, offset_from_msb: int, width: int) -> int:
+    shift = 32 - offset_from_msb - width
+    return (word >> shift) & ((1 << width) - 1)
+
+
 def extract_action_script_cmd_var_events(script_bytes: bytes, script_offset: int) -> list[dict[str, int]]:
     """Decode the minimal fighter command subset needed for locomotion cmd vars."""
     events: list[dict[str, int]] = []
@@ -451,6 +457,45 @@ def extract_action_script_cmd_var_events(script_bytes: bytes, script_offset: int
         word_offset += FIGHTER_CMD_LENGTHS[fighter_index]
 
     return events
+
+
+def extract_action_script_hitbox_bone_indices(script_bytes: bytes, script_offset: int) -> set[int]:
+    """Decode hitbox bone indices from ftAction_8007121C fighter commands."""
+    bone_indices: set[int] = set()
+    word_offset = 0
+
+    while script_offset + word_offset * 4 + 4 <= len(script_bytes):
+        word = read_u32(script_bytes, script_offset + word_offset * 4)
+        opcode = word >> 26
+        value = word & 0x03FF_FFFF
+
+        if opcode == 0:
+            break
+        if opcode in (1, 2):
+            _command_frame_value(value)
+            word_offset += 1
+            continue
+        if opcode in (8, 19):
+            word_offset += 1
+            continue
+
+        if opcode < 10:
+            raise DatExtractError(
+                f"unsupported common action script command opcode {opcode} at word {word_offset}"
+            )
+        fighter_index = opcode - 10
+        if fighter_index >= len(FIGHTER_CMD_LENGTHS):
+            raise DatExtractError(
+                f"unsupported fighter action script opcode {opcode} at word {word_offset}"
+            )
+        length = FIGHTER_CMD_LENGTHS[fighter_index]
+        if script_offset + (word_offset + length) * 4 > len(script_bytes):
+            raise DatExtractError("fighter action script command extends past script bytes")
+        if fighter_index == 1 and _bitfield(word, 21, 1) == 0:
+            bone_indices.add(_bitfield(word, 13, 8))
+        word_offset += length
+
+    return bone_indices
 
 
 def vec3_raw(dat: bytes, data_block_offset: int) -> dict[str, float]:
@@ -795,6 +840,64 @@ def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[
     }
 
 
+def extract_captain_hurtbox_inits_from_plca(
+    dat: bytes, source_path: Path
+) -> dict[str, object]:
+    symbol, ftdata_offset = find_root(dat, lambda name: name == "ftDataCaptain", "ftDataCaptain")
+    header_offset = 0x20 + ftdata_offset
+    hurtbox_table_offset = read_u32(dat, header_offset + 0x30)
+    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
+    if hurtbox_table_offset == 0 or hurtbox_table_offset + 8 > data_block_size:
+        raise DatExtractError(
+            "ftDataCaptain.x30 does not cover ftData_x30 hurtbox init metadata"
+        )
+
+    table = 0x20 + hurtbox_table_offset
+    count = read_i32(dat, table)
+    inits_offset = read_u32(dat, table + 0x04)
+    if count < 0 or count > 15:
+        raise DatExtractError(
+            f"Captain hurt capsule count {count} is outside Fighter.hurt_capsules[15]"
+        )
+    if inits_offset == 0 or inits_offset + count * FT_HURTBOX_INIT_SIZE > data_block_size:
+        raise DatExtractError("Captain hurt capsule init records are outside PlCa.dat data block")
+
+    hurtboxes: list[dict[str, object]] = []
+    for index in range(count):
+        record_offset = inits_offset + index * FT_HURTBOX_INIT_SIZE
+        record = 0x20 + record_offset
+        a_offset_raw = vec3_raw(dat, record_offset + 0x0C)
+        b_offset_raw = vec3_raw(dat, record_offset + 0x18)
+        scale_raw = read_f32(dat, record + 0x24)
+        hurtboxes.append(
+            {
+                "id": index,
+                "bone_idx": read_u32(dat, record),
+                "height": read_u32(dat, record + 0x04),
+                "is_grabbable": read_u32(dat, record + 0x08) != 0,
+                "a_offset_raw": a_offset_raw,
+                "a_offset_milli": vec3_milli(a_offset_raw),
+                "b_offset_raw": b_offset_raw,
+                "b_offset_milli": vec3_milli(b_offset_raw),
+                "scale_raw": scale_raw,
+                "scale_milli": rust_round(scale_raw * 1000.0),
+            }
+        )
+
+    return {
+        "source": {
+            "file": source_path_for_json(source_path),
+            "symbol": symbol,
+            "ft_data_offset": ftdata_offset,
+            "ftdata_hurtbox_table_offset": hurtbox_table_offset,
+            "hurtbox_inits_offset": inits_offset,
+            "format": "HSD DAT, big-endian ftData.x30 hurt capsule init table",
+        },
+        "count": count,
+        "hurtboxes": hurtboxes,
+    }
+
+
 def extract_captain_costume_skeleton_from_plcanr(
     dat: bytes, source_path: Path
 ) -> dict[str, object]:
@@ -1109,6 +1212,45 @@ def _matrix_translation(matrix: list[list[float]]) -> dict[str, float]:
     return {"x": matrix[0][3], "y": matrix[1][3], "z": matrix[2][3]}
 
 
+def _matrix_transform_point(
+    matrix: list[list[float]], point: dict[str, object]
+) -> dict[str, float]:
+    x = float(point["x"])
+    y = float(point["y"])
+    z = float(point["z"])
+    return {
+        "x": matrix[0][0] * x + matrix[0][1] * y + matrix[0][2] * z + matrix[0][3],
+        "y": matrix[1][0] * x + matrix[1][1] * y + matrix[1][2] * z + matrix[1][3],
+        "z": matrix[2][0] * x + matrix[2][1] * y + matrix[2][2] * z + matrix[2][3],
+    }
+
+
+MELEE_RIGHT_FACING_RENDER_TRANSFORM = "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
+MELEE_RIGHT_FACING_FLATTEN_POLICY = "right_facing_melee_xy"
+MELEE_HURTBOX_SAMPLE_METADATA = {
+    "source_init_handler": "ftColl_8007B3A0/ftColl_8007B4E0 ftData.x30",
+    "source_update_handler": "lbColl_800083C4/lbColl_8000A244/lbColl_8000A584",
+    "source_draw_handler": "ftDrawCommon_800805C8 -> lbColl_8000A244/lbColl_8000A584 -> lbColl_DrawHitResult",
+    "source_render_endpoints": "HurtCapsule.a_pos -> HurtCapsule.b_pos",
+    "source_render_radius": "HurtCapsule.scale",
+    "source_render_transform": MELEE_RIGHT_FACING_RENDER_TRANSFORM,
+    "flatten_after_render": MELEE_RIGHT_FACING_FLATTEN_POLICY,
+    "source_color_table": "lbColl_803B9928[hurt->state]",
+    "source_skip_update_pos_after_transform": True,
+    "source_z_policy": "preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null",
+    "source": "ftData.x30 + PlCaAJ FigaTree + PlCaNr JObj skeleton",
+    "confidence": "source_extracted",
+}
+
+
+def _flatten_z(point: dict[str, float]) -> dict[str, float]:
+    return {"x": point["x"], "y": point["y"], "z": 0.0}
+
+
+def _flatten_right_facing_melee_render(point: dict[str, float]) -> dict[str, float]:
+    return {"x": point["z"], "y": point["y"], "z": 0.0}
+
+
 def _vec2_milli(raw: dict[str, float]) -> dict[str, int]:
     return {axis: rust_round(value * 1000.0) for axis, value in raw.items()}
 
@@ -1192,6 +1334,7 @@ def sample_figatree_skeleton_pose(
                 "rotation": rotation,
                 "translation": translation,
                 "scale": scale,
+                "world_matrix": matrix,
                 "world_position_raw": world_position,
                 "world_position_milli": vec3_milli(world_position),
                 "tracks": tracks,
@@ -1221,6 +1364,7 @@ def compute_ecb_from_jobj_pose(
 
     position = cur_pos if cur_pos is not None else {"x": 0.0, "y": 0.0}
     points: list[dict[str, float]] = []
+    source_points: list[dict[str, float]] = []
     for index in indices:
         joint = joints[int(index)]
         if not isinstance(joint, dict):
@@ -1228,12 +1372,14 @@ def compute_ecb_from_jobj_pose(
         raw_position = joint.get("world_position_raw")
         if not isinstance(raw_position, dict):
             raise DatExtractError("pose joint does not contain a world position")
-        points.append(
-            {
-                "x": float(raw_position["x"]) - float(position.get("x", 0.0)),
-                "y": float(raw_position["y"]) - float(position.get("y", 0.0)),
-            }
-        )
+        source_point = {
+            "x": float(raw_position["x"]) - float(position.get("x", 0.0)),
+            "y": float(raw_position["y"]) - float(position.get("y", 0.0)),
+            "z": float(raw_position["z"]),
+        }
+        rendered = _flatten_right_facing_melee_render(source_point)
+        source_points.append(source_point)
+        points.append({"x": rendered["x"], "y": rendered["y"]})
 
     left_x = right_x = points[0]["x"]
     bottom_y = top_y = points[0]["y"]
@@ -1293,14 +1439,97 @@ def compute_ecb_from_jobj_pose(
         "bottom": {"x": 0.0, "y": bottom_y},
         "right": {"x": right_x, "y": midpoint_y},
         "left": {"x": left_x, "y": midpoint_y},
-        "source_points": points,
+        "source_points": source_points,
         "flags": flags,
+        "source_render_transform": MELEE_RIGHT_FACING_RENDER_TRANSFORM,
+        "flatten_after_render": MELEE_RIGHT_FACING_FLATTEN_POLICY,
     }
     result["top_milli"] = _vec2_milli(result["top"])
     result["bottom_milli"] = _vec2_milli(result["bottom"])
     result["right_milli"] = _vec2_milli(result["right"])
     result["left_milli"] = _vec2_milli(result["left"])
     return result
+
+
+def sample_hurtboxes_from_pose(
+    pose: dict[str, object],
+    hurtbox_inits: dict[str, object],
+) -> list[dict[str, object]]:
+    joints = pose.get("joints")
+    hurtboxes = hurtbox_inits.get("hurtboxes")
+    if not isinstance(joints, list) or not isinstance(hurtboxes, list):
+        raise DatExtractError(
+            "hurtbox sampling requires pose joints and static hurtbox init records"
+        )
+
+    sampled: list[dict[str, object]] = []
+    for init in hurtboxes:
+        if not isinstance(init, dict):
+            raise DatExtractError("hurtbox init record is malformed")
+        bone_idx = int(init["bone_idx"])
+        joint = joints[bone_idx]
+        if not isinstance(joint, dict):
+            raise DatExtractError(f"pose joint {bone_idx} metadata is malformed")
+        matrix = joint.get("world_matrix")
+        if (
+            not isinstance(matrix, list)
+            or len(matrix) != 3
+            or any(not isinstance(row, list) or len(row) != 4 for row in matrix)
+        ):
+            raise DatExtractError(f"pose joint {bone_idx} does not contain a world matrix")
+        a_offset = init.get("a_offset_raw")
+        b_offset = init.get("b_offset_raw")
+        if not isinstance(a_offset, dict) or not isinstance(b_offset, dict):
+            raise DatExtractError("hurtbox init record does not contain endpoint offsets")
+
+        source_a = _matrix_transform_point(matrix, a_offset)
+        source_b = _matrix_transform_point(matrix, b_offset)
+        flat_a = _flatten_right_facing_melee_render(source_a)
+        flat_b = _flatten_right_facing_melee_render(source_b)
+        sampled.append(
+            {
+                "id": init["id"],
+                "kind": "capsule",
+                "bone": bone_idx,
+                "height": init["height"],
+                "is_grabbable": init["is_grabbable"],
+                "a": flat_a,
+                "b": flat_b,
+                "source_a": source_a,
+                "source_b": source_b,
+                "a_offset": a_offset,
+                "b_offset": b_offset,
+                "radius": init["scale_raw"],
+                "scale": init["scale_raw"],
+                "state": "HurtCapsule_Enabled",
+            }
+        )
+    return sampled
+
+
+def compact_pose_for_collision(
+    pose: dict[str, object], required_joint_indices: set[int] | None = None
+) -> dict[str, object]:
+    joints = pose.get("joints")
+    if not isinstance(joints, list):
+        raise DatExtractError("collision pose sampling requires pose joints")
+    compact_joints: list[dict[str, object]] = []
+    for joint in joints:
+        if not isinstance(joint, dict):
+            raise DatExtractError("pose joint metadata is malformed")
+        index = int(joint["index"])
+        if required_joint_indices is not None and index not in required_joint_indices:
+            continue
+        compact_joints.append(
+            {
+                "index": index,
+                "world_matrix": joint["world_matrix"],
+            }
+        )
+    return {
+        "source": pose.get("source", "HSD_JObj FigaTree sampled pose"),
+        "joints": compact_joints,
+    }
 
 
 def extract_captain_action_animation_table(
@@ -1437,6 +1666,9 @@ def extract_captain_action_ecb_samples(
                     "bottom_raw": ecb["bottom"],
                     "right_raw": ecb["right"],
                     "left_raw": ecb["left"],
+                    "source_points": ecb["source_points"],
+                    "source_render_transform": ecb["source_render_transform"],
+                    "flatten_after_render": ecb["flatten_after_render"],
                 }
             )
         sampled_actions.append(
@@ -1458,6 +1690,89 @@ def extract_captain_action_ecb_samples(
     }
 
 
+def extract_captain_action_hurtbox_samples(
+    plcaaj: bytes,
+    action_table: dict[str, object],
+    skeleton: dict[str, object],
+    hurtbox_inits: dict[str, object],
+    *,
+    action_state_ids: tuple[int, ...] = (68,),
+    action_script_bytes: bytes | None = None,
+) -> dict[str, object]:
+    actions = action_table.get("actions")
+    if not isinstance(actions, list):
+        raise DatExtractError("Captain action animation table is malformed")
+
+    sampled_actions: list[dict[str, object]] = []
+    for action_state_id in action_state_ids:
+        action = next(
+            (
+                item
+                for item in actions
+                if isinstance(item, dict) and int(item["action_state_id"]) == action_state_id
+            ),
+            None,
+        )
+        if action is None:
+            raise DatExtractError(f"Captain action state {action_state_id} is missing")
+        figatree = action.get("figatree")
+        if not isinstance(figatree, dict):
+            raise DatExtractError(f"Captain action state {action_state_id} has no FigaTree")
+        offset = int(action["figatree_archive_offset"])
+        size = int(action["figatree_archive_size"])
+        if offset < 0 or size <= 0 or offset + size > len(plcaaj):
+            raise DatExtractError(
+                f"Captain action state {action_state_id} FigaTree archive range is outside PlCaAJ.dat"
+            )
+        chunk = plcaaj[offset : offset + size]
+        frame_count = int(figatree["frames_ticks"])
+        hurtboxes = hurtbox_inits.get("hurtboxes")
+        if not isinstance(hurtboxes, list):
+            raise DatExtractError("Captain hurtbox init records are malformed")
+        required_pose_joint_indices: set[int] | None = {
+            int(hurtbox["bone_idx"])
+            for hurtbox in hurtboxes
+            if isinstance(hurtbox, dict) and "bone_idx" in hurtbox
+        }
+        if action_script_bytes is not None:
+            subaction_script_offset = int(action.get("subaction_script_offset", 0))
+            if subaction_script_offset != 0 or action_script_bytes:
+                try:
+                    required_pose_joint_indices.update(
+                        extract_action_script_hitbox_bone_indices(
+                            action_script_bytes, 0x20 + subaction_script_offset
+                        )
+                    )
+                except DatExtractError:
+                    required_pose_joint_indices = None
+        frames: list[dict[str, object]] = []
+        for frame in range(frame_count):
+            pose = sample_figatree_skeleton_pose(chunk, skeleton, frame=float(frame))
+            frames.append(
+                {
+                    "frame": frame + 1,
+                    "pose": compact_pose_for_collision(pose, required_pose_joint_indices),
+                    "hurtboxes": sample_hurtboxes_from_pose(pose, hurtbox_inits),
+                }
+            )
+        sampled_actions.append(
+            {
+                "action_state_id": action_state_id,
+                "name": action.get("name", ""),
+                "figatree_root": action.get("figatree_root"),
+                "frames": frames,
+            }
+        )
+
+    return {
+        "source": {
+            "format": "Captain Falcon hurt capsule samples from ftData.x30, PlCaAJ FigaTree, and PlCaNr HSD_Joint skeleton",
+        },
+        "sample_metadata": MELEE_HURTBOX_SAMPLE_METADATA,
+        "actions": sampled_actions,
+    }
+
+
 def write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1465,6 +1780,7 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
 
 def extract_resources(raw_dir: Path, out_dir: Path) -> list[Path]:
     written: list[Path] = []
+    hurtbox_inits: dict[str, object] | None = None
     plco = raw_dir / "PlCo.dat"
     if plco.exists():
         out_path = out_dir / "plco_common_data.json"
@@ -1478,6 +1794,10 @@ def extract_resources(raw_dir: Path, out_dir: Path) -> list[Path]:
         written.append(out_path)
         out_path = out_dir / "captain_falcon_ecb_source.json"
         write_json(out_path, extract_captain_ecb_source_from_plca(plca_bytes, plca))
+        written.append(out_path)
+        hurtbox_inits = extract_captain_hurtbox_inits_from_plca(plca_bytes, plca)
+        out_path = out_dir / "captain_falcon_hurtbox_inits.json"
+        write_json(out_path, hurtbox_inits)
         written.append(out_path)
         plcaaj = raw_dir / "PlCaAJ.dat"
         if plcaaj.exists():
@@ -1506,11 +1826,26 @@ def extract_resources(raw_dir: Path, out_dir: Path) -> list[Path]:
         )
         skeleton = extract_captain_costume_skeleton_from_plcanr(plcanr.read_bytes(), plcanr)
         ecb_source = extract_captain_ecb_source_from_plca(plca_bytes, plca)
+        if hurtbox_inits is None:
+            hurtbox_inits = extract_captain_hurtbox_inits_from_plca(plca_bytes, plca)
         out_path = out_dir / "captain_falcon_action_ecb_samples.json"
         write_json(
             out_path,
             extract_captain_action_ecb_samples(
                 plcaaj_bytes, action_table, skeleton, ecb_source
+            ),
+        )
+        written.append(out_path)
+        out_path = out_dir / "captain_falcon_action_hurtbox_samples.json"
+        write_json(
+            out_path,
+            extract_captain_action_hurtbox_samples(
+                plcaaj_bytes,
+                action_table,
+                skeleton,
+                hurtbox_inits,
+                action_state_ids=ECB_SAMPLE_ACTION_STATE_IDS,
+                action_script_bytes=plca_bytes,
             ),
         )
         written.append(out_path)

@@ -2,6 +2,7 @@ use crate::{
     collision::EcbDiamond,
     stage::{StageProfile, StageSurface, StageSurfaceKind},
     time::Frame,
+    units::milli_to_source_units,
     MeleeCommonData, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput,
     PlayerInput,
 };
@@ -94,6 +95,7 @@ pub struct FighterActionFrames {
     pub escape_n_total_frames: u8,
     pub escape_f_total_frames: u8,
     pub escape_b_total_frames: u8,
+    pub escape_air_skip_decay_frame: u8,
     pub turn_run_total_frames: u8,
     pub turn_run_cmd_var1_frame: u8,
     pub run_brake_total_frames: u8,
@@ -112,11 +114,12 @@ impl FighterActionFrames {
         dash_total_frames: 29,
         dash_cmd_var0_clear_frame: 0,
         dash_cmd_var0_set_frame: 16,
-        guard_on_total_frames: 4,
+        guard_on_total_frames: 8,
         guard_off_total_frames: 15,
         escape_n_total_frames: 23,
         escape_f_total_frames: 31,
         escape_b_total_frames: 31,
+        escape_air_skip_decay_frame: 30,
         turn_run_total_frames: 22,
         turn_run_cmd_var1_frame: 9,
         run_brake_total_frames: 28,
@@ -135,40 +138,36 @@ impl FighterActionFrames {
 pub struct FighterProfile {
     pub reference_character: &'static str,
     pub action_frames: FighterActionFrames,
-    pub walk_initial_velocity_per_tick: i32,
-    pub walk_accel_per_tick: i32,
-    pub walk_speed_per_tick: i32,
-    pub slow_walk_max_velocity_per_tick: i32,
-    pub mid_walk_animation_rate_per_tick: i32,
-    pub fast_walk_animation_rate_per_tick: i32,
-    pub run_speed_per_tick: i32,
-    pub run_animation_scaling_per_tick: i32,
-    pub initial_dash_speed_per_tick: i32,
+    pub walk_initial_velocity: f32,
+    pub walk_accel: f32,
+    pub walk_max_velocity: f32,
+    pub slow_walk_max_velocity: f32,
+    pub mid_walk_point: f32,
+    pub fast_walk_min: f32,
+    pub run_animation_scaling: f32,
+    pub dash_initial_velocity: f32,
     pub dash_run_acceleration_a: f32,
     pub dash_run_acceleration_b: f32,
     pub dash_run_terminal_velocity: f32,
-    pub dash_run_accel_stick_per_tick: i32,
-    pub dash_run_accel_base_per_tick: i32,
     pub max_run_brake_frames: Option<u8>,
-    pub traction_per_tick: i32,
-    pub ground_max_horizontal_velocity_per_tick: i32,
-    pub ground_to_air_jump_momentum_milli: i32,
-    pub jump_horizontal_initial_velocity_per_tick: i32,
-    pub jump_horizontal_max_velocity_per_tick: i32,
-    pub air_jump_horizontal_velocity_per_tick: i32,
-    pub air_jump_v_multiplier_milli: i32,
+    pub ground_friction: f32,
+    pub ground_max_horizontal_velocity: f32,
+    pub ground_to_air_jump_momentum_multiplier: f32,
+    pub jump_horizontal_initial_velocity: f32,
+    pub jump_horizontal_max_velocity: f32,
+    pub air_jump_horizontal_multiplier: f32,
+    pub air_jump_vertical_multiplier: f32,
     pub max_jumps: u8,
-    pub air_drift_stick_accel_per_tick: i32,
-    pub air_drift_base_accel_per_tick: i32,
-    pub air_drift_max_velocity_per_tick: i32,
-    pub air_friction_per_tick: i32,
-    pub air_max_horizontal_velocity_per_tick: i32,
-    pub gravity_per_tick: i32,
-    pub fall_speed_per_tick: i32,
-    pub fast_fall_speed_per_tick: i32,
-    pub full_hop_jump_force_per_tick: i32,
-    pub short_hop_jump_force_per_tick: i32,
-    pub air_jump_force_per_tick: i32,
+    pub air_drift_stick_multiplier: f32,
+    pub aerial_drift_base: f32,
+    pub air_drift_max: f32,
+    pub aerial_friction: f32,
+    pub air_max_horizontal_velocity: f32,
+    pub gravity: f32,
+    pub terminal_velocity: f32,
+    pub fast_fall_velocity: f32,
+    pub jump_vertical_initial_velocity: f32,
+    pub hop_vertical_initial_velocity: f32,
     pub full_hop_height: i32,
     pub short_hop_height: i32,
     pub double_jump_height: i32,
@@ -190,40 +189,36 @@ impl FighterProfile {
     pub const FALCON_LIKE: Self = Self {
         reference_character: "captain_falcon",
         action_frames: FighterActionFrames::FALCON_LIKE,
-        walk_initial_velocity_per_tick: 150,
-        walk_accel_per_tick: 100,
-        walk_speed_per_tick: 850,
-        slow_walk_max_velocity_per_tick: 165,
-        mid_walk_animation_rate_per_tick: 407,
-        fast_walk_animation_rate_per_tick: 660,
-        run_speed_per_tick: 2_300,
-        run_animation_scaling_per_tick: 2_330,
-        initial_dash_speed_per_tick: 2_000,
+        walk_initial_velocity: 0.15000000596046448,
+        walk_accel: 0.10000000149011612,
+        walk_max_velocity: 0.8500000238418579,
+        slow_walk_max_velocity: 0.16500000655651093,
+        mid_walk_point: 0.40700000524520874,
+        fast_walk_min: 0.659600019454956,
+        run_animation_scaling: 2.3299999237060547,
+        dash_initial_velocity: 2.0,
         dash_run_acceleration_a: 0.15000000596046448,
         dash_run_acceleration_b: 0.009999999776482582,
         dash_run_terminal_velocity: 2.299999952316284,
-        dash_run_accel_stick_per_tick: 150,
-        dash_run_accel_base_per_tick: 10,
         max_run_brake_frames: Some(30),
-        traction_per_tick: 80,
-        ground_max_horizontal_velocity_per_tick: 3_000,
-        ground_to_air_jump_momentum_milli: 750,
-        jump_horizontal_initial_velocity_per_tick: 950,
-        jump_horizontal_max_velocity_per_tick: 2_100,
-        air_jump_horizontal_velocity_per_tick: 900,
-        air_jump_v_multiplier_milli: 900,
+        ground_friction: 0.07999999821186066,
+        ground_max_horizontal_velocity: 3.0,
+        ground_to_air_jump_momentum_multiplier: 0.75,
+        jump_horizontal_initial_velocity: 0.949999988079071,
+        jump_horizontal_max_velocity: 2.0999999046325684,
+        air_jump_horizontal_multiplier: 0.8999999761581421,
+        air_jump_vertical_multiplier: 0.8999999761581421,
         max_jumps: 2,
-        air_drift_stick_accel_per_tick: 40,
-        air_drift_base_accel_per_tick: 20,
-        air_drift_max_velocity_per_tick: 1_120,
-        air_friction_per_tick: 10,
-        air_max_horizontal_velocity_per_tick: 3_000,
-        gravity_per_tick: 130,
-        fall_speed_per_tick: 2_900,
-        fast_fall_speed_per_tick: 3_500,
-        full_hop_jump_force_per_tick: 3_100,
-        short_hop_jump_force_per_tick: 1_900,
-        air_jump_force_per_tick: 2_790,
+        air_drift_stick_multiplier: 0.03999999910593033,
+        aerial_drift_base: 0.019999999552965164,
+        air_drift_max: 1.1200000047683716,
+        aerial_friction: 0.009999999776482582,
+        air_max_horizontal_velocity: 3.0,
+        gravity: 0.12999999523162842,
+        terminal_velocity: 2.9000000953674316,
+        fast_fall_velocity: 3.5,
+        jump_vertical_initial_velocity: 3.0999999046325684,
+        hop_vertical_initial_velocity: 1.899999976158142,
         full_hop_height: 38_520,
         short_hop_height: 14_850,
         double_jump_height: 28_560,
@@ -261,90 +256,51 @@ impl FighterProfile {
         let mut profile = Self::FALCON_LIKE;
         profile.reference_character = reference_character;
 
-        let jump_v_initial_velocity = read_profile_f32(bytes, 0x40, "jump_v_initial_velocity")?;
-        let air_jump_v_multiplier = read_profile_f32(bytes, 0x50, "air_jump_v_multiplier")?;
-
-        profile.walk_initial_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x00, "walk_initial_velocity")?;
-        profile.walk_accel_per_tick = read_profile_milli_i32(bytes, 0x04, "walk_accel")?;
-        profile.walk_speed_per_tick = read_profile_milli_i32(bytes, 0x08, "walk_max_vel")?;
-        profile.slow_walk_max_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x0c, "slow_walk_max_velocity")?;
-        profile.mid_walk_animation_rate_per_tick =
-            read_profile_milli_i32(bytes, 0x10, "mid_walk_threshold")?;
-        profile.fast_walk_animation_rate_per_tick =
-            read_profile_milli_i32(bytes, 0x14, "fast_walk_threshold")?;
-        profile.traction_per_tick = read_profile_milli_i32(bytes, 0x18, "gr_friction")?;
-        profile.initial_dash_speed_per_tick =
-            read_profile_milli_i32(bytes, 0x1c, "dash_initial_velocity")?;
+        profile.walk_initial_velocity = read_profile_f32(bytes, 0x00, "walk_initial_velocity")?;
+        profile.walk_accel = read_profile_f32(bytes, 0x04, "walk_accel")?;
+        profile.walk_max_velocity = read_profile_f32(bytes, 0x08, "walk_max_vel")?;
+        profile.slow_walk_max_velocity = read_profile_f32(bytes, 0x0c, "slow_walk_max_velocity")?;
+        profile.mid_walk_point = read_profile_f32(bytes, 0x10, "mid_walk_threshold")?;
+        profile.fast_walk_min = read_profile_f32(bytes, 0x14, "fast_walk_threshold")?;
+        profile.ground_friction = read_profile_f32(bytes, 0x18, "gr_friction")?;
+        profile.dash_initial_velocity = read_profile_f32(bytes, 0x1c, "dash_initial_velocity")?;
         profile.dash_run_acceleration_a = read_profile_f32(bytes, 0x20, "dash_run_acceleration_a")?;
-        profile.dash_run_accel_stick_per_tick = round_profile_f32_to_i32(
-            profile.dash_run_acceleration_a * 1000.0,
-            "dash_run_acceleration_a",
-            0x20,
-        )?;
         profile.dash_run_acceleration_b = read_profile_f32(bytes, 0x24, "dash_run_acceleration_b")?;
-        profile.dash_run_accel_base_per_tick = round_profile_f32_to_i32(
-            profile.dash_run_acceleration_b * 1000.0,
-            "dash_run_acceleration_b",
-            0x24,
-        )?;
         profile.dash_run_terminal_velocity =
             read_profile_f32(bytes, 0x28, "dash_run_terminal_velocity")?;
-        profile.run_speed_per_tick = round_profile_f32_to_i32(
-            profile.dash_run_terminal_velocity * 1000.0,
-            "dash_run_terminal_velocity",
-            0x28,
-        )?;
-        profile.run_animation_scaling_per_tick =
-            read_profile_milli_i32(bytes, 0x2c, "run_animation_scaling")?;
+        profile.run_animation_scaling = read_profile_f32(bytes, 0x2c, "run_animation_scaling")?;
         profile.max_run_brake_frames = Some(read_profile_u8_from_f32(
             bytes,
             0x30,
             "max_run_brake_frames",
         )?);
-        profile.ground_max_horizontal_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x34, "ground_max_horizontal_velocity")?;
+        profile.ground_max_horizontal_velocity =
+            read_profile_f32(bytes, 0x34, "ground_max_horizontal_velocity")?;
         profile.jumpsquat_frames = read_profile_u8_from_f32(bytes, 0x38, "jump_startup_time")?;
-        profile.jump_horizontal_initial_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x3c, "jump_h_initial_velocity")?;
-        profile.full_hop_jump_force_per_tick = round_profile_f32_to_i32(
-            jump_v_initial_velocity * 1000.0,
-            "jump_v_initial_velocity",
-            0x40,
-        )?;
-        profile.ground_to_air_jump_momentum_milli =
-            read_profile_milli_i32(bytes, 0x44, "ground_to_air_jump_momentum_multiplier")?;
-        profile.jump_horizontal_max_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x48, "jump_h_max_velocity")?;
-        profile.short_hop_jump_force_per_tick =
-            read_profile_milli_i32(bytes, 0x4c, "hop_v_initial_velocity")?;
-        profile.air_jump_force_per_tick = round_profile_f32_to_i32(
-            jump_v_initial_velocity * air_jump_v_multiplier * 1000.0,
-            "jump_v_initial_velocity*air_jump_v_multiplier",
-            0x50,
-        )?;
-        profile.air_jump_v_multiplier_milli = round_profile_f32_to_i32(
-            air_jump_v_multiplier * 1000.0,
-            "air_jump_v_multiplier",
-            0x50,
-        )?;
-        profile.air_jump_horizontal_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x54, "air_jump_h_multiplier")?;
+        profile.jump_horizontal_initial_velocity =
+            read_profile_f32(bytes, 0x3c, "jump_h_initial_velocity")?;
+        profile.jump_vertical_initial_velocity =
+            read_profile_f32(bytes, 0x40, "jump_v_initial_velocity")?;
+        profile.ground_to_air_jump_momentum_multiplier =
+            read_profile_f32(bytes, 0x44, "ground_to_air_jump_momentum_multiplier")?;
+        profile.jump_horizontal_max_velocity =
+            read_profile_f32(bytes, 0x48, "jump_h_max_velocity")?;
+        profile.hop_vertical_initial_velocity =
+            read_profile_f32(bytes, 0x4c, "hop_v_initial_velocity")?;
+        profile.air_jump_vertical_multiplier =
+            read_profile_f32(bytes, 0x50, "air_jump_v_multiplier")?;
+        profile.air_jump_horizontal_multiplier =
+            read_profile_f32(bytes, 0x54, "air_jump_h_multiplier")?;
         profile.max_jumps = read_profile_u8_from_i32(bytes, 0x58, "max_jumps")?;
-        profile.gravity_per_tick = read_profile_milli_i32(bytes, 0x5c, "grav")?;
-        profile.fall_speed_per_tick = read_profile_milli_i32(bytes, 0x60, "terminal_vel")?;
-        profile.air_drift_stick_accel_per_tick =
-            read_profile_milli_i32(bytes, 0x64, "air_drift_stick_mul")?;
-        profile.air_drift_base_accel_per_tick =
-            read_profile_milli_i32(bytes, 0x68, "aerial_drift_base")?;
-        profile.air_drift_max_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x6c, "air_drift_max")?;
-        profile.air_friction_per_tick = read_profile_milli_i32(bytes, 0x70, "aerial_friction")?;
-        profile.fast_fall_speed_per_tick =
-            read_profile_milli_i32(bytes, 0x74, "fast_fall_velocity")?;
-        profile.air_max_horizontal_velocity_per_tick =
-            read_profile_milli_i32(bytes, 0x78, "air_max_horizontal_velocity")?;
+        profile.gravity = read_profile_f32(bytes, 0x5c, "grav")?;
+        profile.terminal_velocity = read_profile_f32(bytes, 0x60, "terminal_vel")?;
+        profile.air_drift_stick_multiplier = read_profile_f32(bytes, 0x64, "air_drift_stick_mul")?;
+        profile.aerial_drift_base = read_profile_f32(bytes, 0x68, "aerial_drift_base")?;
+        profile.air_drift_max = read_profile_f32(bytes, 0x6c, "air_drift_max")?;
+        profile.aerial_friction = read_profile_f32(bytes, 0x70, "aerial_friction")?;
+        profile.fast_fall_velocity = read_profile_f32(bytes, 0x74, "fast_fall_velocity")?;
+        profile.air_max_horizontal_velocity =
+            read_profile_f32(bytes, 0x78, "air_max_horizontal_velocity")?;
         profile.standing_turn_direction_change_frames =
             read_profile_u8_from_f32(bytes, 0x84, "frames_to_change_direction_on_standing_turn")?;
         let trophy_scale = read_profile_f32(bytes, 0x110, "trophy_scale")?;
@@ -397,18 +353,6 @@ fn read_profile_f32(
         return Err(FighterProfileExtractError::NonFiniteFloat { field, offset });
     }
     Ok(value)
-}
-
-fn read_profile_milli_i32(
-    bytes: &[u8],
-    offset: usize,
-    field: &'static str,
-) -> Result<i32, FighterProfileExtractError> {
-    round_profile_f32_to_i32(
-        read_profile_f32(bytes, offset, field)? * 1000.0,
-        field,
-        offset,
-    )
 }
 
 fn read_profile_u8_from_f32(
@@ -572,13 +516,13 @@ pub struct PlayerState {
     pub attack_frame: u8,
     pub motion_state: MotionState,
     pub motion_frame: u8,
-    pub ground_velocity_x: i32,
-    pub ground_accel_x: i32,
-    pub ground_accel_x2: i32,
-    pub dash_entry_velocity_delta: i32,
-    pub dash_x0: i32,
+    pub ground_velocity_x: f32,
+    pub ground_accel_x: f32,
+    pub ground_accel_x2: f32,
+    pub dash_entry_velocity_delta: f32,
+    pub dash_x0: f32,
     pub dash_started_from_tap: bool,
-    pub walk_anim_velocity_x: i32,
+    pub walk_anim_velocity_x: f32,
     pub walk_accel_mul_milli: i32,
     pub turn_facing_after: i8,
     pub turn_has_turned: bool,
@@ -593,6 +537,8 @@ pub struct PlayerState {
     pub run_brake_x0: bool,
     pub run_brake_frames_remaining: u8,
     pub turn_run_x14: bool,
+    pub turn_run_completion_pending: bool,
+    pub turn_run_completion_enters_run: bool,
     pub motion_anim_rate_milli: i32,
     pub shield_turn_facing_after: i8,
     pub shield_turn_frame: u8,
@@ -627,13 +573,13 @@ impl PlayerState {
             attack_frame: 0,
             motion_state: MotionState::Wait,
             motion_frame: 0,
-            ground_velocity_x: 0,
-            ground_accel_x: 0,
-            ground_accel_x2: 0,
-            dash_entry_velocity_delta: 0,
-            dash_x0: 0,
+            ground_velocity_x: 0.0,
+            ground_accel_x: 0.0,
+            ground_accel_x2: 0.0,
+            dash_entry_velocity_delta: 0.0,
+            dash_x0: 0.0,
             dash_started_from_tap: false,
-            walk_anim_velocity_x: 0,
+            walk_anim_velocity_x: 0.0,
             walk_accel_mul_milli: 1_000,
             turn_facing_after: facing,
             turn_has_turned: false,
@@ -648,6 +594,8 @@ impl PlayerState {
             run_brake_x0: false,
             run_brake_frames_remaining: 0,
             turn_run_x14: false,
+            turn_run_completion_pending: false,
+            turn_run_completion_enters_run: false,
             motion_anim_rate_milli: 1_000,
             shield_turn_facing_after: facing,
             shield_turn_frame: 0,
@@ -754,15 +702,13 @@ fn active_pose_motion_state(player: &PlayerState, common_data: MeleeCommonData) 
     let Some((forward, backward)) = fall_directional_pose_pair(player.motion_state) else {
         return player.motion_state;
     };
-    if common_data.fall_animation_blend_milli == 0
-        || player.profile.air_drift_max_velocity_per_tick == 0
-    {
+    if common_data.fall_animation_blend == 0.0 || player.profile.air_drift_max == 0.0 {
         return player.motion_state;
     }
 
-    let drift_ratio_milli =
-        player.velocity.x.abs() * 1000 / player.profile.air_drift_max_velocity_per_tick.abs();
-    if drift_ratio_milli <= common_data.fall_animation_drift_threshold_milli {
+    let drift_ratio =
+        (milli_to_source_units(player.velocity.x).abs()) / player.profile.air_drift_max.abs();
+    if drift_ratio <= common_data.fall_animation_drift_threshold {
         return player.motion_state;
     }
 
@@ -833,7 +779,7 @@ fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerRenderSnapshot {
     pub position: Vec2,
     pub velocity: Vec2,
@@ -842,12 +788,12 @@ pub struct PlayerRenderSnapshot {
     pub motion_state: MotionState,
     pub state_frame: u8,
     pub animation_frame: u8,
-    pub ground_velocity_x: i32,
-    pub ground_accel_x: i32,
-    pub ground_accel_x2: i32,
-    pub dash_entry_velocity_delta: i32,
-    pub dash_x0: i32,
-    pub walk_anim_velocity_x: i32,
+    pub ground_velocity_x: f32,
+    pub ground_accel_x: f32,
+    pub ground_accel_x2: f32,
+    pub dash_entry_velocity_delta: f32,
+    pub dash_x0: f32,
+    pub walk_anim_velocity_x: f32,
     pub walk_accel_mul_milli: i32,
     pub turn_facing_after: i8,
     pub turn_has_turned: bool,
@@ -862,7 +808,12 @@ pub struct PlayerRenderSnapshot {
     pub run_brake_frames_remaining: u8,
     pub turn_run_accel_mul: i8,
     pub turn_run_x14: bool,
+    pub turn_run_completion_pending: bool,
+    pub turn_run_completion_enters_run: bool,
     pub motion_anim_rate_milli: i32,
+    pub entry_base_y: i32,
+    pub entry_platform_offset_y: i32,
+    pub entry_timer: u8,
     pub debug_input_facts: MeleeInputFacts,
 }
 
@@ -900,13 +851,18 @@ impl PlayerRenderSnapshot {
             run_brake_frames_remaining: player.run_brake_frames_remaining,
             turn_run_accel_mul: player.turn_run_accel_mul,
             turn_run_x14: player.turn_run_x14,
+            turn_run_completion_pending: player.turn_run_completion_pending,
+            turn_run_completion_enters_run: player.turn_run_completion_enters_run,
             motion_anim_rate_milli: player.motion_anim_rate_milli,
+            entry_base_y: player.entry_base_y,
+            entry_platform_offset_y: player.entry_platform_offset_y,
+            entry_timer: player.entry_timer,
             debug_input_facts,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WorldSnapshot {
     pub frame: Frame,
     pub players: [PlayerRenderSnapshot; PLAYER_COUNT],
@@ -1125,13 +1081,13 @@ impl World {
             mix_u8(&mut hash, player.attack_frame);
             mix_u8(&mut hash, motion_state_id(player.motion_state));
             mix_u8(&mut hash, player.motion_frame);
-            mix_i32(&mut hash, player.ground_velocity_x);
-            mix_i32(&mut hash, player.ground_accel_x);
-            mix_i32(&mut hash, player.ground_accel_x2);
-            mix_i32(&mut hash, player.dash_entry_velocity_delta);
-            mix_i32(&mut hash, player.dash_x0);
+            mix_f32(&mut hash, player.ground_velocity_x);
+            mix_f32(&mut hash, player.ground_accel_x);
+            mix_f32(&mut hash, player.ground_accel_x2);
+            mix_f32(&mut hash, player.dash_entry_velocity_delta);
+            mix_f32(&mut hash, player.dash_x0);
             mix_u8(&mut hash, player.dash_started_from_tap as u8);
-            mix_i32(&mut hash, player.walk_anim_velocity_x);
+            mix_f32(&mut hash, player.walk_anim_velocity_x);
             mix_i32(&mut hash, player.walk_accel_mul_milli);
             mix_u8(&mut hash, player.turn_facing_after as u8);
             mix_u8(&mut hash, player.turn_has_turned as u8);
@@ -1146,6 +1102,8 @@ impl World {
             mix_u8(&mut hash, player.run_brake_x0 as u8);
             mix_u8(&mut hash, player.run_brake_frames_remaining);
             mix_u8(&mut hash, player.turn_run_x14 as u8);
+            mix_u8(&mut hash, player.turn_run_completion_pending as u8);
+            mix_u8(&mut hash, player.turn_run_completion_enters_run as u8);
             mix_i32(&mut hash, player.motion_anim_rate_milli);
             mix_u8(&mut hash, player.shield_turn_facing_after as u8);
             mix_u8(&mut hash, player.shield_turn_frame);
@@ -1361,32 +1319,32 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.escapeair_animation_ticks);
     mix_u8(hash, common.escapeair_deadzone_x as u8);
     mix_u8(hash, common.escapeair_deadzone_y as u8);
-    mix_i32(hash, common.escapeair_force);
-    mix_i32(hash, common.escapeair_decay_milli);
+    mix_f32(hash, common.escapeair_force);
+    mix_f32(hash, common.escapeair_decay);
     mix_u8(hash, common.escapeair_landing_lag_ticks);
-    mix_i32(hash, common.walk_middle_velocity_ratio_milli);
-    mix_i32(hash, common.walk_fast_velocity_ratio_milli);
-    mix_i32(hash, common.walk_accel_taper_milli);
-    mix_i32(hash, common.run_accel_taper_milli);
-    mix_i32(hash, common.run_ground_friction_multiplier_milli);
-    mix_i32(hash, common.high_speed_ground_friction_multiplier_milli);
-    mix_i32(hash, common.run_brake_animation_pause_velocity_milli);
-    mix_i32(hash, common.animation_velocity_scale_milli);
-    mix_i32(hash, common.fall_animation_drift_threshold_milli);
-    mix_i32(hash, common.fall_animation_blend_milli);
+    mix_f32(hash, common.walk_middle_velocity_ratio);
+    mix_f32(hash, common.walk_fast_velocity_ratio);
+    mix_f32(hash, common.walk_accel_taper);
+    mix_f32(hash, common.run_accel_taper);
+    mix_f32(hash, common.run_ground_friction_multiplier);
+    mix_f32(hash, common.high_speed_ground_friction_multiplier);
+    mix_f32(hash, common.run_brake_animation_pause_velocity);
+    mix_f32(hash, common.animation_velocity_scale);
+    mix_f32(hash, common.fall_animation_drift_threshold);
+    mix_f32(hash, common.fall_animation_blend);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);
-    mix_i32(hash, common.pass_initial_y_velocity);
+    mix_f32(hash, common.pass_initial_y_velocity);
     mix_u8(hash, common.platform_drop_delay_ticks);
     mix_u8(hash, common.entry_start_ticks);
     mix_u8(hash, common.entry_end_ticks);
-    mix_i32(hash, common.entry_initial_scale_y_milli);
+    mix_f32(hash, common.entry_initial_scale_y);
     mix_u8(hash, common.entry_collision_landing_lag_ticks);
     mix_u8(hash, common.dash_early_action_window);
     mix_u8(hash, common.dash_defensive_action_window);
     mix_u8(hash, common.dash_late_action_window);
-    mix_i32(hash, common.dash_velocity_decay_milli);
+    mix_f32(hash, common.dash_velocity_decay);
     mix_u8(hash, common.run_x as u8);
     mix_u8(hash, common.guard_on_catch_dash_window);
     mix_u8(hash, common.guard_reflect_input_window);
@@ -1394,21 +1352,18 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
 }
 
 fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
-    mix_i32(hash, profile.walk_initial_velocity_per_tick);
+    mix_f32(hash, profile.walk_initial_velocity);
     mix_fighter_action_frames(hash, profile.action_frames);
-    mix_i32(hash, profile.walk_accel_per_tick);
-    mix_i32(hash, profile.walk_speed_per_tick);
-    mix_i32(hash, profile.slow_walk_max_velocity_per_tick);
-    mix_i32(hash, profile.mid_walk_animation_rate_per_tick);
-    mix_i32(hash, profile.fast_walk_animation_rate_per_tick);
-    mix_i32(hash, profile.run_speed_per_tick);
-    mix_i32(hash, profile.run_animation_scaling_per_tick);
-    mix_i32(hash, profile.initial_dash_speed_per_tick);
+    mix_f32(hash, profile.walk_accel);
+    mix_f32(hash, profile.walk_max_velocity);
+    mix_f32(hash, profile.slow_walk_max_velocity);
+    mix_f32(hash, profile.mid_walk_point);
+    mix_f32(hash, profile.fast_walk_min);
+    mix_f32(hash, profile.run_animation_scaling);
+    mix_f32(hash, profile.dash_initial_velocity);
     mix_f32(hash, profile.dash_run_acceleration_a);
     mix_f32(hash, profile.dash_run_acceleration_b);
     mix_f32(hash, profile.dash_run_terminal_velocity);
-    mix_i32(hash, profile.dash_run_accel_stick_per_tick);
-    mix_i32(hash, profile.dash_run_accel_base_per_tick);
     match profile.max_run_brake_frames {
         Some(frames) => {
             mix_u8(hash, 1);
@@ -1416,25 +1371,24 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
         }
         None => mix_u8(hash, 0),
     }
-    mix_i32(hash, profile.traction_per_tick);
-    mix_i32(hash, profile.ground_max_horizontal_velocity_per_tick);
-    mix_i32(hash, profile.ground_to_air_jump_momentum_milli);
-    mix_i32(hash, profile.jump_horizontal_initial_velocity_per_tick);
-    mix_i32(hash, profile.jump_horizontal_max_velocity_per_tick);
-    mix_i32(hash, profile.air_jump_horizontal_velocity_per_tick);
-    mix_i32(hash, profile.air_jump_v_multiplier_milli);
+    mix_f32(hash, profile.ground_friction);
+    mix_f32(hash, profile.ground_max_horizontal_velocity);
+    mix_f32(hash, profile.ground_to_air_jump_momentum_multiplier);
+    mix_f32(hash, profile.jump_horizontal_initial_velocity);
+    mix_f32(hash, profile.jump_horizontal_max_velocity);
+    mix_f32(hash, profile.air_jump_horizontal_multiplier);
+    mix_f32(hash, profile.air_jump_vertical_multiplier);
     mix_u8(hash, profile.max_jumps);
-    mix_i32(hash, profile.air_drift_stick_accel_per_tick);
-    mix_i32(hash, profile.air_drift_base_accel_per_tick);
-    mix_i32(hash, profile.air_drift_max_velocity_per_tick);
-    mix_i32(hash, profile.air_friction_per_tick);
-    mix_i32(hash, profile.air_max_horizontal_velocity_per_tick);
-    mix_i32(hash, profile.gravity_per_tick);
-    mix_i32(hash, profile.fall_speed_per_tick);
-    mix_i32(hash, profile.fast_fall_speed_per_tick);
-    mix_i32(hash, profile.full_hop_jump_force_per_tick);
-    mix_i32(hash, profile.short_hop_jump_force_per_tick);
-    mix_i32(hash, profile.air_jump_force_per_tick);
+    mix_f32(hash, profile.air_drift_stick_multiplier);
+    mix_f32(hash, profile.aerial_drift_base);
+    mix_f32(hash, profile.air_drift_max);
+    mix_f32(hash, profile.aerial_friction);
+    mix_f32(hash, profile.air_max_horizontal_velocity);
+    mix_f32(hash, profile.gravity);
+    mix_f32(hash, profile.terminal_velocity);
+    mix_f32(hash, profile.fast_fall_velocity);
+    mix_f32(hash, profile.jump_vertical_initial_velocity);
+    mix_f32(hash, profile.hop_vertical_initial_velocity);
     mix_i32(hash, profile.full_hop_height);
     mix_i32(hash, profile.short_hop_height);
     mix_i32(hash, profile.double_jump_height);
@@ -1465,6 +1419,7 @@ fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames)
     mix_u8(hash, action_frames.escape_n_total_frames);
     mix_u8(hash, action_frames.escape_f_total_frames);
     mix_u8(hash, action_frames.escape_b_total_frames);
+    mix_u8(hash, action_frames.escape_air_skip_decay_frame);
     mix_u8(hash, action_frames.turn_run_total_frames);
     mix_u8(hash, action_frames.turn_run_cmd_var1_frame);
     mix_u8(hash, action_frames.run_brake_total_frames);

@@ -1255,8 +1255,8 @@ fast-falling. The Rust core now rejects held-down ascent, rejects down held
 before falling as a buffered fast fall, and consumes a fresh down tap once while
 the player is airborne and descending. The down-stick gate and tap-window come
 from world-owned common-data `x88`/`x8C`. When fast fall is active, Rust now
-mirrors `ftCommon_FallFast` by setting vertical velocity to
-`-profile.fast_fall_speed_per_tick` instead of applying an extra gravity impulse.
+mirrors `ftCommon_FallFast` by setting vertical velocity from the source
+`profile.fast_fall_velocity` field instead of applying an extra gravity impulse.
 
 Normal fall physics also needs to stay additive. The Rust bridge applies
 `gravity * multiplier` each frame and clamps normal fall to the character's fall

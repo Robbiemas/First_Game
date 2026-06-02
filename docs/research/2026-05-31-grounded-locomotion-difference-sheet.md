@@ -45,10 +45,10 @@ the Rust core, or adding custom gameplay states for emergent mechanics.
 
 Dev-tool baseline during this audit:
 
-- Value parity: 102/102 matching rows, 63 global and 39 Falcon/test-character.
+- Value parity: 103/103 matching rows, 64 global and 39 Falcon/test-character.
 - Falcon ECB coverage: 70 mapped motion states, 0 missing sampled mappings,
   0 unmapped derived states.
-- State graph: 52 nodes, 71 edges, 21 aligned, 3 intentional, 99 partial.
+- State graph: 52 nodes, 73 edges, 24 aligned, 3 intentional, 98 partial.
 - `mole generated check` reports dirty generated outputs and one stale ECB group.
   This is a workspace hygiene note, not a new behavior finding from this sheet.
 
@@ -83,11 +83,11 @@ human-noticeable grounded movement gaps.
 | Factor | Melee source | Rust current | Status |
 | --- | --- | --- | --- |
 | Input thresholds | PlCo fields such as `x24`, `x34`, `x38`, `x3C`, `x40`, `x44`, `x48`, `x4C`, `x54`, `x58`, `x5C`, `x60`, `x42C`, `x430` | Extracted through `MeleeCommonData`; value ledger is 103/103 | Mostly aligned |
-| Dash/run accel and target | `getAccelAndTarget` in `inlines.h:130-137`: HSD-clamped fighter stick `f32` times source `f32` acceleration/terminal velocity | `fighter_stick_axis_to_f32` plus `dash_run_accel_and_target` in `sim.rs` | Aligned for the current integer-position bridge; source floats are stored and hashed by raw bits |
-| Ground accel toward target | `ftCommon_8007C98C` in `ftcommon.c:71-105` | `apply_ground_accel_toward_target` in `sim.rs:2174` | Partial: source max clamp inside some branches is simplified |
+| Dash/run accel and target | `getAccelAndTarget` in `inlines.h:130-137`: HSD-clamped fighter stick `f32` times source `f32` acceleration/terminal velocity | `fighter_stick_axis_to_f32` plus `dash_run_accel_and_target` in `sim.rs` | Aligned for the current integer-position bridge; grounded source floats are stored and hashed by raw bits |
+| Ground accel toward target | `ftCommon_8007C98C` in `ftcommon.c:71-105` | `apply_ground_accel_toward_target` in `sim.rs` | Aligned for flat-ground source-float acceleration and zero-crossing friction behavior in the current grounded slice |
 | General ground friction | `ft_80084F3C` in `ft_084E.c:41-52` with high-speed multiplier over walk max | `apply_ground_traction` in `sim.rs:2009` | Mostly aligned for flat Battlefield |
 | Run friction | run/turn/brake use `gr_friction * x60` | `run_ground_friction` in `sim.rs:2027` | Aligned in value, simplified surface multiplier |
-| Ground movement projection | `ftCommon_ApplyGroundMovement` in `ftcommon.c:143-160` projects through floor normal into anim/self velocity | Rust uses flat-stage integer `ground_velocity_x`, `ground_accel_x`, `ground_accel_x2` | Partial: Battlefield main floor ok, slopes/normal projection not complete |
+| Ground movement projection | `ftCommon_ApplyGroundMovement` in `ftcommon.c:143-160` projects through floor normal into anim/self velocity | Rust now keeps flat-stage source-float `ground_velocity_x`, `ground_accel_x`, and `ground_accel_x2`, then converts to milli only at the position/render bridge | Partial: Battlefield main floor ok, slopes/normal projection and source-float position are not complete |
 | Ground collision | `ft_80084280` and `ft_800844EC` in `ft_081B.c:1069-1142` handle ledges, nudges, fall, edge behavior | `has_floor_support` plus fall transition after position commit | Partial, acceptable on center Battlefield floor only |
 | Motion command vars | source `cmd_vars[0]`, `cmd_vars[1]` gate Dash, RunBrake, TurnRun behavior | Dash, RunBrake, and TurnRun command vars are deterministic Rust fields driven by extracted Falcon action-script events | Mostly aligned for current grounded slice |
 | Animation-frame gates | source `cur_anim_frame`, `ftAnim_IsFramesRemaining`, anim rate, and motion vars gate exits | Walk, Run, Dash, RunBrake, and TurnRun carry source-shaped motion vars/rate gates for the current grounded slice | Mostly aligned for flat-ground Falcon locomotion |
@@ -328,9 +328,8 @@ Rust:
   the broader TurnRun state remains partial.
 
 Differences:
-- The velocity-crossing resume uses the extracted source shape, but the exact
-  floating-point comparison and floor-normal projection are still simplified in
-  Rust's integer flat-Battlefield physics.
+- The velocity-crossing resume uses the extracted source shape, but floor-normal
+  projection remains simplified in Rust's flat-Battlefield physics.
 - TurnRun collision remains simplified relative to the source collision
   callback.
 
@@ -377,6 +376,9 @@ Impact:
 | Done P1 | Runtime trace lacked hidden locomotion vars | `readout.rs`, `mole_runtime/src/lib.rs` | `PlayerRenderSnapshot`, `RenderFrame`, `core_player_to_json` | Gives controller logs enough state/velocity context for playtest diagnosis | Trace now includes ground velocity/accels, dash delta, run no-interrupt, cmd vars, RunBrake fields, TurnRun pause, and animation rate |
 | Done P2 | Replay oracle report collapsed source and core frame numbers | Slippi negative-frame export, `slippi_diagnostic.rs` | `SlippiCoreMismatch::source_frame`, report deltas | Prevents match-start reports from pointing at a core-frame index when the actionable source replay frame differs | Covered by `slippi_match_start_report_distinguishes_core_frame_from_source_replay_frame`; current replay first useful mismatch is source frame 17, P2 LandingFallSpecial vs Rust Fall with +2112 milli x drift |
 | Done P2 | Fighter stick normalization used legacy percent/asymmetric scaling for dash/run helper paths | `controller.c` `HSD_PadScale`, `fighter.c` input copy, `inlines.h::getAccelAndTarget` | `fighter_stick_axis_to_f32`, `dash_run_accel_and_target`, value sheets | Keeps full HSD-clamped left/right stick at `-1.0/+1.0` and compares Falcon dash/run attrs as source `f32` values instead of old milli aliases | Covered by HSD `/127.0` stick tests, dash target/accel tests, and Slippi P2 dash-to-kneebend trace matching frames -20..-13 exactly |
+| Done P2 | Grounded PlCo scalar fields used `_milli` aliases for source floats | PlCo `x28`, `x2C`, `x30`, `x54`, `x5C`, `x60`, `x6C`, `x42C`, `x440` | `MeleeCommonData`, `extract_melee_resources.py`, value sheets | Preserves exact extracted `f32` values for grounded ratios, tapers, friction multipliers, Dash decay, RunBrake pause velocity, and animation velocity scale | Covered by `grounded_common_scalars_remain_source_f32_not_milli_aliases`, parity value-sheet tests, and checksum hashing via `mix_f32` |
+| Done P2 | Remaining exposed PlCo and Falcon movement floats used milli/extracted aliases | PlCo `escapeair_force`, `escapeair_decay`, `x444`, `x448`, `x46C`, `x6C4`; Falcon `ftCo_DatAttrs` movement floats | `MeleeCommonData`, `FighterProfile`, extractor/value sheets | Keeps EscapeAir, fall animation blend/threshold, pass Y velocity, entry scale, and Falcon walk/jump/air profile values in source `f32` form instead of per-tick milli aliases | Covered by source-float profile/common extraction tests, value sheet/parity tests, and checksum bit coverage |
+| Done P2 | Grounded locomotion collapsed source `f32` velocity/accel through per-frame milli rounding | `fighter.c`, `ftcommon.c`, `ftCo_Dash.c`, `ftCo_Run.c`, `ftCo_Walk.c` source `gr_vel`, `xE4_ground_accel_1`, `xE8_ground_accel_2` float paths | `PlayerState` grounded motion fields, `commit_ground_velocity`, runtime trace | Keeps sub-milli source acceleration alive across frames, hashes the exact float bits for rollback, and avoids tapering acceleration from a true dead stop | Covered by `dash_ground_velocity_accumulates_source_float_sub_milli_accel`, source-float walk/run/dash expected-value tests, and snapshot/checksum coverage |
 | P2 | Collision helpers are simplified for ledges/edges | `ft_081B.c:1069-1142` | `sim.rs:692-699` | Not urgent on center Battlefield, important near ledges | Later edge/ledge movement parity pass |
 | P2 | Wait/Walk item, metal, scale, and special-case helpers are outside current Rust slice | `ftCo_Wait.c`, `ftCo_Walk.c` | `sim.rs:780`, `sim.rs:1900` | Not current Falcon no-item sandbox, but needed for completeness | Track separately from movement feel work |
 
@@ -411,8 +413,9 @@ The next implementation slice should be:
 
 1. Investigate the current replay oracle's earliest remaining drift, now around
    P1 `Pass`/platform drop horizontal velocity, before tuning grounded feel.
-2. Continue migrating Melee-owned physics scalars to source `f32` only where the
-   decomp uses floats, while hashing exact float bits for deterministic replay.
+2. Continue the float-domain migration at the remaining public gameplay bridges
+   such as position/velocity and Slippi/debug reporting, only where the decomp
+   uses floats, while hashing exact float bits for deterministic replay.
 3. Add failing tests around the chosen source callback behavior before changing
    implementation.
 4. Keep the Rust core deterministic and vanilla; UCF stays in the input/replay

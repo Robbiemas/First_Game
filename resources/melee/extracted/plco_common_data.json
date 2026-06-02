@@ -28,9 +28,8 @@
       "source_name": "x78",
       "stick_byte": 16
     },
-    "animation_velocity_scale_milli": {
-      "kind": "milli",
-      "milli": 1300,
+    "animation_velocity_scale": {
+      "kind": "source_f32",
       "offset": 1088,
       "raw": 1.2999999523162842,
       "source_name": "x440"
@@ -91,9 +90,8 @@
       "source_name": "x40",
       "ticks": 2
     },
-    "dash_velocity_decay_milli": {
-      "kind": "milli",
-      "milli": 750,
+    "dash_velocity_decay": {
+      "kind": "source_f32",
       "offset": 84,
       "raw": 0.75,
       "source_name": "x54"
@@ -119,9 +117,8 @@
       "source_name": "x6C0",
       "ticks": 30
     },
-    "entry_initial_scale_y_milli": {
-      "kind": "milli",
-      "milli": 10,
+    "entry_initial_scale_y": {
+      "kind": "source_f32",
       "offset": 1732,
       "raw": 0.009999999776482582,
       "source_name": "x6C4"
@@ -175,16 +172,14 @@
       "source_name": "escapeair_deadzone.y",
       "stick_byte": 32
     },
-    "escapeair_decay_milli": {
-      "kind": "milli",
-      "milli": 900,
+    "escapeair_decay": {
+      "kind": "source_f32",
       "offset": 828,
       "raw": 0.8999999761581421,
       "source_name": "escapeair_decay"
     },
     "escapeair_force": {
-      "kind": "milli",
-      "milli": 3100,
+      "kind": "source_f32",
       "offset": 824,
       "raw": 3.0999999046325684,
       "source_name": "escapeair_force"
@@ -203,16 +198,14 @@
       "source_name": "x344",
       "ticks": 10
     },
-    "fall_animation_blend_milli": {
-      "kind": "milli",
-      "milli": 500,
+    "fall_animation_blend": {
+      "kind": "source_f32",
       "offset": 1096,
       "raw": 0.5,
       "source_name": "x448"
     },
-    "fall_animation_drift_threshold_milli": {
-      "kind": "milli",
-      "milli": 100,
+    "fall_animation_drift_threshold": {
+      "kind": "source_f32",
       "offset": 1092,
       "raw": 0.10000000149011612,
       "source_name": "x444"
@@ -252,9 +245,8 @@
       "source_name": "x2A0",
       "ticks": 2
     },
-    "high_speed_ground_friction_multiplier_milli": {
-      "kind": "milli",
-      "milli": 2000,
+    "high_speed_ground_friction_multiplier": {
+      "kind": "source_f32",
       "offset": 108,
       "raw": 2.0,
       "source_name": "x6C"
@@ -274,8 +266,7 @@
       "stick_byte": 36
     },
     "pass_initial_y_velocity": {
-      "kind": "milli",
-      "milli": -500,
+      "kind": "source_f32",
       "offset": 1132,
       "raw": -0.5,
       "source_name": "x46C"
@@ -301,23 +292,20 @@
       "source_name": "x468",
       "ticks": 6
     },
-    "run_accel_taper_milli": {
-      "kind": "milli",
-      "milli": 400,
+    "run_accel_taper": {
+      "kind": "source_f32",
       "offset": 92,
       "raw": 0.4000000059604645,
       "source_name": "x5C"
     },
-    "run_brake_animation_pause_velocity_milli": {
-      "kind": "milli",
-      "milli": 0,
+    "run_brake_animation_pause_velocity": {
+      "kind": "source_f32",
       "offset": 1068,
       "raw": 0.0,
       "source_name": "x42C"
     },
-    "run_ground_friction_multiplier_milli": {
-      "kind": "milli",
-      "milli": 1000,
+    "run_ground_friction_multiplier": {
+      "kind": "source_f32",
       "offset": 96,
       "raw": 1.0,
       "source_name": "x60_someFrictionMul"
@@ -413,23 +401,20 @@
       "source_name": "x34",
       "stick_byte": -32
     },
-    "walk_accel_taper_milli": {
-      "kind": "milli",
-      "milli": 500,
+    "walk_accel_taper": {
+      "kind": "source_f32",
       "offset": 48,
       "raw": 0.5,
       "source_name": "x30"
     },
-    "walk_fast_velocity_ratio_milli": {
-      "kind": "milli",
-      "milli": 800,
+    "walk_fast_velocity_ratio": {
+      "kind": "source_f32",
       "offset": 44,
       "raw": 0.800000011920929,
       "source_name": "x2C"
     },
-    "walk_middle_velocity_ratio_milli": {
-      "kind": "milli",
-      "milli": 400,
+    "walk_middle_velocity_ratio": {
+      "kind": "source_f32",
       "offset": 40,
       "raw": 0.4000000059604645,
       "source_name": "x28"

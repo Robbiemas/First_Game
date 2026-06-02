@@ -820,6 +820,109 @@ fn render_scene_places_players_deterministically_from_render_frame() {
 }
 
 #[test]
+fn default_play_world_starts_from_source_shaped_entry_spawns() {
+    let world = mole_runtime::default_play_world();
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Entry);
+    assert_eq!(world.players()[0].entry_timer, 5);
+    assert_eq!(
+        world.players()[0].position,
+        Vec2 {
+            x: -38_800,
+            y: 35_200
+        }
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::Entry);
+    assert_eq!(world.players()[1].entry_timer, 10);
+    assert_eq!(
+        world.players()[1].position,
+        Vec2 {
+            x: 38_800,
+            y: 35_200
+        }
+    );
+}
+
+#[test]
+fn render_scene_exposes_match_intro_and_entry_platform_cues() {
+    let mut world = mole_runtime::default_play_world();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    for frame in 0..6 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::EntryStart);
+    let render_frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+
+    assert_eq!(scene.match_intro_label.as_deref(), Some("READY"));
+    let platform = scene.entry_platforms[0].expect("EntryStart should expose P1 spawn platform");
+    let base_y = scene
+        .transform
+        .world_to_screen(Vec2 {
+            x: world.players()[0].position.x,
+            y: world.players()[0].entry_base_y,
+        })
+        .y;
+    assert!(platform.width >= scene.players[0].width * 2);
+    assert!(platform.height >= 1);
+    assert!(platform.y <= base_y);
+    assert!(scene.entry_platforms[1].is_none());
+}
+
+#[test]
+fn render_entry_platform_lifecycle_matches_source_accessory_states() {
+    let mut world = mole_runtime::default_play_world();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let mut next_frame = 0;
+
+    let scene = RenderScene::from_frame(&RenderFrame::from_world(&world), 960, 540);
+    assert_eq!(scene.match_intro_label.as_deref(), Some("READY"));
+    assert!(scene.entry_platforms.iter().all(Option::is_none));
+
+    while !world.players().iter().any(|player| {
+        matches!(
+            player.motion_state,
+            MotionState::EntryStart | MotionState::EntryEnd
+        )
+    }) {
+        step_world(&mut world, Frame(next_frame), &neutral);
+        next_frame += 1;
+        assert!(
+            next_frame < 20,
+            "EntryStart should appear after source stagger"
+        );
+    }
+
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.match_intro_label.as_deref(), Some("READY"));
+    assert_eq!(scene.stage_surfaces.len(), 4);
+    assert!(scene.entry_platforms.iter().any(Option::is_some));
+
+    while world.players().iter().any(|player| {
+        matches!(
+            player.motion_state,
+            MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
+        )
+    }) {
+        step_world(&mut world, Frame(next_frame), &neutral);
+        next_frame += 1;
+        assert!(
+            next_frame < 120,
+            "entry flow should resolve before gameplay"
+        );
+    }
+
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert!(scene.entry_platforms.iter().all(Option::is_none));
+    assert!(scene.match_intro_label.is_none());
+}
+
+#[test]
 fn render_transform_maps_core_units_to_screen_without_hidden_gameplay_scale() {
     let transform = RenderTransform::battlefield_camera(960, 540);
     let origin = transform.world_to_screen(Vec2 { x: 0, y: 0 });
@@ -1137,6 +1240,23 @@ fn frame_debug_log_reports_input_state_physics_ecb_and_render_transform() {
     assert!(line.contains("\"velocity_x\":"));
     assert!(line.contains("\"ecb\":["));
     assert!(line.contains("\"render_transform\":"));
+}
+
+#[test]
+fn frame_debug_log_reports_match_intro_and_entry_platform_cues() {
+    let mut world = mole_runtime::default_play_world();
+    let inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
+    for frame in 0..6 {
+        step_world(&mut world, Frame(frame), &inputs);
+    }
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    let line = FrameDebugLog::from_frame_and_scene(&frame, &scene, inputs).to_json_line();
+
+    assert!(line.contains("\"match_intro_label\":\"READY\""));
+    assert!(line.contains("\"entry_platforms\":[{\"x\":"));
+    assert!(line.contains(",null]"));
 }
 
 #[test]

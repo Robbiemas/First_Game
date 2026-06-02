@@ -34,7 +34,8 @@ pub use slippi_diagnostic::{
     slippi_core_report_path, trace_slippi_export_from_match_start_with_core,
     write_slippi_core_report, write_slippi_core_trace_report, SlippiCoreComparison,
     SlippiCoreComparisonConfig, SlippiCoreComparisonMode, SlippiCoreDiagnosticError,
-    SlippiCoreMismatch, SlippiCoreTrace, SlippiCoreTraceConfig, SlippiCoreTraceRow,
+    SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace, SlippiCoreTraceConfig,
+    SlippiCoreTraceRow,
 };
 
 pub mod wup_input;
@@ -49,6 +50,10 @@ pub use wup_input::WupInputSource;
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
 const CORE_TO_SCREEN_SCALE_DENOMINATOR: i64 = 1_000_000;
+
+pub fn default_play_world() -> World {
+    World::for_slippi_battlefield_singles_match_start()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedStepClock {
@@ -199,7 +204,7 @@ fn axis_to_i8(value: i16) -> i8 {
     scaled.clamp(-127, 127) as i8
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderFrame {
     pub frame: Frame,
     pub player_positions: [Vec2; 2],
@@ -209,12 +214,12 @@ pub struct RenderFrame {
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
     pub player_animation_frames: [u8; 2],
-    pub player_ground_velocity_x: [i32; 2],
-    pub player_ground_accel_x: [i32; 2],
-    pub player_ground_accel_x2: [i32; 2],
-    pub player_dash_entry_velocity_delta: [i32; 2],
-    pub player_dash_x0: [i32; 2],
-    pub player_walk_anim_velocity_x: [i32; 2],
+    pub player_ground_velocity_x: [f32; 2],
+    pub player_ground_accel_x: [f32; 2],
+    pub player_ground_accel_x2: [f32; 2],
+    pub player_dash_entry_velocity_delta: [f32; 2],
+    pub player_dash_x0: [f32; 2],
+    pub player_walk_anim_velocity_x: [f32; 2],
     pub player_walk_accel_mul_milli: [i32; 2],
     pub player_turn_facing_after: [i8; 2],
     pub player_turn_has_turned: [bool; 2],
@@ -230,6 +235,9 @@ pub struct RenderFrame {
     pub player_turn_run_accel_mul: [i8; 2],
     pub player_turn_run_x14: [bool; 2],
     pub player_motion_anim_rate_milli: [i32; 2],
+    pub player_entry_base_y: [i32; 2],
+    pub player_entry_platform_offset_y: [i32; 2],
+    pub player_entry_timers: [u8; 2],
     pub player_debug_input_facts: [MeleeInputFacts; 2],
     pub checksum: u64,
 }
@@ -341,6 +349,18 @@ impl RenderFrame {
             player_motion_anim_rate_milli: [
                 snapshot.players[0].motion_anim_rate_milli,
                 snapshot.players[1].motion_anim_rate_milli,
+            ],
+            player_entry_base_y: [
+                snapshot.players[0].entry_base_y,
+                snapshot.players[1].entry_base_y,
+            ],
+            player_entry_platform_offset_y: [
+                snapshot.players[0].entry_platform_offset_y,
+                snapshot.players[1].entry_platform_offset_y,
+            ],
+            player_entry_timers: [
+                snapshot.players[0].entry_timer,
+                snapshot.players[1].entry_timer,
             ],
             player_debug_input_facts: [
                 snapshot.players[0].debug_input_facts,
@@ -458,6 +478,12 @@ impl RenderColor {
         b: 255,
         a: 96,
     };
+    pub const ENTRY_PLATFORM: Self = Self {
+        r: 120,
+        g: 206,
+        b: 255,
+        a: 112,
+    };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -503,6 +529,8 @@ pub struct RenderScene {
     pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
     pub player_shields: [Option<RenderCircle>; 2],
+    pub entry_platforms: [Option<RenderRect>; 2],
+    pub match_intro_label: Option<&'static str>,
 }
 
 impl RenderScene {
@@ -571,6 +599,11 @@ impl RenderScene {
                 player_shield(frame.player_motion_states[0], players[0]),
                 player_shield(frame.player_motion_states[1], players[1]),
             ],
+            entry_platforms: [
+                entry_platform(frame, 0, transform, players[0]),
+                entry_platform(frame, 1, transform, players[1]),
+            ],
+            match_intro_label: match_intro_label(frame),
         }
     }
 }
@@ -654,10 +687,19 @@ impl FrameDebugLog {
             player_debug_json(frame, scene, inputs[0], 0),
             player_debug_json(frame, scene, inputs[1], 1),
         ];
+        let entry_platforms = scene
+            .entry_platforms
+            .iter()
+            .map(|platform| match platform {
+                Some(rect) => render_rect_json(*rect),
+                None => "null".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",");
 
         Self {
             json_line: format!(
-                "{{\"frame\":{},\"checksum\":{},\"p1_bits\":{},\"p2_bits\":{},\"players\":[{},{}],\"render_transform\":{{\"center_x\":{},\"ground_y\":{},\"pixels_per_core_unit_milli\":{}}}}}",
+                "{{\"frame\":{},\"checksum\":{},\"p1_bits\":{},\"p2_bits\":{},\"players\":[{},{}],\"render_transform\":{{\"center_x\":{},\"ground_y\":{},\"pixels_per_core_unit_milli\":{}}},\"match_intro_label\":{},\"entry_platforms\":[{}]}}",
                 frame.frame.0,
                 frame.checksum,
                 inputs[0].bits(),
@@ -666,7 +708,12 @@ impl FrameDebugLog {
                 player_logs[1],
                 scene.transform.center_x,
                 scene.transform.ground_y,
-                scene.transform.pixels_per_core_unit_milli
+                scene.transform.pixels_per_core_unit_milli,
+                match scene.match_intro_label {
+                    Some(label) => format!("\"{label}\""),
+                    None => "null".to_string(),
+                },
+                entry_platforms
             ),
         }
     }
@@ -674,6 +721,20 @@ impl FrameDebugLog {
     pub fn to_json_line(&self) -> String {
         self.json_line.clone()
     }
+}
+
+fn render_rect_json(rect: RenderRect) -> String {
+    format!(
+        "{{\"x\":{},\"y\":{},\"width\":{},\"height\":{},\"color\":{{\"r\":{},\"g\":{},\"b\":{},\"a\":{}}}}}",
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        rect.color.r,
+        rect.color.g,
+        rect.color.b,
+        rect.color.a
+    )
 }
 
 fn player_debug_json(
@@ -742,6 +803,45 @@ fn player_shield(motion_state: MotionState, player: RenderRect) -> Option<Render
         },
         radius: player.width.max(player.height) * 58 / 100,
         color: RenderColor::SHIELD_BUBBLE,
+    })
+}
+
+fn match_intro_label(frame: &RenderFrame) -> Option<&'static str> {
+    frame
+        .player_motion_states
+        .iter()
+        .any(|motion_state| {
+            matches!(
+                motion_state,
+                MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
+            )
+        })
+        .then_some("READY")
+}
+
+fn entry_platform(
+    frame: &RenderFrame,
+    index: usize,
+    transform: RenderTransform,
+    player: RenderRect,
+) -> Option<RenderRect> {
+    if !matches!(
+        frame.player_motion_states[index],
+        MotionState::EntryStart | MotionState::EntryEnd
+    ) {
+        return None;
+    }
+
+    let contact = transform.world_to_screen(frame.player_positions[index]);
+    let width = (player.width * 2).max(96);
+    let height = transform.core_length_to_screen(1_000).max(8);
+
+    Some(RenderRect {
+        x: contact.x - width as i32 / 2,
+        y: contact.y,
+        width,
+        height,
+        color: RenderColor::ENTRY_PLATFORM,
     })
 }
 

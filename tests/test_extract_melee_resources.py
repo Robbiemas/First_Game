@@ -6,10 +6,13 @@ from tools.extract_melee_resources import (
     PROJECT_ROOT,
     compute_ecb_from_jobj_pose,
     extract_action_script_cmd_var_events,
+    extract_action_script_hitbox_bone_indices,
     extract_captain_costume_skeleton_from_plcanr,
     extract_captain_action_animation_table,
     extract_captain_action_ecb_samples,
+    extract_captain_action_hurtbox_samples,
     extract_captain_ecb_source_from_plca,
+    extract_captain_hurtbox_inits_from_plca,
     extract_captain_profile_from_plca,
     extract_common_data_from_plco,
     extract_figatree_summary,
@@ -18,6 +21,7 @@ from tools.extract_melee_resources import (
     sample_fobj_value,
     sample_figatree_node_tracks,
     sample_figatree_skeleton_pose,
+    sample_hurtboxes_from_pose,
 )
 
 
@@ -31,6 +35,10 @@ def put_f32(data, offset, value):
 
 def put_i32(data, offset, value):
     data[offset : offset + 4] = struct.pack(">i", value)
+
+
+def hitbox_word0(*, bone, use_common_bone_ids=False):
+    return (11 << 26) | (bone << 11) | ((1 if use_common_bone_ids else 0) << 10)
 
 
 def make_dat(root_name, data_block, root_data_offset):
@@ -240,19 +248,26 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["source"]["symbol"] == "ftLoadCommonData"
     assert extracted["source"]["file"] == "resources/melee/raw/PlCo.dat"
     assert extracted["source"]["common_attributes_offset"] == common_offset
-    assert extracted["fields"]["escapeair_force"]["milli"] == 3100
-    assert extracted["fields"]["escapeair_decay_milli"]["milli"] == 915
+    assert extracted["fields"]["escapeair_force"]["kind"] == "source_f32"
+    assert extracted["fields"]["escapeair_force"]["raw"] == 3.0999999046325684
+    assert extracted["fields"]["escapeair_decay"]["kind"] == "source_f32"
+    assert extracted["fields"]["escapeair_decay"]["raw"] == 0.9150000214576721
     assert extracted["fields"]["escapeair_landing_lag_ticks"]["ticks"] == 10
-    assert extracted["fields"]["high_speed_ground_friction_multiplier_milli"]["milli"] == 2000
+    assert extracted["fields"]["high_speed_ground_friction_multiplier"]["kind"] == "source_f32"
+    assert extracted["fields"]["high_speed_ground_friction_multiplier"]["raw"] == 2.0
     assert extracted["fields"]["turn_run_x"]["stick_byte"] == -44
-    assert extracted["fields"]["run_brake_animation_pause_velocity_milli"]["milli"] == 1250
+    assert extracted["fields"]["run_brake_animation_pause_velocity"]["kind"] == "source_f32"
+    assert extracted["fields"]["run_brake_animation_pause_velocity"]["raw"] == 1.25
     assert extracted["fields"]["turn_run_x"]["source_name"] == "x38_someLStickXThreshold"
-    assert extracted["fields"]["fall_animation_drift_threshold_milli"]["milli"] == 180
-    assert extracted["fields"]["fall_animation_blend_milli"]["milli"] == 420
+    assert extracted["fields"]["fall_animation_drift_threshold"]["kind"] == "source_f32"
+    assert extracted["fields"]["fall_animation_drift_threshold"]["raw"] == 0.18000000715255737
+    assert extracted["fields"]["fall_animation_blend"]["kind"] == "source_f32"
+    assert extracted["fields"]["fall_animation_blend"]["raw"] == 0.41999998688697815
     assert extracted["fields"]["guard_reflect_input_window"]["ticks"] == 2
     assert extracted["fields"]["entry_start_ticks"]["ticks"] == 30
     assert extracted["fields"]["entry_end_ticks"]["ticks"] == 31
-    assert extracted["fields"]["entry_initial_scale_y_milli"]["milli"] == 10
+    assert extracted["fields"]["entry_initial_scale_y"]["kind"] == "source_f32"
+    assert extracted["fields"]["entry_initial_scale_y"]["raw"] == 0.009999999776482582
     assert extracted["fields"]["entry_collision_landing_lag_ticks"]["ticks"] == 120
 
 
@@ -289,11 +304,15 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     assert extracted["source"]["symbol"] == "ftDataCaptain"
     assert extracted["source"]["ftco_dat_attrs_offset"] == attrs_offset
     assert extracted["source"]["ftco_dat_attrs_len"] == attrs_end - attrs_offset
-    assert extracted["fields"]["traction_per_tick"]["milli"] == 80
-    assert extracted["fields"]["dash_initial_velocity"]["milli"] == 2000
+    assert extracted["fields"]["ground_friction"]["kind"] == "source_f32"
+    assert extracted["fields"]["ground_friction"]["raw"] == 0.07999999821186066
+    assert extracted["fields"]["dash_initial_velocity"]["kind"] == "source_f32"
+    assert extracted["fields"]["dash_initial_velocity"]["raw"] == 2.0
     assert extracted["fields"]["max_run_brake_frames"]["ticks"] == 8
-    assert extracted["fields"]["ground_max_horizontal_velocity"]["milli"] == 2350
-    assert extracted["fields"]["air_drift_max"]["milli"] == 1120
+    assert extracted["fields"]["ground_max_horizontal_velocity"]["kind"] == "source_f32"
+    assert extracted["fields"]["ground_max_horizontal_velocity"]["raw"] == 2.3499999046325684
+    assert extracted["fields"]["air_drift_max"]["kind"] == "source_f32"
+    assert extracted["fields"]["air_drift_max"]["raw"] == 1.1200000047683716
     assert extracted["fields"]["landingairn_lag"]["ticks"] == 15
     assert extracted["fields"]["landingairf_lag"]["ticks"] == 19
     assert extracted["fields"]["landingairb_lag"]["ticks"] == 18
@@ -327,6 +346,59 @@ def test_extract_captain_ecb_source_from_plca_records_joint_indices_and_animatio
     assert extracted["ecb_source"]["ledge_snap_x_milli"] == 9000
     assert extracted["animation_dependency"]["file"] == "isolated/raw/PlCaAJ.dat"
     assert extracted["animation_dependency"]["status"] == "missing_required_for_per_frame_ecb"
+
+
+def test_extract_captain_hurtbox_inits_from_plca_reads_ftdata_x30():
+    data_block = bytearray(0x340)
+    ftdata_offset = 0x40
+    hurtbox_table_offset = 0x180
+    hurtbox_inits_offset = 0x200
+    data_block[ftdata_offset + 0x30 : ftdata_offset + 0x34] = be32(hurtbox_table_offset)
+    put_i32(data_block, hurtbox_table_offset, 2)
+    data_block[hurtbox_table_offset + 0x04 : hurtbox_table_offset + 0x08] = be32(
+        hurtbox_inits_offset
+    )
+
+    data_block[hurtbox_inits_offset : hurtbox_inits_offset + 0x0C] = (
+        be32(14) + be32(2) + be32(1)
+    )
+    put_vec3(data_block, hurtbox_inits_offset + 0x0C, (1.0, 2.0, -3.0))
+    put_vec3(data_block, hurtbox_inits_offset + 0x18, (4.0, 5.0, 6.0))
+    put_f32(data_block, hurtbox_inits_offset + 0x24, 3.5)
+
+    second = hurtbox_inits_offset + 0x28
+    data_block[second : second + 0x0C] = be32(7) + be32(1) + be32(0)
+    put_vec3(data_block, second + 0x0C, (-1.0, 0.0, 0.25))
+    put_vec3(data_block, second + 0x18, (1.0, 0.0, -0.25))
+    put_f32(data_block, second + 0x24, 2.25)
+
+    dat = make_dat("ftDataCaptain", data_block, ftdata_offset)
+    extracted = extract_captain_hurtbox_inits_from_plca(
+        dat, source_path=Path("isolated/raw/PlCa.dat")
+    )
+
+    assert extracted["source"]["symbol"] == "ftDataCaptain"
+    assert (
+        extracted["source"]["format"]
+        == "HSD DAT, big-endian ftData.x30 hurt capsule init table"
+    )
+    assert extracted["source"]["ftdata_hurtbox_table_offset"] == hurtbox_table_offset
+    assert extracted["source"]["hurtbox_inits_offset"] == hurtbox_inits_offset
+    assert extracted["count"] == 2
+    assert extracted["hurtboxes"][0] == {
+        "id": 0,
+        "bone_idx": 14,
+        "height": 2,
+        "is_grabbable": True,
+        "a_offset_raw": {"x": 1.0, "y": 2.0, "z": -3.0},
+        "a_offset_milli": {"x": 1000, "y": 2000, "z": -3000},
+        "b_offset_raw": {"x": 4.0, "y": 5.0, "z": 6.0},
+        "b_offset_milli": {"x": 4000, "y": 5000, "z": 6000},
+        "scale_raw": 3.5,
+        "scale_milli": 3500,
+    }
+    assert extracted["hurtboxes"][1]["bone_idx"] == 7
+    assert extracted["hurtboxes"][1]["is_grabbable"] is False
 
 
 def test_extract_figatree_summary_reads_nodes_tracks_and_frame_count():
@@ -437,11 +509,11 @@ def test_compute_ecb_from_jobj_pose_matches_mpcoll_jobj_reduction():
     pose = {
         "joints": [
             {"world_position_raw": {"x": 0.0, "y": 0.0, "z": 0.0}},
-            {"world_position_raw": {"x": 3.0, "y": 10.0, "z": 0.0}},
-            {"world_position_raw": {"x": -5.0, "y": 4.0, "z": 0.0}},
-            {"world_position_raw": {"x": 2.0, "y": 6.0, "z": 0.0}},
-            {"world_position_raw": {"x": -1.0, "y": 8.0, "z": 0.0}},
-            {"world_position_raw": {"x": 1.0, "y": 2.0, "z": 0.0}},
+            {"world_position_raw": {"x": 30.0, "y": 10.0, "z": 3.0}},
+            {"world_position_raw": {"x": -50.0, "y": 4.0, "z": -5.0}},
+            {"world_position_raw": {"x": 20.0, "y": 6.0, "z": 2.0}},
+            {"world_position_raw": {"x": -10.0, "y": 8.0, "z": -1.0}},
+            {"world_position_raw": {"x": 10.0, "y": 2.0, "z": 1.0}},
         ]
     }
     ecb_source = {
@@ -455,6 +527,10 @@ def test_compute_ecb_from_jobj_pose_matches_mpcoll_jobj_reduction():
     assert ecb["bottom"] == {"x": 0.0, "y": 0.0}
     assert ecb["right"] == {"x": 4.0, "y": 5.25}
     assert ecb["left"] == {"x": -4.0, "y": 5.25}
+    assert ecb["source_points"][1] == {"x": 30.0, "y": 10.0, "z": 3.0}
+    assert "render_points" not in ecb
+    assert ecb["source_render_transform"] == "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
+    assert ecb["flatten_after_render"] == "right_facing_melee_xy"
     assert ecb["bottom_milli"] == {"x": 0, "y": 0}
 
 
@@ -490,6 +566,182 @@ def test_extract_captain_action_ecb_samples_uses_figatree_skeleton_and_source_jo
     assert samples["actions"][0]["frames"][5]["bottom_milli"] == {"x": 0, "y": 10000}
     assert samples["actions"][0]["frames"][5]["top_milli"] == {"x": 0, "y": 12000}
     assert samples["actions"][0]["frames"][5]["source_joint_indices"] == [0, 1, 0, 1, 0, 1]
+    assert "source_points" in samples["actions"][0]["frames"][5]
+    assert "render_points" not in samples["actions"][0]["frames"][5]
+
+
+def test_sample_hurtboxes_from_pose_renders_right_facing_before_flattening_view_z():
+    pose = {
+        "joints": [
+            {
+                "world_matrix": [
+                    [0.0, -1.0, 0.0, 10.0],
+                    [1.0, 0.0, 0.0, 20.0],
+                    [0.0, 0.0, 1.0, 30.0],
+                ],
+                "world_position_raw": {"x": 10.0, "y": 20.0, "z": 30.0},
+            }
+        ]
+    }
+    hurtbox_inits = {
+        "hurtboxes": [
+            {
+                "id": 0,
+                "bone_idx": 0,
+                "height": 2,
+                "is_grabbable": True,
+                "a_offset_raw": {"x": 1.0, "y": 0.0, "z": 2.0},
+                "b_offset_raw": {"x": 0.0, "y": 3.0, "z": -1.0},
+                "scale_raw": 2.5,
+            }
+        ]
+    }
+
+    hurtboxes = sample_hurtboxes_from_pose(pose, hurtbox_inits)
+
+    assert hurtboxes[0]["source_a"] == {"x": 10.0, "y": 21.0, "z": 32.0}
+    assert hurtboxes[0]["source_b"] == {"x": 7.0, "y": 20.0, "z": 29.0}
+    assert hurtboxes[0]["a"] == {"x": 32.0, "y": 21.0, "z": 0.0}
+    assert hurtboxes[0]["b"] == {"x": 29.0, "y": 20.0, "z": 0.0}
+    assert hurtboxes[0]["radius"] == 2.5
+    assert hurtboxes[0]["scale"] == 2.5
+    assert hurtboxes[0]["state"] == "HurtCapsule_Enabled"
+    assert "source_a_pos" not in hurtboxes[0]
+    assert "source_b_pos" not in hurtboxes[0]
+    assert "a_pos" not in hurtboxes[0]
+    assert "b_pos" not in hurtboxes[0]
+    assert "source_render_endpoints" not in hurtboxes[0]
+
+
+def test_extract_captain_action_hurtbox_samples_uses_figatree_skeleton_and_static_inits():
+    chunk = make_sampled_figatree_chunk()
+    data_block = bytearray(0x100)
+    root_offset = 0x20
+    child_offset = 0x60
+    put_joint(data_block, root_offset, flags=0, child=child_offset, position=(1.0, 0.0, 0.0))
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 2.0, 0.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+    action_table = {
+        "actions": [
+            {
+                "action_state_id": 44,
+                "name": "PlyCaptain5K_Share_ACTION_Sampled_figatree",
+                "figatree_archive_offset": 0,
+                "figatree_archive_size": len(chunk),
+                "figatree": {"frames_ticks": 12},
+            }
+        ]
+    }
+    hurtbox_inits = {
+        "hurtboxes": [
+            {
+                "id": 0,
+                "bone_idx": 0,
+                "height": 1,
+                "is_grabbable": True,
+                "a_offset_raw": {"x": 0.0, "y": 0.0, "z": 1.0},
+                "b_offset_raw": {"x": 0.0, "y": 1.0, "z": -1.0},
+                "scale_raw": 2.25,
+            }
+        ]
+    }
+
+    samples = extract_captain_action_hurtbox_samples(
+        chunk, action_table, skeleton, hurtbox_inits, action_state_ids=(44,)
+    )
+
+    action = samples["actions"][0]
+    metadata = samples["sample_metadata"]
+    assert action["action_state_id"] == 44
+    assert metadata["source"] == "ftData.x30 + PlCaAJ FigaTree + PlCaNr JObj skeleton"
+    assert metadata["source_render_endpoints"] == "HurtCapsule.a_pos -> HurtCapsule.b_pos"
+    assert metadata["source_render_radius"] == "HurtCapsule.scale"
+    assert metadata["source_render_transform"] == "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
+    assert metadata["flatten_after_render"] == "right_facing_melee_xy"
+    assert metadata["source_init_handler"] == "ftColl_8007B3A0/ftColl_8007B4E0 ftData.x30"
+    assert metadata["source_update_handler"] == "lbColl_800083C4/lbColl_8000A244/lbColl_8000A584"
+    assert (
+        metadata["source_draw_handler"]
+        == "ftDrawCommon_800805C8 -> lbColl_8000A244/lbColl_8000A584 -> lbColl_DrawHitResult"
+    )
+    assert metadata["source_color_table"] == "lbColl_803B9928[hurt->state]"
+    assert metadata["source_skip_update_pos_after_transform"] is True
+    assert (
+        metadata["source_z_policy"]
+        == "preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null"
+    )
+    assert action["frames"][0]["frame"] == 1
+    assert action["frames"][5]["frame"] == 6
+    assert action["frames"][5]["pose"]["joints"][0]["world_matrix"] == [
+        [1.0, 0.0, 0.0, 5.0],
+        [0.0, 1.0, 0.0, 10.0],
+        [0.0, 0.0, 1.0, 0.0],
+    ]
+    assert set(action["frames"][5]["pose"]["joints"][0]) == {"index", "world_matrix"}
+    hurtbox = action["frames"][5]["hurtboxes"][0]
+    assert "source" not in hurtbox
+    assert hurtbox["source_a"]["z"] == 1.0
+    assert hurtbox["a"]["z"] == 0.0
+    assert hurtbox["source_b"]["z"] == -1.0
+    assert hurtbox["b"]["z"] == 0.0
+
+
+def test_extract_captain_action_hurtbox_samples_keeps_action_hitbox_pose_bones():
+    chunk = make_sampled_figatree_chunk()
+    data_block = bytearray(0x100)
+    root_offset = 0x20
+    child_offset = 0x60
+    put_joint(data_block, root_offset, flags=0, child=child_offset, position=(1.0, 0.0, 0.0))
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 2.0, 0.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+    action_table = {
+        "actions": [
+            {
+                "action_state_id": 44,
+                "name": "PlyCaptain5K_Share_ACTION_Sampled_figatree",
+                "figatree_archive_offset": 0,
+                "figatree_archive_size": len(chunk),
+                "figatree": {"frames_ticks": 12},
+                "subaction_script_offset": 0,
+            }
+        ]
+    }
+    hurtbox_inits = {
+        "hurtboxes": [
+            {
+                "id": 0,
+                "bone_idx": 0,
+                "height": 1,
+                "is_grabbable": True,
+                "a_offset_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "b_offset_raw": {"x": 0.0, "y": 1.0, "z": 0.0},
+                "scale_raw": 2.25,
+            }
+        ]
+    }
+    script_words = [hitbox_word0(bone=1), 0, 0, 0, 0, 0]
+    script_bytes = b"\0" * 0x20 + b"".join(be32(word) for word in script_words)
+
+    samples = extract_captain_action_hurtbox_samples(
+        chunk,
+        action_table,
+        skeleton,
+        hurtbox_inits,
+        action_state_ids=(44,),
+        action_script_bytes=script_bytes,
+    )
+
+    joint_indices = {
+        joint["index"] for joint in samples["actions"][0]["frames"][0]["pose"]["joints"]
+    }
+    assert extract_action_script_hitbox_bone_indices(script_bytes, 0x20) == {1}
+    assert joint_indices == {0, 1}
 
 
 def test_extract_captain_costume_skeleton_from_plcanr_walks_joint_tree_preorder():
@@ -628,6 +880,25 @@ def test_extract_captain_dash_script_cmd_var0_run_gate_from_real_resources():
     assert dash["cmd_var_events"] == [
         {"frame": 0, "cmd_var": 0, "value": 0, "word_offset": 5},
         {"frame": 16, "cmd_var": 0, "value": 1, "word_offset": 13},
+    ]
+
+
+def test_extract_captain_escape_air_script_skip_decay_gate_from_real_resources():
+    plca = (PROJECT_ROOT / "resources/melee/raw/PlCa.dat").read_bytes()
+    plcaaj = (PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat").read_bytes()
+
+    extracted = extract_captain_action_animation_table(
+        plca,
+        PROJECT_ROOT / "resources/melee/raw/PlCa.dat",
+        plcaaj,
+        PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat",
+    )
+    escape_air = extracted["actions"][44]
+
+    assert escape_air["figatree_root"] == "PlyCaptain5K_Share_ACTION_EscapeAir_figatree"
+    assert escape_air["figatree"]["frames_ticks"] == 50
+    assert escape_air["cmd_var_events"] == [
+        {"frame": 30, "cmd_var": 0, "value": 1, "word_offset": 7},
     ]
 
 

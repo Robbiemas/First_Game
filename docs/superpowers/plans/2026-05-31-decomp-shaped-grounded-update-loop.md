@@ -64,7 +64,7 @@ fn dash_entry_uses_source_xe8_staging_before_next_dash_phys() {
     assert_eq!(world.players()[0].position.x, start_x);
     assert_eq!(
         world.players()[0].velocity.x,
-        world.players()[0].profile.initial_dash_speed_per_tick
+        source_units_to_milli(world.players()[0].profile.dash_initial_velocity)
     );
     assert_eq!(
         world.players()[0].dash_entry_velocity_delta,
@@ -79,7 +79,8 @@ fn dash_entry_uses_source_xe8_staging_before_next_dash_phys() {
         "the next frame moves using committed gr_vel"
     );
     assert!(
-        world.players()[0].velocity.x > world.players()[0].profile.initial_dash_speed_per_tick,
+        world.players()[0].velocity.x
+            > source_units_to_milli(world.players()[0].profile.dash_initial_velocity),
         "ordinary Dash_Phys live-stick acceleration runs after xE8 entry staging"
     );
 }

@@ -50,8 +50,10 @@ def test_global_value_sheet_groups_common_movement_fields():
     assert fields["dash_x"]["offset_hex"] == "0x3c"
     assert fields["dash_x"]["converted_value"] == 102
     assert fields["dash_tap_window"]["converted_value"] == 2
-    assert fields["run_accel_taper_milli"]["source_name"] == "x5C"
-    assert fields["run_ground_friction_multiplier_milli"]["source_name"] == "x60_someFrictionMul"
+    assert fields["run_accel_taper"]["source_name"] == "x5C"
+    assert fields["run_accel_taper"]["kind"] == "source_f32"
+    assert fields["run_ground_friction_multiplier"]["source_name"] == "x60_someFrictionMul"
+    assert fields["run_ground_friction_multiplier"]["kind"] == "source_f32"
 
 
 def test_character_value_sheet_groups_falcon_locomotion_fields():
@@ -62,11 +64,11 @@ def test_character_value_sheet_groups_falcon_locomotion_fields():
     assert sheet["character_id"] == "captain_falcon"
     fields = {field["rust_name"]: field for category in sheet["categories"] for field in category["fields"]}
 
-    assert fields["dash_initial_velocity"]["converted_value"] == 2000
-    assert fields["dash_run_acceleration_a"]["converted_value"] == 150
-    assert fields["dash_run_terminal_velocity"]["converted_value"] == 2300
-    assert fields["traction_per_tick"]["converted_value"] == 80
-    assert fields["grav"]["converted_value"] == 130
+    assert fields["dash_initial_velocity"]["converted_value"] == 2.0
+    assert fields["dash_run_acceleration_a"]["converted_value"] == 0.15000000596046448
+    assert fields["dash_run_terminal_velocity"]["converted_value"] == 2.299999952316284
+    assert fields["ground_friction"]["converted_value"] == 0.07999999821186066
+    assert fields["grav"]["converted_value"] == 0.12999999523162842
 
 
 def test_generate_value_sheets_writes_stable_json_files(tmp_path):
@@ -166,7 +168,7 @@ GLOBAL_CATEGORIES = {
         "escapeair_deadzone_y",
         "escapeair_iasa_timer_ticks",
         "escapeair_force",
-        "escapeair_decay_milli",
+        "escapeair_decay",
         "escapeair_landing_lag_ticks",
     ],
 }
@@ -179,7 +181,7 @@ CHARACTER_CATEGORIES = {
         "slow_walk_max_velocity",
         "mid_walk_threshold",
         "fast_walk_threshold",
-        "traction_per_tick",
+        "ground_friction",
         "dash_run_terminal_velocity",
         "run_animation_scaling",
         "max_run_brake_frames",
@@ -390,7 +392,7 @@ def test_graph_validation_accepts_ledger_reference_fields():
                 "status": "aligned",
                 "source_refs": [{"label": "source", "path": "src/melee/ft/chara/ftCommon/ftCo_Wait.c"}],
                 "rust_refs": [{"label": "test", "path": "crates/mole_core/tests/core_contract.rs"}],
-                "value_refs": ["captain_falcon_values.walk_and_run.traction_per_tick"],
+                "value_refs": ["captain_falcon_values.walk_and_run.ground_friction"],
                 "physics": ["ground friction"],
                 "known_gaps": [],
             }

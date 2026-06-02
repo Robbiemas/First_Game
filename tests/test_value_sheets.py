@@ -28,13 +28,24 @@ def test_global_value_sheet_groups_common_movement_fields():
     assert fields["turn_run_x"]["offset_hex"] == "0x38"
     assert fields["turn_run_x"]["converted_value"] == -48
     assert fields["dash_tap_window"]["converted_value"] == 2
-    assert fields["run_accel_taper_milli"]["source_name"] == "x5C"
-    assert fields["run_ground_friction_multiplier_milli"]["source_name"] == "x60_someFrictionMul"
-    assert fields["run_brake_animation_pause_velocity_milli"]["source_name"] == "x42C"
-    assert fields["fall_animation_drift_threshold_milli"]["source_name"] == "x444"
-    assert fields["fall_animation_drift_threshold_milli"]["converted_value"] == 100
-    assert fields["fall_animation_blend_milli"]["source_name"] == "x448"
-    assert fields["fall_animation_blend_milli"]["converted_value"] == 500
+    assert fields["run_accel_taper"]["source_name"] == "x5C"
+    assert fields["run_accel_taper"]["kind"] == "source_f32"
+    assert fields["run_accel_taper"]["comparison_value_kind"] == "source_f32"
+    assert fields["run_accel_taper"]["converted_value"] == 0.4000000059604645
+    assert fields["run_ground_friction_multiplier"]["source_name"] == "x60_someFrictionMul"
+    assert fields["run_ground_friction_multiplier"]["kind"] == "source_f32"
+    assert fields["run_ground_friction_multiplier"]["comparison_value_kind"] == "source_f32"
+    assert fields["run_ground_friction_multiplier"]["converted_value"] == 1.0
+    assert fields["run_brake_animation_pause_velocity"]["source_name"] == "x42C"
+    assert fields["run_brake_animation_pause_velocity"]["kind"] == "source_f32"
+    assert fields["run_brake_animation_pause_velocity"]["comparison_value_kind"] == "source_f32"
+    assert fields["run_brake_animation_pause_velocity"]["converted_value"] == 0.0
+    assert fields["fall_animation_drift_threshold"]["source_name"] == "x444"
+    assert fields["fall_animation_drift_threshold"]["kind"] == "source_f32"
+    assert fields["fall_animation_drift_threshold"]["converted_value"] == 0.10000000149011612
+    assert fields["fall_animation_blend"]["source_name"] == "x448"
+    assert fields["fall_animation_blend"]["kind"] == "source_f32"
+    assert fields["fall_animation_blend"]["converted_value"] == 0.5
 
 
 def test_character_value_sheet_groups_falcon_locomotion_fields():
@@ -45,15 +56,19 @@ def test_character_value_sheet_groups_falcon_locomotion_fields():
     assert sheet["character_id"] == "captain_falcon"
     fields = {field["rust_name"]: field for category in sheet["categories"] for field in category["fields"]}
 
-    assert fields["dash_initial_velocity"]["converted_value"] == 2000
+    assert fields["dash_initial_velocity"]["kind"] == "source_f32"
+    assert fields["dash_initial_velocity"]["comparison_value_kind"] == "source_f32"
+    assert fields["dash_initial_velocity"]["converted_value"] == 2.0
     assert fields["dash_run_acceleration_a"]["kind"] == "source_f32"
     assert fields["dash_run_acceleration_a"]["comparison_value_kind"] == "source_f32"
     assert fields["dash_run_acceleration_a"]["converted_value"] == 0.15000000596046448
     assert fields["dash_run_terminal_velocity"]["kind"] == "source_f32"
     assert fields["dash_run_terminal_velocity"]["comparison_value_kind"] == "source_f32"
     assert fields["dash_run_terminal_velocity"]["converted_value"] == 2.299999952316284
-    assert fields["traction_per_tick"]["converted_value"] == 80
-    assert fields["grav"]["converted_value"] == 130
+    assert fields["ground_friction"]["kind"] == "source_f32"
+    assert fields["ground_friction"]["converted_value"] == 0.07999999821186066
+    assert fields["grav"]["kind"] == "source_f32"
+    assert fields["grav"]["converted_value"] == 0.12999999523162842
     assert fields["landingairn_lag"]["converted_value"] == 15
     assert fields["landingairf_lag"]["converted_value"] == 19
     assert fields["landingairb_lag"]["converted_value"] == 18

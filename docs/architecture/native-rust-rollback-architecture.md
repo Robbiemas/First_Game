@@ -571,6 +571,14 @@ Do not use one giant "choose best action" resolver. Each state owns an ordered
 transition function. This is how we prevent accidental same-frame overwrites and
 patch stacks.
 
+When the decomp separates `Anim` and `IASA`, keep those responsibilities
+separate in Rust. `IASA` callbacks are opportunistic interrupt tables gated by
+state-local flags and animation frames; they are not the generic action-end
+fallback. If a source `Anim` callback exits through `ft_8008A2BC`, the Rust state
+must model that no-frames-remaining route to `Wait` separately from any IASA
+transition. Empty IASA callbacks, such as `ftCo_LandingAir_IASA`, should stay
+empty instead of borrowing another state's interrupt list.
+
 `KneeBend` takeoff is a concrete example of the required callback ordering.
 `ftCo_KneeBend_Anim` may enter `JumpF`/`JumpB` on the same 60 Hz tick; the new
 airborne state's IASA callback can then accept fresh airborne actions such as

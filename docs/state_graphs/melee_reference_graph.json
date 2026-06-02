@@ -53,7 +53,7 @@
       ],
       "value_refs": [
         "global_common_values.entry_and_respawn.entry_start_ticks",
-        "global_common_values.entry_and_respawn.entry_initial_scale_y_milli"
+        "global_common_values.entry_and_respawn.entry_initial_scale_y"
       ]
     },
     {
@@ -167,7 +167,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Standing/smash turn spine. Turn IASA temporarily flips facing for early action checks, replays x1C latched A/B on the just-turned frame, arms dash-out through fn_800C9C2C, and can be entered by an earlier state input callback before same-frame Turn_Phys.",
+      "notes": "Standing/smash turn spine. Turn IASA temporarily flips facing for early action checks, replays x1C latched A/B on the just-turned frame, arms dash-out through fn_800C9C2C, and can be entered by an earlier state input callback before same-frame Turn_Phys. Slippi post/pre timing exposes basic standing-turn dash-out one exported tick after the ordinary animation flip, while Smash Turn and source-hooked dashback can still dash out on the flip tick.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -274,7 +274,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Shield startup before steady Guard."
+      "notes": "Shield startup before steady Guard. GuardOn_Phys calls ft_80084F3C while shield is held; Captain Falcon's extracted action duration presents 8 visible startup frames before steady Guard."
     },
     {
       "id": "KneeBend",
@@ -378,7 +378,7 @@
         3
       ],
       "status": "reference",
-      "notes": "Run turnaround entered through PlCo x38 with old-facing accel_mul persistence. TurnRun_Anim uses cmd_vars[1] to pause at the action-script gate until velocity crosses, then completion calls fn_800CA644 to enter Run or fallback.",
+      "notes": "Run turnaround entered through PlCo x38 with old-facing accel_mul persistence. TurnRun_Anim uses cmd_vars[1] to pause once at the action-script gate until velocity crosses, then resumes animation while holding that script frame for one exported tick. Completion calls fn_800CA644 to enter Run or fallback, and replay timing shows that completion decision is made from the previous visible TurnRun frame before current-frame Run IASA/Phys applies.",
       "source_refs": [
         {
           "label": "Melee TurnRun source",
@@ -577,7 +577,7 @@
         "global_common_values.defensive_movement.escapeair_deadzone_x",
         "global_common_values.defensive_movement.escapeair_deadzone_y",
         "global_common_values.defensive_movement.escapeair_force",
-        "global_common_values.defensive_movement.escapeair_decay_milli",
+        "global_common_values.defensive_movement.escapeair_decay",
         "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
       ]
     },
@@ -619,7 +619,7 @@
         7
       ],
       "status": "reference",
-      "notes": "General landing state."
+      "notes": "General landing state. ftCo_Landing_IASA owns optional post-lag grounded interrupts when allow_interrupt is true; ftCo_Landing_Anim separately exits through ft_8008A2BC to Wait when the animation has no frames remaining."
     },
     {
       "id": "LandingFallSpecial",
@@ -679,7 +679,7 @@
         8
       ],
       "status": "reference",
-      "notes": "Neutral aerial landing state."
+      "notes": "Neutral aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
     },
     {
       "id": "LandingAirF",
@@ -689,7 +689,7 @@
         8
       ],
       "status": "reference",
-      "notes": "Forward aerial landing state."
+      "notes": "Forward aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
     },
     {
       "id": "LandingAirB",
@@ -699,7 +699,7 @@
         8
       ],
       "status": "reference",
-      "notes": "Back aerial landing state."
+      "notes": "Back aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
     },
     {
       "id": "LandingAirHi",
@@ -709,7 +709,7 @@
         8
       ],
       "status": "reference",
-      "notes": "Up aerial landing state."
+      "notes": "Up aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
     },
     {
       "id": "LandingAirLw",
@@ -719,7 +719,7 @@
         8
       ],
       "status": "reference",
-      "notes": "Down aerial landing state."
+      "notes": "Down aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
     }
   ],
   "edges": [
@@ -1070,7 +1070,7 @@
       "from": "TurnRun",
       "to": "Run",
       "input": "TurnRun animation completes and fn_800CA644 sees same-direction run input after facing flip",
-      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] one-shot pause/resume and one exported resume-hold tick",
       "status": "reference",
       "source_refs": [
         {
@@ -1084,13 +1084,13 @@
           "function": "actions[11].cmd_var_events"
         }
       ],
-      "notes": "TurnRun_Anim completion calls fn_800CA644; this is not a direct velocity-crossing transition."
+      "notes": "TurnRun_Anim completion calls fn_800CA644; this is not a direct velocity-crossing transition. The Run/fallback decision is latched from the previous visible TurnRun frame, then current-frame Run IASA/Phys can apply after ftCo_Run_Enter seeds x430."
     },
     {
       "from": "TurnRun",
       "to": "Wait",
       "input": "TurnRun animation completes without same-direction run input",
-      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] one-shot pause/resume and one exported resume-hold tick",
       "status": "reference",
       "notes": "Fallback is completion-gated by the TurnRun animation callback."
     },
@@ -1133,8 +1133,9 @@
       "from": "GuardOn",
       "to": "Guard",
       "input": "continue holding shield",
-      "frames": "after GuardOn startup; local reference 4f",
-      "status": "reference"
+      "frames": "after Falcon 8 visible GuardOn startup frames",
+      "status": "reference",
+      "notes": "GuardOn_Anim increments mv.co.guard.x0 until the extracted startup duration resolves into steady Guard."
     },
     {
       "from": "GuardOn",
@@ -1411,7 +1412,8 @@
       "to": "Wait",
       "input": "landing animation completes",
       "frames": "state-local duration",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_Landing_Anim calls ft_8008A2BC when ftAnim_IsFramesRemaining is false; this is independent from ftCo_Landing_IASA."
     },
     {
       "from": "LandingFallSpecial",
@@ -1426,35 +1428,40 @@
       "to": "Wait",
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the Wait exit."
     },
     {
       "from": "LandingAirF",
       "to": "Wait",
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the Wait exit."
     },
     {
       "from": "LandingAirB",
       "to": "Wait",
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the Wait exit."
     },
     {
       "from": "LandingAirHi",
       "to": "Wait",
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the Wait exit."
     },
     {
       "from": "LandingAirLw",
       "to": "Wait",
       "input": "aerial landing lag completes",
       "frames": "aerial landing lag window",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the Wait exit."
     },
     {
       "from": "RunBrake",

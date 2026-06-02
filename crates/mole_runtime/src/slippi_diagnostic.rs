@@ -4,8 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use mole_core::{
-    step_world, Frame, MeleeInputTimers, MotionState, PlayerInput, PlayerState, Vec2, World,
-    PLAYER_COUNT,
+    milli_to_source_units, step_world, Frame, MeleeInputTimers, MotionState, PlayerInput,
+    PlayerState, Vec2, World, PLAYER_COUNT,
 };
 use serde::Deserialize;
 
@@ -137,6 +137,7 @@ pub struct SlippiCoreTraceRow {
     pub expected_slippi_state_id: u16,
     pub expected_motion_state: Option<MotionState>,
     pub actual_motion_state: MotionState,
+    pub actual_motion_frame: u8,
     pub expected_position: Vec2,
     pub actual_position: Vec2,
     pub expected_ground_velocity_x: i32,
@@ -374,8 +375,8 @@ impl SlippiCoreTrace {
             self.config.source_frame_start, self.config.source_frame_end
         ));
         lines.push(String::new());
-        lines.push("| Core | Source | Player | Stick X | Stick Y | Buttons | L | R | UCF DB | Expected | Actual | Exp X | Act X | dX | Exp Y | Act Y | dY | Exp Gx | Exp Ax | Act Vx | Exp Vy | Act Vy |".to_string());
-        lines.push("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |".to_string());
+        lines.push("| Core | Source | Player | Stick X | Stick Y | Buttons | L | R | UCF DB | Expected | Actual | Actual Frame | Exp X | Act X | dX | Exp Y | Act Y | dY | Exp Gx | Exp Ax | Act Vx | Exp Vy | Act Vy |".to_string());
+        lines.push("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |".to_string());
         for row in &self.rows {
             let expected_name = row
                 .expected_motion_state
@@ -384,7 +385,7 @@ impl SlippiCoreTrace {
                     slippi_action_state_name(row.expected_slippi_state_id).to_string()
                 });
             lines.push(format!(
-                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {:?} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+                "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {:?} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
                 row.core_frame.0,
                 row.source_frame,
                 row.player_index,
@@ -397,6 +398,7 @@ impl SlippiCoreTrace {
                 expected_name,
                 row.expected_slippi_state_id,
                 row.actual_motion_state,
+                row.actual_motion_frame,
                 row.expected_position.x,
                 row.actual_position.x,
                 row.actual_position.x - row.expected_position.x,
@@ -790,6 +792,7 @@ pub fn trace_slippi_export_from_match_start_with_core(
             expected_slippi_state_id: post.action_state_id,
             expected_motion_state: slippi_action_state_to_motion(post.action_state_id),
             actual_motion_state: player.motion_state,
+            actual_motion_frame: player.state_frame,
             expected_position,
             actual_position: player.position,
             expected_ground_velocity_x,
@@ -938,7 +941,7 @@ fn player_state_from_slippi_pre(
                 x: horizontal,
                 y: vertical,
             };
-            player.ground_velocity_x = ground_x;
+            player.ground_velocity_x = milli_to_source_units(ground_x);
         }
         player.motion_frame = rounded_u8(post.action_state_counter);
     }

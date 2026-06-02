@@ -73,7 +73,7 @@
         -2
       ],
       "status": "partial",
-      "notes": "Timer schedule follows x6BC and the source same-frame decrement from Entry_Anim. ECB coverage maps EntryStart through ftCo_SM_EntryStart/action-table slot 238. Visual/accessory platform interpolation is not yet authoritative.",
+      "notes": "Timer schedule follows x6BC and the source same-frame decrement from Entry_Anim. ECB coverage maps EntryStart through ftCo_SM_EntryStart/action-table slot 238. Runtime render cues now expose the Entry accessory platform created by ftCo_800C6408 and updated through EntryStart/EntryEnd, without adding it to the permanent Battlefield StageProfile surfaces.",
       "source_refs": [
         {
           "label": "Melee EntryStart source",
@@ -86,14 +86,19 @@
           "label": "Rust EntryStart simulation",
           "path": "crates/mole_core/src/sim.rs",
           "function": "enter_entry_start / advance_entry_start"
+        },
+        {
+          "label": "Runtime Entry platform cue",
+          "path": "crates/mole_runtime/src/lib.rs",
+          "function": "RenderScene::from_frame / entry_platform"
         }
       ],
       "value_refs": [
         "global_common_values.entry_and_respawn.entry_start_ticks",
-        "global_common_values.entry_and_respawn.entry_initial_scale_y_milli"
+        "global_common_values.entry_and_respawn.entry_initial_scale_y"
       ],
       "known_gaps": [
-        "Y interpolation and accessory collision offset remain pending."
+        "Full Melee accessory model scale and exact platform asset rendering remain pending."
       ]
     },
     {
@@ -104,7 +109,7 @@
         -3
       ],
       "status": "partial",
-      "notes": "Slippi/Battlefield match-start constructor now spawns players on neutral spawn points in ftCo_MS_Entry with Player_GetUnk4C-style 5-frame stagger. Entry platform Y interpolation is still pending co_attrs/trophy-scale extraction.",
+      "notes": "Slippi/Battlefield match-start constructor now spawns players on neutral spawn points in ftCo_MS_Entry with Player_GetUnk4C-style 5-frame stagger. SDL play mode now starts from this constructor instead of the free-standing debug world.",
       "source_refs": [
         {
           "label": "Melee Entry source",
@@ -137,13 +142,18 @@
           "label": "Entry spawn/timer contract tests",
           "path": "crates/mole_core/tests/core_contract.rs",
           "function": "slippi_battlefield_match_start_uses_entry_spawns_and_source_stagger"
+        },
+        {
+          "label": "Runtime default play-world contract",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "default_play_world_starts_from_source_shaped_entry_spawns"
         }
       ],
       "value_refs": [
         "global_common_values.entry_and_respawn.entry_start_ticks"
       ],
       "known_gaps": [
-        "EntryStart/EntryEnd vertical platform interpolation still needs decomp-shaped model scale/accessory extraction."
+        "Exact scene/UI countdown asset timing is still a separate scene-system parity target."
       ]
     },
     {
@@ -175,9 +185,9 @@
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.walk_x",
-        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
-        "captain_falcon_values.walk_and_run.traction_per_tick"
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
+        "captain_falcon_values.walk_and_run.ground_friction"
       ],
       "known_gaps": []
     },
@@ -215,10 +225,10 @@
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.walk_x",
-        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
-        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_accel_taper",
+        "global_common_values.grounded_locomotion.animation_velocity_scale",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -262,10 +272,10 @@
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.walk_x",
-        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
-        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_accel_taper",
+        "global_common_values.grounded_locomotion.animation_velocity_scale",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -309,10 +319,10 @@
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.walk_x",
-        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio_milli",
-        "global_common_values.grounded_locomotion.walk_accel_taper_milli",
-        "global_common_values.grounded_locomotion.animation_velocity_scale_milli",
+        "global_common_values.grounded_locomotion.walk_middle_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_fast_velocity_ratio",
+        "global_common_values.grounded_locomotion.walk_accel_taper",
+        "global_common_values.grounded_locomotion.animation_velocity_scale",
         "captain_falcon_values.walk_and_run.walk_initial_velocity",
         "captain_falcon_values.walk_and_run.walk_accel",
         "captain_falcon_values.walk_and_run.walk_max_vel",
@@ -331,7 +341,7 @@
         1
       ],
       "status": "partial",
-      "notes": "Rust has a standing turn state, source-shaped temporary-facing action checks, A/B latch fields, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn, and runtime trace fields for hidden Turn vars. Exact source helper identity and Turn collision still need deeper coverage.",
+      "notes": "Rust has a standing turn state, source-shaped temporary-facing action checks, A/B latch fields, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn, and runtime trace fields for hidden Turn vars. Basic standing-turn dash-out is delayed one exported tick after the profile flip frame, matching the Slippi post/pre boundary, while Smash Turn and the UCF source hook retain their same-frame dash-out behavior. Exact source helper identity and Turn collision still need deeper coverage.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -364,7 +374,7 @@
         "global_common_values.grounded_locomotion.turn_x",
         "global_common_values.grounded_locomotion.dash_x",
         "global_common_values.grounded_locomotion.dash_tap_window",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
         "captain_falcon_values.dash_and_turn.frames_to_change_direction_on_standing_turn"
       ],
       "physics": [
@@ -414,7 +424,7 @@
         "global_common_values.grounded_locomotion.dash_early_action_window",
         "global_common_values.grounded_locomotion.dash_defensive_action_window",
         "global_common_values.grounded_locomotion.dash_late_action_window",
-        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
+        "global_common_values.grounded_locomotion.dash_velocity_decay",
         "captain_falcon_values.dash_and_turn.dash_initial_velocity",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_b",
@@ -488,7 +498,7 @@
         1
       ],
       "status": "partial",
-      "notes": "Rust has explicit shield startup; shield hit/setoff and powershield families remain incomplete."
+      "notes": "Rust has explicit shield startup with Falcon's 8 visible GuardOn frames, held-shield ground traction through ft_80084F3C, and same-frame Dash shield entry that preserves x54 decay before GuardOn friction. Shield hit/setoff and powershield families remain incomplete."
     },
     {
       "id": "KneeBend",
@@ -535,9 +545,9 @@
       "value_refs": [
         "global_common_values.grounded_locomotion.turn_run_x",
         "global_common_values.grounded_locomotion.run_x",
-        "global_common_values.grounded_locomotion.run_accel_taper_milli",
-        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
+        "global_common_values.grounded_locomotion.run_accel_taper",
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
         "captain_falcon_values.walk_and_run.dash_run_terminal_velocity",
         "captain_falcon_values.walk_and_run.run_animation_scaling",
         "captain_falcon_values.walk_and_run.ground_max_horizontal_velocity",
@@ -668,11 +678,11 @@
         }
       ],
       "value_refs": [
-        "global_common_values.grounded_locomotion.run_ground_friction_multiplier_milli",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
-        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "global_common_values.grounded_locomotion.run_ground_friction_multiplier",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
+        "captain_falcon_values.walk_and_run.ground_friction",
         "captain_falcon_values.walk_and_run.max_run_brake_frames",
-        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity_milli"
+        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity"
       ],
       "known_gaps": [
         "RunBrake remains partial until every non-locomotion interrupt and animation command path is audited."
@@ -686,7 +696,7 @@
         3
       ],
       "status": "partial",
-      "notes": "Rust preserves old-facing accel_mul behavior and now gates TurnRun completion through the extracted Falcon animation duration and the source cmd_vars[1] pause/resume point before fn_800CA644-style Run handoff. Facing flips only after the source velocity-crossing pause gate resolves.",
+      "notes": "Rust preserves old-facing accel_mul behavior and now gates TurnRun completion through the extracted Falcon animation duration and the source cmd_vars[1] pause/resume point before fn_800CA644-style Run handoff. The action-script cmd_var[1] event fires once, the velocity-crossing resume holds the script frame for one more exported tick, and completion latches the previous visible frame's fn_800CA644 Run decision before current-frame Run IASA/Phys applies under x430.",
       "source_refs": [
         {
           "label": "Melee TurnRun source",
@@ -703,12 +713,12 @@
         {
           "label": "Rust TurnRun simulation",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "MotionState::TurnRun branch / turn_run_anim_tick / apply_turn_run_velocity"
+          "function": "MotionState::TurnRun branch / turn_run_anim_tick / apply_turn_run_velocity / turn_run_completion_pending"
         },
         {
           "label": "TurnRun contract tests",
           "path": "crates/mole_core/tests/core_contract.rs",
-          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate / run_x430_decrements_before_iasa_allows_turnrun_on_boundary_frame"
+          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate / turn_run_resume_from_velocity_crossing_holds_script_frame_one_more_tick / turn_run_completion_uses_previous_frame_run_gate_before_current_input / run_x430_decrements_before_iasa_allows_turnrun_on_boundary_frame"
         }
       ],
       "value_refs": [
@@ -831,7 +841,7 @@
       ],
       "value_refs": [
         "global_common_values.shield_and_defense.guard_reflect_input_window",
-        "global_common_values.grounded_locomotion.dash_velocity_decay_milli"
+        "global_common_values.grounded_locomotion.dash_velocity_decay"
       ],
       "known_gaps": [
         "Shield-hit reflect behavior is still missing."
@@ -926,8 +936,8 @@
         }
       ],
       "value_refs": [
-        "global_common_values.fall_animation_drift_threshold_milli",
-        "global_common_values.fall_animation_blend_milli",
+        "global_common_values.fall_animation_drift_threshold",
+        "global_common_values.fall_animation_blend",
         "captain_falcon_values.air_drift_max"
       ],
       "known_gaps": [
@@ -962,7 +972,7 @@
         5
       ],
       "status": "partial",
-      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity during EscapeAir, ground-to-air ECB bottom locking, generated Falcon action-table ECB samples, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits.",
+      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity before the action-script cmd_var[0] handoff, ground-to-air ECB bottom locking, generated Falcon action-table ECB samples, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits. Falcon action 44 now sources its cmd_var[0] skip-decay point from the extracted action script rather than a common-data placeholder.",
       "source_refs": [
         {
           "label": "Melee ECB JObj source setup",
@@ -998,7 +1008,7 @@
         }
       ],
       "known_gaps": [
-        "The current negative-frame Slippi match-start oracle first diverges at source frame 17, player 2: Melee is LandingFallSpecial on Battlefield top platform while Rust has entered Fall with about +2.112 Melee units of x-position drift. Earlier position history and remaining collision/projection callbacks still need source-shaped parity."
+        "The current Slippi match-start oracle reaches the first attack-like state at source frame 899 before the next state mismatch; early sub-unit position drift from pre-attack movement remains tracked separately from EscapeAir state parity."
       ]
     },
     {
@@ -1083,7 +1093,7 @@
         7
       ],
       "status": "partial",
-      "notes": "Rust has general landing state, but collision and landing-lag details still need parity tuning."
+      "notes": "Rust has general landing state for ordinary airborne contact. Landing_IASA-style interrupts are gated by normal_landing_lag, while neutral/no-input completion exits through the separate Landing_Anim no-frames path to ft_8008A2BC/Wait; held shield does not skip landing or trap the fighter."
     },
     {
       "id": "LandingFallSpecial",
@@ -1093,7 +1103,7 @@
         7
       ],
       "status": "partial",
-      "notes": "Rust preserves EscapeAir/FallSpecial horizontal slide, applies Falcon ground friction as fixed traction toward zero, and returns after common-data landing lag; no Wavedash state exists. ECB coverage maps LandingFallSpecial through its exact ftCo_SM_LandingFallSpecial submotion record, and active ECB/render pose now scales the shared 30-frame Landing figatree across the x344 landing-lag window using the source ftCo_LandingFallSpecial_Enter animation-rate formula. Falcon's DAT points that record at the same landing figatree bytes as ordinary Landing, but the motion-state identity remains distinct.",
+      "notes": "Rust preserves EscapeAir/FallSpecial horizontal slide, applies Falcon ground friction as fixed traction toward zero, supports same-floor edge clamping for source-shaped platform lip behavior, and returns after common-data landing lag; no Wavedash state exists. ECB coverage maps LandingFallSpecial through its exact ftCo_SM_LandingFallSpecial submotion record, and active ECB/render pose now scales the shared 30-frame Landing figatree across the x344 landing-lag window using the source ftCo_LandingFallSpecial_Enter animation-rate formula. Falcon's DAT points that record at the same landing figatree bytes as ordinary Landing, but the motion-state identity remains distinct.",
       "source_refs": [
         {
           "label": "Melee Landing source",
@@ -1276,12 +1286,12 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact neutral-aerial landing state from AttackAirN ground contact, maps generated Falcon action-table ECB samples from action 73, and gates IASA with extracted Falcon landingairn_lag.",
+      "notes": "Rust enters the exact neutral-aerial landing state from AttackAirN ground contact, maps generated Falcon action-table ECB samples from action 73, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairn_lag window.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
-          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag / ftCo_LandingAir_Anim / ftCo_LandingAir_IASA"
         }
       ],
       "rust_refs": [
@@ -1297,7 +1307,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
       ]
     },
     {
@@ -1308,12 +1318,12 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact forward-aerial landing state from AttackAirF ground contact, maps generated Falcon action-table ECB samples from action 74, and gates IASA with extracted Falcon landingairf_lag.",
+      "notes": "Rust enters the exact forward-aerial landing state from AttackAirF ground contact, maps generated Falcon action-table ECB samples from action 74, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairf_lag window.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
-          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag / ftCo_LandingAir_Anim / ftCo_LandingAir_IASA"
         }
       ],
       "rust_refs": [
@@ -1329,7 +1339,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
       ]
     },
     {
@@ -1340,12 +1350,12 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact back-aerial landing state from AttackAirB ground contact, maps generated Falcon action-table ECB samples from action 75, and gates IASA with extracted Falcon landingairb_lag.",
+      "notes": "Rust enters the exact back-aerial landing state from AttackAirB ground contact, maps generated Falcon action-table ECB samples from action 75, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairb_lag window.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
-          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag / ftCo_LandingAir_Anim / ftCo_LandingAir_IASA"
         }
       ],
       "rust_refs": [
@@ -1361,7 +1371,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
       ]
     },
     {
@@ -1372,12 +1382,12 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact up-aerial landing state from AttackAirHi ground contact, maps generated Falcon action-table ECB samples from action 76, and gates IASA with extracted Falcon landingairhi_lag.",
+      "notes": "Rust enters the exact up-aerial landing state from AttackAirHi ground contact, maps generated Falcon action-table ECB samples from action 76, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairhi_lag window.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
-          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag / ftCo_LandingAir_Anim / ftCo_LandingAir_IASA"
         }
       ],
       "rust_refs": [
@@ -1393,7 +1403,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
       ]
     },
     {
@@ -1404,12 +1414,12 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact down-aerial landing state from AttackAirLw ground contact, maps generated Falcon action-table ECB samples from action 77, and gates IASA with extracted Falcon landingairlw_lag.",
+      "notes": "Rust enters the exact down-aerial landing state from AttackAirLw ground contact, maps generated Falcon action-table ECB samples from action 77, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairlw_lag window.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_LandingAir.c",
-          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag"
+          "function": "ftCo_LandingAir_EnterWithLag / ftCo_LandingAir_EnterWithMsidLag / ftCo_LandingAir_Anim / ftCo_LandingAir_IASA"
         }
       ],
       "rust_refs": [
@@ -1425,7 +1435,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and ftAnim_SetAnimRate parity are not modeled yet."
+        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
       ]
     },
     {
@@ -1659,8 +1669,8 @@
       "value_refs": [
         "global_common_values.grounded_locomotion.turn_x",
         "global_common_values.grounded_locomotion.dash_x",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
-        "captain_falcon_values.walk_and_run.traction_per_tick"
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
+        "captain_falcon_values.walk_and_run.ground_friction"
       ],
       "physics": [
         "Wait can carry gr_vel from a previous grounded state",
@@ -1673,9 +1683,9 @@
       "from": "Turn",
       "to": "Dash",
       "input": "outward dash-threshold stick after Turn dash arm; optional UCF dashback amendment can fire on the source Turn hook frame",
-      "frames": "vanilla just-turned frame or UCF source hook frame",
+      "frames": "Smash Turn and UCF source hook are same-frame; basic standing Turn dash-out is visible on the tick after the profile flip frame",
       "status": "aligned",
-      "notes": "Vanilla follows ftCo_Turn_IASA/fn_800C9C2C: fresh outward xsmash arms dash-out and Dash enters on just_turned if the stick is still held. UCF 0.84 dashback remains adapter-owned for the raw two-frame x delta and toggle, then the rollback input amendment applies the source Turn hook without creating a new movement state. Slippi replay export now writes that same adapter-owned bit for UCF-tagged players before the core oracle runs.",
+      "notes": "Vanilla follows ftCo_Turn_IASA/fn_800C9C2C: fresh outward xsmash arms dash-out and Dash enters on just_turned if the stick is still held. Rust preserves same-frame dash-out for Smash Turn and the UCF hook, but delays basic standing-turn dash-out until the exported step after the ordinary animation flip because Slippi post-frame still reports the pre-flip Turn state while next pre-frame sees the new facing. UCF 0.84 dashback remains adapter-owned for the raw two-frame x delta and toggle, then the rollback input amendment applies the source Turn hook without creating a new movement state. Slippi replay export now writes that same adapter-owned bit for UCF-tagged players before the core oracle runs.",
       "source_refs": [
         {
           "label": "Melee Turn dash arm",
@@ -1845,8 +1855,8 @@
       "value_refs": [
         "global_common_values.grounded_locomotion.dash_x",
         "global_common_values.grounded_locomotion.dash_tap_window",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
-        "captain_falcon_values.walk_and_run.traction_per_tick"
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
+        "captain_falcon_values.walk_and_run.ground_friction"
       ],
       "physics": [
         "fresh opposite X tap during Walk",
@@ -1922,7 +1932,7 @@
       ],
       "value_refs": [
         "global_common_values.grounded_locomotion.dash_late_action_window",
-        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
+        "global_common_values.grounded_locomotion.dash_velocity_decay",
         "captain_falcon_values.dash_and_turn.dash_initial_velocity"
       ],
       "physics": [
@@ -1976,9 +1986,9 @@
       "value_refs": [
         "global_common_values.grounded_locomotion.dash_x",
         "global_common_values.grounded_locomotion.dash_tap_window",
-        "global_common_values.grounded_locomotion.dash_velocity_decay_milli",
-        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier_milli",
-        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "global_common_values.grounded_locomotion.dash_velocity_decay",
+        "global_common_values.grounded_locomotion.high_speed_ground_friction_multiplier",
+        "captain_falcon_values.walk_and_run.ground_friction",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_a",
         "captain_falcon_values.dash_and_turn.dash_run_acceleration_b"
       ],
@@ -2057,7 +2067,7 @@
       ],
       "value_refs": [
         "global_common_values.shield_and_defense.guard_reflect_input_window",
-        "global_common_values.grounded_locomotion.dash_velocity_decay_milli"
+        "global_common_values.grounded_locomotion.dash_velocity_decay"
       ],
       "physics": [
         "fresh digital trigger edge",
@@ -2141,9 +2151,9 @@
         }
       ],
       "value_refs": [
-        "captain_falcon_values.walk_and_run.traction_per_tick",
+        "captain_falcon_values.walk_and_run.ground_friction",
         "captain_falcon_values.walk_and_run.max_run_brake_frames",
-        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity_milli"
+        "global_common_values.grounded_locomotion.run_brake_animation_pause_velocity"
       ],
       "physics": [
         "stick leaves same-direction run condition",
@@ -2222,8 +2232,9 @@
       "from": "TurnRun",
       "to": "Run",
       "input": "TurnRun animation completes and fn_800CA644 sees same-direction run input after facing flip",
-      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] pause/resume gate",
+      "frames": "after Falcon 22f TurnRun animation completion, including cmd_vars[1] one-shot pause/resume and one exported resume-hold tick",
       "status": "aligned",
+      "notes": "Rust now latches the fn_800CA644 Run/fallback decision from the previous visible TurnRun frame when the animation reaches its last visible frame. On the next exported tick, a pending Run completion enters Run with x430 and then applies current-frame Run IASA/Phys, matching replay frames where current stick has already reversed.",
       "source_refs": [
         {
           "label": "Melee TurnRun completion",
@@ -2240,12 +2251,12 @@
         {
           "label": "Rust TurnRun completion gate",
           "path": "crates/mole_core/src/sim.rs",
-          "function": "turn_run_anim_tick / enter_run_from_turn_run"
+          "function": "turn_run_anim_tick / turn_run_completion_pending / enter_run_from_turn_run / apply_run_state_inputs"
         },
         {
           "label": "TurnRun completion contract tests",
           "path": "crates/mole_core/tests/core_contract.rs",
-          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate"
+          "function": "turn_run_does_not_enter_run_before_source_animation_completion / turn_run_completion_enters_run_through_source_x58_gate / turn_run_resume_from_velocity_crossing_holds_script_frame_one_more_tick / turn_run_completion_uses_previous_frame_run_gate_before_current_input"
         }
       ],
       "value_refs": [
@@ -2257,9 +2268,9 @@
       ],
       "physics": [
         "cmd_vars[1] pauses animation at frame 9",
-        "animation resumes after velocity-crossing gate",
-        "completion calls fn_800CA644-style same-facing run gate",
-        "Run receives x430 no-interrupt frames"
+        "animation resumes after velocity-crossing gate and holds the same script frame for one exported tick",
+        "completion calls fn_800CA644-style same-facing run gate from the previous visible frame",
+        "Run receives x430 no-interrupt frames and current-frame Run_Phys"
       ],
       "known_gaps": []
     },
@@ -2304,8 +2315,9 @@
       "from": "GuardOn",
       "to": "Guard",
       "input": "continue holding shield",
-      "frames": "after GuardOn startup; local reference 4f",
-      "status": "partial"
+      "frames": "after Falcon 8 visible GuardOn startup frames",
+      "status": "partial",
+      "notes": "Held shield runs GuardOn_Phys/ft_80084F3C ground traction each startup tick before steady Guard."
     },
     {
       "from": "GuardOn",
@@ -2393,6 +2405,41 @@
         "common airborne fall step applies gravity before translation"
       ],
       "known_gaps": []
+    },
+    {
+      "from": "GuardReflect",
+      "to": "Guard",
+      "input": "shield remains held while reflect animation resolves",
+      "frames": "GuardOn animation completion",
+      "status": "partial",
+      "notes": "GuardReflect now mirrors ftCo_GuardReflect_Anim calling ftCo_GuardOn_Anim: while shield remains held and no IASA branch wins, the GuardOn animation duration resolves into normal Guard instead of persisting GuardReflect indefinitely.",
+      "source_refs": [
+        {
+          "label": "Melee GuardReflect animation",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Guard.c",
+          "function": "ftCo_GuardReflect_Anim / ftCo_GuardOn_Anim / ftCo_800928CC"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust GuardReflect held-shield branch",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "MotionState::Guard | MotionState::GuardReflect"
+        },
+        {
+          "label": "GuardReflect completion contract test",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "guard_reflect_resolves_to_guard_through_guard_on_animation_while_shield_held"
+        }
+      ],
+      "value_refs": [],
+      "physics": [
+        "same GuardOn animation completion gate",
+        "held shield remains in normal Guard after the reflect window"
+      ],
+      "known_gaps": [
+        "Reflect hitbox lifetime and shield-hit behavior are still future shield-system work."
+      ]
     },
     {
       "from": "Pass",
@@ -2502,7 +2549,7 @@
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
       "status": "partial",
-      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. The current Slippi oracle reaches this family but first diverges at source frame 17 because Rust's earlier x-position drift carries player 2 off the top platform into Fall."
+      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. Same-floor edge clamping now follows the decomp floor-edge branch closely enough for the replay to advance through the early top-platform airdodge sequence."
     },
     {
       "from": "FallSpecial",
@@ -2516,7 +2563,8 @@
       "to": "Wait",
       "input": "landing animation completes",
       "frames": "state-local duration",
-      "status": "partial"
+      "status": "partial",
+      "notes": "Matches ftCo_Landing_Anim: when ftAnim_IsFramesRemaining is false, ft_8008A2BC routes ordinary fighters to Wait. This is separate from Landing_IASA's optional interrupt table."
     },
     {
       "from": "Landing",
@@ -2548,7 +2596,7 @@
       "input": "neutral-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "State identity, ECB mapping, and Falcon landingairn_lag duration are exact; animation-rate scaling remains pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
     },
     {
       "from": "LandingAirF",
@@ -2556,7 +2604,7 @@
       "input": "forward-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "State identity, ECB mapping, and Falcon landingairf_lag duration are exact; animation-rate scaling remains pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
     },
     {
       "from": "LandingAirB",
@@ -2564,7 +2612,7 @@
       "input": "back-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "State identity, ECB mapping, and Falcon landingairb_lag duration are exact; animation-rate scaling remains pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
     },
     {
       "from": "LandingAirHi",
@@ -2572,7 +2620,7 @@
       "input": "up-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "State identity, ECB mapping, and Falcon landingairhi_lag duration are exact; animation-rate scaling remains pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
     },
     {
       "from": "LandingAirLw",
@@ -2580,7 +2628,7 @@
       "input": "down-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "State identity, ECB mapping, and Falcon landingairlw_lag duration are exact; animation-rate scaling remains pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
     },
     {
       "from": "Fall",

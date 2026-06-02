@@ -28,4 +28,6 @@ pub use state::{
     PlayerRenderSnapshot, PlayerState, Vec2, World, WorldSnapshot, PLAYER_COUNT,
 };
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};
-pub use units::{melee_units, melee_units_f32, MELEE_UNIT_SCALE};
+pub use units::{
+    melee_units, melee_units_f32, milli_to_source_units, source_units_to_milli, MELEE_UNIT_SCALE,
+};

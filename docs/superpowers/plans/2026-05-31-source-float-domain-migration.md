@@ -52,7 +52,7 @@
 - [x] Add a failing test proving full HSD-clamped left stick `-127` produces target velocity `-2.3` and accel `-0.16`, matching `input.lstick.x == -1.0f`.
 - [x] Add a failing test for the Slippi-observed `stick_x == -125` path proving target velocity is `(-125.0 / 127.0) * 2.3` without the old negative-128 denominator.
 - [x] Implement `dash_run_accel_and_target` with `f32` math matching `getAccelAndTarget`.
-- [ ] Keep render/readout compatibility by converting displayed values to the existing visual unit scale only at the boundary.
+- [x] Keep render/readout compatibility by converting displayed values to the existing visual unit scale only at the boundary.
 
 ### Task 3: Hash and Snapshot Float Bits
 
@@ -64,6 +64,7 @@
 - [x] Add `mix_f32` using `value.to_bits()`.
 - [x] Replace checksum mixing for migrated profile/common/player float fields with `mix_f32`.
 - [x] Add a checksum test proving two worlds that differ only by a migrated float field have different checksums.
+- [x] Expose migrated grounded source-float values in runtime/debug traces.
 - [ ] Expose both source-float values and legacy display-scaled values in debug traces where useful.
 
 ### Task 4: Convert Player Movement State Floats
@@ -74,9 +75,11 @@
 - Modify: `crates/mole_runtime/src/readout.rs`
 - Test: `crates/mole_core/tests/core_contract.rs`
 
-- [ ] Convert `PlayerState` source-owned `position`, `velocity`, `ground_velocity_x`, `ground_accel_x`, `ground_accel_x2`, dash entry velocity delta, walk animation velocity, and motion animation rate to `f32`.
+- [x] Convert grounded source-owned `PlayerState` motion fields to `f32`: `ground_velocity_x`, `ground_accel_x`, `ground_accel_x2`, dash entry velocity delta, Dash `x0`, and walk animation velocity.
+- [ ] Convert `PlayerState` source-owned `position`, public `velocity`, and motion animation rate to `f32`.
 - [ ] Keep ECB visualization and stage/image rendering conversions at boundary functions, not in gameplay math.
-- [ ] Add tests for staged dash entry, run acceleration, jump carry, and air drift using source float expected values.
+- [x] Add tests for staged Dash/Run/Walk source-float accumulation and source float expected values around grounded acceleration, jump carry, and checksums.
+- [ ] Add source-float tests for remaining public-air `velocity` paths after those fields migrate.
 - [ ] Update Slippi comparison tolerance/reporting to show float source units and optional display units.
 
 ### Task 5: Convert Common/Profile Movement Scalars
@@ -89,10 +92,15 @@
 - Test: `tests/test_value_sheets.py`
 - Test: `tests/test_parity_diff_report.py`
 
-- [ ] Convert PlCo float ratios/scalars from `_milli` integers to `f32` where the decomp field is float: walk ratios/tapers, dash velocity decay, run friction multiplier, high-speed friction multiplier, EscapeAir force/decay, animation velocity scale, fall animation blend, pass initial velocity, entry scale.
-- [ ] Convert Falcon movement attributes from `_per_tick` milli integers to source `f32` names where decomp values are floats. Partially done for `dash_run_acceleration_a`, `dash_run_acceleration_b`, and `dash_run_terminal_velocity`; broader jump/air/walk fields remain.
+- [x] Convert grounded PlCo float ratios/scalars from `_milli` integers to `f32`: walk ratios/tapers, dash velocity decay, run friction multiplier, high-speed friction multiplier, RunBrake animation pause velocity, and animation velocity scale.
+- [x] Convert remaining PlCo float ratios/scalars from `_milli` integers to `f32` where the decomp field is float: EscapeAir force/decay, fall animation blend, pass initial velocity, entry scale, and related non-grounded scalar fields.
+- [x] Convert Falcon movement attributes from `_per_tick` milli integers to source `f32` names where decomp values are floats.
 - [ ] Preserve discrete frame counts and thresholds as integers.
-- [ ] Regenerate value sheets and parity reports with float bit/value formatting for every migrated field. Done for the migrated dash/run fields.
+- [x] Regenerate value sheets and parity reports with source-float formatting for migrated grounded common-data fields.
+- [x] Regenerate value sheets and parity reports with float bit/value formatting for remaining migrated fields as later slices land.
+
+Completed slice note:
+- The extractor, Rust common/profile structs, tests, value sheets, parity report, and state graph value refs now agree on source `f32` names for exposed Melee float fields. Public position/velocity and some debug display bridges still convert through the existing milli boundary until the next source-position migration slice.
 
 ### Task 6: Re-run Replay Oracle and Continue Bottom-Up Parity
 

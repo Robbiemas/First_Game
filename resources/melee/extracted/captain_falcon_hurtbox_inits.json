@@ -1,0 +1,321 @@
+{
+  "count": 11,
+  "hurtboxes": [
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 1000
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "b_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 4,
+      "height": 1,
+      "id": 0,
+      "is_grabbable": true,
+      "scale_milli": 2400,
+      "scale_raw": 2.4000000953674316
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 700,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.699999988079071,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 0,
+        "y": 1500,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 0.0,
+        "y": 1.5,
+        "z": 0.0
+      },
+      "bone_idx": 19,
+      "height": 1,
+      "id": 1,
+      "is_grabbable": true,
+      "scale_milli": 3300,
+      "scale_raw": 3.299999952316284
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 1200,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 1.2000000476837158,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 0,
+        "y": 1200,
+        "z": 500
+      },
+      "b_offset_raw": {
+        "x": 0.0,
+        "y": 1.2000000476837158,
+        "z": 0.5
+      },
+      "bone_idx": 39,
+      "height": 2,
+      "id": 2,
+      "is_grabbable": true,
+      "scale_milli": 1680,
+      "scale_raw": 1.6799999475479126
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 2300,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 2.299999952316284,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 45,
+      "height": 1,
+      "id": 3,
+      "is_grabbable": true,
+      "scale_milli": 1440,
+      "scale_raw": 1.440000057220459
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 2300,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 2.299999952316284,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 23,
+      "height": 1,
+      "id": 4,
+      "is_grabbable": true,
+      "scale_milli": 1440,
+      "scale_raw": 1.440000057220459
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 3500,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 3.5,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 46,
+      "height": 1,
+      "id": 5,
+      "is_grabbable": false,
+      "scale_milli": 1320,
+      "scale_raw": 1.3200000524520874
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 3500,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 3.5,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 24,
+      "height": 1,
+      "id": 6,
+      "is_grabbable": false,
+      "scale_milli": 1320,
+      "scale_raw": 1.3200000524520874
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 4500,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 4.5,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 13,
+      "height": 0,
+      "id": 7,
+      "is_grabbable": true,
+      "scale_milli": 1800,
+      "scale_raw": 1.7999999523162842
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 4500,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 4.5,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 7,
+      "height": 0,
+      "id": 8,
+      "is_grabbable": true,
+      "scale_milli": 1800,
+      "scale_raw": 1.7999999523162842
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 4900,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 4.900000095367432,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 14,
+      "height": 0,
+      "id": 9,
+      "is_grabbable": false,
+      "scale_milli": 1440,
+      "scale_raw": 1.440000057220459
+    },
+    {
+      "a_offset_milli": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "a_offset_raw": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "b_offset_milli": {
+        "x": 4900,
+        "y": 0,
+        "z": 0
+      },
+      "b_offset_raw": {
+        "x": 4.900000095367432,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "bone_idx": 8,
+      "height": 0,
+      "id": 10,
+      "is_grabbable": false,
+      "scale_milli": 1440,
+      "scale_raw": 1.440000057220459
+    }
+  ],
+  "source": {
+    "file": "resources/melee/raw/PlCa.dat",
+    "format": "HSD DAT, big-endian ftData.x30 hurt capsule init table",
+    "ft_data_offset": 39428,
+    "ftdata_hurtbox_table_offset": 10752,
+    "hurtbox_inits_offset": 30432,
+    "symbol": "ftDataCaptain"
+  }
+}

@@ -135,13 +135,13 @@ Add tests named:
 fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     let profile = FighterProfile::falcon_like();
     assert_eq!(profile.reference_character, "captain_falcon");
-    assert_eq!(profile.run_speed_per_tick, 2_300);
-    assert_eq!(profile.initial_dash_speed_per_tick, 2_000);
-    assert_eq!(profile.walk_speed_per_tick, 850);
-    assert_eq!(profile.traction_per_tick, 80);
-    assert_eq!(profile.gravity_per_tick, 130);
-    assert_eq!(profile.fall_speed_per_tick, 2_900);
-    assert_eq!(profile.fast_fall_speed_per_tick, 3_500);
+    assert_eq!(profile.dash_run_terminal_velocity.to_bits(), 2.299999952316284_f32.to_bits());
+    assert_eq!(profile.dash_initial_velocity.to_bits(), 2.0_f32.to_bits());
+    assert_eq!(profile.walk_max_velocity.to_bits(), 0.8500000238418579_f32.to_bits());
+    assert_eq!(profile.ground_friction.to_bits(), 0.07999999821186066_f32.to_bits());
+    assert_eq!(profile.gravity.to_bits(), 0.12999999523162842_f32.to_bits());
+    assert_eq!(profile.terminal_velocity.to_bits(), 2.9000000953674316_f32.to_bits());
+    assert_eq!(profile.fast_fall_velocity.to_bits(), 3.5_f32.to_bits());
     assert_eq!(profile.full_hop_height, 38_520);
     assert_eq!(profile.short_hop_height, 14_850);
     assert_eq!(profile.double_jump_height, 28_560);
@@ -159,7 +159,10 @@ fn airborne_falcon_profile_uses_profile_gravity_and_fall_speed() {
     }
     let before = world.players()[0].velocity.y;
     step_world(&mut world, Frame(5), &[PlayerInput::neutral(), PlayerInput::neutral()]);
-    assert_eq!(world.players()[0].velocity.y, (before - FighterProfile::falcon_like().gravity_per_tick).max(-FighterProfile::falcon_like().fall_speed_per_tick));
+    let profile = FighterProfile::falcon_like();
+    let expected_gravity = source_units_to_milli(profile.gravity);
+    let expected_terminal = -source_units_to_milli(profile.terminal_velocity);
+    assert_eq!(world.players()[0].velocity.y, (before - expected_gravity).max(expected_terminal));
 }
 ```
 
@@ -176,11 +179,11 @@ Add Falcon-modeled fields with values documented in `docs/research/melee-input-s
 Replace the sim constants covered by the new profile fields:
 
 ```rust
-player.velocity.y = (player.velocity.y - player.profile.gravity_per_tick)
-    .max(-player.profile.fall_speed_per_tick);
+player.velocity.y = (player.velocity.y - source_units_to_milli(player.profile.gravity))
+    .max(-source_units_to_milli(player.profile.terminal_velocity));
 ```
 
-For fast fall, clamp to `-player.profile.fast_fall_speed_per_tick`. For dash entry, use `player.profile.initial_dash_speed_per_tick`. For run acceleration clamps, use `player.profile.run_speed_per_tick`.
+For fast fall, clamp to `-source_units_to_milli(player.profile.fast_fall_velocity)` at the current public milli boundary. For dash entry and run acceleration, keep source `f32` math in `dash_initial_velocity` / `dash_run_terminal_velocity` and convert only at the existing display/public-state boundary.
 
 - [ ] **Step 4: Verify GREEN**
 

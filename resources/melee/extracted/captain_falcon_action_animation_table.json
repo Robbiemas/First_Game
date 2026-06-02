@@ -52922,7 +52922,14 @@
     },
     {
       "action_state_id": 44,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 30,
+          "value": 1,
+          "word_offset": 7
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",

@@ -9,9 +9,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod decomp;
 mod formatting;
+mod frame_data;
 mod generated;
 mod graph;
+mod replay;
 mod verify;
 
 pub use verify::verification_plan_for_changed_paths;
@@ -40,6 +43,9 @@ enum CliCommand {
     Verify(VerifyCommand),
     Generated(GeneratedCommand),
     Finish(FinishCommand),
+    Replay(ReplayCommand),
+    Decomp(DecompCommand),
+    FrameData(FrameDataCommand),
     Doctor,
     Tests,
     Handoff,
@@ -73,6 +79,72 @@ pub(crate) enum GeneratedCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum FinishCommand {
     Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ReplayCommand {
+    Check(ReplayCheckOptions),
+    Trace(ReplayTraceOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum DecompCommand {
+    Search(DecompSearchOptions),
+    Show(DecompShowOptions),
+    Symbol(DecompSearchOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FrameDataCommand {
+    Extract(FrameDataOptions),
+    Show(FrameDataOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FrameDataOptions {
+    pub character: String,
+    pub source_character: Option<String>,
+    pub state: String,
+    pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DecompSearchOptions {
+    pub query: String,
+    pub limit: usize,
+    pub decomp_root: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DecompShowOptions {
+    pub path: String,
+    pub line: usize,
+    pub context: usize,
+    pub decomp_root: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReplayCheckOptions {
+    pub replay: Option<String>,
+    pub inputs: Option<String>,
+    pub frames: usize,
+    pub include_negative_frames: bool,
+    pub mode: ReplayCheckMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReplayTraceOptions {
+    pub inputs: String,
+    pub frames: usize,
+    pub player_index: usize,
+    pub source_frame_start: i32,
+    pub source_frame_end: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ReplayCheckMode {
+    MatchStart,
+    Seeded,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -266,6 +338,9 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "verify" => parse_verify_command(&positional[1..]).map(CliCommand::Verify),
         "generated" => parse_generated_command(&positional[1..]).map(CliCommand::Generated),
         "finish" => parse_finish_command(&positional[1..]).map(CliCommand::Finish),
+        "replay" => parse_replay_command(&positional[1..]).map(CliCommand::Replay),
+        "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
+        "frame-data" => parse_frame_data_command(&positional[1..]).map(CliCommand::FrameData),
         "doctor" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Doctor),
         "tests" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Tests),
         "handoff" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Handoff),
@@ -276,6 +351,134 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
         other => Err(format!("unknown mole command: {other}")),
     }
+}
+
+fn parse_decomp_command(args: &[String]) -> Result<DecompCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("search");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "search" => parse_decomp_search(rest).map(DecompCommand::Search),
+        "symbol" => parse_decomp_search(rest).map(DecompCommand::Symbol),
+        "show" => parse_decomp_show(rest).map(DecompCommand::Show),
+        other => Err(format!("unknown mole decomp command: {other}")),
+    }
+}
+
+fn parse_decomp_search(args: &[String]) -> Result<DecompSearchOptions, String> {
+    let mut query_parts = Vec::new();
+    let mut limit = 20usize;
+    let mut decomp_root = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--limit" => {
+                limit =
+                    parse_positive_usize(&take_flag_value(args, &mut index, "--limit")?, "--limit")?
+            }
+            "--decomp-root" => {
+                decomp_root = Some(take_flag_value(args, &mut index, "--decomp-root")?)
+            }
+            other if other.starts_with("--") => {
+                return Err(format!("unexpected argument for decomp search: {other}"))
+            }
+            other => query_parts.push(other.to_string()),
+        }
+        index += 1;
+    }
+
+    let query = query_parts.join(" ");
+    if query.trim().is_empty() {
+        return Err("decomp search requires a query".to_string());
+    }
+
+    Ok(DecompSearchOptions {
+        query,
+        limit,
+        decomp_root,
+    })
+}
+
+fn parse_decomp_show(args: &[String]) -> Result<DecompShowOptions, String> {
+    let mut path = None;
+    let mut line = 1usize;
+    let mut context = 20usize;
+    let mut decomp_root = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--line" => {
+                line =
+                    parse_positive_usize(&take_flag_value(args, &mut index, "--line")?, "--line")?
+            }
+            "--context" => {
+                context = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--context")?,
+                    "--context",
+                )?
+            }
+            "--decomp-root" => {
+                decomp_root = Some(take_flag_value(args, &mut index, "--decomp-root")?)
+            }
+            other if other.starts_with("--") => {
+                return Err(format!("unexpected argument for decomp show: {other}"))
+            }
+            other => {
+                if path.is_some() {
+                    return Err(format!("unexpected argument for decomp show: {other}"));
+                }
+                path = Some(other.to_string());
+            }
+        }
+        index += 1;
+    }
+
+    Ok(DecompShowOptions {
+        path: path.ok_or_else(|| "decomp show requires a path".to_string())?,
+        line,
+        context,
+        decomp_root,
+    })
+}
+
+fn parse_frame_data_command(args: &[String]) -> Result<FrameDataCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("show");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "extract" => parse_frame_data_options(rest, true).map(FrameDataCommand::Extract),
+        "show" => parse_frame_data_options(rest, false).map(FrameDataCommand::Show),
+        other => Err(format!("unknown mole frame-data command: {other}")),
+    }
+}
+
+fn parse_frame_data_options(
+    args: &[String],
+    allow_source_character: bool,
+) -> Result<FrameDataOptions, String> {
+    let mut character = None;
+    let mut source_character = None;
+    let mut state = None;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
+            "--source-character" if allow_source_character => {
+                source_character = Some(take_flag_value(args, &mut index, "--source-character")?)
+            }
+            "--state" => state = Some(take_flag_value(args, &mut index, "--state")?),
+            "--write" if allow_source_character => write = true,
+            other => return Err(format!("unexpected argument for frame-data: {other}")),
+        }
+        index += 1;
+    }
+    Ok(FrameDataOptions {
+        character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
+        source_character,
+        state: state.ok_or_else(|| "frame-data requires --state <MotionState>".to_string())?,
+        write,
+    })
 }
 
 fn parse_agent_command(args: &[String]) -> Result<AgentCommand, String> {
@@ -330,6 +533,137 @@ fn parse_finish_command(args: &[String]) -> Result<FinishCommand, String> {
         "check" => ensure_no_extra_args("finish check", rest).map(|()| FinishCommand::Check),
         other => Err(format!("unknown mole finish command: {other}")),
     }
+}
+
+fn parse_replay_command(args: &[String]) -> Result<ReplayCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("check");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "check" => parse_replay_check(rest).map(ReplayCommand::Check),
+        "trace" => parse_replay_trace(rest).map(ReplayCommand::Trace),
+        other => Err(format!("unknown mole replay command: {other}")),
+    }
+}
+
+fn parse_replay_check(args: &[String]) -> Result<ReplayCheckOptions, String> {
+    let mut replay = None;
+    let mut inputs = None;
+    let mut frames = 1_800usize;
+    let mut include_negative_frames = true;
+    let mut mode = ReplayCheckMode::MatchStart;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--replay" => replay = Some(take_flag_value(args, &mut index, "--replay")?),
+            "--inputs" => inputs = Some(take_flag_value(args, &mut index, "--inputs")?),
+            "--frames" => {
+                frames = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--frames")?,
+                    "--frames",
+                )?
+            }
+            "--include-negative-frames" => include_negative_frames = true,
+            "--no-negative-frames" => include_negative_frames = false,
+            "--mode" => {
+                mode = match take_flag_value(args, &mut index, "--mode")?.as_str() {
+                    "match-start" => ReplayCheckMode::MatchStart,
+                    "seeded" => ReplayCheckMode::Seeded,
+                    other => {
+                        return Err(format!(
+                            "--mode requires match-start or seeded, got {other}"
+                        ))
+                    }
+                }
+            }
+            other => return Err(format!("unexpected argument for replay check: {other}")),
+        }
+        index += 1;
+    }
+
+    match (replay.is_some(), inputs.is_some()) {
+        (true, true) => {
+            Err("replay check accepts either --replay or --inputs, not both".to_string())
+        }
+        (false, false) => {
+            Err("replay check requires --replay <path> or --inputs <path>".to_string())
+        }
+        _ => Ok(ReplayCheckOptions {
+            replay,
+            inputs,
+            frames,
+            include_negative_frames,
+            mode,
+        }),
+    }
+}
+
+fn parse_replay_trace(args: &[String]) -> Result<ReplayTraceOptions, String> {
+    let mut inputs = None;
+    let mut frames = 1_800usize;
+    let mut player_index = 0usize;
+    let mut source_frame_start = 0i32;
+    let mut source_frame_end = 0i32;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--inputs" => inputs = Some(take_flag_value(args, &mut index, "--inputs")?),
+            "--frames" => {
+                frames = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--frames")?,
+                    "--frames",
+                )?
+            }
+            "--player" => {
+                let player = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--player")?,
+                    "--player",
+                )?;
+                if !(1..=2).contains(&player) {
+                    return Err("--player must be 1 or 2".to_string());
+                }
+                player_index = player - 1;
+            }
+            "--start" => {
+                source_frame_start =
+                    parse_i32(&take_flag_value(args, &mut index, "--start")?, "--start")?
+            }
+            "--end" => {
+                source_frame_end = parse_i32(&take_flag_value(args, &mut index, "--end")?, "--end")?
+            }
+            other => return Err(format!("unexpected argument for replay trace: {other}")),
+        }
+        index += 1;
+    }
+
+    if source_frame_end < source_frame_start {
+        return Err(
+            "replay trace requires --end to be greater than or equal to --start".to_string(),
+        );
+    }
+
+    Ok(ReplayTraceOptions {
+        inputs: inputs.ok_or_else(|| "replay trace requires --inputs <path>".to_string())?,
+        frames,
+        player_index,
+        source_frame_start,
+        source_frame_end,
+    })
+}
+
+fn parse_positive_usize(value: &str, flag: &str) -> Result<usize, String> {
+    value
+        .parse::<usize>()
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{flag} must be a positive integer"))
+}
+
+fn parse_i32(value: &str, flag: &str) -> Result<i32, String> {
+    value
+        .parse::<i32>()
+        .map_err(|_| format!("{flag} must be an integer"))
 }
 
 fn subcommand_args(args: &[String]) -> &[String] {
@@ -454,6 +788,9 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Verify(command) => verify_report(&options.root, command),
         CliCommand::Generated(command) => generated::generated_report(&options.root, command),
         CliCommand::Finish(command) => finish_report(&options.root, command),
+        CliCommand::Replay(command) => replay::replay_report(&options.root, command),
+        CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
+        CliCommand::FrameData(command) => frame_data::frame_data_report(&options.root, command),
         CliCommand::Doctor => doctor_report(&options.root),
         CliCommand::Tests => tests_report(&options.root),
         CliCommand::Handoff => handoff_report(&options.root),
@@ -963,13 +1300,21 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- generated check --format markdown",
             "cargo run -p mole_cli -- finish check --json",
             "cargo run -p mole_cli -- finish check --format markdown",
+            "cargo run -p mole_cli -- replay check --replay replays\\Game_20260530T214929.slp --frames 1800 --json",
+            "cargo run -p mole_cli -- replay check --inputs debug\\slippi\\Game_20260530T214929.inputs.json --mode seeded --json",
+            "cargo run -p mole_cli -- replay trace --inputs debug\\slippi\\Game_20260530T214929.inputs.json --player 1 --start 392 --end 402 --format markdown",
+            "cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json",
+            "cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown",
+            "cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json",
+            "cargo run -p mole_cli -- frame-data extract --character dolphin_mole --source-character captain --state AttackAirN --write --json",
+            "cargo run -p mole_cli -- frame-data show --character dolphin_mole --state AttackAirN --format markdown",
             "cargo run -p mole_cli -- request next --json",
             "cargo run -p mole_cli -- request add --id trace-summary --title \"Trace Summary\" --request \"Add a compact trace summary command.\" --context \"Agents need shorter logs.\" --expected \"JSON summary.\" --json",
             "cargo run -p mole_cli -- request done --id trace-summary --result \"Implemented and verified.\" --json"
         ],
         "ai_contract": {
             "read_only_by_default": true,
-            "mutating_commands": ["request add", "request done"],
+            "mutating_commands": ["replay check", "request add", "request done"],
             "no_interactive_prompts": true,
             "stable_json_schema_version": SCHEMA_VERSION,
             "nonzero_exit_on_cli_usage_error": true
@@ -1110,6 +1455,90 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": ["finish"],
             "agent_notes": "Use before handoff, compaction, or claiming a CLI/development-tooling slice is complete."
+        },
+        {
+            "name": "replay check",
+            "usage": "mole replay check (--replay PATH|--inputs PATH) [--frames N] [--mode match-start|seeded] [--no-negative-frames] [--json|--text|--format markdown]",
+            "purpose": "Export a Slippi replay when needed, replay its game-facing inputs through the Rust core, and report the first state mismatch or significant position drift.",
+            "mutates_workspace": true,
+            "writes": ["debug/slippi/*.inputs.json", "debug/slippi/*.report.md", "debug/slippi/*.core.report.md"],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--replay or --inputs"],
+            "optional_flags": ["--frames", "--mode", "--include-negative-frames", "--no-negative-frames", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Default mode is sequential match-start and includes negative entry frames for raw .slp exports. Use --inputs with an existing exported JSON file to skip Node export."
+        },
+        {
+            "name": "replay trace",
+            "usage": "mole replay trace --inputs PATH [--player 1|2] [--start N] [--end N] [--frames N] [--json|--format markdown]",
+            "purpose": "Replay an existing Slippi input export from match start and return a compact per-frame trace window for one player.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--inputs"],
+            "optional_flags": ["--player", "--start", "--end", "--frames", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after replay check identifies a divergence; includes source frame, input, expected state, actual state, actual motion frame, position, and velocity deltas."
+        },
+        {
+            "name": "decomp search",
+            "usage": "mole decomp search <query> [--limit N] [--decomp-root PATH] [--json|--format markdown]",
+            "purpose": "Quick search the local decompiled Melee tree and return compact source references for parity agents.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--limit", "--decomp-root", "--root", "--json", "--text", "--format"],
+            "aliases": ["decomp"],
+            "agent_notes": "Use during replay divergence work before ad-hoc shell searches; each match includes a suggested decomp show command."
+        },
+        {
+            "name": "decomp show",
+            "usage": "mole decomp show <relative-path> [--line N] [--context N] [--decomp-root PATH] [--json|--format markdown]",
+            "purpose": "Return a bounded numbered excerpt from a decompiled Melee source file.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--line", "--context", "--decomp-root", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use the suggested command from decomp search to quote just the source lines needed for a parity fix."
+        },
+        {
+            "name": "decomp symbol",
+            "usage": "mole decomp symbol <name> [--limit N] [--decomp-root PATH] [--json|--format markdown]",
+            "purpose": "Find likely decompiled Melee function or symbol definitions, ranking exact definitions before references.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--limit", "--decomp-root", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use when a replay trace names a source function and the agent needs the definition quickly."
+        },
+        {
+            "name": "frame-data extract",
+            "usage": "mole frame-data extract --character ID --source-character ID --state MotionState [--write] [--json|--format markdown]",
+            "purpose": "Load source-derived move frame data for a target character, preserving raw 3D keyframes and extraction gaps; with --write, update or initialize the character-scoped artifact.",
+            "mutates_workspace": true,
+            "writes": ["resources/melee/frame_data/<character>/<state>.json when --write is present"],
+            "output_modes": ["json", "markdown"],
+            "required_flags": ["--character", "--source-character", "--state"],
+            "optional_flags": ["--write", "--root", "--json", "--format"],
+            "aliases": [],
+            "agent_notes": "Use for replay-parity attack work such as Captain Falcon Nair assigned to Dolphin Mole; pass --write only when the user wants the project artifact updated."
+        },
+        {
+            "name": "frame-data show",
+            "usage": "mole frame-data show --character ID --state MotionState [--json|--format markdown]",
+            "purpose": "Show an existing move frame data artifact with keyframes, projection metadata, source citations, and gaps.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "markdown"],
+            "required_flags": ["--character", "--state"],
+            "optional_flags": ["--root", "--json", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after extraction to cite the canonical artifact that also feeds the Move Keyframes dev-tool tab."
         },
         {
             "name": "doctor",

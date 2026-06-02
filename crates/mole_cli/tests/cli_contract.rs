@@ -126,6 +126,1070 @@ fn project_root_detection_handles_parent_workspace_directory() {
 }
 
 #[test]
+fn decomp_search_returns_agent_sized_matches_with_followup_commands() {
+    let root = temp_project_root("decomp_search");
+    let decomp = root.join(".research/doldecomp-melee");
+    fs::create_dir_all(decomp.join("src/melee/ft/chara/ftCommon")).unwrap();
+    fs::write(
+        decomp.join("src/melee/ft/chara/ftCommon/ftCo_Turn.c"),
+        "void ftCo_Turn_Anim(Fighter_GObj* gobj)\n{\n    ftCo_Turn_Anim_Inner(gobj);\n}\n",
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "decomp".to_string(),
+        "search".to_string(),
+        "ftCo_Turn_Anim".to_string(),
+        "--decomp-root".to_string(),
+        decomp.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "decomp search");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["query"], "ftCo_Turn_Anim");
+    assert_eq!(
+        parsed["matches"][0]["path"],
+        "src/melee/ft/chara/ftCommon/ftCo_Turn.c"
+    );
+    assert_eq!(parsed["matches"][0]["line"], 1);
+    assert!(parsed["matches"][0]["preview"]
+        .as_str()
+        .unwrap()
+        .contains("ftCo_Turn_Anim"));
+    assert!(parsed["matches"][0]["suggested_command"]
+        .as_str()
+        .unwrap()
+        .contains("decomp show"));
+}
+
+#[test]
+fn decomp_show_returns_bounded_numbered_excerpt_for_reference() {
+    let root = temp_project_root("decomp_show");
+    let decomp = root.join(".research/doldecomp-melee");
+    fs::create_dir_all(decomp.join("src/melee/ft/chara/ftCommon")).unwrap();
+    fs::write(
+        decomp.join("src/melee/ft/chara/ftCommon/ftCo_Landing.c"),
+        "one\ntwo\nvoid ftCo_LandingFallSpecial_Enter(void) {}\nfour\nfive\n",
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "decomp".to_string(),
+        "show".to_string(),
+        "src/melee/ft/chara/ftCommon/ftCo_Landing.c".to_string(),
+        "--line".to_string(),
+        "3".to_string(),
+        "--context".to_string(),
+        "1".to_string(),
+        "--decomp-root".to_string(),
+        decomp.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "decomp show");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["excerpt"]["start_line"], 2);
+    assert_eq!(parsed["excerpt"]["end_line"], 4);
+    assert_eq!(parsed["excerpt"]["lines"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        parsed["excerpt"]["lines"][1]["text"],
+        "void ftCo_LandingFallSpecial_Enter(void) {}"
+    );
+}
+
+#[test]
+fn decomp_symbol_prefers_exact_function_definition_matches() {
+    let root = temp_project_root("decomp_symbol");
+    let decomp = root.join(".research/doldecomp-melee");
+    fs::create_dir_all(decomp.join("src/melee/ft/chara/ftCommon")).unwrap();
+    fs::write(
+        decomp.join("src/melee/ft/chara/ftCommon/ftCo_Guard.c"),
+        "void helper(void) { ftCo_GuardOn_Phys(0); }\nftCo_GuardOn_Phys(gobj, false,\nvoid ftCo_GuardOn_Phys(Fighter_GObj* gobj)\n{\n    ft_80084F3C(gobj);\n}\n",
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "decomp".to_string(),
+        "symbol".to_string(),
+        "ftCo_GuardOn_Phys".to_string(),
+        "--decomp-root".to_string(),
+        decomp.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "decomp symbol");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["matches"][0]["line"], 3);
+    assert_eq!(parsed["matches"][0]["rank_reason"], "exact_definition");
+}
+
+#[test]
+fn decomp_commands_report_missing_decomp_root_without_mutation() {
+    let root = temp_project_root("decomp_missing");
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "decomp".to_string(),
+        "search".to_string(),
+        "ftCo_Turn".to_string(),
+        "--decomp-root".to_string(),
+        root.join("missing-decomp").display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "decomp search");
+    assert_eq!(parsed["ok"], false);
+    assert!(parsed["errors"][0]
+        .as_str()
+        .unwrap()
+        .contains("decompiled Melee root not found"));
+    assert_eq!(parsed["matches"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn frame_data_extract_returns_dolphin_mole_scoped_attack_air_n_artifact() {
+    let root = temp_project_root("frame_data_extract");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {
+                "source_space": "melee_xyz",
+                "default_view": "xy",
+                "z_policy": "preserve_and_project"
+            },
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/chara/ftCommon/ftCo_AttackAir.c", "line": 1}],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{
+                "frame": 6,
+                "interpolates_from_previous": true,
+                "hitboxes": [{"id": 0, "center": {"x": 3.5, "y": 8.0, "z": -1.25}}],
+                "hurtboxes": []
+            }],
+            "gaps": [{"field": "iasa_frame", "reason": "not yet proven"}],
+            "overrides": []
+        }),
+    );
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "frame-data extract");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["artifact"]["target_character"], "dolphin_mole");
+    assert_eq!(parsed["artifact"]["target_character_label"], "Dolphin Mole");
+    assert_eq!(parsed["artifact"]["source_character"], "captain");
+    assert_eq!(
+        parsed["artifact"]["projection"]["z_policy"],
+        "preserve_and_project"
+    );
+    assert_eq!(
+        parsed["artifact"]["keyframes"][0]["hitboxes"][0]["center"]["z"],
+        -1.25
+    );
+    assert_eq!(parsed["artifact"]["gaps"][0]["field"], "iasa_frame");
+}
+
+#[test]
+fn frame_data_extract_decodes_source_action_script_hitbox_procedures() {
+    let root = temp_project_root("frame_data_source_hitboxes");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 290}],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [
+                {"frame": 1, "hitboxes": [], "hurtboxes": []},
+                {
+                    "frame": 6,
+                    "hitboxes": [{
+                        "id": 0,
+                        "source": "provisional_viewer_scaffold_pending_hitbox_command_extraction"
+                    }],
+                    "hurtboxes": []
+                }
+            ],
+            "gaps": [{"field": "hitboxes.damage_angle_knockback", "reason": "pending source extraction"}],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x08000004u32,
+        0x4c000001,
+        0x08000007,
+        0x2c007006,
+        0x044c05dc,
+        0x00000000,
+        0x29190513,
+        0x0000008b,
+        0x2c806805,
+        0x05780320,
+        0x00000000,
+        0x27190513,
+        0x0000008b,
+        0x04000006,
+        0x40000000,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let artifact = &parsed["artifact"];
+
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(
+        artifact["decoded_action_script"]["source"]["subaction_script_offset"],
+        19908
+    );
+    assert_eq!(
+        artifact["decoded_action_script"]["procedures"][0]["procedure"],
+        "fighter.spawn_hitbox"
+    );
+    assert_eq!(
+        artifact["decoded_action_script"]["procedures"][0]["handler"],
+        "ftAction_8007121C"
+    );
+    assert_eq!(
+        artifact["summary"]["active_hitbox_windows"][0],
+        json!({"start": 7, "end": 12, "source": "decoded_action_script"})
+    );
+    let frame_7 = artifact["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 7)
+        .unwrap();
+    assert_eq!(frame_7["hitboxes"].as_array().unwrap().len(), 2);
+    assert_eq!(frame_7["hitboxes"][0]["id"], 0);
+    assert_eq!(frame_7["hitboxes"][0]["bone"], 14);
+    assert_eq!(frame_7["hitboxes"][0]["damage"], 6);
+    assert_eq!(frame_7["hitboxes"][0]["angle"], 82);
+    assert_eq!(frame_7["hitboxes"][0]["kbg"], 100);
+    assert_eq!(frame_7["hitboxes"][0]["bkb"], 0);
+    assert_eq!(frame_7["hitboxes"][0]["radius"], 4.296875);
+    assert_eq!(frame_7["hitboxes"][0]["center"]["x"], 0.0);
+    assert_eq!(frame_7["hitboxes"][0]["center"]["y"], 0.0);
+    assert_eq!(frame_7["hitboxes"][0]["center"]["z"], 0.0);
+    assert_eq!(frame_7["hitboxes"][0]["source_center"]["x"], 5.859375);
+    assert_eq!(frame_7["hitboxes"][0]["source_center"]["z"], 0.0);
+    assert!(artifact["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|gap| gap["field"] != "hitboxes.damage_angle_knockback"));
+    assert!(artifact["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|frame| frame["hitboxes"].as_array().unwrap())
+        .all(|hitbox| hitbox["source"]
+            != "provisional_viewer_scaffold_pending_hitbox_command_extraction"));
+}
+
+#[test]
+fn frame_data_extract_write_updates_project_frame_data_artifact() {
+    let root = temp_project_root("frame_data_extract_write");
+    let artifact_path = root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json");
+    write_json(
+        &artifact_path,
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 290}],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{
+                "frame": 7,
+                "hitboxes": [{
+                    "id": 0,
+                    "source": "provisional_viewer_scaffold_pending_hitbox_command_extraction"
+                }],
+                "hurtboxes": []
+            }],
+            "gaps": [{"field": "hitboxes.damage_angle_knockback", "reason": "pending source extraction"}],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x04000007u32,
+        0x2c007006,
+        0x044c05dc,
+        0x00000000,
+        0x29190513,
+        0x0000008b,
+        0x04000006,
+        0x40000000,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+        "--write".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let written: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&artifact_path).unwrap()).unwrap();
+
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["wrote_artifact"], true);
+    assert_eq!(
+        PathBuf::from(parsed["artifact_path"].as_str().unwrap()),
+        artifact_path
+    );
+    assert_eq!(written, parsed["artifact"]);
+    assert_eq!(
+        written["keyframes"][0]["hitboxes"][0]["source"],
+        "decoded_action_script"
+    );
+    assert_eq!(written["keyframes"][0]["hitboxes"][0]["damage"], 6);
+    assert!(written["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|gap| gap["field"] != "hitboxes.damage_angle_knockback"));
+}
+
+#[test]
+fn frame_data_extract_write_creates_missing_artifact_from_source_action_table() {
+    let root = temp_project_root("frame_data_extract_create");
+    let artifact_path = root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json");
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "figatree": {"frames_ticks": 45},
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x04000007u32,
+        0x2c007006,
+        0x044c05dc,
+        0x00000000,
+        0x29190513,
+        0x0000008b,
+        0x04000006,
+        0x40000000,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+        "--write".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let written: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&artifact_path).unwrap()).unwrap();
+
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["created_artifact"], true);
+    assert_eq!(parsed["wrote_artifact"], true);
+    assert_eq!(written, parsed["artifact"]);
+    assert_eq!(written["summary"]["total_frames"], 45);
+    assert_eq!(
+        written["summary"]["active_hitbox_windows"][0],
+        json!({"start": 7, "end": 12, "source": "decoded_action_script"})
+    );
+    assert_eq!(written["sources"][0]["action_state_id"], 68);
+    assert_eq!(written["keyframes"][0]["frame"], 7);
+    assert_eq!(written["keyframes"][0]["hitboxes"][0]["damage"], 6);
+    let active_frame = written["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 12)
+        .unwrap();
+    assert_eq!(
+        active_frame["hitboxes"][0]["source"],
+        "decoded_action_script"
+    );
+    assert_eq!(
+        active_frame["hitboxes"][0]["source_hit_capsule_state"],
+        "HitCapsule_Unk3"
+    );
+    assert_eq!(
+        written["decoded_action_script"]["source"]["subaction_script_offset"],
+        19908
+    );
+}
+
+#[test]
+fn frame_data_extract_transforms_hitbox_offsets_through_sampled_jobj_pose() {
+    let root = temp_project_root("frame_data_source_hitbox_pose");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 290}],
+            "summary": {"total_frames": 45, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 7, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_hurtbox_samples.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "frames": [
+                    {
+                        "frame": 7,
+                        "pose": {
+                            "source": "HSD_JObj FigaTree sampled pose",
+                            "joints": [{
+                                "index": 14,
+                                "parent_index": 4,
+                                "world_matrix": [
+                                    [1.0, 0.0, 0.0, 10.0],
+                                    [0.0, 1.0, 0.0, 20.0],
+                                    [0.0, 0.0, 1.0, 30.0]
+                                ],
+                                "world_position_raw": {"x": 10.0, "y": 20.0, "z": 30.0},
+                                "world_position_milli": {"x": 10000, "y": 20000, "z": 30000}
+                            }]
+                        },
+                        "hurtboxes": []
+                    },
+                    {
+                        "frame": 8,
+                        "pose": {
+                            "source": "HSD_JObj FigaTree sampled pose",
+                            "joints": [{
+                                "index": 14,
+                                "parent_index": 4,
+                                "world_matrix": [
+                                    [1.0, 0.0, 0.0, 40.0],
+                                    [0.0, 1.0, 0.0, 50.0],
+                                    [0.0, 0.0, 1.0, 60.0]
+                                ],
+                                "world_position_raw": {"x": 40.0, "y": 50.0, "z": 60.0},
+                                "world_position_milli": {"x": 40000, "y": 50000, "z": 60000}
+                            }]
+                        },
+                        "hurtboxes": []
+                    }
+                ]
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x04000007u32,
+        0x2c007006,
+        0x044c05dc,
+        0x00000000,
+        0x29190513,
+        0x0000008b,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let frame_7 = parsed["artifact"]["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 7)
+        .unwrap();
+    let hitbox = &frame_7["hitboxes"][0];
+
+    assert_eq!(
+        hitbox["source_offset"],
+        json!({"x": 5.859375, "y": 0.0, "z": 0.0})
+    );
+    assert_eq!(
+        hitbox["source_center"],
+        json!({"x": 15.859375, "y": 20.0, "z": 30.0})
+    );
+    assert_eq!(
+        hitbox["source_previous_center"],
+        json!({"x": 15.859375, "y": 20.0, "z": 30.0})
+    );
+    assert_eq!(hitbox["center"], json!({"x": 30.0, "y": 20.0, "z": 0.0}));
+    assert_eq!(
+        hitbox["previous_center"],
+        json!({"x": 30.0, "y": 20.0, "z": 0.0})
+    );
+    assert!(hitbox["source_center"]["x"].as_f64().is_some());
+    assert!(hitbox["source_offset"]["x"].as_f64().is_some());
+    assert_eq!(hitbox["source_pose_joint"], 14);
+    assert_eq!(hitbox["source_hit_capsule_state"], "HitCapsule_Unk2");
+    assert_eq!(
+        hitbox["source_sweep"],
+        "ftColl_8007AD18 x58(previous) -> x4C(current)"
+    );
+    assert_eq!(
+        hitbox["source_space"],
+        "ftAction_8007121C JObj local offset transformed by sampled pose"
+    );
+    let frame_8 = parsed["artifact"]["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 8)
+        .unwrap();
+    let active_hitbox = &frame_8["hitboxes"][0];
+    assert_eq!(
+        active_hitbox["source_offset"],
+        json!({"x": 5.859375, "y": 0.0, "z": 0.0})
+    );
+    assert_eq!(
+        active_hitbox["source_center"],
+        json!({"x": 45.859375, "y": 50.0, "z": 60.0})
+    );
+    assert_eq!(
+        active_hitbox["source_previous_center"],
+        json!({"x": 15.859375, "y": 20.0, "z": 30.0})
+    );
+    assert_eq!(
+        active_hitbox["center"],
+        json!({"x": 60.0, "y": 50.0, "z": 0.0})
+    );
+    assert_eq!(
+        active_hitbox["previous_center"],
+        json!({"x": 30.0, "y": 20.0, "z": 0.0})
+    );
+    assert_eq!(active_hitbox["source_hit_capsule_state"], "HitCapsule_Unk3");
+}
+
+#[test]
+fn frame_data_extract_decodes_source_hurt_state_procedures() {
+    let root = temp_project_root("frame_data_source_hurt_state");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [
+                {"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 551},
+                {
+                    "kind": "generated_ecb",
+                    "path": "crates/mole_core/src/generated/falcon_ecb.rs",
+                    "purpose": "sampled Falcon ECB reference frames for projected hurt volume preview"
+                }
+            ],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x04000007u32,
+        (28u32 << 26) | (14u32 << 18) | 2u32,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let procedures = parsed["artifact"]["decoded_action_script"]["procedures"]
+        .as_array()
+        .unwrap();
+
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_hurt_state"
+            && procedure["handler"] == "ftAction_80071A9C"
+            && procedure["bone_idx"] == 14
+            && procedure["state"] == "Intangible"
+            && procedure["state_raw"] == 2
+    }));
+}
+
+#[test]
+fn frame_data_extract_uses_source_hurtbox_samples_instead_of_preview() {
+    let root = temp_project_root("frame_data_source_hurtboxes");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 551}],
+            "summary": {
+                "total_frames": 35,
+                "iasa_frame": "unknown",
+                "active_hurtbox_windows": [{"start": 1, "end": 6, "source": "generated_ecb_preview"}]
+            },
+            "keyframes": [
+                {
+                    "frame": 1,
+                    "hitboxes": [],
+                    "hurtboxes": [{"id": "preview", "source": "generated_ecb_preview"}]
+                },
+                {
+                    "frame": 6,
+                    "hitboxes": [],
+                    "hurtboxes": [{"id": "preview", "source": "generated_ecb_preview"}]
+                },
+                {"frame": 7, "hitboxes": [], "hurtboxes": []}
+            ],
+            "gaps": [{"field": "hurtboxes", "reason": "pending source extraction"}],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_hurtbox_samples.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "frames": [
+                    {"frame": 1, "hurtboxes": [source_hurtbox_fixture(4, "HurtCapsule_Enabled")]},
+                    {"frame": 6, "hurtboxes": [source_hurtbox_fixture(4, "HurtCapsule_Enabled")]},
+                    {"frame": 7, "hurtboxes": [source_hurtbox_fixture(14, "HurtCapsule_Enabled")]},
+                    {"frame": 45, "hurtboxes": [source_hurtbox_fixture(4, "HurtCapsule_Enabled")]}
+                ]
+            }]
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_ecb_samples.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "frames": [
+                    source_ecb_frame_fixture(0),
+                    source_ecb_frame_fixture(5),
+                    source_ecb_frame_fixture(6),
+                    source_ecb_frame_fixture(44)
+                ]
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x04000007u32,
+        (28u32 << 26) | (14u32 << 18) | 2u32,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let artifact = &parsed["artifact"];
+    let frame_7 = artifact["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 7)
+        .unwrap();
+    let hurtboxes = frame_7["hurtboxes"].as_array().unwrap();
+
+    assert_eq!(parsed["ok"], true);
+    assert!(!hurtboxes.is_empty());
+    assert!(artifact["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|frame| frame["hurtboxes"].as_array().unwrap())
+        .all(|hurtbox| hurtbox["source"] != "generated_ecb_preview"));
+    assert_eq!(hurtboxes[0]["confidence"], "source_extracted");
+    assert_eq!(hurtboxes[0]["a"]["x"], 3.25);
+    assert_eq!(hurtboxes[0]["b"]["x"], -1.5);
+    assert_eq!(hurtboxes[0]["a_pos"]["x"], 3.25);
+    assert_eq!(hurtboxes[0]["b_pos"]["x"], -1.5);
+    assert!(hurtboxes[0]["source_a"].is_object());
+    assert!(hurtboxes[0]["source_b"].is_object());
+    assert_eq!(hurtboxes[0]["a"]["z"], 0.0);
+    assert_eq!(hurtboxes[0]["b"]["z"], 0.0);
+    assert_eq!(hurtboxes[0]["source_a"]["z"], 3.25);
+    assert_eq!(hurtboxes[0]["source_b"]["z"], -1.5);
+    assert_eq!(hurtboxes[0]["state"], "Intangible");
+    assert_eq!(hurtboxes[0]["source_handler"], "ftAction_80071A9C");
+    assert_eq!(hurtboxes[0]["source_word_offset"], 1);
+    assert!(artifact["keyframes"][0]["hurtboxes"].is_array());
+    assert!(artifact["keyframes"][0]["body_volumes"].is_array());
+    assert_eq!(
+        frame_7["body_volumes"][0]["source"],
+        "ftData.x44 + PlCaAJ FigaTree + PlCaNr JObj skeleton"
+    );
+    assert_eq!(frame_7["body_volumes"][0]["top"]["z"], 0.0);
+    assert_eq!(frame_7["body_volumes"][0]["source_top"]["z"], 0.0);
+    assert_eq!(
+        frame_7["body_volumes"][0]["source_render_transform"],
+        "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
+    );
+    assert!(frame_7["body_volumes"][0].get("render_points").is_none());
+    assert_eq!(
+        frame_7["body_volumes"][0]["source_joint_indices"],
+        json!([39, 47, 25, 14, 8, 4])
+    );
+    let sources = artifact["sources"].as_array().unwrap();
+    assert!(sources
+        .iter()
+        .all(|source| source["kind"] != "generated_ecb"));
+    assert!(sources
+        .iter()
+        .any(|source| source["kind"] == "extracted_hurtbox_samples"));
+    assert!(sources
+        .iter()
+        .any(|source| source["kind"] == "extracted_body_volume_samples"));
+    assert_eq!(
+        artifact["summary"]["active_hurtbox_windows"][0],
+        json!({"start": 1, "end": 45, "source": "source_hurtbox_samples"})
+    );
+    assert_eq!(artifact["summary"]["total_frames"], 45);
+    assert!(artifact["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|gap| gap["field"] != "hurtboxes"));
+}
+
+#[test]
+fn frame_data_show_reads_existing_artifact_without_source_character_flag() {
+    let root = temp_project_root("frame_data_show");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/chara/ftCommon/ftCo_AttackAir.c", "line": 1}],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "show".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "frame-data show");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["artifact"]["label"], "Neutral Air");
+}
+
+#[test]
+fn frame_data_extract_reports_missing_character_state_without_guessing() {
+    let root = temp_project_root("frame_data_missing");
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "test_character_2".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "frame-data extract");
+    assert_eq!(parsed["ok"], false);
+    assert!(parsed["errors"][0]
+        .as_str()
+        .unwrap()
+        .contains("move frame data artifact not found"));
+    assert!(parsed["artifact"].is_null());
+}
+
+#[test]
+fn frame_data_show_markdown_summarizes_sources_keyframes_and_gaps() {
+    let root = temp_project_root("frame_data_markdown");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/chara/ftCommon/ftCo_AttackAir.c", "line": 1}],
+            "summary": {"total_frames": 35, "iasa_frame": "unknown", "active_hitbox_windows": [{"start": 6, "end": 9}]},
+            "keyframes": [{
+                "frame": 6,
+                "hitboxes": [{"id": 0, "center": {"x": 3.5, "y": 8.0, "z": -1.25}}],
+                "hurtboxes": [],
+                "body_volumes": [{"id": "ecb", "source": "ftData.x44 + PlCaAJ FigaTree + PlCaNr JObj skeleton"}]
+            }],
+            "gaps": [{"field": "iasa_frame", "reason": "not yet proven"}],
+            "overrides": []
+        }),
+    );
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "show".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+        "--format".to_string(),
+        "markdown".to_string(),
+    ])
+    .unwrap();
+
+    assert!(output.starts_with("# Mole Frame Data"));
+    assert!(output.contains("Dolphin Mole"));
+    assert!(output.contains("Captain Falcon"));
+    assert!(output.contains("Neutral Air"));
+    assert!(output.contains("preserve_and_project"));
+    assert!(output.contains("Frame 6"));
+    assert!(output.contains("1 body volume(s)"));
+    assert!(output.contains("src/melee/ft/chara/ftCommon/ftCo_AttackAir.c:1"));
+    assert!(output.contains("iasa_frame"));
+}
+
+#[test]
 fn run_cli_defaults_to_json_for_ai_consumers() {
     let output = run_cli(&["help".to_string()]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
@@ -157,6 +1221,12 @@ fn help_command_exposes_full_agent_command_catalog() {
         "verify changed",
         "generated check",
         "finish check",
+        "replay check",
+        "frame-data extract",
+        "frame-data show",
+        "decomp search",
+        "decomp show",
+        "decomp symbol",
         "doctor",
         "tests",
         "handoff",
@@ -189,6 +1259,82 @@ fn help_command_exposes_full_agent_command_catalog() {
         .unwrap()
         .iter()
         .any(|example| example.as_str().unwrap().contains("request next --json")));
+    let replay_check = commands
+        .iter()
+        .find(|command| command["name"] == "replay check")
+        .unwrap();
+    assert_eq!(replay_check["mutates_workspace"], true);
+    assert!(replay_check["writes"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("debug/slippi/*.core.report.md")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("replay check")));
+    let replay_trace = commands
+        .iter()
+        .find(|command| command["name"] == "replay trace")
+        .unwrap();
+    assert_eq!(replay_trace["mutates_workspace"], false);
+    assert!(replay_trace["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("trace window"));
+    assert!(replay_trace["optional_flags"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("--player")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("replay trace")));
+    let decomp_search = commands
+        .iter()
+        .find(|command| command["name"] == "decomp search")
+        .unwrap();
+    assert_eq!(decomp_search["mutates_workspace"], false);
+    assert!(decomp_search["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("decompiled Melee"));
+    assert!(decomp_search["agent_notes"]
+        .as_str()
+        .unwrap()
+        .contains("replay"));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("decomp search")));
+    let frame_data_extract = commands
+        .iter()
+        .find(|command| command["name"] == "frame-data extract")
+        .unwrap();
+    assert_eq!(frame_data_extract["mutates_workspace"], true);
+    assert!(frame_data_extract["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("move frame data"));
+    assert!(frame_data_extract["optional_flags"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("--write")));
+    assert!(frame_data_extract["writes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|path| path
+            .as_str()
+            .unwrap()
+            .contains("resources/melee/frame_data")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("frame-data extract")));
     let graph_next = commands
         .iter()
         .find(|command| command["name"] == "graph next")
@@ -1017,6 +2163,166 @@ fn verify_changed_markdown_reports_paths_commands_and_reasons() {
 }
 
 #[test]
+fn replay_check_reads_exported_slippi_inputs_and_reports_first_mismatch() {
+    let root = temp_project_root("replay_check");
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "schema_version": 1,
+            "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+            "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+            "metadata": {"last_frame": 0},
+            "export": {
+                "first_frame": 0,
+                "last_frame": 0,
+                "frame_count": 1,
+                "included_negative_frames": false
+            },
+            "frames": [
+                {"frame": 0, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 14,
+                        "position": [0.0, 0.0],
+                        "facing": 1.0,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 20,
+                        "position": [0.0, 0.0],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}}
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "check".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--mode".to_string(),
+        "seeded".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay check");
+    assert_eq!(parsed["ok"], false);
+    assert_eq!(
+        parsed["source"]["input_export_path"],
+        export_path.display().to_string()
+    );
+    assert_eq!(parsed["comparison"]["mode"], "seeded pre-frame diagnostic");
+    assert_eq!(parsed["comparison"]["frames_compared"], 1);
+    assert_eq!(
+        parsed["comparison"]["first_state_mismatch"]["core_frame"],
+        0
+    );
+    assert_eq!(
+        parsed["comparison"]["first_state_mismatch"]["source_frame"],
+        0
+    );
+    assert_eq!(parsed["comparison"]["first_state_mismatch"]["player"], 1);
+    assert_eq!(
+        parsed["comparison"]["first_state_mismatch"]["expected_motion_state"],
+        "Dash"
+    );
+    assert_eq!(
+        parsed["comparison"]["first_state_mismatch"]["actual_motion_state"],
+        "Wait"
+    );
+    assert!(root.join("debug/slippi/fixture.core.report.md").exists());
+}
+
+#[test]
+fn replay_trace_returns_match_start_trace_rows() {
+    let root = temp_project_root("replay_trace");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "source": {"replay_path": "fixture.slp"},
+            "settings": {
+                "players": {
+                    "0": {"controller_fix": "UCF"},
+                    "1": {"controller_fix": "UCF"}
+                }
+            },
+            "frames": [
+                {"frame": 0, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 14,
+                        "position": [-32.0, 0.0],
+                        "facing": 1,
+                        "rust_player_input": {
+                            "stick_x": 102,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": true
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 20,
+                        "position": [-30.0, 0.0],
+                        "self_induced_speeds": {"ground_x": 2.0, "air_x": 2.0, "y": 0.0}
+                    }
+                }}}
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "trace".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--player".to_string(),
+        "1".to_string(),
+        "--start".to_string(),
+        "0".to_string(),
+        "--end".to_string(),
+        "0".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay trace");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["trace"]["player"], 1);
+    assert_eq!(parsed["trace"]["rows"][0]["source_frame"], 0);
+    assert_eq!(parsed["trace"]["rows"][0]["input"]["stick_x"], 102);
+    assert_eq!(
+        parsed["trace"]["rows"][0]["input"]["ucf_dashback_amendment"],
+        true
+    );
+    assert_eq!(parsed["trace"]["rows"][0]["expected_motion_state"], "Dash");
+    assert!(parsed["trace"]["rows"][0]["actual_motion_frame"].is_u64());
+}
+
+#[test]
 fn snapshot_command_returns_compact_agent_parity_context() {
     let root = temp_project_root("snapshot");
     fs::create_dir_all(root.join(".git")).unwrap();
@@ -1248,4 +2554,34 @@ fn run_git_test_command(root: &Path, args: &[&str]) {
         "git {args:?} failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn source_hurtbox_fixture(bone: u64, state: &str) -> serde_json::Value {
+    json!({
+        "id": bone,
+        "kind": "capsule",
+        "bone": bone,
+        "height": 2,
+        "is_grabbable": true,
+        "a": {"x": 3.25, "y": 2.0, "z": 0.0},
+        "b": {"x": -1.5, "y": 5.0, "z": 0.0},
+        "source_a": {"x": 1.0, "y": 2.0, "z": 3.25},
+        "source_b": {"x": 4.0, "y": 5.0, "z": -1.5},
+        "a_offset": {"x": 0.25, "y": 0.5, "z": 0.75},
+        "b_offset": {"x": -0.25, "y": -0.5, "z": -0.75},
+        "radius": 2.5,
+        "scale": 2.5,
+        "state": state,
+    })
+}
+
+fn source_ecb_frame_fixture(frame: u64) -> serde_json::Value {
+    json!({
+        "frame": frame,
+        "top_raw": {"x": 0.0, "y": 16.0},
+        "bottom_raw": {"x": 0.0, "y": 6.0},
+        "left_raw": {"x": -2.0, "y": 11.0},
+        "right_raw": {"x": 2.0, "y": 11.0},
+        "source_joint_indices": [39, 47, 25, 14, 8, 4],
+    })
 }

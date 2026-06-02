@@ -21,6 +21,7 @@ DEFAULT_VALUE_SHEET_DIR = DEFAULT_GRAPH_DIR / "value_sheets"
 DEFAULT_INPUT_TRACE_DIR = PROJECT_ROOT / "logs"
 DEFAULT_SLIPPI_REPORT_DIR = PROJECT_ROOT / "debug" / "slippi"
 DEFAULT_ECB_COVERAGE_JSON = DEFAULT_GRAPH_DIR / "parity_reports" / "falcon_ecb_coverage.json"
+DEFAULT_MOVE_FRAME_DATA_DIR = PROJECT_ROOT / "resources" / "melee" / "frame_data"
 INPUT_TRACE_GLOB = "controller-input-trace-*.jsonl"
 SLIPPI_REPORT_GLOB = "*.report.md"
 VALUE_SHEET_FILES = ("global_common_values.json", "captain_falcon_values.json")
@@ -30,6 +31,11 @@ PARITY_LEDGER_TAB_LABEL = "Parity Ledger"
 ECB_COVERAGE_TAB_LABEL = "ECB Coverage"
 INPUT_TRACE_TAB_LABEL = "Input Trace"
 SLIPPI_REPLAY_TAB_LABEL = "Slippi Replay"
+MOVE_KEYFRAMES_TAB_LABEL = "Move Keyframes"
+MOVE_FRAME_DATA_CHARACTERS = [
+    {"id": "dolphin_mole", "label": "Dolphin Mole"},
+    {"id": "test_character_2", "label": "Test Character 2"},
+]
 GROUNDED_LEDGER_NODE_IDS = (
     "Wait",
     "WalkSlow",
@@ -44,35 +50,35 @@ GROUNDED_LEDGER_NODE_IDS = (
 TEST_CHARACTER_VALUES_TAB_LABEL = "Test Character Values"
 GLOBAL_VALUES_TAB_LABEL = "Global Values"
 CHARACTER_RUST_FIELD_MAP = {
-    "walk_initial_velocity": "walk_initial_velocity_per_tick",
-    "walk_accel": "walk_accel_per_tick",
-    "walk_max_vel": "walk_speed_per_tick",
-    "slow_walk_max_velocity": "slow_walk_max_velocity_per_tick",
-    "mid_walk_threshold": "mid_walk_animation_rate_per_tick",
-    "fast_walk_threshold": "fast_walk_animation_rate_per_tick",
-    "traction_per_tick": "traction_per_tick",
-    "run_animation_scaling": "run_animation_scaling_per_tick",
+    "walk_initial_velocity": "walk_initial_velocity",
+    "walk_accel": "walk_accel",
+    "walk_max_vel": "walk_max_velocity",
+    "slow_walk_max_velocity": "slow_walk_max_velocity",
+    "mid_walk_threshold": "mid_walk_point",
+    "fast_walk_threshold": "fast_walk_min",
+    "ground_friction": "ground_friction",
+    "run_animation_scaling": "run_animation_scaling",
     "max_run_brake_frames": "max_run_brake_frames",
-    "ground_max_horizontal_velocity": "ground_max_horizontal_velocity_per_tick",
-    "dash_initial_velocity": "initial_dash_speed_per_tick",
+    "ground_max_horizontal_velocity": "ground_max_horizontal_velocity",
+    "dash_initial_velocity": "dash_initial_velocity",
     "frames_to_change_direction_on_standing_turn": "standing_turn_direction_change_frames",
     "jump_startup_time": "jumpsquat_frames",
-    "jump_h_initial_velocity": "jump_horizontal_initial_velocity_per_tick",
-    "jump_v_initial_velocity": "full_hop_jump_force_per_tick",
-    "ground_to_air_jump_momentum_multiplier": "ground_to_air_jump_momentum_milli",
-    "jump_h_max_velocity": "jump_horizontal_max_velocity_per_tick",
-    "hop_v_initial_velocity": "short_hop_jump_force_per_tick",
-    "air_jump_v_multiplier": "air_jump_v_multiplier_milli",
-    "air_jump_h_multiplier": "air_jump_horizontal_velocity_per_tick",
+    "jump_h_initial_velocity": "jump_horizontal_initial_velocity",
+    "jump_v_initial_velocity": "jump_vertical_initial_velocity",
+    "ground_to_air_jump_momentum_multiplier": "ground_to_air_jump_momentum_multiplier",
+    "jump_h_max_velocity": "jump_horizontal_max_velocity",
+    "hop_v_initial_velocity": "hop_vertical_initial_velocity",
+    "air_jump_v_multiplier": "air_jump_vertical_multiplier",
+    "air_jump_h_multiplier": "air_jump_horizontal_multiplier",
     "max_jumps": "max_jumps",
-    "air_drift_stick_mul": "air_drift_stick_accel_per_tick",
-    "aerial_drift_base": "air_drift_base_accel_per_tick",
-    "air_drift_max": "air_drift_max_velocity_per_tick",
-    "aerial_friction": "air_friction_per_tick",
-    "air_max_horizontal_velocity": "air_max_horizontal_velocity_per_tick",
-    "grav": "gravity_per_tick",
-    "terminal_vel": "fall_speed_per_tick",
-    "fast_fall_velocity": "fast_fall_speed_per_tick",
+    "air_drift_stick_mul": "air_drift_stick_multiplier",
+    "aerial_drift_base": "aerial_drift_base",
+    "air_drift_max": "air_drift_max",
+    "aerial_friction": "aerial_friction",
+    "air_max_horizontal_velocity": "air_max_horizontal_velocity",
+    "grav": "gravity",
+    "terminal_vel": "terminal_velocity",
+    "fast_fall_velocity": "fast_fall_velocity",
     "normal_landing_lag": "normal_landing_lag_ticks",
     "landingairn_lag": "landing_air_n_lag_ticks",
     "landingairf_lag": "landing_air_f_lag_ticks",
@@ -181,6 +187,314 @@ def load_value_sheets(value_sheet_dir: Path = DEFAULT_VALUE_SHEET_DIR) -> list[d
 def load_ecb_coverage(path: Path = DEFAULT_ECB_COVERAGE_JSON) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def list_move_frame_data_characters(
+    frame_data_dir: Path = DEFAULT_MOVE_FRAME_DATA_DIR,
+) -> list[dict[str, Any]]:
+    characters = []
+    for character in MOVE_FRAME_DATA_CHARACTERS:
+        character_dir = frame_data_dir / character["id"]
+        characters.append(
+            {
+                "id": character["id"],
+                "label": character["label"],
+                "populated": character_dir.is_dir()
+                and any(character_dir.glob("*.json")),
+            }
+        )
+    return characters
+
+
+def list_move_frame_data_states(
+    frame_data_dir: Path,
+    character_id: str,
+) -> list[dict[str, Any]]:
+    character_dir = frame_data_dir / character_id
+    if not character_dir.is_dir():
+        return []
+    states: list[dict[str, Any]] = []
+    for path in sorted(character_dir.glob("*.json")):
+        try:
+            data = _read_json_file(path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        states.append(
+            {
+                "state": str(data.get("state") or path.stem),
+                "label": str(data.get("label") or path.stem),
+                "populated": True,
+            }
+        )
+    return states
+
+
+def load_move_frame_data(
+    frame_data_dir: Path,
+    character_id: str,
+    state: str,
+) -> dict[str, Any]:
+    path = frame_data_dir / character_id / f"{state}.json"
+    return _read_json_file(path)
+
+
+def build_move_keyframe_empty_state(character_label: str) -> str:
+    return (
+        f"No move frame data populated for {character_label}.\n\n"
+        "Use `mole frame-data extract --character dolphin_mole --source-character captain --state AttackAirN` "
+        "to inspect extracted source data, or switch back to Dolphin Mole."
+    )
+
+
+def project_move_point(point: dict[str, Any], projection: dict[str, Any]) -> dict[str, float]:
+    x = float(point.get("x", 0.0))
+    y = float(point.get("y", 0.0))
+    z = float(point.get("z", 0.0))
+    default_view = projection.get("default_view", "xy")
+    if default_view == "xz":
+        view_x, view_y = x, z
+    elif default_view == "yz":
+        view_x, view_y = y, z
+    else:
+        view_x, view_y = x, y
+    return {"x": x, "y": y, "z": z, "view_x": view_x, "view_y": view_y}
+
+
+def _format_xyz(point: dict[str, Any]) -> str:
+    return "x={x}, y={y}, z={z}".format(
+        x=point.get("x", "unknown"),
+        y=point.get("y", "unknown"),
+        z=point.get("z", "unknown"),
+    )
+
+
+def frame_has_active_hitbox(data: dict[str, Any], frame_number: int) -> bool:
+    windows = data.get("summary", {}).get("active_hitbox_windows", [])
+    for window in windows:
+        try:
+            start = int(window.get("start", 0))
+            end = int(window.get("end", 0))
+        except (TypeError, ValueError):
+            continue
+        if start <= frame_number <= end:
+            return True
+    return False
+
+
+def nearest_move_keyframe(data: dict[str, Any], frame_number: int) -> dict[str, Any] | None:
+    keyframes = sorted(
+        data.get("keyframes", []),
+        key=lambda frame: int(frame.get("frame", 0)),
+    )
+    selected = None
+    for frame in keyframes:
+        if int(frame.get("frame", 0)) <= frame_number:
+            selected = frame
+        else:
+            break
+    return selected or (keyframes[0] if keyframes else None)
+
+
+def format_move_keyframe_details(data: dict[str, Any], frame: dict[str, Any]) -> str:
+    lines = [
+        f"{data.get('target_character_label', data.get('target_character', 'Unknown'))} - {data.get('label', data.get('state', 'Unknown'))}",
+        f"Frame {frame.get('frame', '?')}",
+        f"Projection: {data.get('projection', {}).get('default_view', 'xy')} ({data.get('projection', {}).get('z_policy', 'preserve_and_project')})",
+        "",
+        "Hitboxes:",
+    ]
+    hitboxes = frame.get("hitboxes", [])
+    if hitboxes:
+        for hitbox in hitboxes:
+            center = hitbox.get("center", {})
+            source_center = hitbox.get("source_center", {})
+            source_center_text = ""
+            if source_center:
+                source_center_text = " source_center=(x={x}, y={y}, z={z})".format(
+                    x=source_center.get("x", "unknown"),
+                    y=source_center.get("y", "unknown"),
+                    z=source_center.get("z", "unknown"),
+                )
+            lines.append(
+                "hitbox[{id}] bone={bone} center=(x={x}, y={y}, z={z}){source_center}".format(
+                    id=hitbox.get("id", "?"),
+                    bone=hitbox.get("bone", "unknown"),
+                    x=center.get("x", "unknown"),
+                    y=center.get("y", "unknown"),
+                    z=center.get("z", "unknown"),
+                    source_center=source_center_text,
+                )
+            )
+            value_fields = [
+                "radius",
+                "damage",
+                "angle",
+                "kbg",
+                "bkb",
+                "weight_set_kb",
+                "element",
+                "shield_damage",
+                "hit_grounded",
+                "hit_aerial",
+                "hit_group",
+                "use_common_bone_ids",
+                "previous_center",
+                "source_previous_center",
+                "source_offset",
+                "source_pose_joint",
+                "source_space",
+                "source_hit_capsule_state",
+                "source_sweep",
+                "source_handler",
+                "source_word_offset",
+                "confidence",
+                "source",
+            ]
+            for field in value_fields:
+                if isinstance(hitbox.get(field), dict):
+                    lines.append(f"  {field}=({_format_xyz(hitbox[field])})")
+                elif field in hitbox:
+                    lines.append(f"  {field}={hitbox[field]}")
+    else:
+        lines.append("none")
+    lines.extend(["", "Hurtboxes:"])
+    hurtboxes = frame.get("hurtboxes", [])
+    if hurtboxes:
+        for hurtbox in hurtboxes:
+            a = hurtbox.get("a", {})
+            b = hurtbox.get("b", {})
+            source_a = hurtbox.get("source_a", {})
+            source_b = hurtbox.get("source_b", {})
+            source_text = ""
+            if source_a:
+                source_text += f" source_a=({_format_xyz(source_a)})"
+            if source_b:
+                source_text += f" source_b=({_format_xyz(source_b)})"
+            lines.append(
+                "hurtbox[{id}] bone={bone} a=({a}) b=({b}) radius={radius}{source_text}".format(
+                    id=hurtbox.get("id", "?"),
+                    bone=hurtbox.get("bone", "unknown"),
+                    a=_format_xyz(a),
+                    b=_format_xyz(b),
+                    radius=hurtbox.get("radius", "unknown"),
+                    source_text=source_text,
+                )
+            )
+            for field in [
+                "radius",
+                "scale",
+                "height",
+                "is_grabbable",
+                "state",
+                "state_raw",
+                "state_source",
+                "source_handler",
+                "source_word_offset",
+                "confidence",
+                "source",
+            ]:
+                if field in hurtbox:
+                    lines.append(f"  {field}={hurtbox[field]}")
+            for field in [
+                "a_pos",
+                "b_pos",
+                "source_a_pos",
+                "source_b_pos",
+                "a_offset",
+                "b_offset",
+            ]:
+                if isinstance(hurtbox.get(field), dict):
+                    lines.append(f"  {field}=({_format_xyz(hurtbox[field])})")
+            for field in [
+                "source_init_handler",
+                "source_update_handler",
+                "source_draw_handler",
+                "source_render_endpoints",
+                "source_render_radius",
+                "source_color_table",
+                "source_skip_update_pos_after_transform",
+                "source_z_policy",
+            ]:
+                if field in hurtbox:
+                    lines.append(f"  {field}={hurtbox[field]}")
+    else:
+        lines.append("none")
+    lines.extend(["", "Body volumes:"])
+    body_volumes = frame.get("body_volumes", [])
+    if body_volumes:
+        for body_volume in body_volumes:
+            lines.append(
+                "body_volume[{id}] kind={kind} top=({top}) right=({right}) bottom=({bottom}) left=({left})".format(
+                    id=body_volume.get("id", "?"),
+                    kind=body_volume.get("kind", "unknown"),
+                    top=_format_xyz(body_volume.get("top", {})),
+                    right=_format_xyz(body_volume.get("right", {})),
+                    bottom=_format_xyz(body_volume.get("bottom", {})),
+                    left=_format_xyz(body_volume.get("left", {})),
+                )
+            )
+            for field in ["source_top", "source_right", "source_bottom", "source_left"]:
+                if isinstance(body_volume.get(field), dict):
+                    lines.append(f"  {field}=({_format_xyz(body_volume[field])})")
+            for field in ["source_joint_indices", "confidence", "source"]:
+                if field in body_volume:
+                    lines.append(f"  {field}={body_volume[field]}")
+    else:
+        lines.append("none")
+    lines.extend(["", "Sources:"])
+    for source in data.get("sources", []):
+        line = source.get("line")
+        suffix = f":{line}" if line else ""
+        lines.append(f"- {source.get('kind', 'source')}: {source.get('path', 'unknown')}{suffix}")
+    return "\n".join(lines)
+
+
+def format_move_frame_data_summary(data: dict[str, Any]) -> str:
+    projection = data.get("projection", {})
+    summary = data.get("summary", {})
+    lines = [
+        "Move Keyframes",
+        "",
+        f"Character: {data.get('target_character_label', data.get('target_character', 'Unknown'))}",
+        f"Source Character: {data.get('source_character_label', data.get('source_character', 'Unknown'))}",
+        f"State: {data.get('state', 'Unknown')} ({data.get('label', 'Unknown')})",
+        f"Projection: {projection.get('default_view', 'xy')} / {projection.get('z_policy', 'preserve_and_project')}",
+        f"Total frames: {summary.get('total_frames', 'unknown')}",
+    ]
+    windows = summary.get("active_hitbox_windows", [])
+    if windows:
+        ranges = [f"{window.get('start', '?')}-{window.get('end', '?')}" for window in windows]
+        lines.append(f"Hitbox active frames: {', '.join(ranges)}")
+    hurtbox_windows = summary.get("active_hurtbox_windows", [])
+    if hurtbox_windows:
+        ranges = [
+            f"{window.get('start', '?')}-{window.get('end', '?')}"
+            for window in hurtbox_windows
+        ]
+        lines.append(f"Hurtbox active frames: {', '.join(ranges)}")
+    body_volume_windows = summary.get("active_body_volume_windows", [])
+    if body_volume_windows:
+        ranges = [
+            f"{window.get('start', '?')}-{window.get('end', '?')}"
+            for window in body_volume_windows
+        ]
+        lines.append(f"Body volume active frames: {', '.join(ranges)}")
+    lines.extend(["", "Keyframes:"])
+    for frame in data.get("keyframes", []):
+        lines.append(
+            "Frame {frame}: {hitboxes} hitbox(es), {hurtboxes} hurtbox(es), {body_volumes} body volume(s)".format(
+                frame=frame.get("frame", "?"),
+                hitboxes=len(frame.get("hitboxes", [])),
+                hurtboxes=len(frame.get("hurtboxes", [])),
+                body_volumes=len(frame.get("body_volumes", [])),
+            )
+        )
+    gaps = data.get("gaps", [])
+    if gaps:
+        lines.extend(["", "Gaps:"])
+        for gap in gaps:
+            lines.append(f"- {gap.get('field', 'unknown')}: {gap.get('reason', '')}")
+    return "\n".join(lines)
 
 
 def latest_input_trace_path(log_dir: Path = DEFAULT_INPUT_TRACE_DIR) -> Path | None:
@@ -775,11 +1089,13 @@ def launch_viewer(
     ecb_coverage_tab = tk.Frame(notebook, bg="#ffffff")
     input_trace_tab = tk.Frame(notebook, bg="#ffffff")
     slippi_replay_tab = tk.Frame(notebook, bg="#ffffff")
+    move_keyframes_tab = tk.Frame(notebook, bg="#ffffff")
     notebook.add(graphs_tab, text=STATE_GRAPHS_TAB_LABEL)
     notebook.add(ledger_tab, text=PARITY_LEDGER_TAB_LABEL)
     notebook.add(ecb_coverage_tab, text=ECB_COVERAGE_TAB_LABEL)
     notebook.add(input_trace_tab, text=INPUT_TRACE_TAB_LABEL)
     notebook.add(slippi_replay_tab, text=SLIPPI_REPLAY_TAB_LABEL)
+    notebook.add(move_keyframes_tab, text=MOVE_KEYFRAMES_TAB_LABEL)
 
     show_labels = tk.BooleanVar(value=False)
     curved_edges = tk.BooleanVar(value=True)
@@ -813,6 +1129,7 @@ def launch_viewer(
     draw_ecb_coverage_tab(ecb_coverage_tab)
     draw_input_trace_tab(input_trace_tab)
     draw_slippi_replay_tab(slippi_replay_tab)
+    draw_move_keyframes_tab(move_keyframes_tab)
 
     panes: list[StateGraphPane] = []
 
@@ -1196,6 +1513,357 @@ def draw_slippi_replay_tab(parent: Any, report_dir: Path = DEFAULT_SLIPPI_REPORT
     refresh()
 
 
+def draw_move_keyframes_tab(
+    parent: Any,
+    frame_data_dir: Path = DEFAULT_MOVE_FRAME_DATA_DIR,
+) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    frame = tk.Frame(parent, bg="#ffffff", padx=12, pady=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    header_row = tk.Frame(frame, bg="#ffffff")
+    header_row.pack(fill=tk.X, pady=(0, 8))
+    tk.Label(
+        header_row,
+        text=MOVE_KEYFRAMES_TAB_LABEL,
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 13, "bold"),
+    ).pack(side=tk.LEFT)
+
+    characters = list_move_frame_data_characters(frame_data_dir)
+    character_by_label = {character["label"]: character for character in characters}
+    selected_character = tk.StringVar(value=characters[0]["label"])
+    selected_state = tk.StringVar(value="")
+    selected_frame_number = tk.IntVar(value=1)
+
+    controls = tk.Frame(frame, bg="#ffffff")
+    controls.pack(fill=tk.X, pady=(0, 8))
+    tk.Label(controls, text="Character", bg="#ffffff").pack(side=tk.LEFT)
+    character_combo = ttk.Combobox(
+        controls,
+        textvariable=selected_character,
+        values=[character["label"] for character in characters],
+        state="readonly",
+        width=24,
+    )
+    character_combo.pack(side=tk.LEFT, padx=(6, 16))
+    tk.Label(controls, text="State", bg="#ffffff").pack(side=tk.LEFT)
+    state_combo = ttk.Combobox(controls, textvariable=selected_state, state="readonly", width=24)
+    state_combo.pack(side=tk.LEFT, padx=(6, 16))
+
+    body = tk.PanedWindow(frame, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
+    body.pack(fill=tk.BOTH, expand=True)
+    canvas = tk.Canvas(body, bg="#111827", width=720, height=460, highlightthickness=0)
+    details = tk.Text(
+        body,
+        wrap=tk.WORD,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Consolas", 9),
+        padx=10,
+        pady=8,
+    )
+    body.add(canvas, stretch="always")
+    body.add(details, stretch="always")
+
+    state_records: list[dict[str, Any]] = []
+    loaded_data: dict[str, Any] | None = None
+
+    def refresh_states() -> None:
+        nonlocal state_records
+        character = character_by_label[selected_character.get()]
+        state_records = list_move_frame_data_states(frame_data_dir, character["id"])
+        state_combo.configure(values=[state["label"] for state in state_records])
+        selected_state.set(state_records[0]["label"] if state_records else "")
+        redraw()
+
+    def current_state_record() -> dict[str, Any] | None:
+        for record in state_records:
+            if record["label"] == selected_state.get():
+                return record
+        return None
+
+    def redraw() -> None:
+        nonlocal loaded_data
+        canvas.delete("all")
+        character = character_by_label[selected_character.get()]
+        record = current_state_record()
+        if record is None:
+            loaded_data = None
+            selected_frame_number.set(1)
+            _set_text(details, build_move_keyframe_empty_state(character["label"]))
+            canvas.create_text(
+                360,
+                210,
+                text=build_move_keyframe_empty_state(character["label"]),
+                fill="#cbd5e1",
+                font=("Segoe UI", 12),
+                justify=tk.CENTER,
+            )
+            return
+        loaded_data = load_move_frame_data(frame_data_dir, character["id"], record["state"])
+        total_frames = int(loaded_data.get("summary", {}).get("total_frames", 1))
+        if selected_frame_number.get() < 1 or selected_frame_number.get() > total_frames:
+            selected_frame_number.set(1)
+        draw_selected_frame()
+
+    def draw_selected_frame() -> None:
+        if loaded_data is None:
+            return
+        frame_number = selected_frame_number.get()
+        effective_frame = nearest_move_keyframe(loaded_data, frame_number)
+        if effective_frame is None:
+            _set_text(details, format_move_frame_data_summary(loaded_data))
+            draw_move_keyframe_canvas(canvas, loaded_data, selected_frame_number=frame_number)
+            return
+        text = "\n\n".join(
+            [
+                format_move_frame_data_summary(loaded_data),
+                f"Selected frame: {frame_number}",
+                f"Hitbox active: {frame_has_active_hitbox(loaded_data, frame_number)}",
+                format_move_keyframe_details(loaded_data, effective_frame),
+            ]
+        )
+        _set_text(details, text)
+        draw_move_keyframe_canvas(
+            canvas,
+            loaded_data,
+            selected_frame_number=frame_number,
+            on_frame_selected=select_frame,
+        )
+
+    def select_frame(frame_number: int) -> None:
+        selected_frame_number.set(frame_number)
+        draw_selected_frame()
+
+    def on_state_changed(_event: Any | None = None) -> None:
+        redraw()
+
+    character_combo.bind("<<ComboboxSelected>>", lambda _event: refresh_states())
+    state_combo.bind("<<ComboboxSelected>>", on_state_changed)
+    refresh_states()
+
+
+def draw_move_keyframe_canvas(
+    canvas: Any,
+    data: dict[str, Any],
+    selected_frame_number: int = 1,
+    on_frame_selected: Any | None = None,
+) -> None:
+    import tkinter as tk
+
+    canvas.delete("all")
+    keyframes = data.get("keyframes", [])
+    if not keyframes:
+        canvas.create_text(360, 220, text="No keyframes", fill="#cbd5e1")
+        return
+    frame = nearest_move_keyframe(data, selected_frame_number) or keyframes[0]
+    projection = data.get("projection", {})
+    scale = float(projection.get("view_scale", 10.0))
+    origin_x, origin_y = 360.0, 260.0
+
+    canvas.create_text(
+        16,
+        16,
+        anchor=tk.NW,
+        text=f"{data.get('target_character_label', 'Unknown')} - {data.get('label', 'Unknown')} - Frame {selected_frame_number}",
+        fill="#e2e8f0",
+        font=("Segoe UI", 12, "bold"),
+    )
+    active_label = "hitbox active" if frame_has_active_hitbox(data, selected_frame_number) else "no active hitbox"
+    canvas.create_text(
+        16,
+        36,
+        anchor=tk.NW,
+        text=active_label,
+        fill="#fca5a5" if frame_has_active_hitbox(data, selected_frame_number) else "#94a3b8",
+        font=("Segoe UI", 10),
+    )
+
+    _draw_move_hitbox_travel(canvas, frame, projection, scale, origin_x, origin_y)
+    _draw_move_body_volumes(canvas, frame, projection, scale, origin_x, origin_y, ghost=False)
+    _draw_move_frame_volumes(canvas, frame, projection, scale, origin_x, origin_y, ghost=False)
+
+    total_frames = int(data.get("summary", {}).get("total_frames", max(1, len(keyframes))))
+    cell_width = max(8, min(18, 680 // max(1, total_frames)))
+    timeline_x = 20
+    timeline_y = 420
+    keyed_frames = {int(item.get("frame", 0)) for item in keyframes}
+    for frame_number in range(1, total_frames + 1):
+        x0 = timeline_x + (frame_number - 1) * cell_width
+        x1 = x0 + cell_width - 2
+        fill = "#0f172a"
+        outline = "#334155"
+        if frame_has_active_hitbox(data, frame_number):
+            fill = "#7f1d1d"
+            outline = "#ef4444"
+        if frame_number in keyed_frames:
+            fill = "#1d4ed8"
+            outline = "#60a5fa"
+        if frame_has_active_hitbox(data, frame_number) and frame_number in keyed_frames:
+            fill = "#7c2d12"
+            outline = "#fb923c"
+        if frame_number == selected_frame_number:
+            fill = "#047857"
+            outline = "#34d399"
+        tag = f"move_frame_{frame_number}"
+        canvas.create_rectangle(
+            x0,
+            timeline_y,
+            x1,
+            timeline_y + 18,
+            fill=fill,
+            outline=outline,
+            tags=(tag, "move_timeline_frame"),
+        )
+        if on_frame_selected is not None:
+            canvas.tag_bind(tag, "<Button-1>", lambda _event, n=frame_number: on_frame_selected(n))
+
+
+def _draw_move_frame_volumes(
+    canvas: Any,
+    frame: dict[str, Any],
+    projection: dict[str, Any],
+    scale: float,
+    origin_x: float,
+    origin_y: float,
+    ghost: bool,
+) -> None:
+    hit_outline = "#6ee7b7" if ghost else "#10b981"
+    hurt_outline = "#93c5fd" if ghost else "#3b82f6"
+    dash = (4, 3) if ghost else None
+    for hurtbox in frame.get("hurtboxes", []):
+        a = project_move_point(hurtbox.get("a_pos", hurtbox.get("a", {})), projection)
+        b = project_move_point(hurtbox.get("b_pos", hurtbox.get("b", {})), projection)
+        radius = float(hurtbox.get("radius", 1.0)) * scale
+        ax = origin_x + a["view_x"] * scale
+        ay = origin_y - a["view_y"] * scale
+        bx = origin_x + b["view_x"] * scale
+        by = origin_y - b["view_y"] * scale
+        canvas.create_line(
+            ax,
+            ay,
+            bx,
+            by,
+            fill=hurt_outline,
+            width=2,
+            dash=dash,
+            tags=("move_hurtbox",),
+        )
+        for cx, cy in [(ax, ay), (bx, by)]:
+            canvas.create_oval(
+                cx - radius,
+                cy - radius,
+                cx + radius,
+                cy + radius,
+                outline=hurt_outline,
+                width=2,
+                dash=dash,
+                tags=("move_hurtbox",),
+            )
+    for hitbox in frame.get("hitboxes", []):
+        center = project_move_point(hitbox.get("center", {}), projection)
+        radius = float(hitbox.get("radius", 1.0)) * scale
+        cx = origin_x + center["view_x"] * scale
+        cy = origin_y - center["view_y"] * scale
+        canvas.create_oval(
+            cx - radius,
+            cy - radius,
+            cx + radius,
+            cy + radius,
+            outline=hit_outline,
+            width=2,
+            dash=dash,
+            tags=("move_hitbox",),
+        )
+
+
+def _draw_move_body_volumes(
+    canvas: Any,
+    frame: dict[str, Any],
+    projection: dict[str, Any],
+    scale: float,
+    origin_x: float,
+    origin_y: float,
+    ghost: bool,
+) -> None:
+    outline = "#fcd34d" if ghost else "#f59e0b"
+    dash = (5, 4) if ghost else None
+    for body_volume in frame.get("body_volumes", []):
+        points = [
+            body_volume.get("top", {}),
+            body_volume.get("right", {}),
+            body_volume.get("bottom", {}),
+            body_volume.get("left", {}),
+            body_volume.get("top", {}),
+        ]
+        projected = [
+            _move_canvas_point(point, projection, scale, origin_x, origin_y) for point in points
+        ]
+        for (x0, y0), (x1, y1) in zip(projected, projected[1:]):
+            canvas.create_line(
+                x0,
+                y0,
+                x1,
+                y1,
+                fill=outline,
+                width=2,
+                dash=dash,
+                tags=("move_body_volume",),
+            )
+
+
+def _draw_move_hitbox_travel(
+    canvas: Any,
+    current: dict[str, Any],
+    projection: dict[str, Any],
+    scale: float,
+    origin_x: float,
+    origin_y: float,
+) -> None:
+    for hitbox in current.get("hitboxes", []):
+        previous_center_raw = hitbox.get("previous_center")
+        if not isinstance(previous_center_raw, dict):
+            continue
+        prior_center = project_move_point(previous_center_raw, projection)
+        current_center = project_move_point(hitbox.get("center", {}), projection)
+        x0 = origin_x + prior_center["view_x"] * scale
+        y0 = origin_y - prior_center["view_y"] * scale
+        x1 = origin_x + current_center["view_x"] * scale
+        y1 = origin_y - current_center["view_y"] * scale
+        if x0 == x1 and y0 == y1:
+            continue
+        canvas.create_line(
+            x0,
+            y0,
+            x1,
+            y1,
+            fill="#fbbf24",
+            width=1,
+            dash=(2, 3),
+            tags=("move_hitbox_travel",),
+        )
+
+
+def _move_canvas_point(
+    point: dict[str, Any],
+    projection: dict[str, Any],
+    scale: float,
+    origin_x: float,
+    origin_y: float,
+) -> tuple[float, float]:
+    projected = project_move_point(point, projection)
+    return (
+        origin_x + projected["view_x"] * scale,
+        origin_y - projected["view_y"] * scale,
+    )
+
+
 def format_value_comparison_details(row: dict[str, Any]) -> str:
     lines = [
         f"{row['field']} [{row['status']}]",
@@ -1217,6 +1885,14 @@ def _set_text(text: Any, value: str) -> None:
     text.delete("1.0", "end")
     text.insert("1.0", value)
     text.configure(state="disabled")
+
+
+def _read_json_file(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} did not contain a JSON object")
+    return data
 
 
 def _display_value(value: Any) -> str:

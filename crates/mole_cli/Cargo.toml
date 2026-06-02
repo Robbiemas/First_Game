@@ -9,5 +9,7 @@ name = "mole"
 path = "src/main.rs"
 
 [dependencies]
+mole_core = { path = "../mole_core" }
+mole_runtime = { path = "../mole_runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

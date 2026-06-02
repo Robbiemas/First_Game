@@ -4,8 +4,10 @@ from types import SimpleNamespace
 
 from tools.state_graph_viewer import (
     ALLOWED_STATUSES,
+    DEFAULT_MOVE_FRAME_DATA_DIR,
     ECB_COVERAGE_TAB_LABEL,
     INPUT_TRACE_TAB_LABEL,
+    MOVE_KEYFRAMES_TAB_LABEL,
     PARITY_LEDGER_TAB_LABEL,
     SLIPPI_REPLAY_TAB_LABEL,
     STATUS_STYLES,
@@ -15,27 +17,36 @@ from tools.state_graph_viewer import (
     apply_saved_layout,
     build_parity_ledger_overview,
     build_value_comparison_rows,
+    build_move_keyframe_empty_state,
     clamp_zoom,
     compute_edge_lane_offsets,
+    draw_move_keyframe_canvas,
     edge_lane_offsets,
     expand_scroll_region,
     equivalent_edge_targets,
     equivalent_layout_targets,
+    format_move_frame_data_summary,
+    format_move_keyframe_details,
     format_ledger_details,
     format_ecb_coverage,
     format_latest_slippi_report,
     format_recent_input_trace,
+    frame_has_active_hitbox,
+    list_move_frame_data_characters,
+    list_move_frame_data_states,
     load_ecb_coverage,
     is_edge_label_visible,
     is_right_drag_event,
     latest_input_trace_path,
     latest_slippi_report_path,
+    load_move_frame_data,
     load_recent_input_trace_rows,
     load_graphs,
     load_rust_character_values,
     load_rust_global_values,
     load_value_sheets,
     pin_edge_label,
+    project_move_point,
     route_edge,
     save_layout,
     scroll_fraction_for_canvas_coordinate,
@@ -52,6 +63,33 @@ ROOT = Path(__file__).resolve().parents[1]
 GRAPH_DIR = ROOT / "docs" / "state_graphs"
 
 
+class RecordingCanvas:
+    def __init__(self):
+        self.calls = []
+
+    def delete(self, *args, **kwargs):
+        self.calls.append(("delete", args, kwargs))
+
+    def create_text(self, *args, **kwargs):
+        self.calls.append(("create_text", args, kwargs))
+        return len(self.calls)
+
+    def create_line(self, *args, **kwargs):
+        self.calls.append(("create_line", args, kwargs))
+        return len(self.calls)
+
+    def create_oval(self, *args, **kwargs):
+        self.calls.append(("create_oval", args, kwargs))
+        return len(self.calls)
+
+    def create_rectangle(self, *args, **kwargs):
+        self.calls.append(("create_rectangle", args, kwargs))
+        return len(self.calls)
+
+    def tag_bind(self, *args, **kwargs):
+        self.calls.append(("tag_bind", args, kwargs))
+
+
 def test_dev_tool_title_and_tab_labels_make_ledger_visible():
     assert TOOL_TITLE == "Mole Game Dev Tool"
     assert STATE_GRAPHS_TAB_LABEL == "State Graphs"
@@ -59,6 +97,229 @@ def test_dev_tool_title_and_tab_labels_make_ledger_visible():
     assert ECB_COVERAGE_TAB_LABEL == "ECB Coverage"
     assert INPUT_TRACE_TAB_LABEL == "Input Trace"
     assert SLIPPI_REPLAY_TAB_LABEL == "Slippi Replay"
+    assert MOVE_KEYFRAMES_TAB_LABEL == "Move Keyframes"
+
+
+def test_move_keyframes_tab_label_and_default_characters_are_visible():
+    assert MOVE_KEYFRAMES_TAB_LABEL == "Move Keyframes"
+    characters = list_move_frame_data_characters(DEFAULT_MOVE_FRAME_DATA_DIR)
+
+    assert characters[0]["id"] == "dolphin_mole"
+    assert characters[0]["label"] == "Dolphin Mole"
+    assert characters[0]["populated"] is True
+    assert characters[1]["id"] == "test_character_2"
+    assert characters[1]["label"] == "Test Character 2"
+    assert characters[1]["populated"] is False
+
+
+def test_move_frame_data_loads_dolphin_mole_attack_air_n_source_metadata():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+
+    assert data["schema_version"] == 1
+    assert data["target_character"] == "dolphin_mole"
+    assert data["target_character_label"] == "Dolphin Mole"
+    assert data["source_character"] == "captain"
+    assert data["state"] == "AttackAirN"
+    assert data["label"] == "Neutral Air"
+    assert data["projection"]["source_space"] == "melee_xyz"
+    assert data["projection"]["z_policy"] == "preserve_and_project"
+    assert (
+        data["projection"]["render_transform"]
+        == "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
+    )
+    assert data["projection"]["flatten_after_render"] == "right_facing_melee_xy"
+    assert data["summary"]["total_frames"] == 45
+    assert data["sources"][0]["kind"] == "decomp"
+    assert data["keyframes"][0]["hurtboxes"][0]["a"]["z"] == 0.0
+
+
+def test_move_frame_data_states_are_character_scoped_and_empty_character_is_honest():
+    dolphin_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole")
+    empty_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "test_character_2")
+
+    assert dolphin_states == [{"state": "AttackAirN", "label": "Neutral Air", "populated": True}]
+    assert empty_states == []
+    assert "No move frame data populated for Test Character 2" in build_move_keyframe_empty_state(
+        "Test Character 2"
+    )
+
+
+def test_move_keyframe_details_preserve_z_and_projection_flattens_only_for_view():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    frame = next(item for item in data["keyframes"] if item["frame"] == 7)
+    details = format_move_keyframe_details(data, frame)
+    point = project_move_point({"x": 3.5, "y": 8.0, "z": -1.25}, data["projection"])
+
+    assert "Frame 7" in details
+    assert "hitbox[0]" in details
+    assert "center=(x=6.22770476742773, y=5.7742231390805, z=0.0)" in details
+    assert "source_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
+    assert "previous_center=(x=6.22770476742773, y=5.7742231390805, z=0.0)" in details
+    assert "source_previous_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
+    assert "source_offset=(x=5.859375, y=0.0, z=0.0)" in details
+    assert "source_hit_capsule_state=HitCapsule_Unk2" in details
+    assert "source_sweep=ftColl_8007AD18 x58(previous) -> x4C(current)" in details
+    assert point == {"x": 3.5, "y": 8.0, "z": -1.25, "view_x": 3.5, "view_y": 8.0}
+
+
+def test_move_keyframe_details_show_melee_hit_capsule_sweep_on_moving_hitbox():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    frame = next(item for item in data["keyframes"] if item["frame"] == 8)
+
+    details = format_move_keyframe_details(data, frame)
+
+    assert "hitbox[0]" in details
+    assert "source_center=(x=2.3581509748394827, y=8.748694524257466, z=12.52456208826256)" in details
+    assert "source_previous_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
+    assert "source_hit_capsule_state=HitCapsule_Unk3" in details
+
+
+def test_move_keyframe_summary_lists_timeline_frames_and_gaps():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    text = format_move_frame_data_summary(data)
+
+    assert "Dolphin Mole" in text
+    assert "Neutral Air" in text
+    assert "Total frames: 45" in text
+    assert "Frame 1" in text
+    assert "Frame 7" in text
+    assert "Frame 45" in text
+    assert "1 body volume(s)" in text
+    assert "Hitbox active frames: 7-12, 20-29" in text
+    assert "iasa_frame" in text
+    assert "preserve_and_project" in text
+
+
+def test_move_frame_data_marks_active_hitbox_window_without_raw_keyframe_duplication():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+
+    assert frame_has_active_hitbox(data, 5) is False
+    assert frame_has_active_hitbox(data, 7) is True
+    assert frame_has_active_hitbox(data, 12) is True
+    assert frame_has_active_hitbox(data, 13) is False
+    assert frame_has_active_hitbox(data, 20) is True
+    assert frame_has_active_hitbox(data, 29) is True
+    assert frame_has_active_hitbox(data, 30) is False
+
+
+def test_move_keyframe_canvas_draws_hitbox_travel_between_keyed_frames():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    canvas = RecordingCanvas()
+
+    draw_move_keyframe_canvas(canvas, data, selected_frame_number=8)
+
+    travel_lines = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_line" and "move_hitbox_travel" in call[2].get("tags", ())
+    ]
+    assert len(travel_lines) == 3
+
+
+def test_move_keyframe_canvas_does_not_draw_hitbox_travel_across_inactive_gap():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    canvas = RecordingCanvas()
+
+    draw_move_keyframe_canvas(canvas, data, selected_frame_number=20)
+
+    travel_lines = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_line" and "move_hitbox_travel" in call[2].get("tags", ())
+    ]
+    assert travel_lines == []
+
+
+def test_move_keyframe_details_expose_all_decoded_hitbox_values():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    frame = next(item for item in data["keyframes"] if item["frame"] == 20)
+
+    details = format_move_keyframe_details(data, frame)
+
+    assert "damage=7" in details
+    assert "angle=361" in details
+    assert "kbg=100" in details
+    assert "bkb=40" in details
+    assert "weight_set_kb=0" in details
+    assert "element=0" in details
+    assert "shield_damage=0" in details
+    assert "hit_grounded=True" in details
+    assert "hit_aerial=True" in details
+    assert "source_handler=ftAction_8007121C" in details
+    assert "source_word_offset=29" in details
+
+
+def test_move_keyframe_details_expose_all_source_hurtbox_values():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    frame = next(item for item in data["keyframes"] if item["frame"] == 7)
+
+    details = format_move_keyframe_details(data, frame)
+
+    assert "hurtbox[0]" in details
+    assert "source_a=(" in details
+    assert "source_b=(" in details
+    assert "a_pos=(" in details
+    assert "b_pos=(" in details
+    assert "source_a_pos=(" in details
+    assert "source_b_pos=(" in details
+    assert "scale=" in details
+    assert "height=" in details
+    assert "is_grabbable=" in details
+    assert "state=HurtCapsule_Enabled" in details
+    assert "source_render_endpoints=HurtCapsule.a_pos -> HurtCapsule.b_pos" in details
+    assert "source_render_radius=HurtCapsule.scale" in details
+    assert "source_update_handler=lbColl_800083C4/lbColl_8000A244/lbColl_8000A584" in details
+    assert (
+        "source_draw_handler=ftDrawCommon_800805C8 -> lbColl_8000A244/lbColl_8000A584 -> lbColl_DrawHitResult"
+        in details
+    )
+    assert "source_color_table=lbColl_803B9928[hurt->state]" in details
+    assert "source_skip_update_pos_after_transform=True" in details
+    assert (
+        "source_z_policy=preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null"
+        in details
+    )
+    assert "confidence=source_extracted" in details
+    assert "Body volumes:" in details
+    assert "body_volume[ecb]" in details
+
+
+def test_move_keyframe_canvas_keeps_hurtboxes_static_and_draws_only_hitbox_travel():
+    data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
+    canvas = RecordingCanvas()
+
+    draw_move_keyframe_canvas(canvas, data, selected_frame_number=21)
+
+    hitbox_travel = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_line" and "move_hitbox_travel" in call[2].get("tags", ())
+    ]
+    hurtbox_travel = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_line" and "move_hurtbox_travel" in call[2].get("tags", ())
+    ]
+    ghost_hurtboxes = [
+        call
+        for call in canvas.calls
+        if "move_hurtbox" in call[2].get("tags", ()) and call[2].get("dash") is not None
+    ]
+    ghost_body_lines = [
+        call
+        for call in canvas.calls
+        if "move_body_volume" in call[2].get("tags", ()) and call[2].get("dash") is not None
+    ]
+    body_lines = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_line" and "move_body_volume" in call[2].get("tags", ())
+    ]
+    assert hitbox_travel
+    assert hurtbox_travel == []
+    assert ghost_hurtboxes == []
+    assert ghost_body_lines == []
+    assert body_lines
 
 
 def test_latest_slippi_report_path_returns_newest_report(tmp_path):
@@ -197,9 +458,9 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
     dash_x = next(row for row in rows if row["field"] == "dash_x")
     platform_drop = next(row for row in rows if row["field"] == "platform_drop_delay_ticks")
     fall_drift_threshold = next(
-        row for row in rows if row["field"] == "fall_animation_drift_threshold_milli"
+        row for row in rows if row["field"] == "fall_animation_drift_threshold"
     )
-    fall_blend = next(row for row in rows if row["field"] == "fall_animation_blend_milli")
+    fall_blend = next(row for row in rows if row["field"] == "fall_animation_blend")
 
     c_stick_x = next(row for row in rows if row["field"] == "c_stick_deadzone_x")
 
@@ -207,7 +468,7 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
 
     turn_run_x = next(row for row in rows if row["field"] == "turn_run_x")
     run_brake_pause = next(
-        row for row in rows if row["field"] == "run_brake_animation_pause_velocity_milli"
+        row for row in rows if row["field"] == "run_brake_animation_pause_velocity"
     )
 
     assert len(rows) == 64
@@ -229,12 +490,12 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
     assert platform_drop["rust_value"] == 2
     assert platform_drop["status"] == "match"
     assert fall_drift_threshold["source_field"] == "x444"
-    assert fall_drift_threshold["decomp_value"] == 100
-    assert fall_drift_threshold["rust_value"] == 100
+    assert fall_drift_threshold["decomp_value"] == 0.10000000149011612
+    assert fall_drift_threshold["rust_value"] == 0.10000000149011612
     assert fall_drift_threshold["status"] == "match"
     assert fall_blend["source_field"] == "x448"
-    assert fall_blend["decomp_value"] == 500
-    assert fall_blend["rust_value"] == 500
+    assert fall_blend["decomp_value"] == 0.5
+    assert fall_blend["rust_value"] == 0.5
     assert fall_blend["status"] == "match"
     assert c_stick_x["decomp_value"] == 36
     assert c_stick_x["rust_value"] == 36
@@ -264,9 +525,9 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     landing_air_f = next(row for row in rows if row["field"] == "landingairf_lag")
 
     assert len(rows) == 39
-    assert dash_initial["decomp_value"] == 2000
-    assert dash_initial["rust_field"] == "initial_dash_speed_per_tick"
-    assert dash_initial["rust_value"] == 2000
+    assert dash_initial["decomp_value"] == 2.0
+    assert dash_initial["rust_field"] == "dash_initial_velocity"
+    assert dash_initial["rust_value"] == 2.0
     assert dash_initial["status"] == "match"
     assert dash_run_accel_a["decomp_value"] == 0.15000000596046448
     assert dash_run_accel_a["rust_field"] == "dash_run_acceleration_a"
@@ -280,8 +541,8 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     assert max_jumps["rust_field"] == "max_jumps"
     assert max_jumps["rust_value"] == 2
     assert max_jumps["status"] == "match"
-    assert air_jump_v["rust_field"] == "air_jump_v_multiplier_milli"
-    assert air_jump_v["rust_value"] == 900
+    assert air_jump_v["rust_field"] == "air_jump_vertical_multiplier"
+    assert air_jump_v["rust_value"] == 0.8999999761581421
     assert air_jump_v["status"] == "match"
     assert entry_offset["decomp_value"] == 1647
     assert entry_offset["rust_field"] == "entry_platform_offset_y"
@@ -636,7 +897,7 @@ def test_graph_validation_accepts_ledger_reference_fields():
                 "status": "aligned",
                 "source_refs": [{"label": "source", "path": "src/melee/ft/chara/ftCommon/ftCo_Wait.c"}],
                 "rust_refs": [{"label": "test", "path": "crates/mole_core/tests/core_contract.rs"}],
-                "value_refs": ["captain_falcon_values.walk_and_run.traction_per_tick"],
+                "value_refs": ["captain_falcon_values.walk_and_run.ground_friction"],
                 "physics": ["ground friction"],
                 "known_gaps": [],
             }

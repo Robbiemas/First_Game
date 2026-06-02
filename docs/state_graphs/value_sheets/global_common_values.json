@@ -119,36 +119,36 @@
           "source_name": "x24"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 400,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.4000000059604645,
+          "kind": "source_f32",
           "offset": 40,
           "offset_hex": "0x28",
           "provenance": "extracted_melee_dat",
           "raw": 0.4000000059604645,
-          "rust_name": "walk_middle_velocity_ratio_milli",
+          "rust_name": "walk_middle_velocity_ratio",
           "source_name": "x28"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 800,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.800000011920929,
+          "kind": "source_f32",
           "offset": 44,
           "offset_hex": "0x2c",
           "provenance": "extracted_melee_dat",
           "raw": 0.800000011920929,
-          "rust_name": "walk_fast_velocity_ratio_milli",
+          "rust_name": "walk_fast_velocity_ratio",
           "source_name": "x2C"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 500,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.5,
+          "kind": "source_f32",
           "offset": 48,
           "offset_hex": "0x30",
           "provenance": "extracted_melee_dat",
           "raw": 0.5,
-          "rust_name": "walk_accel_taper_milli",
+          "rust_name": "walk_accel_taper",
           "source_name": "x30"
         },
         {
@@ -229,14 +229,14 @@
           "source_name": "x4C"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 750,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.75,
+          "kind": "source_f32",
           "offset": 84,
           "offset_hex": "0x54",
           "provenance": "extracted_melee_dat",
           "raw": 0.75,
-          "rust_name": "dash_velocity_decay_milli",
+          "rust_name": "dash_velocity_decay",
           "source_name": "x54"
         },
         {
@@ -251,36 +251,36 @@
           "source_name": "x58_someLStickXThreshold"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 400,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.4000000059604645,
+          "kind": "source_f32",
           "offset": 92,
           "offset_hex": "0x5c",
           "provenance": "extracted_melee_dat",
           "raw": 0.4000000059604645,
-          "rust_name": "run_accel_taper_milli",
+          "rust_name": "run_accel_taper",
           "source_name": "x5C"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 1000,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.0,
+          "kind": "source_f32",
           "offset": 96,
           "offset_hex": "0x60",
           "provenance": "extracted_melee_dat",
           "raw": 1.0,
-          "rust_name": "run_ground_friction_multiplier_milli",
+          "rust_name": "run_ground_friction_multiplier",
           "source_name": "x60_someFrictionMul"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 2000,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.0,
+          "kind": "source_f32",
           "offset": 108,
           "offset_hex": "0x6c",
           "provenance": "extracted_melee_dat",
           "raw": 2.0,
-          "rust_name": "high_speed_ground_friction_multiplier_milli",
+          "rust_name": "high_speed_ground_friction_multiplier",
           "source_name": "x6C"
         },
         {
@@ -295,25 +295,25 @@
           "source_name": "x430"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 0,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.0,
+          "kind": "source_f32",
           "offset": 1068,
           "offset_hex": "0x42c",
           "provenance": "extracted_melee_dat",
           "raw": 0.0,
-          "rust_name": "run_brake_animation_pause_velocity_milli",
+          "rust_name": "run_brake_animation_pause_velocity",
           "source_name": "x42C"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 1300,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.2999999523162842,
+          "kind": "source_f32",
           "offset": 1088,
           "offset_hex": "0x440",
           "provenance": "extracted_melee_dat",
           "raw": 1.2999999523162842,
-          "rust_name": "animation_velocity_scale_milli",
+          "rust_name": "animation_velocity_scale",
           "source_name": "x440"
         }
       ],
@@ -422,25 +422,25 @@
           "source_name": "x20_radians"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 100,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.10000000149011612,
+          "kind": "source_f32",
           "offset": 1092,
           "offset_hex": "0x444",
           "provenance": "extracted_melee_dat",
           "raw": 0.10000000149011612,
-          "rust_name": "fall_animation_drift_threshold_milli",
+          "rust_name": "fall_animation_drift_threshold",
           "source_name": "x444"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 500,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.5,
+          "kind": "source_f32",
           "offset": 1096,
           "offset_hex": "0x448",
           "provenance": "extracted_melee_dat",
           "raw": 0.5,
-          "rust_name": "fall_animation_blend_milli",
+          "rust_name": "fall_animation_blend",
           "source_name": "x448"
         }
       ],
@@ -571,9 +571,9 @@
           "source_name": "x468"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": -500,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": -0.5,
+          "kind": "source_f32",
           "offset": 1132,
           "offset_hex": "0x46c",
           "provenance": "extracted_melee_dat",
@@ -654,9 +654,9 @@
           "source_name": "x334"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 3100,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 3.0999999046325684,
+          "kind": "source_f32",
           "offset": 824,
           "offset_hex": "0x338",
           "provenance": "extracted_melee_dat",
@@ -665,14 +665,14 @@
           "source_name": "escapeair_force"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 900,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.8999999761581421,
+          "kind": "source_f32",
           "offset": 828,
           "offset_hex": "0x33c",
           "provenance": "extracted_melee_dat",
           "raw": 0.8999999761581421,
-          "rust_name": "escapeair_decay_milli",
+          "rust_name": "escapeair_decay",
           "source_name": "escapeair_decay"
         },
         {
@@ -715,14 +715,14 @@
           "source_name": "x6C0"
         },
         {
-          "comparison_value_kind": "milli",
-          "converted_value": 10,
-          "kind": "milli",
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.009999999776482582,
+          "kind": "source_f32",
           "offset": 1732,
           "offset_hex": "0x6c4",
           "provenance": "extracted_melee_dat",
           "raw": 0.009999999776482582,
-          "rust_name": "entry_initial_scale_y_milli",
+          "rust_name": "entry_initial_scale_y",
           "source_name": "x6C4"
         },
         {

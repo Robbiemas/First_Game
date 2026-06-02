@@ -139,6 +139,8 @@ dependencies = [
 name = "mole_cli"
 version = "0.1.0"
 dependencies = [
+ "mole_core",
+ "mole_runtime",
  "serde",
  "serde_json",
 ]

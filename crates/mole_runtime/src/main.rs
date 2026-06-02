@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mole_core::{step_world, Frame, PlayerInput, World};
+use mole_core::{step_world, Frame, PlayerInput};
 use mole_transport::{InputPacket, InputPacketInbox, UdpTransport};
 
 #[cfg(feature = "wup")]
@@ -310,7 +310,7 @@ fn run_slippi_core_trace(
 }
 
 fn run_headless(frames: u32, replay_path: Option<&Path>) -> Result<(), String> {
-    let initial = World::for_two_players();
+    let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
     let inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -342,7 +342,7 @@ fn run_udp_headless(
 ) -> Result<(), String> {
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
         .map_err(|error| error.to_string())?;
-    let initial = World::for_two_players();
+    let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
     let mut inbox = InputPacketInbox::default();
@@ -443,7 +443,7 @@ fn run_udp_sdl(
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
         .map_err(|error| error.to_string())?;
-    let initial = World::for_two_players();
+    let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
     let mut inbox = InputPacketInbox::default();
@@ -594,7 +594,7 @@ fn run_sdl_smoke(
     let mut gameplay_input_source =
         WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
-    let initial = World::for_two_players();
+    let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 
@@ -732,6 +732,9 @@ fn draw_sdl_scene(
     for surface in &scene.stage_surfaces {
         draw_sdl_rect(canvas, *surface)?;
     }
+    for platform in scene.entry_platforms.into_iter().flatten() {
+        draw_sdl_rect(canvas, platform)?;
+    }
     let mut drew_player_textures = false;
     if let Some(cache) = texture_cache.as_mut() {
         for (index, player) in scene.players.iter().copied().enumerate() {
@@ -756,6 +759,9 @@ fn draw_sdl_scene(
     for ecb in scene.player_ecbs {
         draw_sdl_polygon(canvas, ecb)?;
     }
+    if let Some(label) = scene.match_intro_label {
+        draw_match_intro_label(canvas, label)?;
+    }
     if let Some(overlay) = overlay {
         draw_debug_overlay(canvas, overlay)?;
     }
@@ -763,6 +769,12 @@ fn draw_sdl_scene(
         return Err("SDL present failed".to_string());
     }
     Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_match_intro_label(canvas: &mut WindowCanvas, label: &str) -> Result<(), String> {
+    let x = centered_debug_label_x(canvas, label, 8)?;
+    draw_sdl_label(canvas, label, x, 72, 8, Color::RGBA(245, 248, 255, 255))
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -1119,7 +1131,7 @@ fn stream_wup_native(frames: u32) -> Result<(), String> {
 fn run_wup_smoke(frames: u32, replay_path: Option<&Path>, ucf_enabled: bool) -> Result<(), String> {
     let mut input_source =
         WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
-    let initial = World::for_two_players();
+    let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
 

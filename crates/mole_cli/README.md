@@ -32,6 +32,14 @@ cargo run -p mole_cli -- generated check --json
 cargo run -p mole_cli -- generated check --format markdown
 cargo run -p mole_cli -- finish check --json
 cargo run -p mole_cli -- finish check --format markdown
+cargo run -p mole_cli -- replay check --replay replays\Game_20260530T214929.slp --frames 1800 --json
+cargo run -p mole_cli -- replay check --inputs debug\slippi\Game_20260530T214929.inputs.json --mode seeded --json
+cargo run -p mole_cli -- replay trace --inputs debug\slippi\Game_20260530T214929.inputs.json --player 2 --start 900 --end 934 --frames 1800 --format markdown
+cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json
+cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown
+cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json
+cargo run -p mole_cli -- frame-data extract --character dolphin_mole --source-character captain --state AttackAirN --write --json
+cargo run -p mole_cli -- frame-data show --character dolphin_mole --state AttackAirN --format markdown
 cargo run -p mole_cli -- doctor --json
 cargo run -p mole_cli -- tests --json
 cargo run -p mole_cli -- handoff --json
@@ -47,6 +55,29 @@ written files, flags, aliases, output modes, and examples. Update it whenever a
 Mole CLI command is added, removed, or materially changed.
 
 Use `--root "D:\Mole Game\First_Game"` when calling from outside the repository.
+
+Replay-parity agents should use `replay trace` after `replay check` identifies a
+divergence. It runs the same sequential Slippi match-start oracle, but emits a
+bounded source-frame window with expected state, actual state, actual motion
+frame, input facts, position deltas, and velocity deltas so the next decomp
+lookup can be anchored to the exact callback boundary.
+
+Replay-parity agents should use the `decomp` commands before falling back to
+manual repository searches:
+
+- `decomp search <query>` returns compact matches across the local
+  `..\.research\doldecomp-melee` checkout, including suggested follow-up
+  `decomp show` commands.
+- `decomp symbol <name>` is tuned for source function names and ranks exact
+  definitions before references.
+- `decomp show <relative-path> --line N --context N` returns a bounded,
+  numbered excerpt so agents can cite the decomp without dumping whole files.
+
+Use `frame-data extract` and `frame-data show` when an agent needs attack data
+or per-action collision data such as Captain Falcon Nair. `frame-data extract`
+can update or initialize `resources/melee/frame_data/<character>/<state>.json`
+with `--write`, preserves source `{x, y, z}` coordinates, and records projection
+metadata for the current 2D view.
 
 After an agent's current primary task is verified complete, it may inspect
 `MOLE_CLI_AGENT_MESSAGES.md` during a lapse in its directive. If the newest

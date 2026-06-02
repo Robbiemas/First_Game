@@ -1,57 +1,49 @@
 {
   "fields": {
     "aerial_drift_base": {
-      "kind": "milli",
-      "milli": 20,
+      "kind": "source_f32",
       "offset": 104,
       "raw": 0.019999999552965164,
       "source_name": "aerial_drift_base"
     },
     "aerial_friction": {
-      "kind": "milli",
-      "milli": 10,
+      "kind": "source_f32",
       "offset": 112,
       "raw": 0.009999999776482582,
       "source_name": "aerial_friction"
     },
     "air_drift_max": {
-      "kind": "milli",
-      "milli": 1120,
+      "kind": "source_f32",
       "offset": 108,
       "raw": 1.1200000047683716,
       "source_name": "air_drift_max"
     },
     "air_drift_stick_mul": {
-      "kind": "milli",
-      "milli": 40,
+      "kind": "source_f32",
       "offset": 100,
       "raw": 0.03999999910593033,
       "source_name": "air_drift_stick_mul"
     },
     "air_jump_h_multiplier": {
-      "kind": "milli",
-      "milli": 900,
+      "kind": "source_f32",
       "offset": 84,
       "raw": 0.8999999761581421,
       "source_name": "air_jump_h_multiplier"
     },
     "air_jump_v_multiplier": {
-      "kind": "milli",
-      "milli": 900,
+      "kind": "source_f32",
       "offset": 80,
       "raw": 0.8999999761581421,
       "source_name": "air_jump_v_multiplier"
     },
     "air_max_horizontal_velocity": {
-      "kind": "milli",
-      "milli": 3000,
+      "kind": "source_f32",
       "offset": 120,
       "raw": 3.0,
       "source_name": "air_max_horizontal_velocity"
     },
     "dash_initial_velocity": {
-      "kind": "milli",
-      "milli": 2000,
+      "kind": "source_f32",
       "offset": 28,
       "raw": 2.0,
       "source_name": "dash_initial_velocity"
@@ -82,15 +74,13 @@
       "source_name": "trophy_scale*1.497345"
     },
     "fast_fall_velocity": {
-      "kind": "milli",
-      "milli": 3500,
+      "kind": "source_f32",
       "offset": 116,
       "raw": 3.5,
       "source_name": "fast_fall_velocity"
     },
     "fast_walk_threshold": {
-      "kind": "milli",
-      "milli": 660,
+      "kind": "source_f32",
       "offset": 20,
       "raw": 0.659600019454956,
       "source_name": "fast_walk_threshold"
@@ -103,43 +93,43 @@
       "ticks": 6
     },
     "grav": {
-      "kind": "milli",
-      "milli": 130,
+      "kind": "source_f32",
       "offset": 92,
       "raw": 0.12999999523162842,
       "source_name": "grav"
     },
+    "ground_friction": {
+      "kind": "source_f32",
+      "offset": 24,
+      "raw": 0.07999999821186066,
+      "source_name": "gr_friction"
+    },
     "ground_max_horizontal_velocity": {
-      "kind": "milli",
-      "milli": 3000,
+      "kind": "source_f32",
       "offset": 52,
       "raw": 3.0,
       "source_name": "ground_max_horizontal_velocity"
     },
     "ground_to_air_jump_momentum_multiplier": {
-      "kind": "milli",
-      "milli": 750,
+      "kind": "source_f32",
       "offset": 68,
       "raw": 0.75,
       "source_name": "ground_to_air_jump_momentum_multiplier"
     },
     "hop_v_initial_velocity": {
-      "kind": "milli",
-      "milli": 1900,
+      "kind": "source_f32",
       "offset": 76,
       "raw": 1.899999976158142,
       "source_name": "hop_v_initial_velocity"
     },
     "jump_h_initial_velocity": {
-      "kind": "milli",
-      "milli": 950,
+      "kind": "source_f32",
       "offset": 60,
       "raw": 0.949999988079071,
       "source_name": "jump_h_initial_velocity"
     },
     "jump_h_max_velocity": {
-      "kind": "milli",
-      "milli": 2100,
+      "kind": "source_f32",
       "offset": 72,
       "raw": 2.0999999046325684,
       "source_name": "jump_h_max_velocity"
@@ -152,8 +142,7 @@
       "ticks": 4
     },
     "jump_v_initial_velocity": {
-      "kind": "milli",
-      "milli": 3100,
+      "kind": "source_f32",
       "offset": 64,
       "raw": 3.0999999046325684,
       "source_name": "jump_v_initial_velocity"
@@ -208,8 +197,7 @@
       "ticks": 30
     },
     "mid_walk_threshold": {
-      "kind": "milli",
-      "milli": 407,
+      "kind": "source_f32",
       "offset": 16,
       "raw": 0.40700000524520874,
       "source_name": "mid_walk_threshold"
@@ -222,50 +210,37 @@
       "ticks": 4
     },
     "run_animation_scaling": {
-      "kind": "milli",
-      "milli": 2330,
+      "kind": "source_f32",
       "offset": 44,
       "raw": 2.3299999237060547,
       "source_name": "run_animation_scaling"
     },
     "slow_walk_max_velocity": {
-      "kind": "milli",
-      "milli": 165,
+      "kind": "source_f32",
       "offset": 12,
       "raw": 0.16500000655651093,
       "source_name": "slow_walk_max_velocity"
     },
     "terminal_vel": {
-      "kind": "milli",
-      "milli": 2900,
+      "kind": "source_f32",
       "offset": 96,
       "raw": 2.9000000953674316,
       "source_name": "terminal_vel"
     },
-    "traction_per_tick": {
-      "kind": "milli",
-      "milli": 80,
-      "offset": 24,
-      "raw": 0.07999999821186066,
-      "source_name": "gr_friction"
-    },
     "walk_accel": {
-      "kind": "milli",
-      "milli": 100,
+      "kind": "source_f32",
       "offset": 4,
       "raw": 0.10000000149011612,
       "source_name": "walk_accel"
     },
     "walk_initial_velocity": {
-      "kind": "milli",
-      "milli": 150,
+      "kind": "source_f32",
       "offset": 0,
       "raw": 0.15000000596046448,
       "source_name": "walk_initial_velocity"
     },
     "walk_max_vel": {
-      "kind": "milli",
-      "milli": 850,
+      "kind": "source_f32",
       "offset": 8,
       "raw": 0.8500000238418579,
       "source_name": "walk_max_vel"
