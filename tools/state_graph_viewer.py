@@ -4,6 +4,7 @@ import argparse
 import copy
 import json
 import re
+import subprocess
 import sys
 from collections import Counter, deque
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ DEFAULT_INPUT_TRACE_DIR = PROJECT_ROOT / "logs"
 DEFAULT_SLIPPI_REPORT_DIR = PROJECT_ROOT / "debug" / "slippi"
 DEFAULT_ECB_COVERAGE_JSON = DEFAULT_GRAPH_DIR / "parity_reports" / "falcon_ecb_coverage.json"
 DEFAULT_MOVE_FRAME_DATA_DIR = PROJECT_ROOT / "resources" / "melee" / "frame_data"
+SOURCE_MANIFEST_FILENAME = "source_manifest.json"
 INPUT_TRACE_GLOB = "controller-input-trace-*.jsonl"
 SLIPPI_REPORT_GLOB = "*.report.md"
 VALUE_SHEET_FILES = ("global_common_values.json", "captain_falcon_values.json")
@@ -195,15 +197,39 @@ def list_move_frame_data_characters(
     characters = []
     for character in MOVE_FRAME_DATA_CHARACTERS:
         character_dir = frame_data_dir / character["id"]
+        state_records = (
+            list_move_frame_data_states(frame_data_dir, character["id"])
+            if character_dir.is_dir()
+            else []
+        )
         characters.append(
             {
                 "id": character["id"],
                 "label": character["label"],
-                "populated": character_dir.is_dir()
-                and any(character_dir.glob("*.json")),
+                "populated": bool(state_records),
             }
         )
     return characters
+
+
+def _is_move_frame_data_artifact(data: dict[str, Any]) -> bool:
+    if data.get("artifact_kind") == "source_character_frame_data_manifest":
+        return False
+    return isinstance(data.get("keyframes"), list)
+
+
+def _load_move_frame_data_state_record(path: Path) -> dict[str, Any] | None:
+    try:
+        data = _read_json_file(path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    if not _is_move_frame_data_artifact(data):
+        return None
+    return {
+        "state": str(data.get("state") or path.stem),
+        "label": str(data.get("label") or path.stem),
+        "populated": True,
+    }
 
 
 def list_move_frame_data_states(
@@ -215,18 +241,46 @@ def list_move_frame_data_states(
         return []
     states: list[dict[str, Any]] = []
     for path in sorted(character_dir.glob("*.json")):
-        try:
-            data = _read_json_file(path)
-        except (OSError, ValueError, json.JSONDecodeError):
+        if path.name == SOURCE_MANIFEST_FILENAME:
             continue
-        states.append(
-            {
-                "state": str(data.get("state") or path.stem),
-                "label": str(data.get("label") or path.stem),
-                "populated": True,
-            }
-        )
+        state_record = _load_move_frame_data_state_record(path)
+        if state_record is not None:
+            states.append(state_record)
+    expanded_states = {record["state"] for record in states}
+    manifest = load_move_frame_data_manifest(frame_data_dir, character_id)
+    if manifest:
+        for action in manifest.get("actions", []):
+            if not isinstance(action, dict):
+                continue
+            state = str(action.get("state") or "")
+            if not state or state in expanded_states:
+                continue
+            label = str(action.get("source_action_key") or state)
+            states.append(
+                {
+                    "state": state,
+                    "label": label,
+                    "populated": True,
+                    "source": "source_manifest",
+                }
+            )
     return states
+
+
+def load_move_frame_data_manifest(
+    frame_data_dir: Path,
+    character_id: str,
+) -> dict[str, Any] | None:
+    path = frame_data_dir / character_id / SOURCE_MANIFEST_FILENAME
+    if not path.exists():
+        return None
+    try:
+        data = _read_json_file(path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    if data.get("artifact_kind") != "source_character_frame_data_manifest":
+        return None
+    return data
 
 
 def load_move_frame_data(
@@ -235,7 +289,136 @@ def load_move_frame_data(
     state: str,
 ) -> dict[str, Any]:
     path = frame_data_dir / character_id / f"{state}.json"
+    if path.exists():
+        return _read_json_file(path)
+    manifest = load_move_frame_data_manifest(frame_data_dir, character_id)
+    if manifest:
+        for action in manifest.get("actions", []):
+            if isinstance(action, dict) and action.get("state") == state:
+                return build_manifest_action_frame_data(manifest, action)
     return _read_json_file(path)
+
+
+def build_manifest_action_frame_data(
+    manifest: dict[str, Any],
+    action: dict[str, Any],
+) -> dict[str, Any]:
+    projection = copy.deepcopy(manifest.get("projection", {}))
+    projection.setdefault("default_view", "xy")
+    projection.setdefault(
+        "z_policy",
+        manifest.get("z_policy", "preserve_source_z_flatten_after_runtime_projection"),
+    )
+    decoded_action_script = copy.deepcopy(action.get("decoded_action_script") or {})
+    procedures = decoded_action_script.get("procedures")
+    procedure_count = len(procedures) if isinstance(procedures, list) else 0
+    state = str(action.get("state") or action.get("source_action_key") or "Unknown")
+    label = str(action.get("source_action_key") or state)
+    return {
+        "schema_version": manifest.get("schema_version", 2),
+        "artifact_kind": "source_manifest_action_view",
+        "target_character": manifest.get("target_character"),
+        "target_character_label": manifest.get("target_character_label"),
+        "source_character": manifest.get("source_character"),
+        "source_character_label": manifest.get("source_character_label"),
+        "state": state,
+        "label": label,
+        "projection": projection,
+        "summary": {
+            "total_frames": action.get("total_frames", "unknown"),
+            "active_hitbox_windows": [],
+            "active_hurtbox_windows": [],
+            "active_body_volume_windows": [],
+            "decoded_procedure_count": procedure_count,
+        },
+        "keyframes": [],
+        "decoded_action_script": decoded_action_script,
+        "manifest_action": copy.deepcopy(action),
+        "sources": copy.deepcopy(manifest.get("sources", [])),
+        "gaps": [
+            {
+                "field": "frame_capsules",
+                "reason": "compact source manifest action has not been expanded through the Melee JObj/FigaTree sampler yet",
+            }
+        ],
+    }
+
+
+def sample_manifest_action_frame(
+    frame_data_dir: Path,
+    character_id: str,
+    state: str,
+    frame_number: int,
+) -> dict[str, Any] | None:
+    manifest = load_move_frame_data_manifest(frame_data_dir, character_id)
+    if not manifest:
+        return None
+    action = next(
+        (
+            action
+            for action in manifest.get("actions", [])
+            if isinstance(action, dict) and action.get("state") == state
+        ),
+        None,
+    )
+    if action is None:
+        return None
+    source_character = str(
+        manifest.get("source_character")
+        or action.get("source_character")
+        or ""
+    )
+    command = [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "mole_cli",
+        "--",
+        "--root",
+        str(PROJECT_ROOT),
+        "frame-data",
+        "sample",
+        "--character",
+        character_id,
+        "--source-character",
+        source_character,
+        "--state",
+        state,
+        "--frame",
+        str(frame_number),
+        "--json",
+    ]
+    result = subprocess.run(
+        command,
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    sample = payload.get("sample")
+    if not isinstance(sample, dict):
+        return None
+    hitboxes = sample.get("hit_capsules", [])
+    hurtboxes = sample.get("hurt_capsules", [])
+    if not isinstance(hitboxes, list) or not isinstance(hurtboxes, list):
+        return None
+    return {
+        "frame": int(sample.get("frame", frame_number)),
+        "hitboxes": hitboxes,
+        "hurtboxes": hurtboxes,
+        "body_volumes": sample.get("body_volumes", []),
+        "sample_source": "frame-data sample",
+        "source_action_key": sample.get("source_action_key"),
+        "source_action_name": sample.get("source_action_name"),
+        "projected_view_kind": sample.get("projected_view_kind"),
+    }
 
 
 def build_move_keyframe_empty_state(character_label: str) -> str:
@@ -461,6 +644,17 @@ def format_move_frame_data_summary(data: dict[str, Any]) -> str:
         f"Projection: {projection.get('default_view', 'xy')} / {projection.get('z_policy', 'preserve_and_project')}",
         f"Total frames: {summary.get('total_frames', 'unknown')}",
     ]
+    if data.get("artifact_kind") == "source_manifest_action_view":
+        action = data.get("manifest_action", {})
+        lines.extend(
+            [
+                "Compact source manifest action",
+                f"Action state id: {action.get('action_state_id', 'unknown')}",
+                f"Subaction script offset: {action.get('subaction_script_offset', 'unknown')}",
+                f"Decoded procedures: {summary.get('decoded_procedure_count', 0)}",
+                "Frame capsules: sampled on demand via `frame-data sample`",
+            ]
+        )
     windows = summary.get("active_hitbox_windows", [])
     if windows:
         ranges = [f"{window.get('start', '?')}-{window.get('end', '?')}" for window in windows]
@@ -1618,6 +1812,43 @@ def draw_move_keyframes_tab(
         frame_number = selected_frame_number.get()
         effective_frame = nearest_move_keyframe(loaded_data, frame_number)
         if effective_frame is None:
+            sampled_frame = None
+            if loaded_data.get("artifact_kind") == "source_manifest_action_view":
+                sampled_frame = sample_manifest_action_frame(
+                    frame_data_dir,
+                    character_combo.get(),
+                    state_combo.get(),
+                    frame_number,
+                )
+            if sampled_frame is not None:
+                sampled_data = copy.deepcopy(loaded_data)
+                sampled_data["keyframes"] = [sampled_frame]
+                sampled_data["summary"]["active_hitbox_windows"] = (
+                    [{"start": frame_number, "end": frame_number, "source": "frame-data sample"}]
+                    if sampled_frame.get("hitboxes")
+                    else []
+                )
+                sampled_data["summary"]["active_hurtbox_windows"] = (
+                    [{"start": frame_number, "end": frame_number, "source": "frame-data sample"}]
+                    if sampled_frame.get("hurtboxes")
+                    else []
+                )
+                text = "\n\n".join(
+                    [
+                        format_move_frame_data_summary(sampled_data),
+                        f"Selected frame: {frame_number}",
+                        "Live sampled frame from compact source manifest",
+                        format_move_keyframe_details(sampled_data, sampled_frame),
+                    ]
+                )
+                _set_text(details, text)
+                draw_move_keyframe_canvas(
+                    canvas,
+                    sampled_data,
+                    selected_frame_number=frame_number,
+                    on_frame_selected=select_frame,
+                )
+                return
             _set_text(details, format_move_frame_data_summary(loaded_data))
             draw_move_keyframe_canvas(canvas, loaded_data, selected_frame_number=frame_number)
             return

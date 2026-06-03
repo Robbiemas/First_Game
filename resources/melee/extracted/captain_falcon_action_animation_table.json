@@ -79257,7 +79257,20 @@
     },
     {
       "action_state_id": 68,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 4,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 0,
+          "frame": 34,
+          "value": 0,
+          "word_offset": 47
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -80715,7 +80728,20 @@
     },
     {
       "action_state_id": 69,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 7,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 0,
+          "frame": 35,
+          "value": 0,
+          "word_offset": 31
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -82173,7 +82199,20 @@
     },
     {
       "action_state_id": 70,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 7,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 0,
+          "frame": 21,
+          "value": 0,
+          "word_offset": 41
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -83631,7 +83670,20 @@
     },
     {
       "action_state_id": 71,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 0
+        },
+        {
+          "cmd_var": 0,
+          "frame": 22,
+          "value": 0,
+          "word_offset": 41
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -85089,7 +85141,20 @@
     },
     {
       "action_state_id": 72,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 4,
+          "value": 1,
+          "word_offset": 9
+        },
+        {
+          "cmd_var": 0,
+          "frame": 36,
+          "value": 0,
+          "word_offset": 33
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -152598,7 +152663,14 @@
     },
     {
       "action_state_id": 120,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 1
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -153966,7 +154038,14 @@
     },
     {
       "action_state_id": 121,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 1
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -155334,7 +155413,14 @@
     },
     {
       "action_state_id": 122,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 21,
+          "value": 1,
+          "word_offset": 5
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -185691,7 +185777,14 @@
     },
     {
       "action_state_id": 146,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 2,
+          "value": 1,
+          "word_offset": 1
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -186879,7 +186972,14 @@
     },
     {
       "action_state_id": 147,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 2,
+          "value": 1,
+          "word_offset": 1
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -341764,7 +341864,14 @@
     },
     {
       "action_state_id": 298,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 1
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -343132,7 +343239,14 @@
     },
     {
       "action_state_id": 299,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 1,
+          "frame": 17,
+          "value": 0,
+          "word_offset": 38
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -344500,7 +344614,14 @@
     },
     {
       "action_state_id": 300,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 1,
+          "frame": 17,
+          "value": 1,
+          "word_offset": 37
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -347110,7 +347231,26 @@
     },
     {
       "action_state_id": 302,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 50,
+          "value": 1,
+          "word_offset": 14
+        },
+        {
+          "cmd_var": 1,
+          "frame": 50,
+          "value": 1,
+          "word_offset": 15
+        },
+        {
+          "cmd_var": 1,
+          "frame": 65,
+          "value": 2,
+          "word_offset": 51
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -348352,7 +348492,32 @@
     },
     {
       "action_state_id": 303,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 15,
+          "value": 1,
+          "word_offset": 28
+        },
+        {
+          "cmd_var": 2,
+          "frame": 15,
+          "value": 1,
+          "word_offset": 29
+        },
+        {
+          "cmd_var": 0,
+          "frame": 35,
+          "value": 0,
+          "word_offset": 39
+        },
+        {
+          "cmd_var": 2,
+          "frame": 35,
+          "value": 0,
+          "word_offset": 40
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -350764,7 +350929,38 @@
     },
     {
       "action_state_id": 305,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 18,
+          "value": 1,
+          "word_offset": 28
+        },
+        {
+          "cmd_var": 2,
+          "frame": 18,
+          "value": 1,
+          "word_offset": 29
+        },
+        {
+          "cmd_var": 1,
+          "frame": 30,
+          "value": 1,
+          "word_offset": 31
+        },
+        {
+          "cmd_var": 0,
+          "frame": 35,
+          "value": 0,
+          "word_offset": 33
+        },
+        {
+          "cmd_var": 2,
+          "frame": 35,
+          "value": 0,
+          "word_offset": 34
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -353176,7 +353372,14 @@
     },
     {
       "action_state_id": 307,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 13,
+          "value": 1,
+          "word_offset": 7
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -355453,7 +355656,14 @@
     },
     {
       "action_state_id": 308,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 13,
+          "value": 1,
+          "word_offset": 7
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -360007,7 +360217,14 @@
     },
     {
       "action_state_id": 310,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 45,
+          "value": 1,
+          "word_offset": 32
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -362284,7 +362501,14 @@
     },
     {
       "action_state_id": 311,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 15,
+          "value": 1,
+          "word_offset": 32
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -363580,7 +363804,26 @@
     },
     {
       "action_state_id": 312,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 2,
+          "frame": 2,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 1,
+          "frame": 9,
+          "value": 1,
+          "word_offset": 12
+        },
+        {
+          "cmd_var": 2,
+          "frame": 30,
+          "value": 0,
+          "word_offset": 14
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -364876,7 +365119,14 @@
     },
     {
       "action_state_id": 313,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 15,
+          "value": 1,
+          "word_offset": 12
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -366172,7 +366422,20 @@
     },
     {
       "action_state_id": 314,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 2,
+          "frame": 0,
+          "value": 1,
+          "word_offset": 0
+        },
+        {
+          "cmd_var": 2,
+          "frame": 23,
+          "value": 0,
+          "word_offset": 40
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",
@@ -367468,7 +367731,20 @@
     },
     {
       "action_state_id": 315,
-      "cmd_var_events": [],
+      "cmd_var_events": [
+        {
+          "cmd_var": 0,
+          "frame": 8,
+          "value": 1,
+          "word_offset": 1
+        },
+        {
+          "cmd_var": 1,
+          "frame": 8,
+          "value": 1,
+          "word_offset": 2
+        }
+      ],
       "figatree": {
         "animated_node_count": 63,
         "flags_raw": "0x00000000",

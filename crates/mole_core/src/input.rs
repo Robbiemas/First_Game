@@ -1179,6 +1179,7 @@ impl PlayerInput {
     pub const fn trigger_timer_active_with_config(self, config: MeleeInputConfig) -> bool {
         self.left_trigger_digital()
             || self.right_trigger_digital()
+            || self.grab()
             || self.left_trigger_analog() >= config.trigger_timer_threshold
             || self.right_trigger_analog() >= config.trigger_timer_threshold
     }

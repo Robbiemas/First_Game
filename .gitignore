@@ -153,3 +153,7 @@ tools/slippi/node_modules/
 
 # Idea files
 .idea/
+
+# Local research/context checkouts
+.research/
+.superpowers/

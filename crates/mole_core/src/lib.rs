@@ -1,4 +1,4 @@
-mod collision;
+pub mod collision;
 mod common_data;
 mod input;
 mod sim;
@@ -24,8 +24,9 @@ pub use input::{
 pub use sim::step_world;
 pub use stage::{StageBlastZones, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind};
 pub use state::{
-    FighterActionFrames, FighterProfile, FighterProfileExtractError, MotionState,
-    PlayerRenderSnapshot, PlayerState, Vec2, World, WorldSnapshot, PLAYER_COUNT,
+    source_root_motion_delta, source_root_motion_position, FighterActionFrames, FighterProfile,
+    FighterProfileExtractError, MotionState, PlayerRenderSnapshot, PlayerState, Vec2, World,
+    WorldSnapshot, PLAYER_COUNT,
 };
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};
 pub use units::{

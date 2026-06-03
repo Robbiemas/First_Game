@@ -27,7 +27,6 @@ DEFAULT_OUT_DIR = PROJECT_ROOT / "resources" / "melee" / "extracted"
 DEFAULT_ISO_FILES = ("PlCo.dat", "PlCa.dat", "PlCaAJ.dat", "PlCaNr.dat")
 ECB_SAMPLE_ACTION_STATE_IDS = sampled_action_ids()
 CAPTAIN_ACTION_COUNT = 318
-LOCOMOTION_CMD_VAR_ACTION_STATE_IDS = {11, 12, 14, 44}
 FIGHTER_WAIT_ANIM_DATA_SIZE = 0x18
 FIGA_TRACK_SIZE = 0x0C
 FIGA_TREE_SIZE = 0x14
@@ -109,6 +108,8 @@ COMMON_FIELDS = (
     Field("tilt_y", "attackhi3_stick_threshold_y", 0xAC, "stick"),
     Field("aerial_neutral_x", "xDC", 0xDC, "stick"),
     Field("aerial_neutral_y", "xE0", 0xE0, "stick"),
+    Field("lcancel_window", "xE4", 0xE4, "i32_ticks"),
+    Field("lcancel_divisor", "xE8", 0xE8, "source_f32"),
     Field("fallspecial_platform_landing_y", "x25C", 0x25C, "stick"),
     Field("guard_reflect_input_window", "x2A0", 0x2A0, "i32_ticks"),
     Field("escape_y", "x314", 0x314, "stick"),
@@ -187,6 +188,7 @@ FIGHTER_CMD_LENGTHS = (
     1,
     4,
 )
+COMMON_CMD_LENGTHS = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
 
 
 PROFILE_FIELDS = (
@@ -234,6 +236,61 @@ PROFILE_FIELDS = (
 
 class DatExtractError(ValueError):
     pass
+
+
+@dataclass(frozen=True)
+class CharacterResourceSpec:
+    """Decomp-anchored Melee fighter resource names for offline extraction."""
+
+    id: str
+    output_stem: str
+    data_dat: str
+    action_dat: str
+    neutral_costume_dat: str
+    ft_data_symbol: str
+    neutral_joint_root: str
+    action_count: int = CAPTAIN_ACTION_COUNT
+    derived_sample_action_state_ids: tuple[int, ...] = ()
+
+
+# Source anchors:
+# - ftCaptain/ftCa_Init.c names PlCa.dat, ftDataCaptain, PlyCaptain5K_Share_joint.
+# - ftMars/ftMs_Init.c names PlMs.dat, ftDataMars, PlyMars5K_Share_joint, PlMsAJ.dat.
+CHARACTER_RESOURCE_SPECS: dict[str, CharacterResourceSpec] = {
+    "captain": CharacterResourceSpec(
+        id="captain",
+        output_stem="captain_falcon",
+        data_dat="PlCa.dat",
+        action_dat="PlCaAJ.dat",
+        neutral_costume_dat="PlCaNr.dat",
+        ft_data_symbol="ftDataCaptain",
+        neutral_joint_root="PlyCaptain5K_Share_joint",
+        derived_sample_action_state_ids=ECB_SAMPLE_ACTION_STATE_IDS,
+    ),
+    "marth": CharacterResourceSpec(
+        id="marth",
+        output_stem="marth",
+        data_dat="PlMs.dat",
+        action_dat="PlMsAJ.dat",
+        neutral_costume_dat="PlMsNr.dat",
+        ft_data_symbol="ftDataMars",
+        neutral_joint_root="PlyMars5K_Share_joint",
+    ),
+}
+CHARACTER_ALIASES = {
+    "captain_falcon": "captain",
+    "falcon": "captain",
+    "mars": "marth",
+}
+
+
+def character_resource_spec(character: str) -> CharacterResourceSpec:
+    key = CHARACTER_ALIASES.get(character.lower(), character.lower())
+    try:
+        return CHARACTER_RESOURCE_SPECS[key]
+    except KeyError as error:
+        supported = ", ".join(sorted(CHARACTER_RESOURCE_SPECS))
+        raise DatExtractError(f"unsupported source character {character!r}; supported: {supported}") from error
 
 
 def read_u32(data: bytes | bytearray, offset: int) -> int:
@@ -433,6 +490,9 @@ def extract_action_script_cmd_var_events(script_bytes: bytes, script_offset: int
         if opcode == 8:
             word_offset += 1
             continue
+        if opcode in (3, 4, 5, 6, 7, 9):
+            word_offset += COMMON_CMD_LENGTHS[opcode]
+            continue
         if opcode == 19:
             events.append(
                 {
@@ -477,6 +537,9 @@ def extract_action_script_hitbox_bone_indices(script_bytes: bytes, script_offset
             continue
         if opcode in (8, 19):
             word_offset += 1
+            continue
+        if opcode in (3, 4, 5, 6, 7, 9):
+            word_offset += COMMON_CMD_LENGTHS[opcode]
             continue
 
         if opcode < 10:
@@ -764,8 +827,12 @@ def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, ob
     }
 
 
-def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
-    symbol, ftdata_offset = find_root(dat, lambda name: name == "ftDataCaptain", "ftDataCaptain")
+def extract_character_profile_from_dat(
+    dat: bytes, source_path: Path, spec: CharacterResourceSpec
+) -> dict[str, object]:
+    symbol, ftdata_offset = find_root(
+        dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
     header_offset = 0x20 + ftdata_offset
     attrs_offset = read_u32(dat, header_offset)
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
@@ -774,7 +841,9 @@ def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str
         attrs_end = data_block_size
     required_len = attrs_offset + max(field.offset for field in PROFILE_FIELDS) + 4
     if required_len > attrs_end:
-        raise DatExtractError("ftDataCaptain.x0 does not cover required ftCo_DatAttrs fields")
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.x0 does not cover required ftCo_DatAttrs fields"
+        )
     attrs = dat[0x20 + attrs_offset : 0x20 + attrs_end]
     return {
         "source": {
@@ -784,19 +853,30 @@ def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str
             "ftco_dat_attrs_offset": attrs_offset,
             "ftco_dat_attrs_len": attrs_end - attrs_offset,
             "format": "HSD DAT, big-endian floats/ints",
+            "source_character": spec.id,
         },
         "fields": {field.rust_name: field_value(attrs, field) for field in PROFILE_FIELDS},
     }
 
 
-def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
-    symbol, ftdata_offset = find_root(dat, lambda name: name == "ftDataCaptain", "ftDataCaptain")
+def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
+    return extract_character_profile_from_dat(dat, source_path, character_resource_spec("captain"))
+
+
+def extract_character_ecb_source_from_dat(
+    dat: bytes, source_path: Path, spec: CharacterResourceSpec
+) -> dict[str, object]:
+    symbol, ftdata_offset = find_root(
+        dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
     header_offset = 0x20 + ftdata_offset
     ecb_source_offset = read_u32(dat, header_offset + 0x44)
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
     required_len = ecb_source_offset + 0x1C
     if ecb_source_offset == 0 or required_len > data_block_size:
-        raise DatExtractError("ftDataCaptain.x44 does not cover ftData_x44_t ECB source data")
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.x44 does not cover ftData_x44_t ECB source data"
+        )
 
     block_offset = 0x20 + ecb_source_offset
     joint_indices = [read_i16(dat, block_offset + index * 2) for index in range(6)]
@@ -804,7 +884,7 @@ def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[
     ledge_snap_x = read_f32(dat, block_offset + 0x10)
     ledge_snap_y = read_f32(dat, block_offset + 0x14)
     ledge_snap_height = read_f32(dat, block_offset + 0x18)
-    action_animation_path = source_path.with_name("PlCaAJ.dat")
+    action_animation_path = source_path.with_name(spec.action_dat)
 
     return {
         "source": {
@@ -813,6 +893,7 @@ def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[
             "ft_data_offset": ftdata_offset,
             "ftdata_ecb_source_offset": ecb_source_offset,
             "format": "HSD DAT, big-endian ftData_x44_t",
+            "source_character": spec.id,
         },
         "ecb_source": {
             "joint_indices": joint_indices,
@@ -833,23 +914,37 @@ def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[
                 else "missing_required_for_per_frame_ecb"
             ),
             "reason": (
-                "PlCa.dat points at action figatrees, but per-frame JObj ECB "
-                "requires the Captain Falcon action animation resource."
+                f"{spec.data_dat} points at action figatrees, but per-frame JObj ECB "
+                f"requires the {spec.id} action animation resource."
             ),
         },
     }
 
 
+def extract_captain_ecb_source_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
+    return extract_character_ecb_source_from_dat(dat, source_path, character_resource_spec("captain"))
+
+
 def extract_captain_hurtbox_inits_from_plca(
     dat: bytes, source_path: Path
 ) -> dict[str, object]:
-    symbol, ftdata_offset = find_root(dat, lambda name: name == "ftDataCaptain", "ftDataCaptain")
+    return extract_character_hurtbox_inits_from_dat(
+        dat, source_path, character_resource_spec("captain")
+    )
+
+
+def extract_character_hurtbox_inits_from_dat(
+    dat: bytes, source_path: Path, spec: CharacterResourceSpec
+) -> dict[str, object]:
+    symbol, ftdata_offset = find_root(
+        dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
     header_offset = 0x20 + ftdata_offset
     hurtbox_table_offset = read_u32(dat, header_offset + 0x30)
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
     if hurtbox_table_offset == 0 or hurtbox_table_offset + 8 > data_block_size:
         raise DatExtractError(
-            "ftDataCaptain.x30 does not cover ftData_x30 hurtbox init metadata"
+            f"{spec.ft_data_symbol}.x30 does not cover ftData_x30 hurtbox init metadata"
         )
 
     table = 0x20 + hurtbox_table_offset
@@ -857,10 +952,12 @@ def extract_captain_hurtbox_inits_from_plca(
     inits_offset = read_u32(dat, table + 0x04)
     if count < 0 or count > 15:
         raise DatExtractError(
-            f"Captain hurt capsule count {count} is outside Fighter.hurt_capsules[15]"
+            f"{spec.id} hurt capsule count {count} is outside Fighter.hurt_capsules[15]"
         )
     if inits_offset == 0 or inits_offset + count * FT_HURTBOX_INIT_SIZE > data_block_size:
-        raise DatExtractError("Captain hurt capsule init records are outside PlCa.dat data block")
+        raise DatExtractError(
+            f"{spec.id} hurt capsule init records are outside {spec.data_dat} data block"
+        )
 
     hurtboxes: list[dict[str, object]] = []
     for index in range(count):
@@ -892,6 +989,7 @@ def extract_captain_hurtbox_inits_from_plca(
             "ftdata_hurtbox_table_offset": hurtbox_table_offset,
             "hurtbox_inits_offset": inits_offset,
             "format": "HSD DAT, big-endian ftData.x30 hurt capsule init table",
+            "source_character": spec.id,
         },
         "count": count,
         "hurtboxes": hurtboxes,
@@ -901,12 +999,20 @@ def extract_captain_hurtbox_inits_from_plca(
 def extract_captain_costume_skeleton_from_plcanr(
     dat: bytes, source_path: Path
 ) -> dict[str, object]:
+    return extract_character_costume_skeleton_from_dat(
+        dat, source_path, character_resource_spec("captain")
+    )
+
+
+def extract_character_costume_skeleton_from_dat(
+    dat: bytes, source_path: Path, spec: CharacterResourceSpec
+) -> dict[str, object]:
     symbol, root_offset = find_root(
-        dat, lambda name: name == "PlyCaptain5K_Share_joint", "Captain Falcon costume joint"
+        dat, lambda name: name == spec.neutral_joint_root, f"{spec.id} neutral costume joint"
     )
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
     if root_offset == 0 or root_offset + HSD_JOINT_SIZE > data_block_size:
-        raise DatExtractError("PlyCaptain5K_Share_joint root is outside the data block")
+        raise DatExtractError(f"{spec.neutral_joint_root} root is outside the data block")
 
     joints: list[dict[str, object]] = []
     visited: set[int] = set()
@@ -959,7 +1065,8 @@ def extract_captain_costume_skeleton_from_plcanr(
             "root": symbol,
             "root_offset": root_offset,
             "joint_count": len(joints),
-            "format": "HSD_Joint preorder tree from Captain Falcon neutral costume DAT",
+            "format": f"HSD_Joint preorder tree from {spec.id} neutral costume DAT",
+            "source_character": spec.id,
         },
         "joints": joints,
     }
@@ -1539,32 +1646,57 @@ def extract_captain_action_animation_table(
     plcaaj_source_path: Path,
     action_count: int = CAPTAIN_ACTION_COUNT,
 ) -> dict[str, object]:
-    symbol, ftdata_offset = find_root(plca, lambda name: name == "ftDataCaptain", "ftDataCaptain")
+    return extract_character_action_animation_table(
+        plca,
+        plca_source_path,
+        plcaaj,
+        plcaaj_source_path,
+        character_resource_spec("captain"),
+        action_count=action_count,
+    )
+
+
+def extract_character_action_animation_table(
+    fighter_dat: bytes,
+    fighter_source_path: Path,
+    action_dat: bytes,
+    action_source_path: Path,
+    spec: CharacterResourceSpec,
+    action_count: int | None = None,
+) -> dict[str, object]:
+    action_count = spec.action_count if action_count is None else action_count
+    symbol, ftdata_offset = find_root(
+        fighter_dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
     header_offset = 0x20 + ftdata_offset
-    action_table_offset = read_u32(plca, header_offset + 0x0C)
-    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(plca)
+    action_table_offset = read_u32(fighter_dat, header_offset + 0x0C)
+    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(
+        fighter_dat
+    )
     table_end = action_table_offset + action_count * FIGHTER_WAIT_ANIM_DATA_SIZE
     if action_table_offset == 0 or table_end > data_block_size:
-        raise DatExtractError("ftDataCaptain.xC does not cover Captain action animation records")
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.xC does not cover {spec.id} action animation records"
+        )
 
     actions: list[dict[str, object]] = []
     for action_state_id in range(action_count):
         entry = 0x20 + action_table_offset + action_state_id * FIGHTER_WAIT_ANIM_DATA_SIZE
-        name_offset = read_u32(plca, entry)
-        figatree_archive_offset = read_u32(plca, entry + 0x04)
-        figatree_archive_size = read_u32(plca, entry + 0x08)
-        subaction_script_offset = read_u32(plca, entry + 0x0C)
-        flags = read_u32(plca, entry + 0x10)
-        runtime_archive_pointer = read_u32(plca, entry + 0x14)
-        name = data_block_string(plca, name_offset) if name_offset != 0 else ""
+        name_offset = read_u32(fighter_dat, entry)
+        figatree_archive_offset = read_u32(fighter_dat, entry + 0x04)
+        figatree_archive_size = read_u32(fighter_dat, entry + 0x08)
+        subaction_script_offset = read_u32(fighter_dat, entry + 0x0C)
+        flags = read_u32(fighter_dat, entry + 0x10)
+        runtime_archive_pointer = read_u32(fighter_dat, entry + 0x14)
+        name = data_block_string(fighter_dat, name_offset) if name_offset != 0 else ""
         figatree_root = (
-            figatree_root_for_chunk(plcaaj, figatree_archive_offset, figatree_archive_size)
+            figatree_root_for_chunk(action_dat, figatree_archive_offset, figatree_archive_size)
             if figatree_archive_size != 0
             else None
         )
         figatree = (
             extract_figatree_summary(
-                plcaaj[
+                action_dat[
                     figatree_archive_offset : figatree_archive_offset
                     + figatree_archive_size
                 ]
@@ -1582,9 +1714,10 @@ def extract_captain_action_animation_table(
                 "figatree": figatree,
                 "subaction_script_offset": subaction_script_offset,
                 "cmd_var_events": (
-                    extract_action_script_cmd_var_events(plca, 0x20 + subaction_script_offset)
+                    extract_action_script_cmd_var_events(
+                        fighter_dat, 0x20 + subaction_script_offset
+                    )
                     if subaction_script_offset != 0
-                    and action_state_id in LOCOMOTION_CMD_VAR_ACTION_STATE_IDS
                     else []
                 ),
                 "flags_raw": f"0x{flags:08x}",
@@ -1599,13 +1732,19 @@ def extract_captain_action_animation_table(
 
     return {
         "source": {
-            "plca_file": source_path_for_json(plca_source_path),
-            "plcaaj_file": source_path_for_json(plcaaj_source_path),
+            "fighter_file": source_path_for_json(fighter_source_path),
+            "action_file": source_path_for_json(action_source_path),
+            "plca_file": source_path_for_json(fighter_source_path),
+            "plcaaj_file": source_path_for_json(action_source_path),
             "symbol": symbol,
             "ft_data_offset": ftdata_offset,
             "action_table_offset": action_table_offset,
             "action_count": action_count,
-            "format": "PlCa.dat Fighter_WaitAnimData records pointing into PlCaAJ.dat HSD figatree chunks",
+            "format": (
+                f"{spec.data_dat} Fighter_WaitAnimData records pointing into "
+                f"{spec.action_dat} HSD figatree chunks"
+            ),
+            "source_character": spec.id,
         },
         "actions": actions,
     }
@@ -1729,29 +1868,13 @@ def extract_captain_action_hurtbox_samples(
         hurtboxes = hurtbox_inits.get("hurtboxes")
         if not isinstance(hurtboxes, list):
             raise DatExtractError("Captain hurtbox init records are malformed")
-        required_pose_joint_indices: set[int] | None = {
-            int(hurtbox["bone_idx"])
-            for hurtbox in hurtboxes
-            if isinstance(hurtbox, dict) and "bone_idx" in hurtbox
-        }
-        if action_script_bytes is not None:
-            subaction_script_offset = int(action.get("subaction_script_offset", 0))
-            if subaction_script_offset != 0 or action_script_bytes:
-                try:
-                    required_pose_joint_indices.update(
-                        extract_action_script_hitbox_bone_indices(
-                            action_script_bytes, 0x20 + subaction_script_offset
-                        )
-                    )
-                except DatExtractError:
-                    required_pose_joint_indices = None
         frames: list[dict[str, object]] = []
         for frame in range(frame_count):
             pose = sample_figatree_skeleton_pose(chunk, skeleton, frame=float(frame))
             frames.append(
                 {
                     "frame": frame + 1,
-                    "pose": compact_pose_for_collision(pose, required_pose_joint_indices),
+                    "pose": compact_pose_for_collision(pose),
                     "hurtboxes": sample_hurtboxes_from_pose(pose, hurtbox_inits),
                 }
             )
@@ -1778,77 +1901,112 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def extract_resources(raw_dir: Path, out_dir: Path) -> list[Path]:
+def iso_files_for_characters(characters: tuple[str, ...]) -> tuple[str, ...]:
+    files = ["PlCo.dat"]
+    for character in characters:
+        spec = character_resource_spec(character)
+        files.extend([spec.data_dat, spec.action_dat, spec.neutral_costume_dat])
+    return tuple(dict.fromkeys(files))
+
+
+def extract_resources(
+    raw_dir: Path, out_dir: Path, characters: tuple[str, ...] = ("captain",)
+) -> list[Path]:
     written: list[Path] = []
-    hurtbox_inits: dict[str, object] | None = None
     plco = raw_dir / "PlCo.dat"
     if plco.exists():
         out_path = out_dir / "plco_common_data.json"
         write_json(out_path, extract_common_data_from_plco(plco.read_bytes(), plco))
         written.append(out_path)
-    plca = raw_dir / "PlCa.dat"
-    if plca.exists():
-        out_path = out_dir / "captain_falcon_profile.json"
-        plca_bytes = plca.read_bytes()
-        write_json(out_path, extract_captain_profile_from_plca(plca_bytes, plca))
-        written.append(out_path)
-        out_path = out_dir / "captain_falcon_ecb_source.json"
-        write_json(out_path, extract_captain_ecb_source_from_plca(plca_bytes, plca))
-        written.append(out_path)
-        hurtbox_inits = extract_captain_hurtbox_inits_from_plca(plca_bytes, plca)
-        out_path = out_dir / "captain_falcon_hurtbox_inits.json"
-        write_json(out_path, hurtbox_inits)
-        written.append(out_path)
-        plcaaj = raw_dir / "PlCaAJ.dat"
-        if plcaaj.exists():
-            out_path = out_dir / "captain_falcon_action_animation_table.json"
+
+    for character in characters:
+        spec = character_resource_spec(character)
+        fighter_dat = raw_dir / spec.data_dat
+        action_dat = raw_dir / spec.action_dat
+        costume_dat = raw_dir / spec.neutral_costume_dat
+        hurtbox_inits: dict[str, object] | None = None
+
+        if fighter_dat.exists():
+            fighter_bytes = fighter_dat.read_bytes()
+            out_path = out_dir / f"{spec.output_stem}_profile.json"
+            write_json(out_path, extract_character_profile_from_dat(fighter_bytes, fighter_dat, spec))
+            written.append(out_path)
+
+            out_path = out_dir / f"{spec.output_stem}_ecb_source.json"
+            write_json(
+                out_path, extract_character_ecb_source_from_dat(fighter_bytes, fighter_dat, spec)
+            )
+            written.append(out_path)
+
+            hurtbox_inits = extract_character_hurtbox_inits_from_dat(
+                fighter_bytes, fighter_dat, spec
+            )
+            out_path = out_dir / f"{spec.output_stem}_hurtbox_inits.json"
+            write_json(out_path, hurtbox_inits)
+            written.append(out_path)
+
+            if action_dat.exists():
+                out_path = out_dir / f"{spec.output_stem}_action_animation_table.json"
+                write_json(
+                    out_path,
+                    extract_character_action_animation_table(
+                        fighter_bytes,
+                        fighter_dat,
+                        action_dat.read_bytes(),
+                        action_dat,
+                        spec,
+                    ),
+                )
+                written.append(out_path)
+
+        if costume_dat.exists():
+            out_path = out_dir / f"{spec.output_stem}_costume_skeleton.json"
             write_json(
                 out_path,
-                extract_captain_action_animation_table(
-                    plca_bytes, plca, plcaaj.read_bytes(), plcaaj
+                extract_character_costume_skeleton_from_dat(
+                    costume_dat.read_bytes(), costume_dat, spec
                 ),
             )
             written.append(out_path)
-    plcanr = raw_dir / "PlCaNr.dat"
-    if plcanr.exists():
-        out_path = out_dir / "captain_falcon_costume_skeleton.json"
-        write_json(
-            out_path,
-            extract_captain_costume_skeleton_from_plcanr(plcanr.read_bytes(), plcanr),
-        )
-        written.append(out_path)
-    plcaaj = raw_dir / "PlCaAJ.dat"
-    if plca.exists() and plcaaj.exists() and plcanr.exists():
-        plca_bytes = plca.read_bytes()
-        plcaaj_bytes = plcaaj.read_bytes()
-        action_table = extract_captain_action_animation_table(
-            plca_bytes, plca, plcaaj_bytes, plcaaj
-        )
-        skeleton = extract_captain_costume_skeleton_from_plcanr(plcanr.read_bytes(), plcanr)
-        ecb_source = extract_captain_ecb_source_from_plca(plca_bytes, plca)
-        if hurtbox_inits is None:
-            hurtbox_inits = extract_captain_hurtbox_inits_from_plca(plca_bytes, plca)
-        out_path = out_dir / "captain_falcon_action_ecb_samples.json"
-        write_json(
-            out_path,
-            extract_captain_action_ecb_samples(
-                plcaaj_bytes, action_table, skeleton, ecb_source
-            ),
-        )
-        written.append(out_path)
-        out_path = out_dir / "captain_falcon_action_hurtbox_samples.json"
-        write_json(
-            out_path,
-            extract_captain_action_hurtbox_samples(
-                plcaaj_bytes,
-                action_table,
-                skeleton,
-                hurtbox_inits,
-                action_state_ids=ECB_SAMPLE_ACTION_STATE_IDS,
-                action_script_bytes=plca_bytes,
-            ),
-        )
-        written.append(out_path)
+
+        if (
+            fighter_dat.exists()
+            and action_dat.exists()
+            and costume_dat.exists()
+            and spec.derived_sample_action_state_ids
+        ):
+            fighter_bytes = fighter_dat.read_bytes()
+            action_bytes = action_dat.read_bytes()
+            action_table = extract_character_action_animation_table(
+                fighter_bytes, fighter_dat, action_bytes, action_dat, spec
+            )
+            skeleton = extract_character_costume_skeleton_from_dat(
+                costume_dat.read_bytes(), costume_dat, spec
+            )
+            ecb_source = extract_character_ecb_source_from_dat(fighter_bytes, fighter_dat, spec)
+            if hurtbox_inits is None:
+                hurtbox_inits = extract_character_hurtbox_inits_from_dat(
+                    fighter_bytes, fighter_dat, spec
+                )
+            out_path = out_dir / f"{spec.output_stem}_action_ecb_samples.json"
+            write_json(
+                out_path,
+                extract_captain_action_ecb_samples(action_bytes, action_table, skeleton, ecb_source),
+            )
+            written.append(out_path)
+            out_path = out_dir / f"{spec.output_stem}_action_hurtbox_samples.json"
+            write_json(
+                out_path,
+                extract_captain_action_hurtbox_samples(
+                    action_bytes,
+                    action_table,
+                    skeleton,
+                    hurtbox_inits,
+                    action_state_ids=spec.derived_sample_action_state_ids,
+                    action_script_bytes=fighter_bytes,
+                ),
+            )
+            written.append(out_path)
     return written
 
 
@@ -1856,6 +2014,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument(
+        "--character",
+        action="append",
+        default=None,
+        help=(
+            "Source character to extract, e.g. captain or marth. May be repeated. "
+            "Defaults to captain for the current bootstrap resources."
+        ),
+    )
     parser.add_argument(
         "--iso",
         type=Path,
@@ -1867,15 +2034,19 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    characters = tuple(args.character or ("captain",))
 
     if args.iso is not None:
-        for path in extract_raw_files_from_gamecube_iso(args.iso, args.raw_dir):
+        for path in extract_raw_files_from_gamecube_iso(
+            args.iso, args.raw_dir, iso_files_for_characters(characters)
+        ):
             print(f"extracted {path}")
 
-    written = extract_resources(args.raw_dir, args.out_dir)
+    written = extract_resources(args.raw_dir, args.out_dir, characters)
     if not written:
         print(f"No supported DAT files found in {args.raw_dir}")
-        print("Expected user-provided files: PlCo.dat and/or PlCa.dat")
+        expected = ", ".join(iso_files_for_characters(characters))
+        print(f"Expected user-provided files: {expected}")
         return 2
     for path in written:
         print(path)

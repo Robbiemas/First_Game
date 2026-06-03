@@ -251,6 +251,19 @@
       "raw": 2.0,
       "source_name": "x6C"
     },
+    "lcancel_divisor": {
+      "kind": "source_f32",
+      "offset": 232,
+      "raw": 2.0,
+      "source_name": "xE8"
+    },
+    "lcancel_window": {
+      "kind": "i32_ticks",
+      "offset": 228,
+      "raw": 7,
+      "source_name": "xE4",
+      "ticks": 7
+    },
     "main_stick_deadzone_x": {
       "kind": "stick",
       "offset": 0,

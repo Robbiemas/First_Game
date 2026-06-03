@@ -100,6 +100,8 @@ pub struct MeleeCommonData {
     pub tap_jump_release_y: i8,
     pub fast_fall_y: i8,
     pub fast_fall_window: u8,
+    pub lcancel_window: u8,
+    pub lcancel_divisor: f32,
     pub c_stick: i8,
     pub aerial_neutral_x: i8,
     pub aerial_neutral_y: i8,
@@ -177,6 +179,8 @@ impl MeleeCommonData {
         tap_jump_release_y: 38,
         fast_fall_y: 84,
         fast_fall_window: 4,
+        lcancel_window: 7,
+        lcancel_divisor: 2.0,
         c_stick: 40,
         aerial_neutral_x: 32,
         aerial_neutral_y: 32,
@@ -271,6 +275,8 @@ impl MeleeCommonData {
         data.tilt_y = read_stick_i8(bytes, 0xac, "attackhi3_stick_threshold_y")?;
         data.aerial_neutral_x = read_stick_i8(bytes, 0xdc, "xDC")?;
         data.aerial_neutral_y = read_stick_i8(bytes, 0xe0, "xE0")?;
+        data.lcancel_window = read_u8_from_i32(bytes, 0xe4, "xE4")?;
+        data.lcancel_divisor = read_f32(bytes, 0xe8, "xE8")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
         data.guard_reflect_input_window = read_u8_from_i32(bytes, 0x2a0, "x2A0")?;
         data.escape_y = read_stick_i8(bytes, 0x314, "x314")?;
@@ -771,6 +777,18 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "xE0",
         offset: 0xe0,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "lcancel_window",
+        source_name: "xE4",
+        offset: 0xe4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "lcancel_divisor",
+        source_name: "xE8",
+        offset: 0xe8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "escape_y",

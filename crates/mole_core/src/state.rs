@@ -10,6 +10,8 @@ use std::fmt;
 
 #[path = "generated/falcon_ecb.rs"]
 mod falcon_ecb;
+#[path = "generated/source_root_motion.rs"]
+mod source_root_motion;
 
 pub const PLAYER_COUNT: usize = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
@@ -87,6 +89,16 @@ pub struct FighterActionFrames {
     pub attack1_iasa_frame: u8,
     pub attack_dash_total_frames: u8,
     pub attack_dash_iasa_frame: u8,
+    pub attack_air_n_landing_lag_set_frame: u8,
+    pub attack_air_n_landing_lag_clear_frame: u8,
+    pub attack_air_f_landing_lag_set_frame: u8,
+    pub attack_air_f_landing_lag_clear_frame: u8,
+    pub attack_air_b_landing_lag_set_frame: u8,
+    pub attack_air_b_landing_lag_clear_frame: u8,
+    pub attack_air_hi_landing_lag_set_frame: u8,
+    pub attack_air_hi_landing_lag_clear_frame: u8,
+    pub attack_air_lw_landing_lag_set_frame: u8,
+    pub attack_air_lw_landing_lag_clear_frame: u8,
     pub dash_total_frames: u8,
     pub dash_cmd_var0_clear_frame: u8,
     pub dash_cmd_var0_set_frame: u8,
@@ -111,6 +123,16 @@ impl FighterActionFrames {
         attack1_iasa_frame: 16,
         attack_dash_total_frames: 39,
         attack_dash_iasa_frame: 38,
+        attack_air_n_landing_lag_set_frame: 4,
+        attack_air_n_landing_lag_clear_frame: 34,
+        attack_air_f_landing_lag_set_frame: 7,
+        attack_air_f_landing_lag_clear_frame: 35,
+        attack_air_b_landing_lag_set_frame: 7,
+        attack_air_b_landing_lag_clear_frame: 21,
+        attack_air_hi_landing_lag_set_frame: 0,
+        attack_air_hi_landing_lag_clear_frame: 22,
+        attack_air_lw_landing_lag_set_frame: 4,
+        attack_air_lw_landing_lag_clear_frame: 36,
         dash_total_frames: 29,
         dash_cmd_var0_clear_frame: 0,
         dash_cmd_var0_set_frame: 16,
@@ -516,6 +538,7 @@ pub struct PlayerState {
     pub attack_frame: u8,
     pub motion_state: MotionState,
     pub motion_frame: u8,
+    pub motion_anim_frame_milli: i32,
     pub ground_velocity_x: f32,
     pub ground_accel_x: f32,
     pub ground_accel_x2: f32,
@@ -534,6 +557,7 @@ pub struct PlayerState {
     pub run_no_interrupt_frames: u8,
     pub motion_cmd_var0: u32,
     pub motion_cmd_var1: u32,
+    pub landing_lag_ticks: u8,
     pub run_brake_x0: bool,
     pub run_brake_frames_remaining: u8,
     pub turn_run_x14: bool,
@@ -573,6 +597,7 @@ impl PlayerState {
             attack_frame: 0,
             motion_state: MotionState::Wait,
             motion_frame: 0,
+            motion_anim_frame_milli: 0,
             ground_velocity_x: 0.0,
             ground_accel_x: 0.0,
             ground_accel_x2: 0.0,
@@ -591,6 +616,7 @@ impl PlayerState {
             run_no_interrupt_frames: 0,
             motion_cmd_var0: 0,
             motion_cmd_var1: 0,
+            landing_lag_ticks: 0,
             run_brake_x0: false,
             run_brake_frames_remaining: 0,
             turn_run_x14: false,
@@ -617,7 +643,11 @@ pub(crate) fn active_ecb_for_player(
     player: &PlayerState,
     common_data: MeleeCommonData,
 ) -> EcbDiamond {
-    active_ecb_for_motion_frame(player, player.motion_frame, common_data)
+    active_ecb_for_motion_frame(
+        player,
+        player_source_pose_frame(*player).saturating_sub(1),
+        common_data,
+    )
 }
 
 pub(crate) fn active_ecb_for_motion_frame(
@@ -628,7 +658,7 @@ pub(crate) fn active_ecb_for_motion_frame(
     local_ecb_to_world(
         active_local_ecb(player, motion_frame, common_data),
         player.position,
-        player.facing,
+        player_model_facing(player),
     )
 }
 
@@ -643,6 +673,20 @@ pub(crate) fn active_ecb_bottom_offset_y(
 pub(crate) fn action_sample_frame_count_for_motion_state(motion_state: MotionState) -> Option<u8> {
     let samples = falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state)?;
     u8::try_from(samples.len()).ok()
+}
+
+pub fn source_root_motion_delta(
+    motion_state: MotionState,
+    source_frame: u8,
+) -> Option<crate::collision::Vec3> {
+    source_root_motion::transn_offset(motion_state, source_frame)
+}
+
+pub fn source_root_motion_position(
+    motion_state: MotionState,
+    source_frame: u8,
+) -> Option<crate::collision::Vec3> {
+    source_root_motion::transn_position(motion_state, source_frame)
 }
 
 fn active_local_ecb(
@@ -779,6 +823,25 @@ fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
     }
 }
 
+fn player_model_facing(player: &PlayerState) -> i8 {
+    if player.motion_state == MotionState::TurnRun {
+        player.turn_run_accel_mul
+    } else {
+        player.facing
+    }
+}
+
+fn player_source_pose_motion_state(
+    player: PlayerState,
+    common_data: MeleeCommonData,
+) -> MotionState {
+    active_pose_motion_state(&player, common_data)
+}
+
+fn player_source_pose_frame(player: PlayerState) -> u8 {
+    player_animation_pose_frame(player).saturating_add(1)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerRenderSnapshot {
     pub position: Vec2,
@@ -788,6 +851,10 @@ pub struct PlayerRenderSnapshot {
     pub motion_state: MotionState,
     pub state_frame: u8,
     pub animation_frame: u8,
+    pub animation_frame_milli: i32,
+    pub source_pose_motion_state: MotionState,
+    pub source_pose_frame: u8,
+    pub source_pose_model_facing: i8,
     pub ground_velocity_x: f32,
     pub ground_accel_x: f32,
     pub ground_accel_x2: f32,
@@ -804,6 +871,7 @@ pub struct PlayerRenderSnapshot {
     pub run_no_interrupt_frames: u8,
     pub motion_cmd_var0: u32,
     pub motion_cmd_var1: u32,
+    pub landing_lag_ticks: u8,
     pub run_brake_x0: bool,
     pub run_brake_frames_remaining: u8,
     pub turn_run_accel_mul: i8,
@@ -830,7 +898,11 @@ impl PlayerRenderSnapshot {
             facing: player.facing,
             motion_state: player.motion_state,
             state_frame: player.motion_frame,
-            animation_frame: player.attack_frame,
+            animation_frame: player_animation_pose_frame(player),
+            animation_frame_milli: player_animation_pose_frame_milli(player),
+            source_pose_motion_state: player_source_pose_motion_state(player, common_data),
+            source_pose_frame: player_source_pose_frame(player),
+            source_pose_model_facing: player_model_facing(&player),
             ground_velocity_x: player.ground_velocity_x,
             ground_accel_x: player.ground_accel_x,
             ground_accel_x2: player.ground_accel_x2,
@@ -847,6 +919,7 @@ impl PlayerRenderSnapshot {
             run_no_interrupt_frames: player.run_no_interrupt_frames,
             motion_cmd_var0: player.motion_cmd_var0,
             motion_cmd_var1: player.motion_cmd_var1,
+            landing_lag_ticks: player.landing_lag_ticks,
             run_brake_x0: player.run_brake_x0,
             run_brake_frames_remaining: player.run_brake_frames_remaining,
             turn_run_accel_mul: player.turn_run_accel_mul,
@@ -859,6 +932,22 @@ impl PlayerRenderSnapshot {
             entry_timer: player.entry_timer,
             debug_input_facts,
         }
+    }
+}
+
+fn player_animation_pose_frame(player: PlayerState) -> u8 {
+    (player_animation_pose_frame_milli(player) / 1_000).clamp(0, u8::MAX as i32) as u8
+}
+
+fn player_animation_pose_frame_milli(player: PlayerState) -> i32 {
+    match player.motion_state {
+        MotionState::WalkSlow
+        | MotionState::WalkMiddle
+        | MotionState::WalkFast
+        | MotionState::Run
+        | MotionState::RunBrake
+        | MotionState::TurnRun => player.motion_anim_frame_milli,
+        _ => i32::from(player.motion_frame) * 1_000,
     }
 }
 
@@ -1081,6 +1170,7 @@ impl World {
             mix_u8(&mut hash, player.attack_frame);
             mix_u8(&mut hash, motion_state_id(player.motion_state));
             mix_u8(&mut hash, player.motion_frame);
+            mix_i32(&mut hash, player.motion_anim_frame_milli);
             mix_f32(&mut hash, player.ground_velocity_x);
             mix_f32(&mut hash, player.ground_accel_x);
             mix_f32(&mut hash, player.ground_accel_x2);
@@ -1099,6 +1189,7 @@ impl World {
             mix_u8(&mut hash, player.run_no_interrupt_frames);
             mix_u32(&mut hash, player.motion_cmd_var0);
             mix_u32(&mut hash, player.motion_cmd_var1);
+            mix_u8(&mut hash, player.landing_lag_ticks);
             mix_u8(&mut hash, player.run_brake_x0 as u8);
             mix_u8(&mut hash, player.run_brake_frames_remaining);
             mix_u8(&mut hash, player.turn_run_x14 as u8);
@@ -1304,6 +1395,8 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.tap_jump_release_y as u8);
     mix_u8(hash, common.fast_fall_y as u8);
     mix_u8(hash, common.fast_fall_window);
+    mix_u8(hash, common.lcancel_window);
+    mix_f32(hash, common.lcancel_divisor);
     mix_u8(hash, common.c_stick as u8);
     mix_u8(hash, common.aerial_neutral_x as u8);
     mix_u8(hash, common.aerial_neutral_y as u8);
@@ -1411,6 +1504,16 @@ fn mix_fighter_action_frames(hash: &mut u64, action_frames: FighterActionFrames)
     mix_u8(hash, action_frames.attack1_iasa_frame);
     mix_u8(hash, action_frames.attack_dash_total_frames);
     mix_u8(hash, action_frames.attack_dash_iasa_frame);
+    mix_u8(hash, action_frames.attack_air_n_landing_lag_set_frame);
+    mix_u8(hash, action_frames.attack_air_n_landing_lag_clear_frame);
+    mix_u8(hash, action_frames.attack_air_f_landing_lag_set_frame);
+    mix_u8(hash, action_frames.attack_air_f_landing_lag_clear_frame);
+    mix_u8(hash, action_frames.attack_air_b_landing_lag_set_frame);
+    mix_u8(hash, action_frames.attack_air_b_landing_lag_clear_frame);
+    mix_u8(hash, action_frames.attack_air_hi_landing_lag_set_frame);
+    mix_u8(hash, action_frames.attack_air_hi_landing_lag_clear_frame);
+    mix_u8(hash, action_frames.attack_air_lw_landing_lag_set_frame);
+    mix_u8(hash, action_frames.attack_air_lw_landing_lag_clear_frame);
     mix_u8(hash, action_frames.dash_total_frames);
     mix_u8(hash, action_frames.dash_cmd_var0_clear_frame);
     mix_u8(hash, action_frames.dash_cmd_var0_set_frame);

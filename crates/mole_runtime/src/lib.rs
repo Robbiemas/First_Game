@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use mole_core::{
-    step_world, EcbDiamond, Frame, GameCubePadStatus, MeleeInputFacts, MotionState, PlayerInput,
-    StageProfile, StageSurface, StageSurfaceKind, Vec2, World, WorldSnapshot, TICK_NANOS,
+    source_root_motion_position, step_world, EcbDiamond, Frame, GameCubePadStatus, MeleeInputFacts,
+    MotionState, PlayerInput, StageProfile, StageSurface, StageSurfaceKind, Vec2, World,
+    WorldSnapshot, TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
 use mole_transport::{InputPacket, PacketAcceptResult};
@@ -38,6 +39,9 @@ pub use slippi_diagnostic::{
     SlippiCoreTraceRow,
 };
 
+#[path = "generated/frame_data_boxes.rs"]
+mod frame_data_boxes;
+
 pub mod wup_input;
 pub use wup_input::{
     map_wup_ports_to_player_inputs, parse_wup_report, WupInputConfig, WupInputMapper,
@@ -50,6 +54,10 @@ pub use wup_input::WupInputSource;
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
 const CORE_TO_SCREEN_SCALE_DENOMINATOR: i64 = 1_000_000;
+const RUNTIME_CHARACTER_ID: &str = "dolphin_mole";
+const SOURCE_SPACE_MELEE_XYZ: &str = "melee_xyz";
+const PROJECTED_VIEW_DERIVED_DEBUG: &str = "derived_debug_view";
+const SOURCE_ARTIFACT_GENERATED: &str = "generated_frame_data_boxes";
 
 pub fn default_play_world() -> World {
     World::for_slippi_battlefield_singles_match_start()
@@ -214,6 +222,9 @@ pub struct RenderFrame {
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
     pub player_animation_frames: [u8; 2],
+    pub player_source_pose_motion_states: [MotionState; 2],
+    pub player_source_pose_frames: [u8; 2],
+    pub player_source_pose_model_facings: [i8; 2],
     pub player_ground_velocity_x: [f32; 2],
     pub player_ground_accel_x: [f32; 2],
     pub player_ground_accel_x2: [f32; 2],
@@ -268,6 +279,18 @@ impl RenderFrame {
             player_animation_frames: [
                 snapshot.players[0].animation_frame,
                 snapshot.players[1].animation_frame,
+            ],
+            player_source_pose_motion_states: [
+                snapshot.players[0].source_pose_motion_state,
+                snapshot.players[1].source_pose_motion_state,
+            ],
+            player_source_pose_frames: [
+                snapshot.players[0].source_pose_frame,
+                snapshot.players[1].source_pose_frame,
+            ],
+            player_source_pose_model_facings: [
+                snapshot.players[0].source_pose_model_facing,
+                snapshot.players[1].source_pose_model_facing,
             ],
             player_ground_velocity_x: [
                 snapshot.players[0].ground_velocity_x,
@@ -368,6 +391,10 @@ impl RenderFrame {
             ],
             checksum: snapshot.checksum,
         }
+    }
+
+    fn player_model_facing(&self, index: usize) -> i8 {
+        self.player_source_pose_model_facings[index]
     }
 }
 
@@ -478,6 +505,18 @@ impl RenderColor {
         b: 255,
         a: 96,
     };
+    pub const HITBOX_PILL: Self = Self {
+        r: 239,
+        g: 68,
+        b: 68,
+        a: 112,
+    };
+    pub const HURTBOX_PILL: Self = Self {
+        r: 246,
+        g: 197,
+        b: 83,
+        a: 96,
+    };
     pub const ENTRY_PLATFORM: Self = Self {
         r: 120,
         g: 206,
@@ -500,6 +539,50 @@ pub struct RenderCircle {
     pub center: RenderPoint,
     pub radius: u32,
     pub color: RenderColor,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SourceRenderPoint {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+impl PartialEq for SourceRenderPoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.x.to_bits() == other.x.to_bits()
+            && self.y.to_bits() == other.y.to_bits()
+            && self.z.to_bits() == other.z.to_bits()
+    }
+}
+
+impl Eq for SourceRenderPoint {}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SourceRenderCapsule {
+    pub a: SourceRenderPoint,
+    pub b: SourceRenderPoint,
+    pub radius: f64,
+}
+
+impl PartialEq for SourceRenderCapsule {
+    fn eq(&self, other: &Self) -> bool {
+        self.a == other.a && self.b == other.b && self.radius.to_bits() == other.radius.to_bits()
+    }
+}
+
+impl Eq for SourceRenderCapsule {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderCapsule {
+    pub a: RenderPoint,
+    pub b: RenderPoint,
+    pub radius: u32,
+    pub color: RenderColor,
+    pub source: SourceRenderCapsule,
+    pub source_space: &'static str,
+    pub projected_view_kind: &'static str,
+    pub source_artifact_kind: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -529,6 +612,8 @@ pub struct RenderScene {
     pub player_ecbs: [RenderPolygon; 2],
     pub player_sprites: [LegacySpriteCue; 2],
     pub player_shields: [Option<RenderCircle>; 2],
+    pub player_hitbox_pills: [Vec<RenderCapsule>; 2],
+    pub player_hurtbox_pills: [Vec<RenderCapsule>; 2],
     pub entry_platforms: [Option<RenderRect>; 2],
     pub match_intro_label: Option<&'static str>,
 }
@@ -543,12 +628,12 @@ impl RenderScene {
             LegacySpriteCue::for_player(
                 frame.player_motion_states[0],
                 frame.player_state_frames[0],
-                frame.player_facings[0],
+                frame.player_model_facing(0),
             ),
             LegacySpriteCue::for_player(
                 frame.player_motion_states[1],
                 frame.player_state_frames[1],
-                frame.player_facings[1],
+                frame.player_model_facing(1),
             ),
         ];
         let visual = DolphinMoleVisualProfile::default();
@@ -599,6 +684,14 @@ impl RenderScene {
                 player_shield(frame.player_motion_states[0], players[0]),
                 player_shield(frame.player_motion_states[1], players[1]),
             ],
+            player_hitbox_pills: [
+                player_hitbox_pills(frame, 0, transform),
+                player_hitbox_pills(frame, 1, transform),
+            ],
+            player_hurtbox_pills: [
+                player_hurtbox_pills(frame, 0, transform),
+                player_hurtbox_pills(frame, 1, transform),
+            ],
             entry_platforms: [
                 entry_platform(frame, 0, transform, players[0]),
                 entry_platform(frame, 1, transform, players[1]),
@@ -610,6 +703,20 @@ impl RenderScene {
 
 pub fn project_asset_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RuntimeSourcePoint {
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RuntimeSourceCapsule {
+    a: RuntimeSourcePoint,
+    b: RuntimeSourcePoint,
+    radius: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -804,6 +911,149 @@ fn player_shield(motion_state: MotionState, player: RenderRect) -> Option<Render
         radius: player.width.max(player.height) * 58 / 100,
         color: RenderColor::SHIELD_BUBBLE,
     })
+}
+
+fn player_hitbox_pills(
+    frame: &RenderFrame,
+    index: usize,
+    transform: RenderTransform,
+) -> Vec<RenderCapsule> {
+    let source_frame = source_frame_for_player(frame, index);
+    let source_root_z = source_render_root_motion_z(frame, index);
+    frame_data_boxes::hit_capsules(
+        RUNTIME_CHARACTER_ID,
+        frame.player_source_pose_motion_states[index],
+        source_frame,
+    )
+    .iter()
+    .map(|hitbox| runtime_source_capsule_from_generated(hitbox.capsule))
+    .collect::<Vec<_>>()
+    .into_iter()
+    .map(|hitbox| {
+        render_source_capsule(
+            hitbox,
+            frame.player_positions[index],
+            frame.player_model_facing(index),
+            source_root_z,
+            transform,
+            RenderColor::HITBOX_PILL,
+            SOURCE_ARTIFACT_GENERATED,
+        )
+    })
+    .collect()
+}
+
+fn player_hurtbox_pills(
+    frame: &RenderFrame,
+    index: usize,
+    transform: RenderTransform,
+) -> Vec<RenderCapsule> {
+    let source_frame = source_frame_for_player(frame, index);
+    let source_root_z = source_render_root_motion_z(frame, index);
+    frame_data_boxes::hurt_capsules(
+        RUNTIME_CHARACTER_ID,
+        frame.player_source_pose_motion_states[index],
+        source_frame,
+    )
+    .iter()
+    .map(|hurtbox| runtime_source_capsule_from_generated(hurtbox.capsule))
+    .collect::<Vec<_>>()
+    .into_iter()
+    .map(|hurtbox| {
+        render_source_capsule(
+            hurtbox,
+            frame.player_positions[index],
+            frame.player_model_facing(index),
+            source_root_z,
+            transform,
+            RenderColor::HURTBOX_PILL,
+            SOURCE_ARTIFACT_GENERATED,
+        )
+    })
+    .collect()
+}
+
+fn source_frame_for_player(frame: &RenderFrame, index: usize) -> u8 {
+    frame.player_source_pose_frames[index]
+}
+
+fn source_render_root_motion_z(frame: &RenderFrame, index: usize) -> f64 {
+    source_root_motion_position(
+        frame.player_source_pose_motion_states[index],
+        frame.player_source_pose_frames[index],
+    )
+    .map(|position| f64::from(position.z))
+    .unwrap_or(0.0)
+}
+
+fn render_source_capsule(
+    capsule: RuntimeSourceCapsule,
+    root_position: Vec2,
+    facing: i8,
+    source_root_z: f64,
+    transform: RenderTransform,
+    color: RenderColor,
+    source_artifact_kind: &'static str,
+) -> RenderCapsule {
+    let a_world = source_point_to_world_flattened(capsule.a, root_position, facing, source_root_z);
+    let b_world = source_point_to_world_flattened(capsule.b, root_position, facing, source_root_z);
+    RenderCapsule {
+        a: transform.world_to_screen(a_world),
+        b: transform.world_to_screen(b_world),
+        radius: transform.core_length_to_screen(source_units_to_core_units(capsule.radius)),
+        color,
+        source: SourceRenderCapsule {
+            a: SourceRenderPoint {
+                x: capsule.a.x,
+                y: capsule.a.y,
+                z: capsule.a.z,
+            },
+            b: SourceRenderPoint {
+                x: capsule.b.x,
+                y: capsule.b.y,
+                z: capsule.b.z,
+            },
+            radius: capsule.radius,
+        },
+        source_space: SOURCE_SPACE_MELEE_XYZ,
+        projected_view_kind: PROJECTED_VIEW_DERIVED_DEBUG,
+        source_artifact_kind,
+    }
+}
+
+fn source_point_to_world_flattened(
+    point: RuntimeSourcePoint,
+    root_position: Vec2,
+    facing: i8,
+    source_root_z: f64,
+) -> Vec2 {
+    let facing_sign = if facing < 0 { -1 } else { 1 };
+    Vec2 {
+        x: root_position.x + source_units_to_core_units(point.z - source_root_z) * facing_sign,
+        y: root_position.y + source_units_to_core_units(point.y),
+    }
+}
+
+fn source_units_to_core_units(value: f64) -> i32 {
+    (value * 1_000.0).round() as i32
+}
+
+fn runtime_source_capsule_from_generated(
+    capsule: frame_data_boxes::SourceCapsule,
+) -> RuntimeSourceCapsule {
+    RuntimeSourceCapsule {
+        a: RuntimeSourcePoint {
+            x: capsule.a.x,
+            y: capsule.a.y,
+            z: capsule.a.z,
+        },
+        b: RuntimeSourcePoint {
+            x: capsule.b.x,
+            y: capsule.b.y,
+            z: capsule.b.z,
+        },
+        radius: capsule.radius,
+    }
 }
 
 fn match_intro_label(frame: &RenderFrame) -> Option<&'static str> {

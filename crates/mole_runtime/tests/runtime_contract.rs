@@ -2,7 +2,8 @@ use std::path::Path;
 
 use mole_core::{
     step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
-    MotionState, PlayerInput, Vec2, WalkSpeedBucket, World, UCF_DASHBACK_AMENDMENT_BIT,
+    MotionState, PlayerInput, StageProfile, Vec2, WalkSpeedBucket, World,
+    UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
@@ -733,6 +734,7 @@ fn render_frame_consumes_core_snapshot_boundary() {
     ];
 
     step_world(&mut world, Frame(0), &inputs);
+    step_world(&mut world, Frame(1), &inputs);
 
     let core_snapshot = world.snapshot();
     let mut render_frame = RenderFrame::from_snapshot(core_snapshot);
@@ -744,6 +746,11 @@ fn render_frame_consumes_core_snapshot_boundary() {
         core_snapshot.players[0].state_frame
     );
     assert_eq!(
+        render_frame.player_animation_frames[0],
+        core_snapshot.players[0].animation_frame
+    );
+    assert_eq!(render_frame.player_animation_frames[0], 1);
+    assert_eq!(
         render_frame.player_debug_input_facts[0].walk_speed_bucket,
         WalkSpeedBucket::Middle
     );
@@ -754,6 +761,57 @@ fn render_frame_consumes_core_snapshot_boundary() {
         render_frame.player_positions[0],
         world.players()[0].position
     );
+}
+
+#[test]
+fn render_frame_uses_core_source_pose_frame_for_variable_rate_walk() {
+    let profile = FighterProfile {
+        walk_initial_velocity: 1.0,
+        walk_accel: 0.0,
+        walk_max_velocity: 2.0,
+        slow_walk_max_velocity: 0.1,
+        mid_walk_point: 0.2,
+        fast_walk_min: 0.25,
+        ground_friction: 0.0,
+        ..FighterProfile::falcon_like()
+    };
+    let common = MeleeCommonData {
+        walk_middle_velocity_ratio: 0.05,
+        walk_fast_velocity_ratio: 0.1,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield_test(),
+        [profile; 2],
+        common,
+    );
+    let walk_right = [
+        PlayerInput::neutral().with_left_stick(80, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &walk_right);
+    step_world(&mut world, Frame(1), &walk_right);
+    step_world(&mut world, Frame(2), &walk_right);
+    step_world(&mut world, Frame(3), &walk_right);
+
+    let render_frame = RenderFrame::from_world(&world);
+
+    assert_eq!(render_frame.player_state_frames[0], 3);
+    assert!(
+        render_frame.player_animation_frames[0] > render_frame.player_state_frames[0],
+        "source capsule sampling should follow Melee's variable ftAnim_SetAnimRate pose frame"
+    );
+    assert_eq!(
+        render_frame.player_source_pose_frames[0],
+        render_frame.player_animation_frames[0].saturating_add(1),
+        "runtime must consume the source pose frame selected by core instead of deriving a separate capsule frame"
+    );
+    assert_eq!(
+        render_frame.player_source_pose_motion_states[0],
+        render_frame.player_motion_states[0]
+    );
+    assert_eq!(render_frame.player_source_pose_model_facings[0], 1);
 }
 
 #[test]
@@ -999,6 +1057,161 @@ fn render_scene_draws_translucent_bubble_shield_for_guard_states() {
 }
 
 #[test]
+fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::AttackAirN;
+    frame.player_state_frames[0] = 6;
+    frame.player_animation_frames[0] = 6;
+    frame.player_facings[0] = 1;
+    frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.player_hitbox_pills[0].len(), 3);
+    assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
+    assert!(scene.player_hitbox_pills[1].is_empty());
+    assert_eq!(scene.player_hurtbox_pills[1].len(), 11);
+    assert_eq!(scene.player_hurtbox_pills[1][0].source_space, "melee_xyz");
+    assert_eq!(
+        scene.player_hitbox_pills[0][0].color,
+        RenderColor::HITBOX_PILL
+    );
+    assert_eq!(
+        scene.player_hurtbox_pills[0][0].color,
+        RenderColor::HURTBOX_PILL
+    );
+    assert!(scene.player_hitbox_pills[0][0].color.a < 255);
+    assert!(scene.player_hurtbox_pills[0][0].color.a < 255);
+    assert!(scene.player_hitbox_pills[0][0].radius > 0);
+    assert!(scene.player_hurtbox_pills[0][0].radius > 0);
+    assert_eq!(scene.player_hitbox_pills[0][0].source_space, "melee_xyz");
+    assert_eq!(
+        scene.player_hitbox_pills[0][0].projected_view_kind,
+        "derived_debug_view"
+    );
+    assert_eq!(
+        scene.player_hitbox_pills[0][0].source_artifact_kind,
+        "generated_frame_data_boxes"
+    );
+    assert_eq!(scene.player_hurtbox_pills[0][0].source_space, "melee_xyz");
+    assert_eq!(
+        scene.player_hurtbox_pills[0][0].projected_view_kind,
+        "derived_debug_view"
+    );
+    assert_eq!(
+        scene.player_hurtbox_pills[0][0].source_artifact_kind,
+        "generated_frame_data_boxes"
+    );
+    assert_ne!(scene.player_hitbox_pills[0][0].source.a.z, 0.0);
+    assert_ne!(scene.player_hurtbox_pills[0][0].source.a.z, 0.0);
+    assert_ne!(
+        scene.player_hurtbox_pills[0][0].a,
+        scene.player_hurtbox_pills[0][0].b
+    );
+}
+
+#[test]
+fn render_scene_uses_attack_air_n_source_clear_frames_for_hitbox_pills() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::AttackAirN;
+    frame.player_facings[0] = 1;
+    frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_model_facings[0] = 1;
+
+    frame.player_state_frames[0] = 12;
+    frame.player_animation_frames[0] = 12;
+    frame.player_source_pose_frames[0] = 13;
+    let cleared_first_window = RenderScene::from_frame(&frame, 960, 540);
+    assert!(cleared_first_window.player_hitbox_pills[0].is_empty());
+    assert_eq!(cleared_first_window.player_hurtbox_pills[0].len(), 11);
+
+    frame.player_state_frames[0] = 19;
+    frame.player_animation_frames[0] = 19;
+    frame.player_source_pose_frames[0] = 20;
+    let second_window = RenderScene::from_frame(&frame, 960, 540);
+    assert_eq!(second_window.player_hitbox_pills[0].len(), 3);
+
+    frame.player_state_frames[0] = 29;
+    frame.player_animation_frames[0] = 29;
+    frame.player_source_pose_frames[0] = 30;
+    let cleared_second_window = RenderScene::from_frame(&frame, 960, 540);
+    assert!(cleared_second_window.player_hitbox_pills[0].is_empty());
+    assert_eq!(cleared_second_window.player_hurtbox_pills[0].len(), 11);
+}
+
+#[test]
+fn render_scene_samples_source_capsules_from_animation_pose_frame() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::AttackAirN;
+    frame.player_facings[0] = 1;
+    frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_model_facings[0] = 1;
+
+    // Melee advances collision endpoints from the current JObj pose
+    // (HSD_JObjReqAnimAll/HSD_JObjAnimAll -> ftColl_8007AD18), not from
+    // gameplay state age alone. Frame 13 is clear, while pose frame 20 has
+    // Captain Falcon Nair's second active window.
+    frame.player_state_frames[0] = 12;
+    frame.player_animation_frames[0] = 19;
+    frame.player_source_pose_frames[0] = 20;
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.player_hitbox_pills[0].len(), 3);
+    assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
+}
+
+#[test]
+fn runtime_airborne_a_press_reaches_attack_air_n_scene_pills() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.grounded = false;
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 0;
+    player.position.y = 30_000;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    assert_eq!(world.players()[0].motion_state, MotionState::AttackAirN);
+
+    for frame in 1..=6 {
+        step_world(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+    }
+
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(frame.player_motion_states[0], MotionState::AttackAirN);
+    assert_eq!(frame.player_state_frames[0], 6);
+    assert_eq!(scene.player_hitbox_pills[0].len(), 3);
+    assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
+    assert_eq!(
+        scene.player_hitbox_pills[0][0].color,
+        RenderColor::HITBOX_PILL
+    );
+    assert_eq!(
+        scene.player_hurtbox_pills[0][0].color,
+        RenderColor::HURTBOX_PILL
+    );
+}
+
+#[test]
 fn motion_visual_changes_keep_sprite_anchor_at_character_position() {
     let world = World::for_two_players();
     let base_frame = RenderFrame::from_world(&world);
@@ -1024,6 +1237,103 @@ fn motion_visual_changes_keep_sprite_anchor_at_character_position() {
     assert!(air_dodge_scene.players[0].width > air_dodge_scene.players[0].height);
     assert!(dash_scene.players[0].height < standing_scene.players[0].height);
     assert!(air_dodge_scene.players[0].height < standing_scene.players[0].height);
+}
+
+#[test]
+fn turn_run_capsule_projection_uses_model_entry_facing_not_mid_action_gameplay_facing() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::TurnRun;
+    frame.player_animation_frames[0] = 10;
+    frame.player_facings[0] = 1;
+    frame.player_turn_run_accel_mul[0] = 1;
+    frame.player_source_pose_motion_states[0] = MotionState::TurnRun;
+    frame.player_source_pose_frames[0] = 11;
+    frame.player_source_pose_model_facings[0] = 1;
+    let entry_facing_scene = RenderScene::from_frame(&frame, 960, 540);
+
+    frame.player_facings[0] = -1;
+    let flipped_gameplay_facing_scene = RenderScene::from_frame(&frame, 960, 540);
+
+    frame.player_turn_run_accel_mul[0] = -1;
+    frame.player_source_pose_model_facings[0] = -1;
+    let flipped_model_facing_scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(
+        flipped_gameplay_facing_scene.player_hurtbox_pills[0],
+        entry_facing_scene.player_hurtbox_pills[0],
+        "TurnRun_Anim flips fp->facing_dir before changing the model root rotation"
+    );
+    assert_ne!(
+        flipped_model_facing_scene.player_hurtbox_pills[0],
+        entry_facing_scene.player_hurtbox_pills[0]
+    );
+}
+
+#[test]
+fn root_motion_capsules_render_after_melee_transn_reset() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::EscapeF;
+    player.motion_frame = 1;
+    let source_root = mole_core::source_root_motion_position(MotionState::EscapeF, 2)
+        .expect("EscapeF frame 2 should have sampled TransN root position");
+    player.position.x = (source_root.z * 1_000.0).round() as i32;
+    player.facing = 1;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let first_hurtbox = scene.player_hurtbox_pills[0][0];
+    let transn = mole_core::source_root_motion_position(
+        MotionState::EscapeF,
+        frame.player_source_pose_frames[0],
+    )
+    .unwrap();
+    let expected_world_a = Vec2 {
+        x: frame.player_positions[0].x
+            + ((first_hurtbox.source.a.z - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: frame.player_positions[0].y + (first_hurtbox.source.a.y * 1_000.0).round() as i32,
+    };
+
+    assert_eq!(
+        first_hurtbox.a,
+        scene.transform.world_to_screen(expected_world_a)
+    );
+}
+
+#[test]
+fn turn_run_capsules_render_after_transn_reset_at_floor_edge() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::TurnRun;
+    player.motion_frame = 9;
+    player.motion_anim_frame_milli = 9_000;
+    player.position.x = world.stage().main_floor.right_x;
+    player.facing = 1;
+    player.turn_run_accel_mul = 1;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let frame = RenderFrame::from_world(&world);
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let first_hurtbox = scene.player_hurtbox_pills[0][0];
+    let transn = mole_core::source_root_motion_position(
+        MotionState::TurnRun,
+        frame.player_source_pose_frames[0],
+    )
+    .expect("TurnRun source pose should expose TransN root position");
+    let expected_world_a = Vec2 {
+        x: frame.player_positions[0].x
+            + ((first_hurtbox.source.a.z - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: frame.player_positions[0].y + (first_hurtbox.source.a.y * 1_000.0).round() as i32,
+    };
+
+    assert_eq!(
+        first_hurtbox.a,
+        scene.transform.world_to_screen(expected_world_a)
+    );
 }
 
 #[test]

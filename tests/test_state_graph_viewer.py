@@ -40,6 +40,7 @@ from tools.state_graph_viewer import (
     latest_input_trace_path,
     latest_slippi_report_path,
     load_move_frame_data,
+    sample_manifest_action_frame,
     load_recent_input_trace_rows,
     load_graphs,
     load_rust_character_values,
@@ -137,11 +138,195 @@ def test_move_frame_data_states_are_character_scoped_and_empty_character_is_hone
     dolphin_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole")
     empty_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "test_character_2")
 
-    assert dolphin_states == [{"state": "AttackAirN", "label": "Neutral Air", "populated": True}]
+    assert dolphin_states[0] == {"state": "AttackAirN", "label": "Neutral Air", "populated": True}
+    state_names = [state["state"] for state in dolphin_states]
+    assert "source_manifest" not in state_names
+    assert "WallDamage" in state_names
+    assert "SpecialN" in state_names
     assert empty_states == []
     assert "No move frame data populated for Test Character 2" in build_move_keyframe_empty_state(
         "Test Character 2"
     )
+
+
+def test_move_keyframe_state_listing_populates_compact_source_manifest_actions(tmp_path):
+    character_dir = tmp_path / "dolphin_mole"
+    character_dir.mkdir(parents=True)
+    (character_dir / "source_manifest.json").write_text(
+        """{
+  "schema_version": 2,
+  "artifact_kind": "source_character_frame_data_manifest",
+  "target_character_label": "Dolphin Mole",
+  "target_character": "dolphin_mole",
+  "source_character_label": "Captain Falcon",
+  "source_character": "captain",
+  "source_space": "melee_xyz",
+  "z_policy": "preserve_source_z_flatten_after_runtime_projection",
+  "projection": {"default_view": "xy", "z_policy": "preserve_source_z_flatten_after_runtime_projection"},
+  "actions": [
+    {
+      "state": "AttackAirN",
+      "runtime_motion_state": "AttackAirN",
+      "source_action_key": "AttackAirN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+      "action_state_id": 68,
+      "total_frames": 45,
+      "subaction_script_offset": 19908,
+      "decoded_action_script": {"procedures": [{"procedure": "fighter.spawn_hitbox", "frame": 7}]}
+    },
+    {
+      "state": "SpecialN",
+      "runtime_motion_state": "SpecialN",
+      "source_action_key": "SpecialN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+      "action_state_id": 301,
+      "total_frames": 100,
+      "subaction_script_offset": 14692,
+      "decoded_action_script": {"procedures": []}
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    characters = list_move_frame_data_characters(tmp_path)
+    states = list_move_frame_data_states(tmp_path, "dolphin_mole")
+
+    assert characters[0]["id"] == "dolphin_mole"
+    assert characters[0]["populated"] is True
+    assert states == [
+        {
+            "state": "AttackAirN",
+            "label": "AttackAirN",
+            "populated": True,
+            "source": "source_manifest",
+        },
+        {
+            "state": "SpecialN",
+            "label": "SpecialN",
+            "populated": True,
+            "source": "source_manifest",
+        },
+    ]
+
+
+def test_move_frame_data_loads_compact_manifest_action_when_expanded_artifact_is_missing(tmp_path):
+    character_dir = tmp_path / "dolphin_mole"
+    character_dir.mkdir(parents=True)
+    (character_dir / "source_manifest.json").write_text(
+        """{
+  "schema_version": 2,
+  "artifact_kind": "source_character_frame_data_manifest",
+  "target_character_label": "Dolphin Mole",
+  "target_character": "dolphin_mole",
+  "source_character_label": "Captain Falcon",
+  "source_character": "captain",
+  "source_space": "melee_xyz",
+  "z_policy": "preserve_source_z_flatten_after_runtime_projection",
+  "projection": {"default_view": "xy", "z_policy": "preserve_source_z_flatten_after_runtime_projection"},
+  "sources": [{"kind": "source_action_table", "path": "resources/melee/extracted/captain_falcon_action_animation_table.json"}],
+  "actions": [{
+    "state": "SpecialN",
+    "runtime_motion_state": "SpecialN",
+    "source_action_key": "SpecialN",
+    "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+    "action_state_id": 301,
+    "total_frames": 100,
+    "subaction_script_offset": 14692,
+    "decoded_action_script": {
+      "procedures": [{"procedure": "fighter.set_cmd_var", "frame": 4, "cmd_var": 0, "value": 1}]
+    }
+  }]
+}
+""",
+        encoding="utf-8",
+    )
+
+    data = load_move_frame_data(tmp_path, "dolphin_mole", "SpecialN")
+    summary = format_move_frame_data_summary(data)
+
+    assert data["artifact_kind"] == "source_manifest_action_view"
+    assert data["state"] == "SpecialN"
+    assert data["label"] == "SpecialN"
+    assert data["summary"]["total_frames"] == 100
+    assert data["keyframes"] == []
+    assert data["manifest_action"]["action_state_id"] == 301
+    assert data["decoded_action_script"]["procedures"][0]["procedure"] == "fighter.set_cmd_var"
+    assert "Compact source manifest action" in summary
+    assert "Decoded procedures: 1" in summary
+
+
+def test_manifest_only_state_can_request_live_sampled_frame(monkeypatch, tmp_path):
+    character_dir = tmp_path / "dolphin_mole"
+    character_dir.mkdir(parents=True)
+    (character_dir / "source_manifest.json").write_text(
+        """{
+  "schema_version": 2,
+  "artifact_kind": "source_character_frame_data_manifest",
+  "target_character_label": "Dolphin Mole",
+  "target_character": "dolphin_mole",
+  "source_character_label": "Captain Falcon",
+  "source_character": "captain",
+  "source_space": "melee_xyz",
+  "projection": {"default_view": "xy", "z_policy": "preserve_source_z_flatten_after_runtime_projection"},
+  "actions": [{
+    "state": "SpecialN",
+    "source_action_key": "SpecialN",
+    "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+    "action_state_id": 301,
+    "total_frames": 100,
+    "subaction_script_offset": 14692,
+    "decoded_action_script": {"procedures": []}
+  }]
+}""",
+        encoding="utf-8",
+    )
+
+    class Result:
+        returncode = 0
+        stdout = """{
+  "ok": true,
+  "sample": {
+    "frame": 12,
+    "source_action_key": "SpecialN",
+    "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+    "projected_view_kind": "derived_debug_view",
+    "hit_capsules": [{
+      "id": 0,
+      "bone": 14,
+      "center": {"x": 1.0, "y": 2.0, "z": 0.0},
+      "source_center": {"x": 3.0, "y": 2.0, "z": 1.0},
+      "a": {"x": 0.5, "y": 2.0, "z": 0.0},
+      "b": {"x": 1.0, "y": 2.0, "z": 0.0},
+      "source_a": {"x": 2.5, "y": 2.0, "z": 0.5},
+      "source_b": {"x": 3.0, "y": 2.0, "z": 1.0},
+      "radius": 4.0,
+      "damage": 12
+    }],
+    "hurt_capsules": [{
+      "id": 4,
+      "bone": 23,
+      "a": {"x": 1.5, "y": 5.0, "z": 0.0},
+      "b": {"x": -1.5, "y": 6.0, "z": 0.0},
+      "source_a": {"x": 4.0, "y": 5.0, "z": 1.5},
+      "source_b": {"x": 2.0, "y": 6.0, "z": -1.5},
+      "radius": 2.0,
+      "state": "HurtCapsule_Enabled"
+    }]
+  }
+}"""
+
+    monkeypatch.setattr("tools.state_graph_viewer.subprocess.run", lambda *args, **kwargs: Result())
+
+    sampled_frame = sample_manifest_action_frame(tmp_path, "dolphin_mole", "SpecialN", 12)
+
+    assert sampled_frame is not None
+    assert sampled_frame["frame"] == 12
+    assert sampled_frame["source_action_key"] == "SpecialN"
+    assert sampled_frame["projected_view_kind"] == "derived_debug_view"
+    assert sampled_frame["hitboxes"][0]["source_b"]["z"] == 1.0
+    assert sampled_frame["hurtboxes"][0]["source_a"]["z"] == 1.5
 
 
 def test_move_keyframe_details_preserve_z_and_projection_flattens_only_for_view():

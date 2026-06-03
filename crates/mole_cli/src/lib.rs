@@ -12,6 +12,7 @@ use std::{
 mod decomp;
 mod formatting;
 mod frame_data;
+mod frame_data_sampler;
 mod generated;
 mod graph;
 mod replay;
@@ -97,6 +98,10 @@ pub(crate) enum DecompCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FrameDataCommand {
     Extract(FrameDataOptions),
+    ExtractAll(FrameDataBatchOptions),
+    ExportRuntime(FrameDataExportOptions),
+    ExportRuntimeAll(FrameDataExportBatchOptions),
+    Sample(FrameDataSampleOptions),
     Show(FrameDataOptions),
 }
 
@@ -104,8 +109,39 @@ pub(crate) enum FrameDataCommand {
 pub(crate) struct FrameDataOptions {
     pub character: String,
     pub source_character: Option<String>,
+    pub source_state: Option<String>,
     pub state: String,
     pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FrameDataExportOptions {
+    pub character: String,
+    pub state: String,
+    pub output: Option<String>,
+    pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FrameDataBatchOptions {
+    pub character: String,
+    pub source_character: String,
+    pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FrameDataExportBatchOptions {
+    pub character: String,
+    pub output: Option<String>,
+    pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FrameDataSampleOptions {
+    pub character: String,
+    pub source_character: Option<String>,
+    pub state: String,
+    pub frame: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -446,10 +482,24 @@ fn parse_frame_data_command(args: &[String]) -> Result<FrameDataCommand, String>
     let subcommand = args.first().map(String::as_str).unwrap_or("show");
     let rest = subcommand_args(args);
     match subcommand {
+        "extract" if has_flag(rest, "--all-states") => {
+            parse_frame_data_batch_options(rest).map(FrameDataCommand::ExtractAll)
+        }
         "extract" => parse_frame_data_options(rest, true).map(FrameDataCommand::Extract),
+        "export-runtime" if has_flag(rest, "--all-states") => {
+            parse_frame_data_export_batch_options(rest).map(FrameDataCommand::ExportRuntimeAll)
+        }
+        "export-runtime" => {
+            parse_frame_data_export_options(rest).map(FrameDataCommand::ExportRuntime)
+        }
+        "sample" => parse_frame_data_sample_options(rest).map(FrameDataCommand::Sample),
         "show" => parse_frame_data_options(rest, false).map(FrameDataCommand::Show),
         other => Err(format!("unknown mole frame-data command: {other}")),
     }
+}
+
+fn has_flag(args: &[String], flag: &str) -> bool {
+    args.iter().any(|arg| arg == flag)
 }
 
 fn parse_frame_data_options(
@@ -458,6 +508,7 @@ fn parse_frame_data_options(
 ) -> Result<FrameDataOptions, String> {
     let mut character = None;
     let mut source_character = None;
+    let mut source_state = None;
     let mut state = None;
     let mut write = false;
     let mut index = 0;
@@ -466,6 +517,9 @@ fn parse_frame_data_options(
             "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
             "--source-character" if allow_source_character => {
                 source_character = Some(take_flag_value(args, &mut index, "--source-character")?)
+            }
+            "--source-state" if allow_source_character => {
+                source_state = Some(take_flag_value(args, &mut index, "--source-state")?)
             }
             "--state" => state = Some(take_flag_value(args, &mut index, "--state")?),
             "--write" if allow_source_character => write = true,
@@ -476,8 +530,137 @@ fn parse_frame_data_options(
     Ok(FrameDataOptions {
         character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
         source_character,
+        source_state,
         state: state.ok_or_else(|| "frame-data requires --state <MotionState>".to_string())?,
         write,
+    })
+}
+
+fn parse_frame_data_batch_options(args: &[String]) -> Result<FrameDataBatchOptions, String> {
+    let mut character = None;
+    let mut source_character = None;
+    let mut all_states = false;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--all-states" => all_states = true,
+            "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
+            "--source-character" => {
+                source_character = Some(take_flag_value(args, &mut index, "--source-character")?)
+            }
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for frame-data extract: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    if !all_states {
+        return Err("frame-data extract --all-states requires --all-states".to_string());
+    }
+    Ok(FrameDataBatchOptions {
+        character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
+        source_character: source_character
+            .ok_or_else(|| "frame-data requires --source-character <id>".to_string())?,
+        write,
+    })
+}
+
+fn parse_frame_data_export_options(args: &[String]) -> Result<FrameDataExportOptions, String> {
+    let mut character = None;
+    let mut state = None;
+    let mut output = None;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
+            "--state" => state = Some(take_flag_value(args, &mut index, "--state")?),
+            "--output" => output = Some(take_flag_value(args, &mut index, "--output")?),
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for frame-data export-runtime: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    Ok(FrameDataExportOptions {
+        character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
+        state: state.ok_or_else(|| "frame-data requires --state <MotionState>".to_string())?,
+        output,
+        write,
+    })
+}
+
+fn parse_frame_data_export_batch_options(
+    args: &[String],
+) -> Result<FrameDataExportBatchOptions, String> {
+    let mut character = None;
+    let mut output = None;
+    let mut all_states = false;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--all-states" => all_states = true,
+            "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
+            "--output" => output = Some(take_flag_value(args, &mut index, "--output")?),
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for frame-data export-runtime: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    if !all_states {
+        return Err("frame-data export-runtime --all-states requires --all-states".to_string());
+    }
+    Ok(FrameDataExportBatchOptions {
+        character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
+        output,
+        write,
+    })
+}
+
+fn parse_frame_data_sample_options(args: &[String]) -> Result<FrameDataSampleOptions, String> {
+    let mut character = None;
+    let mut source_character = None;
+    let mut state = None;
+    let mut frame = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--character" => character = Some(take_flag_value(args, &mut index, "--character")?),
+            "--source-character" => {
+                source_character = Some(take_flag_value(args, &mut index, "--source-character")?)
+            }
+            "--state" => state = Some(take_flag_value(args, &mut index, "--state")?),
+            "--frame" => {
+                frame = Some(parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--frame")?,
+                    "--frame",
+                )? as u64)
+            }
+            other => {
+                return Err(format!(
+                    "unexpected argument for frame-data sample: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    Ok(FrameDataSampleOptions {
+        character: character.ok_or_else(|| "frame-data requires --character <id>".to_string())?,
+        source_character,
+        state: state.ok_or_else(|| "frame-data requires --state <MotionState>".to_string())?,
+        frame: frame.ok_or_else(|| "frame-data sample requires --frame <N>".to_string())?,
     })
 }
 
@@ -1057,6 +1240,9 @@ fn expected_command_names() -> Vec<&'static str> {
         "verify changed",
         "generated check",
         "finish check",
+        "frame-data extract",
+        "frame-data export-runtime",
+        "frame-data show",
         "doctor",
         "tests",
         "handoff",
@@ -1307,6 +1493,9 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown",
             "cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json",
             "cargo run -p mole_cli -- frame-data extract --character dolphin_mole --source-character captain --state AttackAirN --write --json",
+            "cargo run -p mole_cli -- frame-data extract --all-states --character dolphin_mole --source-character captain --write --json",
+            "cargo run -p mole_cli -- frame-data export-runtime --character dolphin_mole --state AttackAirN --output crates/mole_runtime/src/generated/frame_data_boxes.rs --write --json",
+            "cargo run -p mole_cli -- frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/frame_data_boxes.rs --write --json",
             "cargo run -p mole_cli -- frame-data show --character dolphin_mole --state AttackAirN --format markdown",
             "cargo run -p mole_cli -- request next --json",
             "cargo run -p mole_cli -- request add --id trace-summary --title \"Trace Summary\" --request \"Add a compact trace summary command.\" --context \"Agents need shorter logs.\" --expected \"JSON summary.\" --json",
@@ -1314,7 +1503,7 @@ fn help_report() -> Value {
         ],
         "ai_contract": {
             "read_only_by_default": true,
-            "mutating_commands": ["replay check", "request add", "request done"],
+            "mutating_commands": ["frame-data extract", "frame-data export-runtime", "replay check", "request add", "request done"],
             "no_interactive_prompts": true,
             "stable_json_schema_version": SCHEMA_VERSION,
             "nonzero_exit_on_cli_usage_error": true
@@ -1518,15 +1707,27 @@ fn command_help_catalog() -> Value {
         },
         {
             "name": "frame-data extract",
-            "usage": "mole frame-data extract --character ID --source-character ID --state MotionState [--write] [--json|--format markdown]",
-            "purpose": "Load source-derived move frame data for a target character, preserving raw 3D keyframes and extraction gaps; with --write, update or initialize the character-scoped artifact.",
+            "usage": "mole frame-data extract --character ID --source-character ID (--state MotionState|--all-states) [--source-state SourceAction] [--write] [--json|--format markdown]",
+            "purpose": "Load source-derived move frame data for a target character, preserving raw 3D keyframes and extraction gaps; with --all-states, map every source action with an explicit MotionState match into character-scoped artifacts.",
             "mutates_workspace": true,
             "writes": ["resources/melee/frame_data/<character>/<state>.json when --write is present"],
             "output_modes": ["json", "markdown"],
-            "required_flags": ["--character", "--source-character", "--state"],
-            "optional_flags": ["--write", "--root", "--json", "--format"],
+            "required_flags": ["--character", "--source-character", "--state or --all-states"],
+            "optional_flags": ["--source-state", "--all-states", "--write", "--root", "--json", "--format"],
             "aliases": [],
-            "agent_notes": "Use for replay-parity attack work such as Captain Falcon Nair assigned to Dolphin Mole; pass --write only when the user wants the project artifact updated."
+            "agent_notes": "Use for replay-parity attack work such as Captain Falcon Nair assigned to Dolphin Mole, or use --all-states to import a source character's mapped actions without making the pipeline Falcon-specific."
+        },
+        {
+            "name": "frame-data export-runtime",
+            "usage": "mole frame-data export-runtime --character ID (--state MotionState|--all-states) [--output PATH] [--write] [--json]",
+            "purpose": "Generate the native Rust runtime capsule module from extracted frame-data artifacts while preserving source-space floats and Z before the runtime flattens for current 2D play.",
+            "mutates_workspace": true,
+            "writes": ["crates/mole_runtime/src/generated/frame_data_boxes.rs when --write is present"],
+            "output_modes": ["json"],
+            "required_flags": ["--character", "--state or --all-states"],
+            "optional_flags": ["--all-states", "--output", "--write", "--root", "--json"],
+            "aliases": [],
+            "agent_notes": "Use after frame-data extract/show confirms the canonical artifacts; --all-states emits one combined character module with reusable character, MotionState, and source-frame match arms."
         },
         {
             "name": "frame-data show",

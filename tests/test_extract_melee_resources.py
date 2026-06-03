@@ -2,9 +2,16 @@ import struct
 from pathlib import Path
 
 from tools.extract_melee_resources import (
+    CharacterResourceSpec,
     DatExtractError,
     PROJECT_ROOT,
+    character_resource_spec,
     compute_ecb_from_jobj_pose,
+    extract_character_action_animation_table,
+    extract_character_costume_skeleton_from_dat,
+    extract_character_hurtbox_inits_from_dat,
+    extract_character_profile_from_dat,
+    extract_resources,
     extract_action_script_cmd_var_events,
     extract_action_script_hitbox_bone_indices,
     extract_captain_costume_skeleton_from_plcanr,
@@ -18,6 +25,7 @@ from tools.extract_melee_resources import (
     extract_figatree_summary,
     extract_file_from_gamecube_iso,
     extract_raw_files_from_gamecube_iso,
+    iso_files_for_characters,
     sample_fobj_value,
     sample_figatree_node_tracks,
     sample_figatree_skeleton_pose,
@@ -691,11 +699,19 @@ def test_extract_captain_action_hurtbox_samples_uses_figatree_skeleton_and_stati
 
 def test_extract_captain_action_hurtbox_samples_keeps_action_hitbox_pose_bones():
     chunk = make_sampled_figatree_chunk()
-    data_block = bytearray(0x100)
+    data_block = bytearray(0x140)
     root_offset = 0x20
     child_offset = 0x60
+    sibling_offset = 0xA0
     put_joint(data_block, root_offset, flags=0, child=child_offset, position=(1.0, 0.0, 0.0))
-    put_joint(data_block, child_offset, flags=0, position=(0.0, 2.0, 0.0))
+    put_joint(
+        data_block,
+        child_offset,
+        flags=0,
+        next=sibling_offset,
+        position=(0.0, 2.0, 0.0),
+    )
+    put_joint(data_block, sibling_offset, flags=0, position=(0.0, 0.0, 3.0))
     dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
     skeleton = extract_captain_costume_skeleton_from_plcanr(
         dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
@@ -741,7 +757,7 @@ def test_extract_captain_action_hurtbox_samples_keeps_action_hitbox_pose_bones()
         joint["index"] for joint in samples["actions"][0]["frames"][0]["pose"]["joints"]
     }
     assert extract_action_script_hitbox_bone_indices(script_bytes, 0x20) == {1}
-    assert joint_indices == {0, 1}
+    assert joint_indices == {0, 1, 2}
 
 
 def test_extract_captain_costume_skeleton_from_plcanr_walks_joint_tree_preorder():
@@ -851,6 +867,7 @@ def test_extract_action_script_cmd_var_events_decodes_minimal_fighter_scripts():
     script += be32(0x04010000) + be32(0) + be32(0) + be32(0)
     script += be32(0x08000009)  # async timer frame 9
     script += be32(0x4D000001)  # set cmd_vars[1] = 1
+    script += be32(0x1C000000)  # Command_07 common Goto command word
     script += be32(0x0800000F)  # async timer frame 15
     script += be32(0x4C000000)  # set cmd_vars[0] = 0
     script += be32(0)
@@ -859,7 +876,7 @@ def test_extract_action_script_cmd_var_events_decodes_minimal_fighter_scripts():
 
     assert events == [
         {"frame": 9, "cmd_var": 1, "value": 1, "word_offset": 6},
-        {"frame": 15, "cmd_var": 0, "value": 0, "word_offset": 8},
+        {"frame": 15, "cmd_var": 0, "value": 0, "word_offset": 9},
     ]
 
 
@@ -912,3 +929,132 @@ def test_extract_captain_profile_rejects_non_captain_roots():
         assert "ftDataCaptain" in str(error)
     else:
         raise AssertionError("expected non-Captain DAT root to be rejected")
+
+
+def test_character_resource_spec_uses_decomp_marth_names():
+    spec = character_resource_spec("marth")
+
+    assert spec == CharacterResourceSpec(
+        id="marth",
+        output_stem="marth",
+        data_dat="PlMs.dat",
+        action_dat="PlMsAJ.dat",
+        neutral_costume_dat="PlMsNr.dat",
+        ft_data_symbol="ftDataMars",
+        neutral_joint_root="PlyMars5K_Share_joint",
+    )
+    assert character_resource_spec("mars") == spec
+    assert iso_files_for_characters(("marth",)) == (
+        "PlCo.dat",
+        "PlMs.dat",
+        "PlMsAJ.dat",
+        "PlMsNr.dat",
+    )
+
+
+def test_extract_character_profile_accepts_marth_ftdata_root():
+    data_block = bytearray(0x400)
+    ftdata_offset = 0x60
+    attrs_offset = 0x100
+    attrs_end = 0x280
+    data_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
+    data_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
+    put_f32(data_block, attrs_offset + 0x18, 0.09)
+    put_f32(data_block, attrs_offset + 0x1C, 1.7)
+    put_f32(data_block, attrs_offset + 0x30, 7.0)
+    put_f32(data_block, attrs_offset + 0x34, 2.1)
+    put_f32(data_block, attrs_offset + 0x3C, 0.42)
+    put_f32(data_block, attrs_offset + 0x40, 2.8)
+    put_f32(data_block, attrs_offset + 0x5C, 0.08)
+    put_f32(data_block, attrs_offset + 0x60, 2.2)
+    put_f32(data_block, attrs_offset + 0x64, 0.03)
+    put_f32(data_block, attrs_offset + 0x68, 0.02)
+    put_f32(data_block, attrs_offset + 0x6C, 1.05)
+    put_f32(data_block, attrs_offset + 0x70, 0.01)
+    put_f32(data_block, attrs_offset + 0xE8, 15.0)
+    put_f32(data_block, attrs_offset + 0xEC, 16.0)
+    put_f32(data_block, attrs_offset + 0xF0, 17.0)
+    put_f32(data_block, attrs_offset + 0xF4, 18.0)
+    put_f32(data_block, attrs_offset + 0xF8, 19.0)
+    put_f32(data_block, attrs_offset + 0x110, 1.0)
+
+    dat = make_dat("ftDataMars", data_block, ftdata_offset)
+    extracted = extract_character_profile_from_dat(
+        dat, Path("resources/melee/raw/PlMs.dat"), character_resource_spec("marth")
+    )
+
+    assert extracted["source"]["source_character"] == "marth"
+    assert extracted["source"]["symbol"] == "ftDataMars"
+    assert extracted["source"]["file"] == "resources/melee/raw/PlMs.dat"
+    assert extracted["fields"]["landingairlw_lag"]["ticks"] == 19
+
+
+def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
+    raw_dir = tmp_path / "raw"
+    out_dir = tmp_path / "extracted"
+    raw_dir.mkdir()
+
+    fighter_block = bytearray(0x500)
+    ftdata_offset = 0x40
+    attrs_offset = 0x100
+    attrs_end = 0x280
+    ecb_source_offset = 0x2C0
+    hurtbox_table_offset = 0x300
+    hurtbox_inits_offset = 0x340
+    action_table_offset = 0x3C0
+    action_name_offset = 0x480
+    fighter_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
+    fighter_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
+    fighter_block[ftdata_offset + 0x0C : ftdata_offset + 0x10] = be32(action_table_offset)
+    fighter_block[ftdata_offset + 0x30 : ftdata_offset + 0x34] = be32(hurtbox_table_offset)
+    fighter_block[ftdata_offset + 0x44 : ftdata_offset + 0x48] = be32(ecb_source_offset)
+    for field_offset in (0x18, 0x1C, 0x30, 0x34, 0x3C, 0x40, 0x5C, 0x60, 0x64, 0x68, 0x6C, 0x70):
+        put_f32(fighter_block, attrs_offset + field_offset, 1.0)
+    for field_offset in (0xE8, 0xEC, 0xF0, 0xF4, 0xF8, 0x110):
+        put_f32(fighter_block, attrs_offset + field_offset, 1.0)
+    fighter_block[ecb_source_offset : ecb_source_offset + 0x0C] = struct.pack(
+        ">hhhhhh", 0, 0, 0, 0, 0, 0
+    )
+    put_f32(fighter_block, ecb_source_offset + 0x0C, 0.0)
+    put_f32(fighter_block, ecb_source_offset + 0x10, 0.0)
+    put_f32(fighter_block, ecb_source_offset + 0x14, 0.0)
+    put_f32(fighter_block, ecb_source_offset + 0x18, 0.0)
+    put_i32(fighter_block, hurtbox_table_offset, 1)
+    fighter_block[hurtbox_table_offset + 0x04 : hurtbox_table_offset + 0x08] = be32(
+        hurtbox_inits_offset
+    )
+    fighter_block[hurtbox_inits_offset : hurtbox_inits_offset + 0x0C] = (
+        be32(0) + be32(0) + be32(1)
+    )
+    put_vec3(fighter_block, hurtbox_inits_offset + 0x0C, (0.0, 0.0, 0.0))
+    put_vec3(fighter_block, hurtbox_inits_offset + 0x18, (1.0, 0.0, 0.0))
+    put_f32(fighter_block, hurtbox_inits_offset + 0x24, 1.0)
+    fighter_block[action_name_offset : action_name_offset + 17] = b"AttackLw3_action\0"
+    fighter_block[action_table_offset : action_table_offset + 0x18] = (
+        be32(action_name_offset) + be32(0) + be32(0) + be32(0) + be32(0) + be32(0)
+    )
+    (raw_dir / "PlMs.dat").write_bytes(make_dat("ftDataMars", fighter_block, ftdata_offset))
+
+    skeleton_block = bytearray(0x100)
+    put_joint(
+        skeleton_block,
+        0x40,
+        flags=0,
+        rotation=(0.0, 0.0, 0.0),
+        scale=(1.0, 1.0, 1.0),
+        position=(0.0, 0.0, 0.0),
+    )
+    (raw_dir / "PlMsNr.dat").write_bytes(
+        make_dat("PlyMars5K_Share_joint", skeleton_block, 0x40)
+    )
+
+    written = extract_resources(raw_dir, out_dir, ("marth",))
+
+    written_names = {path.name for path in written}
+    assert "marth_profile.json" in written_names
+    assert "marth_hurtbox_inits.json" in written_names
+    assert "marth_costume_skeleton.json" in written_names
+    profile = (out_dir / "marth_profile.json").read_text(encoding="utf-8")
+    assert '"source_character": "marth"' in profile
+    skeleton = (out_dir / "marth_costume_skeleton.json").read_text(encoding="utf-8")
+    assert "PlyMars5K_Share_joint" in skeleton

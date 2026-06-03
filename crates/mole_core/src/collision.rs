@@ -3,6 +3,125 @@ use crate::{
     state::Vec2,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Vec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Vec3 {
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Capsule3 {
+    pub a: Vec3,
+    pub b: Vec3,
+    pub radius: f32,
+}
+
+impl Capsule3 {
+    pub const fn new(a: Vec3, b: Vec3, radius: f32) -> Self {
+        Self { a, b, radius }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Mat3x4 {
+    pub rows: [[f32; 4]; 3],
+}
+
+impl Mat3x4 {
+    pub const fn from_rows(rows: [[f32; 4]; 3]) -> Self {
+        Self { rows }
+    }
+
+    pub fn transform_point(&self, point: Vec3) -> Vec3 {
+        Vec3::new(
+            self.rows[0][0] * point.x
+                + self.rows[0][1] * point.y
+                + self.rows[0][2] * point.z
+                + self.rows[0][3],
+            self.rows[1][0] * point.x
+                + self.rows[1][1] * point.y
+                + self.rows[1][2] * point.z
+                + self.rows[1][3],
+            self.rows[2][0] * point.x
+                + self.rows[2][1] * point.y
+                + self.rows[2][2] * point.z
+                + self.rows[2][3],
+        )
+    }
+}
+
+fn dot(a: Vec3, b: Vec3) -> f32 {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+fn sub3(a: Vec3, b: Vec3) -> Vec3 {
+    Vec3::new(a.x - b.x, a.y - b.y, a.z - b.z)
+}
+
+fn add3(a: Vec3, b: Vec3) -> Vec3 {
+    Vec3::new(a.x + b.x, a.y + b.y, a.z + b.z)
+}
+
+fn mul3(v: Vec3, scalar: f32) -> Vec3 {
+    Vec3::new(v.x * scalar, v.y * scalar, v.z * scalar)
+}
+
+fn closest_distance_sq_between_segments(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) -> f32 {
+    let d1 = sub3(q1, p1);
+    let d2 = sub3(q2, p2);
+    let r = sub3(p1, p2);
+    let a = dot(d1, d1);
+    let e = dot(d2, d2);
+    let f = dot(d2, r);
+
+    let (mut s, mut t);
+    if a <= f32::EPSILON && e <= f32::EPSILON {
+        return dot(r, r);
+    }
+    if a <= f32::EPSILON {
+        s = 0.0;
+        t = (f / e).clamp(0.0, 1.0);
+    } else {
+        let c = dot(d1, r);
+        if e <= f32::EPSILON {
+            t = 0.0;
+            s = (-c / a).clamp(0.0, 1.0);
+        } else {
+            let b = dot(d1, d2);
+            let denom = a * e - b * b;
+            s = if denom.abs() > f32::EPSILON {
+                ((b * f - c * e) / denom).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            t = (b * s + f) / e;
+            if t < 0.0 {
+                t = 0.0;
+                s = (-c / a).clamp(0.0, 1.0);
+            } else if t > 1.0 {
+                t = 1.0;
+                s = ((b - c) / a).clamp(0.0, 1.0);
+            }
+        }
+    }
+
+    let c1 = add3(p1, mul3(d1, s));
+    let c2 = add3(p2, mul3(d2, t));
+    dot(sub3(c1, c2), sub3(c1, c2))
+}
+
+pub fn capsules_intersect_3d(hit: &Capsule3, hurt: &Capsule3) -> bool {
+    let allowed = hit.radius + hurt.radius;
+    closest_distance_sq_between_segments(hit.a, hit.b, hurt.a, hurt.b) <= allowed * allowed
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EcbDiamond {
     pub top: Vec2,

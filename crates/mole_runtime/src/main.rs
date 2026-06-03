@@ -14,7 +14,8 @@ use mole_runtime::configure_sdl_controller_hints;
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use mole_runtime::{
-    DebugOverlay, RenderColor, RenderPolygon, RenderRect, RenderScene, SdlInputSource,
+    DebugOverlay, RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene,
+    SdlInputSource,
 };
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -718,6 +719,8 @@ fn draw_sdl_scene(
     overlay: Option<&DebugOverlay>,
     mut texture_cache: Option<&mut SdlTextureCache<'_>>,
 ) -> Result<(), String> {
+    const DRAW_LEGACY_PLAYER_SPRITES: bool = true;
+
     canvas.set_draw_color(sdl_color(scene.background));
     canvas.clear();
     if let Some(cache) = texture_cache.as_mut() {
@@ -735,23 +738,28 @@ fn draw_sdl_scene(
     for platform in scene.entry_platforms.into_iter().flatten() {
         draw_sdl_rect(canvas, platform)?;
     }
-    let mut drew_player_textures = false;
-    if let Some(cache) = texture_cache.as_mut() {
-        for (index, player) in scene.players.iter().copied().enumerate() {
-            draw_sdl_image(
-                canvas,
-                cache,
-                &scene.player_sprites[index].relative_path(),
-                player,
-                scene.player_sprites[index].flip_x,
-            )?;
+    if DRAW_LEGACY_PLAYER_SPRITES {
+        if let Some(cache) = texture_cache.as_mut() {
+            for (index, player) in scene.players.iter().copied().enumerate() {
+                draw_sdl_image(
+                    canvas,
+                    cache,
+                    &scene.player_sprites[index].relative_path(),
+                    player,
+                    false,
+                )?;
+            }
+        } else {
+            for player in scene.players {
+                draw_sdl_rect(canvas, player)?;
+            }
         }
-        drew_player_textures = true;
     }
-    if !drew_player_textures {
-        for player in scene.players {
-            draw_sdl_rect(canvas, player)?;
-        }
+    for hurtbox in scene.player_hurtbox_pills.iter().flatten().copied() {
+        draw_sdl_capsule(canvas, hurtbox)?;
+    }
+    for hitbox in scene.player_hitbox_pills.iter().flatten().copied() {
+        draw_sdl_capsule(canvas, hitbox)?;
     }
     for shield in scene.player_shields.into_iter().flatten() {
         draw_sdl_circle(canvas, shield)?;
@@ -881,6 +889,52 @@ fn draw_sdl_circle(
             .draw_line(
                 Point::new(circle.center.x - half_width, circle.center.y + dy),
                 Point::new(circle.center.x + half_width, circle.center.y + dy),
+            )
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn draw_sdl_capsule(canvas: &mut WindowCanvas, capsule: RenderCapsule) -> Result<(), String> {
+    canvas.set_blend_mode(BlendMode::Blend);
+    canvas.set_draw_color(sdl_color(capsule.color));
+    let radius = capsule.radius as i32;
+    if capsule.a == capsule.b {
+        return draw_sdl_circle(
+            canvas,
+            mole_runtime::RenderCircle {
+                center: capsule.a,
+                radius: capsule.radius,
+                color: capsule.color,
+            },
+        );
+    }
+
+    let dx = (capsule.b.x - capsule.a.x) as f32;
+    let dy = (capsule.b.y - capsule.a.y) as f32;
+    let length = (dx * dx + dy * dy).sqrt();
+    if length <= f32::EPSILON {
+        return Ok(());
+    }
+    let ux = dx / length;
+    let uy = dy / length;
+    let nx = -uy;
+    let ny = ux;
+    let radius_squared = radius * radius;
+
+    for offset in -radius..=radius {
+        let cap_extension = ((radius_squared - offset * offset) as f32).sqrt();
+        let offset = offset as f32;
+        let start_x = capsule.a.x as f32 + nx * offset - ux * cap_extension;
+        let start_y = capsule.a.y as f32 + ny * offset - uy * cap_extension;
+        let end_x = capsule.b.x as f32 + nx * offset + ux * cap_extension;
+        let end_y = capsule.b.y as f32 + ny * offset + uy * cap_extension;
+        canvas
+            .draw_line(
+                Point::new(start_x.round() as i32, start_y.round() as i32),
+                Point::new(end_x.round() as i32, end_y.round() as i32),
             )
             .map_err(|error| error.to_string())?;
     }
