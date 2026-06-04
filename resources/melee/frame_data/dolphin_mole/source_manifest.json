@@ -385282,8 +385282,7 @@
     "derived_samples": {
       "canonical": false,
       "ecb_samples_path": "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
-      "hurtbox_samples_path": "resources/melee/extracted/captain_falcon_action_hurtbox_samples.json",
-      "reason": "sampled frame capsules are debug/dev-tool views derived from compact ftData.x30, JObj, and FigaTree data"
+      "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data"
     },
     "hurtbox_inits": {
       "data": {

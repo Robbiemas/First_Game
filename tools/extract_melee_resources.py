@@ -1910,7 +1910,9 @@ def iso_files_for_characters(characters: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def extract_resources(
-    raw_dir: Path, out_dir: Path, characters: tuple[str, ...] = ("captain",)
+    raw_dir: Path,
+    out_dir: Path,
+    characters: tuple[str, ...] = ("captain",),
 ) -> list[Path]:
     written: list[Path] = []
     plco = raw_dir / "PlCo.dat"
@@ -1992,19 +1994,6 @@ def extract_resources(
             write_json(
                 out_path,
                 extract_captain_action_ecb_samples(action_bytes, action_table, skeleton, ecb_source),
-            )
-            written.append(out_path)
-            out_path = out_dir / f"{spec.output_stem}_action_hurtbox_samples.json"
-            write_json(
-                out_path,
-                extract_captain_action_hurtbox_samples(
-                    action_bytes,
-                    action_table,
-                    skeleton,
-                    hurtbox_inits,
-                    action_state_ids=spec.derived_sample_action_state_ids,
-                    action_script_bytes=fighter_bytes,
-                ),
             )
             written.append(out_path)
     return written

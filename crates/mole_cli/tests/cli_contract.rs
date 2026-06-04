@@ -595,6 +595,12 @@ fn frame_data_extract_all_states_creates_compact_source_manifest() {
         manifest["rig"]["hurtbox_inits"]["data"]["inits"][0]["a_offset"]["z"],
         -2.5
     );
+    assert!(
+        manifest["rig"]["derived_samples"]
+            .get("hurtbox_samples_path")
+            .is_none(),
+        "compact manifests must derive hurt capsules from ftData.x30 + JObj/FigaTree, not a cached per-frame sample file"
+    );
     assert_eq!(
         manifest["rig"]["skeleton"]["data"]["joints"][0]["name"],
         "TransN"

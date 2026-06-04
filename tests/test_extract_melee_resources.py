@@ -1,6 +1,7 @@
 import struct
 from pathlib import Path
 
+import tools.extract_melee_resources as melee_resources
 from tools.extract_melee_resources import (
     CharacterResourceSpec,
     DatExtractError,
@@ -1058,3 +1059,65 @@ def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
     assert '"source_character": "marth"' in profile
     skeleton = (out_dir / "marth_costume_skeleton.json").read_text(encoding="utf-8")
     assert "PlyMars5K_Share_joint" in skeleton
+
+
+def test_extract_resources_does_not_write_hurtbox_sample_cache_by_default(
+    tmp_path, monkeypatch
+):
+    raw_dir = tmp_path / "raw"
+    out_dir = tmp_path / "extracted"
+    raw_dir.mkdir()
+
+    spec = CharacterResourceSpec(
+        id="test",
+        output_stem="test_character",
+        data_dat="Test.dat",
+        action_dat="TestAJ.dat",
+        neutral_costume_dat="TestNr.dat",
+        ft_data_symbol="ftDataTest",
+        neutral_joint_root="Test_joint",
+        derived_sample_action_state_ids=(1,),
+    )
+    (raw_dir / spec.data_dat).write_bytes(b"fighter")
+    (raw_dir / spec.action_dat).write_bytes(b"action")
+    (raw_dir / spec.neutral_costume_dat).write_bytes(b"costume")
+
+    monkeypatch.setattr(melee_resources, "character_resource_spec", lambda _character: spec)
+    monkeypatch.setattr(
+        melee_resources, "extract_character_profile_from_dat", lambda *_args: {}
+    )
+    monkeypatch.setattr(
+        melee_resources, "extract_character_ecb_source_from_dat", lambda *_args: {}
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_hurtbox_inits_from_dat",
+        lambda *_args: {"hurtboxes": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_action_animation_table",
+        lambda *_args, **_kwargs: {"actions": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_costume_skeleton_from_dat",
+        lambda *_args: {"joints": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_captain_action_ecb_samples",
+        lambda *_args, **_kwargs: {"actions": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_captain_action_hurtbox_samples",
+        lambda *_args, **_kwargs: {"actions": []},
+    )
+
+    written = extract_resources(raw_dir, out_dir, ("test",))
+
+    written_names = {path.name for path in written}
+    assert "test_character_action_ecb_samples.json" in written_names
+    assert "test_character_action_hurtbox_samples.json" not in written_names
+    assert not (out_dir / "test_character_action_hurtbox_samples.json").exists()

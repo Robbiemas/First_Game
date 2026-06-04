@@ -351,9 +351,8 @@ fn compact_manifest_rig(root: &Path, source_character: &str) -> (Value, Vec<Stri
             },
             "derived_samples": {
                 "canonical": false,
-                "hurtbox_samples_path": path_for_artifact(root, &action_hurtbox_samples_path(root, source_character)),
                 "ecb_samples_path": path_for_artifact(root, &action_ecb_samples_path(root, source_character)),
-                "reason": "sampled frame capsules are debug/dev-tool views derived from compact ftData.x30, JObj, and FigaTree data",
+                "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data",
             },
         }),
         errors,

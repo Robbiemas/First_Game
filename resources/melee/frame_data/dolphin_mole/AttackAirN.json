@@ -108117,9 +108117,14 @@
       "purpose": "Captain Falcon AttackAirN action figatree metadata"
     },
     {
-      "kind": "extracted_hurtbox_samples",
-      "path": "resources/melee/extracted/captain_falcon_action_hurtbox_samples.json",
-      "purpose": "source-extracted ftData.x30 hurt capsule samples transformed by action FigaTree/JObj skeleton"
+      "kind": "extracted_hurtbox_inits",
+      "path": "resources/melee/extracted/captain_falcon_hurtbox_inits.json",
+      "purpose": "Captain Falcon ftData.x30 hurt capsule init records transformed by action FigaTree/JObj skeleton"
+    },
+    {
+      "kind": "extracted_costume_skeleton",
+      "path": "resources/melee/extracted/captain_falcon_costume_skeleton.json",
+      "purpose": "Captain Falcon neutral costume JObj skeleton used for hurt capsule pose transforms"
     },
     {
       "kind": "extracted_body_volume_samples",

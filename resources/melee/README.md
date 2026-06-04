@@ -40,7 +40,6 @@ The script writes small JSON snapshots to:
 - `resources/melee/extracted/captain_falcon_hurtbox_inits.json`
 - `resources/melee/extracted/captain_falcon_action_animation_table.json`
 - `resources/melee/extracted/captain_falcon_costume_skeleton.json`
-- `resources/melee/extracted/captain_falcon_action_hurtbox_samples.json`
 - `resources/melee/extracted/captain_falcon_action_ecb_samples.json`
 
 Those JSON files are the reviewable resource snapshots we can use while this
@@ -56,10 +55,12 @@ counts, and raw `FigaTrack` descriptors for each Captain Falcon action.
 
 `captain_falcon_hurtbox_inits.json` decodes `ftDataCaptain.x30`, the static
 hurt capsule init table copied by `ftColl_8007B320` into
-`Fighter.hurt_capsules[15]`. `captain_falcon_action_hurtbox_samples.json`
-samples those capsule offsets against the Captain Falcon neutral skeleton and
-per-action FigaTree pose. Source `{x, y, z}` capsule endpoints are preserved in
-the sample data; current 2D view/import endpoints flatten Z separately.
+`Fighter.hurt_capsules[15]`. Runtime/dev-tool hurt capsule views should derive
+from those inits, the Captain Falcon neutral skeleton, and per-action FigaTree
+pose the way Melee's JObj path does. Source `{x, y, z}` capsule endpoints stay
+preserved in the source-space data; current 2D view/import endpoints flatten Z
+only after that projection step. Large per-frame hurtbox sample caches are local
+debug artifacts and are ignored by git.
 
 `PlCaNr.dat` contains Captain Falcon's neutral costume joint tree. The generated
 costume skeleton snapshot records the HSD joint preorder used by
