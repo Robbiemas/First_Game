@@ -1,222 +1,169 @@
-# First Game
+# Mole Game
 
-Native Rust rollback platform-fighter work-in-progress, descended from a small
-Pygame prototype.
+Mole Game is a work-in-progress platform fighter engine. The current project
+direction is a native Rust runtime with deterministic 60 Hz simulation,
+GameCube-first input, replay validation, and rollback-friendly state.
 
-Current playtest milestone: the Rust SDL3/WUP runtime has reached the first
-human-confirmed Captain Falcon-style movement-feel checkpoint. Use
-`execs\Run SDL3 Runtime.cmd` for normal UCF-on testing and
-`execs\Run SDL3 Runtime Vanilla No UCF.cmd` to test the native pre-UCF
-GameCube input path directly. See
-`docs/release_notes/2026-05-31-rust-melee-feel-baseline.md` for the saved
-checkpoint notes.
+The original Pygame version is still in the repository as historical reference,
+but authoritative gameplay work now belongs in Rust.
 
-This repo has two tracks:
+## Download The Playtest
 
-- `crates/`: the Rust rollback architecture and normal development path.
-- `RealMainFile.py`: the original Pygame prototype, kept runnable as a
-  historical reference and temporary visual/QA harness.
+For a one-file Windows handoff build, download:
 
-Authoritative gameplay work should happen in Rust. Pygame should not receive
-new movement mechanics except when a small launcher or harness fix is needed.
+[Download MoleGame-FriendPlaytest.exe](https://raw.githubusercontent.com/Robbiemas/First_Game/278009c3251fb9d1e8b864f251b1e00ff1b4ca10/playtest/MoleGame-FriendPlaytest.exe)
 
-## Setup
+After download, double-click the `.exe`. It extracts the minimal native Rust
+SDL3/WUP package under local app data and launches the game. Windows may show a
+SmartScreen warning because this is an unsigned early test build.
 
-Use Python 3.10 on Windows:
+## Current Status
 
-```powershell
-py -3.10 -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-```
+- Native Rust SDL3 runtime launches and runs the playable test shell.
+- WUP-028 GameCube adapter input is supported directly through the native path.
+- UCF-style controller preprocessing is enabled by default, with a vanilla
+  no-UCF launcher available for controller-path testing.
+- Captain Falcon-derived movement, ECB, and source capsule data are being used
+  as the first Melee parity target for the Dolphin Mole test character.
+- The Melee frame-data pipeline now uses compact source manifests plus generated
+  runtime data, instead of treating giant per-frame debug caches as canonical.
 
-## Legacy Pygame Prototype
-
-Active double-click launchers and checkers live in `execs/`. Deprecated Pygame
-and generic-controller launchers are kept in `execs/depreciated/` for old
-reference work only.
-
-To launch the old prototype manually, run:
-
-```powershell
-.\.venv\Scripts\python RealMainFile.py
-```
-
-The legacy prototype opens in a window by default. Set `MOLE_FULLSCREEN=1` for fullscreen.
-The old `execs\depreciated\Launch Mole Game.cmd` launcher can still start the
-native Rust WUP input bridge for the Pygame prototype, but it is no longer the
-normal playtest path. Set `MOLE_DISABLE_NATIVE_WUP=1` to force the legacy
-Pygame/keyboard path only.
-The old prototype menu is skipped by default during mechanics QA so native input starts immediately; set `MOLE_SHOW_MENU=1` if you want to open that menu again.
-
-For old Pygame controller/mechanics diagnosis, double-click
-`execs\depreciated\Launch Mole Game Debug.cmd`. The debug launch starts with
-the input/state overlay visible and writes frame-by-frame JSONL logs under
-`logs/`. While the game is running, press `F3` to toggle the overlay and `F4`
-to toggle logging.
-
-The deprecated `execs\depreciated\Live Test Session.cmd` launcher remains for
-old Pygame QA only. Current visual parity work should use the Rust SDL3 runtime
-plus the Mole Game Dev Tool.
-
-## Rust Rollback Path
-
-The forward engine direction is Rust with a deterministic 60 Hz core, rollback snapshots, replay validation, no-cost transport primitives, and an SDL3 runtime shell.
-
-Install Rust for free through Rustup, then run:
-
-```powershell
-cargo test --workspace
-cargo run -p mole_runtime -- --frames 120
-```
-
-Useful Rust checks while developing:
-
-```powershell
-cargo fmt --check
-cargo test -p mole_core
-cargo test -p mole_transport --features webrtc
-cargo test --workspace
-```
-
-## Native Rust Playtest Checklist
+## Quick Start
 
 From `D:\Mole Game\First_Game`:
 
 ```powershell
 cargo test --workspace
 cargo run -p mole_runtime -- --frames 120
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\setup_sdl3.ps1
+```
+
+To launch the native game window:
+
+```powershell
+.\execs\Run SDL3 Runtime.cmd
+```
+
+The first SDL3 launch may download the free SDL3 development package into
+`.local/SDL3`. That folder is local-only and ignored by git.
+
+## Recommended Playtest Launchers
+
+Use the scripts in `execs/` for normal Windows playtesting:
+
+- `Run SDL3 Runtime.cmd`: normal native SDL3/WUP playtest, UCF enabled.
+- `Run SDL3 Runtime Vanilla No UCF.cmd`: same runtime with UCF disabled.
+- `Check WUP Native.cmd`: verifies that the WUP-028 adapter is visible.
+- `Monitor WUP Native.cmd`: opens a native GameCube input monitor.
+- `Record Native Replay.cmd`: records a deterministic runtime replay.
+- `Open State Graphs.cmd`: opens the Mole Game Dev Tool/state graph viewer.
+- `Build Friend Playtest Package.cmd`: regenerates the one-file Windows
+  handoff build under `playtest/`.
+
+Deprecated Pygame and older generic-controller launchers live under
+`execs/depreciated/`.
+
+## GameCube Controllers
+
+The native path is GameCube-first. It preserves raw main stick bytes, C-stick
+bytes, split L/R analog triggers, split L/R digital trigger clicks, D-pad, and
+buttons before deriving Melee-style input facts.
+
+For a WUP-028 adapter on Windows:
+
+1. Install/select WinUSB for the adapter with Zadig if needed.
+2. Close remapper software.
+3. Plug in the adapter.
+4. Run `.\execs\Check WUP Native.cmd`.
+5. Launch `.\execs\Run SDL3 Runtime.cmd`.
+
+UCF preprocessing is default-on for regular playtesting. Use the vanilla
+launcher when you need to inspect the pre-UCF native controller path.
+
+## Development Checks
+
+Common checks:
+
+```powershell
+cargo fmt --check
+cargo test --workspace
+python -m pytest tests/test_extract_melee_resources.py tests/test_state_graph_viewer.py -q
+```
+
+Short runtime smoke:
+
+```powershell
+cargo run -p mole_runtime -- --frames 120
+```
+
+SDL smoke:
+
+```powershell
 cargo run -p mole_runtime --features "sdl wup" -- --sdl --frames 600
-cargo run -p mole_runtime -- --record-replay --frames 600
 ```
 
-For GameCube/WUP checks:
+## Melee Frame Data And Dev Tools
+
+The project is moving toward a source-shaped Melee data pipeline:
+
+- Compact manifests are canonical.
+- Melee XYZ floats are preserved in source-space data.
+- Runtime/dev-tool views may flatten into the current 2D presentation layer.
+- Large sampled JSON caches are debug/dev-tool artifacts, not canonical storage.
+
+Useful CLI examples:
 
 ```powershell
-.\execs\Check WUP Native.cmd
-.\execs\Monitor WUP Native.cmd
+cargo run -p mole_cli -- frame-data extract --all-states --character dolphin_mole --source-character captain --write --json
+cargo run -p mole_cli -- frame-data sample --character dolphin_mole --source-character captain --state AttackAirN --frame 7 --json
+cargo run -p mole_cli -- frame-data export-runtime --character dolphin_mole --state AttackAirN --output crates/mole_runtime/src/generated/frame_data_boxes.rs --write --json
 ```
 
-For visual state reference:
+For local Melee resource extraction, see `resources/melee/README.md`. Raw DAT
+or ISO files should stay local and must not be committed.
+
+## Repository Layout
+
+- `crates/mole_core`: deterministic simulation, motion states, input facts,
+  collision math, checksums, and replay/rollback-owned state.
+- `crates/mole_runtime`: SDL/runtime shell, rendering, input source integration,
+  debug overlays, and replay/runtime plumbing.
+- `crates/mole_input`: native GameCube/WUP input mapping and UCF preprocessing.
+- `crates/mole_cli`: JSON-first development helper CLI for agents and tools.
+- `crates/mole_replay`, `crates/mole_rollback`, `crates/mole_transport`,
+  `crates/mole_signaling`: replay, rollback, transport, and signaling support.
+- `tools/`: extraction, graph, Slippi, and generated-data helper scripts.
+- `docs/`: architecture notes, research, state graphs, specs, and plans.
+- `resources/`: source-derived snapshots and runtime assets.
+- `RealMainFile.py` and related Python files: legacy Pygame prototype.
+
+## Legacy Pygame Prototype
+
+The Pygame prototype remains runnable for historical comparison and emergency
+reference work:
 
 ```powershell
-.\execs\Open State Graphs.cmd
+py -3.10 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python RealMainFile.py
 ```
 
-The SDL runtime now draws the checked-in `background.png` and DolphinMole PNG
-frames from Rust-owned sprite cues, with deterministic rectangle fallback data
-kept for tests and diagnostics.
+Do not add new authoritative movement mechanics to the Pygame path unless the
+task is explicitly about keeping a temporary launcher or reference harness alive.
 
-You can also double-click `execs\Run Rust Runtime.cmd` for the current Rust smoke run. It advances a deterministic 120-frame simulation and prints the final frame plus checksum.
+## Useful Documentation
 
-For the native SDL3/WUP game window, double-click `execs\Run SDL3 Runtime.cmd`.
-The first launch downloads the free SDL3 development package into `.local/SDL3`,
-which is ignored by git.
-
-For vanilla controller-path testing, double-click
-`execs\Run SDL3 Runtime Vanilla No UCF.cmd`. It launches the same native SDL3/WUP
-runtime and input trace logging, but passes `--no-ucf` so the WUP/native
-pre-UCF path is visible before UCF amendments are layered on top.
-
-For Slippi replay diagnostics, place local `.slp` files under `replays\` and
-run `node tools\slippi_replay_to_inputs.cjs --replay replays\Game.slp --frames
-1800`. The first setup is `npm install --prefix tools\slippi`. Generated JSON
-and Markdown diagnostics are written under `debug\slippi\`, and the Mole Game
-Dev Tool has a `Slippi Replay` tab that shows the latest report. Replay files
-and generated diagnostics stay local by default.
-
-For the native WUP-028 GameCube adapter path, double-click
-`execs\Check WUP Native.cmd` to verify ports. The main SDL3 runtime uses that
-same WinUSB/libusb path directly; this path does not require a controller
-remapper.
-
-For a Delfinovin-style native input display, double-click `execs\Monitor WUP Native.cmd`. It opens a lightweight SDL3 window that polls the WUP-028 adapter directly through WinUSB/libusb and shows connected adapter ports, main stick, C-stick, D-pad, separate L/R analog trigger values, separate L/R digital trigger clicks, and button state for the first two connected controllers.
-
-The WUP path is now GameCube-first internally. Rust stores the adapter report as native `0..255` GameCube stick bytes, native `0..255` trigger bytes, and GameCube button bits before deriving any legacy `PlayerInput` or Pygame-compatible float axes. The compact Rust `PlayerInput` now preserves main stick, C-stick, D-pad, separate L/R analog triggers, separate L/R digital trigger clicks, separate X/Y jump buttons, and gameplay buttons for deterministic replay/rollback checksums. The JSON stream keeps the older centered fields for fallback tooling, emits `raw_main_x`, `raw_main_y`, `raw_c_x`, and `raw_c_y`, and includes a `melee` object with canonical cleaned sticks, cleaned per-side triggers, timers, and input facts. The current Pygame bridge prefers that `melee` object when present, then falls back field-by-field to the raw stream for older runtimes or partial data.
-
-The Rust native input layer now treats UCF 0.84 as the default Melee control baseline. UCF cardinals, raw two-frame x tilt-intent, and raw shield-drop tilt-intent are derived in `mole_input` from calibrated WUP samples before the game shell sees them. UCF dashback is carried as a rollback-owned input amendment bit from the adapter, then applied only at the source Turn hook frame so ordinary vanilla pad snapshots still flow through the vanilla `dash_direction` facts. The Pygame prototype consumes the canonical facts and does not implement UCF-specific movement branches.
-
-`PlayerInput` is intentionally a per-frame controller-state packet, not a pre-resolved action command. The WUP mapper keeps held A/B/X/Y/Z/Start, sticks, D-pad, and trigger state in the packet; Melee-style derived facts such as tap jump, fresh button presses, and shield edges stay in the Melee snapshot/readout layer for the engine to consume deterministically. `shield()` is a derived view, while `explicit_shield()` is only the generic keyboard/abstract shield bit; SDL gamepad trigger and bumper input now stays as L/R analog or L/R digital trigger state instead of being promoted into that generic shield bit.
-
-Native WUP input is plug-and-play by default. The first connected raw GameCube report becomes that controller port's origin, matching the console-level power-on/plug-in behavior: if a stick or trigger is held during launch or insertion, that value is treated as the origin just like on console. Hold `X + Y + Start` for about three seconds to recenter the current stick and trigger origin without restarting. The native path now subtracts origin only; it does not apply user endpoint calibration or stretch real GameCube gate values into a fake full square. UCF/cardinal cleanup and Melee-style input facts happen in Rust before the Pygame shell sees the controller.
-
-UCF remains default-on for normal native runtime play, but can be disabled with
-`--no-ucf` for vanilla input-path testing. Disabling UCF leaves the Rust core on
-the same Melee-shaped input snapshots and bypasses only adapter-owned UCF
-amendments such as cardinal cleanup and dashback assistance.
-
-The legacy Pygame input bridge now applies a `0.20` trigger dead zone before exposing L/R analog values to movement or shield logic: native values from `0.00` through `0.20` become `0.00`, then the remaining trigger travel is rescaled back across `0.00..1.00`. Low trigger noise is treated as no trigger input instead of being blocked later by special-case action rules.
-
-Architecture docs:
-
-- `docs/superpowers/specs/2026-05-27-rust-rollback-core-design.md`
-- `docs/superpowers/plans/2026-05-28-native-rust-rollback-migration.md`
 - `docs/architecture/native-rust-rollback-architecture.md`
+- `docs/release_notes/2026-05-31-rust-melee-feel-baseline.md`
+- `docs/research/melee-input-state-reference.md`
+- `docs/research/mole-state-coverage-comparison.md`
+- `docs/superpowers/plans/2026-06-03-melee-3d-collision-sampler-handoff.md`
+- `resources/melee/README.md`
+- `execs/README.md`
 
-The Rust core rules are intentionally strict: 60 Hz fixed tick, no gameplay input buffer, no rendering or IO in simulation, compact per-frame input, snapshot-based rollback, and replay checksums for desync detection.
+## Guiding Rules
 
-The deterministic `World` owns previous per-frame input plus Melee-style x tap, y tap, and trigger timers. Those timers are part of rollback/replay state and checksum coverage, so host input layers should preserve controller state and leave input edge/timer interpretation to the core.
-
-The core can now derive a Melee-style input snapshot from rollback-owned state with `World::melee_input_snapshot(player, input)`. Runtime readouts and future motion-state code can use the same snapshot/facts shape instead of interpreting host input differently. In that compact rollback path, any nonzero cleaned analog trigger value counts as analog shield hold, the stricter source-shaped `x18` threshold drives the trigger timer, and the physical bottom-out L/R clicks remain separate digital presses for air-dodge and wavedash timing.
-
-UCF dashback amendment state is carried inside rollback-owned `PlayerInput`, so the Rust Turn state can apply the source hook deterministically during rollback instead of depending on Pygame or host-only controller state. UCF shield-drop remains an adapter translation into the ordinary vanilla platform-pass stick band before the core sees the frame.
-
-Input timer windows now use Melee-style exclusive common-data limits: a window of `3` accepts timers `0`, `1`, and `2`, and rejects timer `3`. Dash/smash-turn, tap-jump, roll, and spotdodge facts all use that same strict boundary shape.
-
-Input thresholds now route through `MeleeCommonData::provisional_mole()` in `mole_core`, with source-offset metadata exposed by `input_common_data_field_sources()`. Some broad input thresholds are still Mole defaults while their source usage is audited, but the air-dodge common-data slice now uses extracted `PlCo.dat` values from the local bootstrap snapshot.
-
-Aerial attack direction has the same source-shaped split: `xDC` and `xE0` now drive Aerial neutral-zone and fresh C-stick aerial edge detection, while `x20_radians` is represented as a deterministic fixed-point angle gate until the exact DAT value is extracted.
-
-Jump input is now state-local in the same shape as the decomp: ordinary jump checks use tap-jump or X/Y only, while guard-family checks can additionally accept C-stick up through the guard-extended jump view. This keeps held C-stick up from spending an air jump or canceling grounded action IASA as a normal jump, while preserving C-stick jump out of shield.
-
-The Rust simulation now has the first rollback-owned motion-state slice: `Wait`, `Walk`, `Dash`, `Run`, `RunBrake`, `TurnRun`, `Turn`, `Squat`, `SpecialN`, `SpecialS`, `SpecialHi`, `SpecialLw`, `SpecialAirN`, `SpecialAirS`, `SpecialAirHi`, `SpecialAirLw`, `AttackAirN`, `AttackAirF`, `AttackAirB`, `AttackAirHi`, `AttackAirLw`, `Catch`, `Attack1`, `AttackS3`, `AttackHi3`, `AttackLw3`, `AttackS4`, `AttackHi4`, `AttackLw4`, `Guard`, `GuardOff`, `EscapeN`, `EscapeF`, `EscapeB`, `KneeBend`, `Air`, `EscapeAir`, `FallSpecial`, `Landing`, and `LandingFallSpecial`. `Wait` uses Melee-style input facts rather than generic stick speed: fresh B resolves through grounded B-special priority as side, up, neutral, then down; Z enters `Catch`; fresh C-stick smash and A+stick smash/tilt/jab intents enter their matching attack states; fresh forward x tap enters `Dash`; down stick enters `Squat`; fresh opposite x tap enters the smash-turn path; soft opposite stick enters standing `Turn`; same-direction soft stick enters analog `Walk`; and slow outward stick travel that reaches the dash threshold after the tap window stays `Walk`. Dash still has priority over crouch, while crouch has priority over turn and diagonal down-walk input becomes `Squat` rather than `Walk`. `Squat` now consumes the same offensive priority slice before shield, jump, crouch-hold, or release, so down+A after the y tap window becomes down tilt instead of staying crouched, and down+B becomes down special. `Turn` now consumes its own state-local grounded action priority for side/down/up special, catch, and attacks before shield or jump, returns to `Wait` after `FighterProfile::standing_turn_total_frames`, intentionally ignores neutral B because the decomp callback does not call the neutral-special checker, and delays basic standing-turn visible facing until profile-owned `frames_to_change_direction_on_standing_turn` while offense before that flip uses `turn_facing_after`. `Guard` currently models the first no-item shield action slice: release enters `GuardOff`, down tap/C-stick down enters `EscapeN`, horizontal tap/C-stick side enters `EscapeF` or `EscapeB` by current facing, A/Z shield-grab enters `Catch`, and jump enters `KneeBend`; as an intentional Mole mechanic, held soft opposite stick starts a 5-frame shield turn that flips facing while staying in `Guard`, and a later roll uses that updated facing. The current `GuardOff` slice follows the source-backed path we can model without guard reflect state: spotdodge before jump, no roll or dash, and a provisional 15-frame return to `Wait`; its gated offensive branch depends on `mv.co.guard.x1C`, and exact animation duration still needs extraction. Platform shield drop, item throw, guard reflect, shield damage, and shield setoff are still future work. `Air` resolves fresh B through the common airborne B-special order as up, down, side, then neutral, then fresh digital L/R air dodge, then aerial attack from A or fresh C-stick edge, then air jump. Exact aerial callbacks, hitboxes, action-specific landing lag, and animation lengths are still future work. Diagonal A+stick tilt intent now resolves to side or up/down instead of falling through, using the decomp's angle-gate shape while exact `x20_radians` extraction remains future work. The exposed grounded action states return to `Wait` after the Captain Falcon total-frame counts already used by the test profile where those counts have been extracted, and the first IASA slice lets Falcon jab, up/down tilt, smashes, and neutral special resume grounded input priority at their IASA frames; exact side/up/down special animation lengths, charge, hitboxes, action-specific callbacks, and follow-ups are still future work. `Dash` preserves facing but applies acceleration from the current stick x, so an aged opposite-side input can produce moonwalk-like backward velocity without becoming a new dash, while a fresh opposite x tap during dash still enters `Turn`. After Falcon's 15-frame dash window, holding forward exits to `Run`, neutral exits to `Wait`, and holding the aged opposite side exits to analog `Walk`; walk now approaches the held analog target with acceleration/friction instead of snapping, so dash or moonwalk carry speed settles through physics. While running, neutral enters `RunBrake`, and full opposite stick enters `TurnRun` with traction instead of opposite acceleration on the entry tick; `RunBrake` now consumes extracted Captain Falcon `max_run_brake_frames` through the default Falcon-like profile and the generated DAT-backed profile path. Grounded jump enters Falcon-style 4-frame jumpsquat instead of leaving the ground immediately, short-hop/full-hop selection comes from releasing the stored jump source during jumpsquat, jump out of shield uses the same `KneeBend` path without any shield-only hop-height rule, and a fresh digital L/R bottom-out can enter `EscapeAir` only after the fighter is airborne. Ordinary airborne contact enters `Landing`, whose duration now comes from `FighterProfile::normal_landing_lag_ticks` and the `ftCo_DatAttrs.normal_landing_lag` extractor path. `EscapeAir` now has an extracted `x334` action phase that transitions to `FallSpecial` while airborne; landing during either state enters `LandingFallSpecial`, preserving horizontal slide under landing traction for the extracted `x344` landing-fallspecial lag instead of snapping straight to idle. The exact air-dodge animation duration still needs extraction. The motion state, state frame, turn target facing, shield-turn target/counter, jump source, and short-hop flag are included in replay checksums.
-
-Jump takeoff now keeps the source-shaped horizontal velocity path: jumpsquat preserves grounded X velocity under traction, then takeoff combines carried ground speed with held main-stick X and clamps to the Falcon-profile jump horizontal max. Normal `Air` drift now consumes profile-owned `air_drift_stick_mul`, `aerial_drift_base`, `air_drift_max`, and `aerial_friction` fields instead of hard-coded simulator constants, so jump momentum persists through Melee-shaped physics and exact DAT-backed Falcon values can land through the profile extractor. Airborne grab/AirCatch is deliberately not a generic Falcon state: `ftCo_80095328` is held-item aerial throw/drop routing, while true `AirCatch` is Link/Young Link/Samus tether behavior.
-
-Dash and run acceleration now use the same profile-owned `dash_run_acceleration_a`, `dash_run_acceleration_b`, and `dash_run_terminal_velocity` shape as the Melee helper `getAccelAndTarget`, instead of the old single Rust acceleration constant. Attack1 and AttackDash total frames/IASA now live in profile-owned `FighterActionFrames`, giving the Rust core a small checksum-covered seam for future extracted Falcon action data.
-
-`Walk` now consumes a source-shaped IASA action ladder instead of only shield/jump/continued walk: catch/grab first, then B-specials in walk source order, then smashes, tilts, and jab. This prevents held walk input from swallowing fresh action inputs.
-
-`KneeBend` now has the source-shaped jump-cancel IASA slice we can model without items: up special, catch/grab, then up smash, before short-hop release/takeoff. That keeps jump-cancel grab and jump-cancel up smash as first-class state transitions rather than special-case feel fixes.
-
-Turn state now tracks Melee-shaped `has_turned`, one-frame `just_turned`, frames-to-turn, dash-out intent, and A/B latch data in rollback state. Fresh opposite smash-turn is handled as part of the dash check before crouch, does not flip facing on entry, can dash out on the actual turn frame, and can replay latched A/B on that frame.
-
-`EscapeAir` physics now follows the source shape more closely during its action phase: it decays its own self-velocity and skips ordinary falling gravity until it becomes `FallSpecial`. The default deadzone, force, action timer, decay multiplier, and landing-fallspecial lag now come from the extracted `PlCo.dat` bootstrap snapshot.
-
-Ground friction now follows the `ft_80084F3C` high-speed branch used by source landing physics: Rust applies fixed deceleration toward zero, and when horizontal ground speed exceeds the profile walk max it scales traction by extracted `PlCo.dat` common-data `x6C`. For the current bootstrap data that multiplier is `2.0`, which keeps wavedash slide friction source-owned instead of hand-tuned.
-
-The air-dodge vector now also follows the source shape: stick values inside `escapeair_deadzone` create no self-velocity, and non-deadzone input applies a fixed extracted `escapeair_force` along the stick angle instead of scaling x/y independently.
-
-## Controllers
-
-The launcher enables SDL's HIDAPI GameCube controller support before Pygame starts. With a WUP-028 adapter on WinUSB through Zadig, close any remapper software, unplug/replug the adapter if needed, then launch the game.
-
-To see what the active native path can see, double-click
-`execs\Monitor WUP Native.cmd`. The old Pygame/generic controller checker is
-kept at `execs\depreciated\Check Controllers.cmd` only for reference. For that
-legacy checker in watch mode, run:
-
-```powershell
-& '.\execs\depreciated\Check Controllers.cmd' --watch
-```
-
-## Keyboard Controls
-
-Player 1 can use keyboard input even while a controller is connected:
-
-- Move: `WASD` or arrow keys
-- Jump: `W`, up arrow, or `K`
-- Attack: `Space` or `J`
-- Special: `U`
-- Shield: `L` or left shift
-- Grab: `I`
-- Pause: `P` or enter
-- Quit: escape
-
-## Legacy Pygame Smoke Test
-
-This runs a short headless launch without opening a window:
-
-```powershell
-$env:SDL_VIDEODRIVER='dummy'; $env:MOLE_MAX_FRAMES='2'; .\.venv\Scripts\python RealMainFile.py
-```
+- Rust is authoritative for gameplay.
+- Simulation stays deterministic and fixed at 60 Hz.
+- Rendering, IO, and host input do not own gameplay state.
+- Keep source-derived Melee values as source-shaped floats where the source does.
+- Surface parity gaps honestly instead of guessing mechanics.
