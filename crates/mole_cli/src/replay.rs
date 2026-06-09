@@ -274,7 +274,11 @@ fn mismatch_json(mismatch: Option<SlippiCoreMismatch>) -> Value {
         "source_frame": mismatch.source_frame,
         "player": mismatch.player_index + 1,
         "expected_slippi_state_id": mismatch.expected_slippi_state_id,
-        "expected_motion_state": format!("{:?}", mismatch.expected_motion_state),
+        "expected_action_state_id": mismatch.expected_action_state_id.get(),
+        "actual_action_state_id": mismatch.actual_action_state_id.map(|state| state.get()),
+        "expected_motion_state": mismatch
+            .expected_motion_state
+            .map(|state| format!("{state:?}")),
         "actual_motion_state": format!("{:?}", mismatch.actual_motion_state),
         "expected_position": vec2_json(mismatch.expected_position),
         "actual_position": vec2_json(mismatch.actual_position),
@@ -299,7 +303,11 @@ fn position_drift_json(drift: Option<SlippiCorePositionDrift>) -> Value {
         "source_frame": drift.source_frame,
         "player": drift.player_index + 1,
         "expected_slippi_state_id": drift.expected_slippi_state_id,
-        "expected_motion_state": format!("{:?}", drift.expected_motion_state),
+        "expected_action_state_id": drift.expected_action_state_id.get(),
+        "actual_action_state_id": drift.actual_action_state_id.map(|state| state.get()),
+        "expected_motion_state": drift
+            .expected_motion_state
+            .map(|state| format!("{state:?}")),
         "actual_motion_state": format!("{:?}", drift.actual_motion_state),
         "expected_position": vec2_json(drift.expected_position),
         "actual_position": vec2_json(drift.actual_position),
@@ -365,6 +373,8 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
             "ucf_dashback_amendment": row.input_ucf_dashback_amendment,
         },
         "expected_slippi_state_id": row.expected_slippi_state_id,
+        "expected_action_state_id": row.expected_action_state_id.get(),
+        "actual_action_state_id": row.actual_action_state_id.map(|state| state.get()),
         "expected_motion_state": row
             .expected_motion_state
             .map(|state| format!("{state:?}")),

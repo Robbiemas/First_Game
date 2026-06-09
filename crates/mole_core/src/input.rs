@@ -444,17 +444,21 @@ impl MeleeInputTimers {
         current: PlayerInput,
         config: MeleeInputConfig,
     ) -> Self {
+        let previous_stick_x = previous.stick_x();
+        let current_stick_x = current.stick_x();
+        let previous_stick_y = previous.stick_y();
+        let current_stick_y = current.stick_y();
         Self {
             x_tap: update_axis_tap_timer(
                 self.x_tap,
-                previous.stick_x(),
-                current.stick_x(),
+                previous_stick_x,
+                current_stick_x,
                 config.tap_x_threshold,
             ),
             y_tap: update_axis_tap_timer(
                 self.y_tap,
-                previous.stick_y(),
-                current.stick_y(),
+                previous_stick_y,
+                current_stick_y,
                 config.tap_y_threshold,
             ),
             trigger: update_binary_timer(
@@ -1204,6 +1208,10 @@ impl PlayerInput {
         let changed = previous_held.bits() ^ held.bits();
         let pressed = GameCubeButtonState::from_bits(held.bits() & changed);
         let released = GameCubeButtonState::from_bits(previous_held.bits() & changed);
+        let lstick = (self.stick_x(), self.stick_y());
+        let prev_lstick = (previous.stick_x(), previous.stick_y());
+        let cstick = (self.c_stick_x(), self.c_stick_y());
+        let prev_cstick = (previous.c_stick_x(), previous.c_stick_y());
         let left_trigger = self.left_trigger_analog();
         let right_trigger = self.right_trigger_analog();
         let previous_left_trigger = previous.left_trigger_analog();
@@ -1218,10 +1226,10 @@ impl PlayerInput {
         let previous_shield_held = previous.shield_with_config(config);
 
         MeleeInputSnapshot {
-            lstick: (self.stick_x(), self.stick_y()),
-            prev_lstick: (previous.stick_x(), previous.stick_y()),
-            cstick: (self.c_stick_x(), self.c_stick_y()),
-            prev_cstick: (previous.c_stick_x(), previous.c_stick_y()),
+            lstick,
+            prev_lstick,
+            cstick,
+            prev_cstick,
             left_trigger,
             right_trigger,
             prev_left_trigger: previous_left_trigger,
@@ -1304,14 +1312,22 @@ fn increment_melee_timer(timer: u8) -> u8 {
 
 fn clean_axis_to_i8(value: u8, deadzone: i8) -> i8 {
     let axis = gamecube_axis_to_i8(value);
-    if (axis as i16).abs() <= threshold_abs(deadzone) {
+    clean_native_axis_to_i8(axis, deadzone)
+}
+
+const fn clean_native_axis_to_i8(value: i8, deadzone: i8) -> i8 {
+    if (value as i16).abs() <= threshold_abs(deadzone) {
         0
     } else {
-        axis
+        value
     }
 }
 
 fn clean_trigger(value: u8, deadzone: u8) -> u8 {
+    clean_native_trigger(value, deadzone)
+}
+
+const fn clean_native_trigger(value: u8, deadzone: u8) -> u8 {
     if value <= deadzone {
         0
     } else {
@@ -1580,6 +1596,6 @@ fn is_side_tilt_angle(stick: (i8, i8)) -> bool {
     (stick.1 as i16).abs() <= (stick.0 as i16).abs()
 }
 
-fn threshold_abs(value: i8) -> i16 {
+const fn threshold_abs(value: i8) -> i16 {
     (value as i16).abs()
 }

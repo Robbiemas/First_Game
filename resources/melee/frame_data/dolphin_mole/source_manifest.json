@@ -13,7 +13,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "match_kind": "source_only",
@@ -1397,7 +1397,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "match_kind": "source_only",
@@ -2637,7 +2637,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
       "match_kind": "source_alias",
@@ -3877,7 +3877,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait2_figatree",
       "match_kind": "source_only",
@@ -5117,7 +5117,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait3_figatree",
       "match_kind": "source_only",
@@ -6357,7 +6357,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WaitItem_figatree",
       "match_kind": "source_only",
@@ -7597,7 +7597,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkSlow_figatree",
       "match_kind": "exact_motion_state",
@@ -8792,7 +8792,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkMiddle_figatree",
       "match_kind": "exact_motion_state",
@@ -9987,7 +9987,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkFast_figatree",
       "match_kind": "exact_motion_state",
@@ -11182,7 +11182,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Turn_figatree",
       "match_kind": "exact_motion_state",
@@ -12434,7 +12434,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_TurnRun_figatree",
       "match_kind": "exact_motion_state",
@@ -13704,7 +13704,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Dash_figatree",
       "match_kind": "exact_motion_state",
@@ -14957,7 +14957,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Run_figatree",
       "match_kind": "exact_motion_state",
@@ -16220,7 +16220,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_RunBrake_figatree",
       "match_kind": "exact_motion_state",
@@ -17473,7 +17473,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "match_kind": "exact_motion_state",
@@ -19181,7 +19181,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpF_figatree",
       "match_kind": "exact_motion_state",
@@ -20529,7 +20529,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpB_figatree",
       "match_kind": "exact_motion_state",
@@ -21877,7 +21877,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpAerialF_figatree",
       "match_kind": "exact_motion_state",
@@ -23225,7 +23225,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpAerialB_figatree",
       "match_kind": "exact_motion_state",
@@ -24573,7 +24573,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Fall_figatree",
       "match_kind": "exact_motion_state",
@@ -25813,7 +25813,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallF_figatree",
       "match_kind": "exact_motion_state",
@@ -27053,7 +27053,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallB_figatree",
       "match_kind": "exact_motion_state",
@@ -28293,7 +28293,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerial_figatree",
       "match_kind": "exact_motion_state",
@@ -29533,7 +29533,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerialF_figatree",
       "match_kind": "exact_motion_state",
@@ -30773,7 +30773,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerialB_figatree",
       "match_kind": "exact_motion_state",
@@ -32013,7 +32013,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecial_figatree",
       "match_kind": "exact_motion_state",
@@ -33253,7 +33253,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecialF_figatree",
       "match_kind": "exact_motion_state",
@@ -34493,7 +34493,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecialB_figatree",
       "match_kind": "exact_motion_state",
@@ -35733,7 +35733,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "match_kind": "source_only",
@@ -36973,7 +36973,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Squat_figatree",
       "match_kind": "exact_motion_state",
@@ -38681,7 +38681,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SquatWait_figatree",
       "match_kind": "exact_motion_state",
@@ -40389,7 +40389,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SquatRv_figatree",
       "match_kind": "exact_motion_state",
@@ -42097,7 +42097,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "match_kind": "duplicate_runtime_binding",
@@ -43805,7 +43805,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "match_kind": "duplicate_runtime_binding",
@@ -45513,7 +45513,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
       "match_kind": "exact_motion_state",
@@ -46708,7 +46708,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Guard_figatree",
       "match_kind": "exact_motion_state",
@@ -47903,7 +47903,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardOff_figatree",
       "match_kind": "exact_motion_state",
@@ -49098,7 +49098,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardDamage_figatree",
       "match_kind": "source_only",
@@ -50302,7 +50302,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeN_figatree",
       "match_kind": "exact_motion_state",
@@ -51650,7 +51650,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeF_figatree",
       "match_kind": "exact_motion_state",
@@ -52998,7 +52998,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeB_figatree",
       "match_kind": "exact_motion_state",
@@ -54358,7 +54358,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeAir_figatree",
       "match_kind": "exact_motion_state",
@@ -55713,7 +55713,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Rebound_figatree",
       "match_kind": "source_only",
@@ -57095,6 +57095,16 @@
             "word_offset": 16
           },
           {
+            "disabled": true,
+            "frame": 5,
+            "handler": "ftAction_80071AE8",
+            "procedure": "fighter.set_jab_combo",
+            "raw_words": [
+              "0x74000001"
+            ],
+            "word_offset": 22
+          },
+          {
             "frame": 6,
             "handler": "ftAction_800717D8",
             "procedure": "fighter.clear_all_hitboxes",
@@ -57102,6 +57112,16 @@
               "0x40000000"
             ],
             "word_offset": 24
+          },
+          {
+            "disabled": false,
+            "frame": 9,
+            "handler": "ftAction_80071AE8",
+            "procedure": "fighter.set_jab_combo",
+            "raw_words": [
+              "0x74000000"
+            ],
+            "word_offset": 26
           }
         ],
         "source": {
@@ -57113,7 +57133,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack11_figatree",
       "match_kind": "source_alias",
@@ -58405,6 +58425,16 @@
             "word_offset": 16
           },
           {
+            "disabled": true,
+            "frame": 4,
+            "handler": "ftAction_80071AE8",
+            "procedure": "fighter.set_jab_combo",
+            "raw_words": [
+              "0x74000001"
+            ],
+            "word_offset": 21
+          },
+          {
             "frame": 7,
             "handler": "ftAction_800717D8",
             "procedure": "fighter.clear_all_hitboxes",
@@ -58412,6 +58442,16 @@
               "0x40000000"
             ],
             "word_offset": 23
+          },
+          {
+            "disabled": false,
+            "frame": 8,
+            "handler": "ftAction_80071AE8",
+            "procedure": "fighter.set_jab_combo",
+            "raw_words": [
+              "0x74000000"
+            ],
+            "word_offset": 25
           }
         ],
         "source": {
@@ -58423,7 +58463,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
       "match_kind": "source_only",
@@ -59736,6 +59776,16 @@
               "0x40000000"
             ],
             "word_offset": 28
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_80071B28",
+            "procedure": "fighter.set_jab_rapid",
+            "raw_words": [
+              "0x78000001"
+            ],
+            "state": true,
+            "word_offset": 30
           }
         ],
         "source": {
@@ -59747,7 +59797,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack13_figatree",
       "match_kind": "source_only",
@@ -61005,7 +61055,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100Start_figatree",
       "match_kind": "source_only",
@@ -62263,7 +62313,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
       "match_kind": "source_only",
@@ -63521,7 +63571,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100End_figatree",
       "match_kind": "source_only",
@@ -64817,7 +64867,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackDash_figatree",
       "match_kind": "exact_motion_state",
@@ -66127,7 +66177,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3Hi_figatree",
       "match_kind": "source_only",
@@ -67338,7 +67388,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3HiS_figatree",
       "match_kind": "source_only",
@@ -68549,7 +68599,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3S_figatree",
       "match_kind": "source_alias",
@@ -69760,7 +69810,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3LwS_figatree",
       "match_kind": "source_only",
@@ -70971,7 +71021,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3Lw_figatree",
       "match_kind": "source_only",
@@ -72168,7 +72218,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackHi3_figatree",
       "match_kind": "exact_motion_state",
@@ -73523,7 +73573,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackLw3_figatree",
       "match_kind": "exact_motion_state",
@@ -74864,7 +74914,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4Hi_figatree",
       "match_kind": "source_only",
@@ -76475,7 +76525,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4S_figatree",
       "match_kind": "source_alias",
@@ -78086,7 +78136,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4Lw_figatree",
       "match_kind": "source_only",
@@ -79785,7 +79835,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackHi4_figatree",
       "match_kind": "exact_motion_state",
@@ -81037,7 +81087,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackLw4_figatree",
       "match_kind": "exact_motion_state",
@@ -82339,7 +82389,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
       "match_kind": "exact_motion_state",
@@ -83932,7 +83982,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirF_figatree",
       "match_kind": "exact_motion_state",
@@ -85553,7 +85603,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirB_figatree",
       "match_kind": "exact_motion_state",
@@ -87174,7 +87224,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirHi_figatree",
       "match_kind": "exact_motion_state",
@@ -88753,7 +88803,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirLw_figatree",
       "match_kind": "exact_motion_state",
@@ -90258,7 +90308,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirN_figatree",
       "match_kind": "exact_motion_state",
@@ -91750,7 +91800,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirF_figatree",
       "match_kind": "exact_motion_state",
@@ -93242,7 +93292,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirB_figatree",
       "match_kind": "exact_motion_state",
@@ -94734,7 +94784,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirHi_figatree",
       "match_kind": "exact_motion_state",
@@ -96226,7 +96276,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirLw_figatree",
       "match_kind": "exact_motion_state",
@@ -97718,7 +97768,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightGet_figatree",
       "match_kind": "source_only",
@@ -99408,7 +99458,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "match_kind": "source_only",
@@ -101098,7 +101148,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "match_kind": "source_only",
@@ -102788,7 +102838,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "match_kind": "source_only",
@@ -104478,7 +104528,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "match_kind": "source_only",
@@ -106168,7 +106218,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowDash_figatree",
       "match_kind": "source_only",
@@ -107858,7 +107908,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowDrop_figatree",
       "match_kind": "source_only",
@@ -109548,7 +109598,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "match_kind": "source_only",
@@ -110779,7 +110829,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "match_kind": "source_only",
@@ -112010,7 +112060,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "match_kind": "source_only",
@@ -113241,7 +113291,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "match_kind": "source_only",
@@ -114472,7 +114522,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyGet_figatree",
       "match_kind": "source_only",
@@ -115829,7 +115879,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyWalk1_figatree",
       "match_kind": "source_only",
@@ -117186,7 +117236,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyWalk2_figatree",
       "match_kind": "source_only",
@@ -118543,7 +118593,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "match_kind": "source_only",
@@ -119900,7 +119950,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "match_kind": "source_only",
@@ -121257,7 +121307,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "match_kind": "source_only",
@@ -122614,7 +122664,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "match_kind": "source_only",
@@ -123971,7 +124021,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "match_kind": "source_only",
@@ -125661,7 +125711,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "match_kind": "source_only",
@@ -127351,7 +127401,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "match_kind": "source_only",
@@ -129041,7 +129091,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "match_kind": "source_only",
@@ -130731,7 +130781,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "match_kind": "source_only",
@@ -131962,7 +132012,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "match_kind": "source_only",
@@ -133193,7 +133243,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "match_kind": "source_only",
@@ -134424,7 +134474,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "match_kind": "source_only",
@@ -135655,7 +135705,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "match_kind": "source_only",
@@ -137012,7 +137062,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "match_kind": "source_only",
@@ -138369,7 +138419,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "match_kind": "source_only",
@@ -139726,7 +139776,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "match_kind": "source_only",
@@ -141098,7 +141148,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -142515,7 +142565,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -143917,7 +143967,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -145334,7 +145384,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -146751,7 +146801,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -148168,7 +148218,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -149570,7 +149620,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -150987,7 +151037,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -152404,7 +152454,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -153821,7 +153871,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -155238,7 +155288,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -156655,7 +156705,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -158083,7 +158133,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -159518,7 +159568,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -160939,7 +160989,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -162363,7 +162413,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -163780,7 +163830,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -165197,7 +165247,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -166599,7 +166649,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -168016,7 +168066,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -169433,7 +169483,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "match_kind": "source_only",
@@ -170850,7 +170900,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "match_kind": "source_only",
@@ -172252,7 +172302,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "match_kind": "source_only",
@@ -173669,7 +173719,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "match_kind": "source_only",
@@ -175071,7 +175121,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemHammerWait_figatree",
       "match_kind": "source_only",
@@ -176320,7 +176370,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemHammerMove_figatree",
       "match_kind": "source_only",
@@ -177569,7 +177619,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolOpen_figatree",
       "match_kind": "source_only",
@@ -178818,7 +178868,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "match_kind": "source_only",
@@ -180067,7 +180117,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "match_kind": "source_only",
@@ -181316,7 +181366,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "match_kind": "source_only",
@@ -182556,7 +182606,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "match_kind": "source_only",
@@ -183760,7 +183810,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "match_kind": "source_only",
@@ -184964,7 +185014,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "match_kind": "source_only",
@@ -186168,7 +186218,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "match_kind": "source_only",
@@ -187372,7 +187422,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "match_kind": "source_only",
@@ -188576,7 +188626,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "match_kind": "source_only",
@@ -189846,7 +189896,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrew_figatree",
       "match_kind": "source_only",
@@ -191134,7 +191184,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewAir_figatree",
       "match_kind": "source_only",
@@ -192368,7 +192418,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "match_kind": "source_only",
@@ -193609,7 +193659,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "match_kind": "source_only",
@@ -194838,7 +194888,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemBlind_figatree",
       "match_kind": "source_only",
@@ -196033,7 +196083,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "match_kind": "source_only",
@@ -197309,7 +197359,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "match_kind": "source_only",
@@ -198585,7 +198635,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "match_kind": "source_only",
@@ -199861,7 +199911,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "match_kind": "source_only",
@@ -201137,7 +201187,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "match_kind": "source_only",
@@ -202413,7 +202463,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "match_kind": "source_only",
@@ -203689,7 +203739,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "match_kind": "source_only",
@@ -204965,7 +205015,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "match_kind": "source_only",
@@ -206241,7 +206291,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "match_kind": "source_only",
@@ -207517,7 +207567,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "match_kind": "source_only",
@@ -208793,7 +208843,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "match_kind": "source_only",
@@ -210069,7 +210119,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "match_kind": "source_only",
@@ -211345,7 +211395,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "match_kind": "source_only",
@@ -212621,7 +212671,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "match_kind": "source_only",
@@ -213897,7 +213947,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "match_kind": "source_only",
@@ -215173,7 +215223,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "match_kind": "source_only",
@@ -216449,7 +216499,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi1_figatree",
       "match_kind": "source_only",
@@ -217752,7 +217802,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi2_figatree",
       "match_kind": "source_only",
@@ -219055,7 +219105,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi3_figatree",
       "match_kind": "source_only",
@@ -220358,7 +220408,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN1_figatree",
       "match_kind": "source_only",
@@ -221661,7 +221711,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN2_figatree",
       "match_kind": "source_only",
@@ -222964,7 +223014,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN3_figatree",
       "match_kind": "source_only",
@@ -224267,7 +224317,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw1_figatree",
       "match_kind": "source_only",
@@ -225570,7 +225620,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw2_figatree",
       "match_kind": "source_only",
@@ -226873,7 +226923,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw3_figatree",
       "match_kind": "source_only",
@@ -228176,7 +228226,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir1_figatree",
       "match_kind": "source_only",
@@ -229479,7 +229529,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir2_figatree",
       "match_kind": "source_only",
@@ -230782,7 +230832,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir3_figatree",
       "match_kind": "source_only",
@@ -232085,7 +232135,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyHi_figatree",
       "match_kind": "source_only",
@@ -233388,7 +233438,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyN_figatree",
       "match_kind": "source_only",
@@ -234691,7 +234741,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyLw_figatree",
       "match_kind": "source_only",
@@ -235994,7 +236044,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "match_kind": "source_only",
@@ -237297,7 +237347,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyRoll_figatree",
       "match_kind": "source_only",
@@ -238600,7 +238650,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "match_kind": "source_only",
@@ -240119,7 +240169,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownWaitU_figatree",
       "match_kind": "source_only",
@@ -241638,7 +241688,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownDamageU_figatree",
       "match_kind": "source_only",
@@ -243157,7 +243207,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "match_kind": "source_only",
@@ -244807,7 +244857,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownAttackU_figatree",
       "match_kind": "source_only",
@@ -246326,7 +246376,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownFowardU_figatree",
       "match_kind": "source_only",
@@ -247845,7 +247895,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBackU_figatree",
       "match_kind": "source_only",
@@ -249364,7 +249414,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "match_kind": "source_only",
@@ -251288,7 +251338,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownWaitD_figatree",
       "match_kind": "source_only",
@@ -253212,7 +253262,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownDamageD_figatree",
       "match_kind": "source_only",
@@ -255136,7 +255186,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "match_kind": "source_only",
@@ -257135,7 +257185,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownAttackD_figatree",
       "match_kind": "source_only",
@@ -259059,7 +259109,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownFowardD_figatree",
       "match_kind": "source_only",
@@ -260983,7 +261033,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBackD_figatree",
       "match_kind": "source_only",
@@ -262907,7 +262957,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownSpotD_figatree",
       "match_kind": "source_only",
@@ -264831,7 +264881,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Passive_figatree",
       "match_kind": "source_only",
@@ -266251,7 +266301,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveStandF_figatree",
       "match_kind": "source_only",
@@ -267671,7 +267721,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveStandB_figatree",
       "match_kind": "source_only",
@@ -269091,7 +269141,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveWall_figatree",
       "match_kind": "source_only",
@@ -270511,7 +270561,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveWallJump_figatree",
       "match_kind": "source_only",
@@ -271931,7 +271981,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveCeil_figatree",
       "match_kind": "source_only",
@@ -273351,7 +273401,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraFura_figatree",
       "match_kind": "source_only",
@@ -274519,7 +274569,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepStart_figatree",
       "match_kind": "source_only",
@@ -275840,7 +275890,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepLoop_figatree",
       "match_kind": "source_only",
@@ -277161,7 +277211,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepEnd_figatree",
       "match_kind": "source_only",
@@ -278482,7 +278532,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Pass_figatree",
       "match_kind": "exact_motion_state",
@@ -279866,7 +279916,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Ottotto_figatree",
       "match_kind": "source_only",
@@ -281250,7 +281300,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_OttottoWait_figatree",
       "match_kind": "source_only",
@@ -282634,7 +282684,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "match_kind": "source_only",
@@ -284018,7 +284068,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_StopWall_figatree",
       "match_kind": "source_only",
@@ -285402,7 +285452,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_StopCeil_figatree",
       "match_kind": "source_only",
@@ -286786,7 +286836,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_MissFoot_figatree",
       "match_kind": "source_only",
@@ -288170,7 +288220,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
       "match_kind": "source_only",
@@ -289698,7 +289748,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
       "match_kind": "source_only",
@@ -291226,7 +291276,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffWait2_figatree",
       "match_kind": "source_only",
@@ -292754,7 +292804,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffClimbSlow_figatree",
       "match_kind": "source_only",
@@ -294282,7 +294332,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffClimbQuick_figatree",
       "match_kind": "source_only",
@@ -295848,7 +295898,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffAttackSlow_figatree",
       "match_kind": "source_only",
@@ -297428,7 +297478,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffAttackQuick_figatree",
       "match_kind": "source_only",
@@ -298956,7 +299006,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffEscapeSlow_figatree",
       "match_kind": "source_only",
@@ -300484,7 +300534,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffEscapeQuick_figatree",
       "match_kind": "source_only",
@@ -302012,7 +302062,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpSlow1_figatree",
       "match_kind": "source_only",
@@ -303540,7 +303590,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpSlow2_figatree",
       "match_kind": "source_only",
@@ -305068,7 +305118,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpQuick1_figatree",
       "match_kind": "source_only",
@@ -306596,7 +306646,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpQuick2_figatree",
       "match_kind": "source_only",
@@ -308124,7 +308174,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Entry_figatree",
       "match_kind": "exact_motion_state",
@@ -309211,7 +309261,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AppealR_figatree",
       "match_kind": "source_only",
@@ -311018,7 +311068,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_AppealL_figatree",
       "match_kind": "source_only",
@@ -312863,7 +312913,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Catch_figatree",
       "match_kind": "exact_motion_state",
@@ -314164,7 +314214,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
       "match_kind": "exact_motion_state",
@@ -315413,7 +315463,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchWait_figatree",
       "match_kind": "source_only",
@@ -316686,7 +316736,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchAttack_figatree",
       "match_kind": "source_only",
@@ -317935,7 +317985,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchCut_figatree",
       "match_kind": "source_only",
@@ -319236,7 +319286,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowF_figatree",
       "match_kind": "source_only",
@@ -320654,7 +320704,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowB_figatree",
       "match_kind": "source_only",
@@ -322072,7 +322122,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowHi_figatree",
       "match_kind": "source_only",
@@ -323438,7 +323488,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowLw_figatree",
       "match_kind": "source_only",
@@ -324804,7 +324854,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CapturePulledHi_figatree",
       "match_kind": "source_only",
@@ -326080,7 +326130,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
       "match_kind": "source_only",
@@ -327356,7 +327406,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
       "match_kind": "source_only",
@@ -328632,7 +328682,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CapturePulledLw_figatree",
       "match_kind": "source_only",
@@ -329899,7 +329949,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureWaitLw_figatree",
       "match_kind": "source_only",
@@ -331166,7 +331216,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureDamageLw_figatree",
       "match_kind": "source_only",
@@ -332433,7 +332483,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureCut_figatree",
       "match_kind": "source_only",
@@ -333700,7 +333750,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureJump_figatree",
       "match_kind": "source_only",
@@ -334967,7 +335017,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowF_figatree",
       "match_kind": "source_only",
@@ -335728,7 +335778,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowB_figatree",
       "match_kind": "source_only",
@@ -336489,7 +336539,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowHi_figatree",
       "match_kind": "source_only",
@@ -337250,7 +337300,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowLw_figatree",
       "match_kind": "source_only",
@@ -338011,7 +338061,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainSpecialHi_figatree",
       "match_kind": "source_only",
@@ -338827,7 +338877,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "match_kind": "source_only",
@@ -340130,7 +340180,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "match_kind": "source_only",
@@ -341370,7 +341420,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "match_kind": "source_only",
@@ -342889,7 +342939,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "match_kind": "source_only",
@@ -344813,7 +344863,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "match_kind": "source_only",
@@ -346332,7 +346382,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "match_kind": "source_only",
@@ -348368,7 +348418,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -349910,7 +349960,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -351396,7 +351446,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -352940,7 +352990,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -354370,7 +354420,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -355800,7 +355850,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "match_kind": "source_only",
@@ -357261,7 +357311,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
       "match_kind": "exact_motion_state",
@@ -358622,7 +358672,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirN_figatree",
       "match_kind": "exact_motion_state",
@@ -360004,7 +360054,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
       "match_kind": "exact_motion_state",
@@ -361293,7 +361343,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialS_figatree",
       "match_kind": "exact_motion_state",
@@ -362631,7 +362681,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree",
       "match_kind": "exact_motion_state",
@@ -363926,7 +363976,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirS_figatree",
       "match_kind": "exact_motion_state",
@@ -365215,7 +365265,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
       "match_kind": "exact_motion_state",
@@ -367582,7 +367632,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree",
       "match_kind": "exact_motion_state",
@@ -369933,7 +369983,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiCatch_figatree",
       "match_kind": "source_only",
@@ -372256,7 +372306,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "match_kind": "source_only",
@@ -374693,7 +374743,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLw_figatree",
       "match_kind": "exact_motion_state",
@@ -376064,7 +376114,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLwEnd_figatree",
       "match_kind": "source_only",
@@ -377518,7 +377568,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLw_figatree",
       "match_kind": "exact_motion_state",
@@ -378929,7 +378979,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLwEnd_figatree",
       "match_kind": "source_only",
@@ -380295,7 +380345,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLwEndAir_figatree",
       "match_kind": "source_only",
@@ -381638,7 +381688,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLwEndAir_figatree",
       "match_kind": "source_only",
@@ -382968,7 +383018,7 @@
       },
       "derived_frame_capsules": {
         "materialized": false,
-        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time"
+        "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "match_kind": "source_only",
@@ -385282,7 +385332,7 @@
     "derived_samples": {
       "canonical": false,
       "ecb_samples_path": "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
-      "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data"
+      "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data; player runtime bakes equivalent compact frame capsules during preload, not during gameplay"
     },
     "hurtbox_inits": {
       "data": {

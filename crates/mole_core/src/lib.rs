@@ -21,11 +21,14 @@ pub use input::{
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MeleeSourceButtonState, PlayerInput,
     WalkSpeedBucket, UCF_DASHBACK_AMENDMENT_BIT,
 };
-pub use sim::step_world;
+pub use sim::{step_world, step_world_with_source_runtime_data};
 pub use stage::{StageBlastZones, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind};
 pub use state::{
+    melee_action_state_id_for_motion_state, source_binding_for_motion_state,
     source_root_motion_delta, source_root_motion_position, FighterActionFrames, FighterProfile,
-    FighterProfileExtractError, MotionState, PlayerRenderSnapshot, PlayerState, Vec2, World,
+    FighterProfileExtractError, MeleeActionStateId, MotionState, MotionStateSourceBinding,
+    PlayerRenderSnapshot, PlayerState, SourceActionKey, SourceActionPoseMetadata,
+    SourceCollisionStep, SourceDownBoundPose, SourceVec2, Vec2, World, WorldRollbackSnapshot,
     WorldSnapshot, PLAYER_COUNT,
 };
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};

@@ -208,5 +208,22 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
                 "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
             ],
         },
+        ArtifactGroup {
+            id: "runtime_source_frame_data",
+            name: "Runtime Source Frame Data",
+            generator: "crates/mole_cli/src/frame_data.rs",
+            recommended_command: "cargo run -p mole_cli -- frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/source_frame_data.rs --write --json",
+            inputs: &[
+                "resources/melee/frame_data/dolphin_mole/source_manifest.json",
+                "resources/melee/raw/PlCaAJ.dat",
+                "crates/mole_frame_data/src/lib.rs",
+            ],
+            outputs: &[
+                "crates/mole_runtime/src/generated/source_frame_data.rs",
+                "crates/mole_runtime/src/generated/source_frame_data/source_manifest.json",
+                "crates/mole_runtime/src/generated/source_frame_data/source_frame_capsules.bin",
+                "crates/mole_runtime/src/generated/source_frame_data/attack_air_n.figatree.bin",
+            ],
+        },
     ]
 }

@@ -4,8 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use mole_core::{
-    milli_to_source_units, step_world, Frame, MeleeInputTimers, MotionState, PlayerInput,
-    PlayerState, Vec2, World, PLAYER_COUNT,
+    source_units_to_milli, step_world, Frame, MeleeActionStateId, MeleeCommonData,
+    MeleeInputTimers, MotionState, PlayerInput, PlayerState, SourceVec2, Vec2, World, PLAYER_COUNT,
 };
 use serde::Deserialize;
 
@@ -44,7 +44,9 @@ pub struct SlippiCoreMismatch {
     pub source_frame: i32,
     pub player_index: usize,
     pub expected_slippi_state_id: u16,
-    pub expected_motion_state: MotionState,
+    pub expected_action_state_id: MeleeActionStateId,
+    pub actual_action_state_id: Option<MeleeActionStateId>,
+    pub expected_motion_state: Option<MotionState>,
     pub actual_motion_state: MotionState,
     pub expected_position: Vec2,
     pub actual_position: Vec2,
@@ -61,7 +63,9 @@ pub struct SlippiCorePositionDrift {
     pub source_frame: i32,
     pub player_index: usize,
     pub expected_slippi_state_id: u16,
-    pub expected_motion_state: MotionState,
+    pub expected_action_state_id: MeleeActionStateId,
+    pub actual_action_state_id: Option<MeleeActionStateId>,
+    pub expected_motion_state: Option<MotionState>,
     pub actual_motion_state: MotionState,
     pub expected_position: Vec2,
     pub actual_position: Vec2,
@@ -135,6 +139,8 @@ pub struct SlippiCoreTraceRow {
     pub input_right_trigger: u8,
     pub input_ucf_dashback_amendment: bool,
     pub expected_slippi_state_id: u16,
+    pub expected_action_state_id: MeleeActionStateId,
+    pub actual_action_state_id: Option<MeleeActionStateId>,
     pub expected_motion_state: Option<MotionState>,
     pub actual_motion_state: MotionState,
     pub actual_motion_frame: u8,
@@ -190,7 +196,7 @@ impl SlippiCoreComparison {
             ),
             format!("- State mismatches: {}", self.state_mismatch_count),
             format!(
-                "- Max abs ground velocity diff: P1 {}, P2 {}",
+                "- Max abs horizontal self velocity diff: P1 {}, P2 {}",
                 self.max_abs_ground_velocity_diff[0], self.max_abs_ground_velocity_diff[1]
             ),
             String::new(),
@@ -204,8 +210,11 @@ impl SlippiCoreComparison {
                 format!("- Slippi frame: {}", drift.source_frame),
                 format!("- Player: {}", drift.player_index + 1),
                 format!(
-                    "- Motion state: {:?} ({})",
-                    drift.expected_motion_state, drift.expected_slippi_state_id
+                    "- Motion/action state: {}",
+                    expected_state_label(
+                        drift.expected_motion_state,
+                        drift.expected_slippi_state_id,
+                    )
                 ),
                 format!(
                     "- Position: Melee ({}, {}) vs Rust ({}, {})",
@@ -259,12 +268,14 @@ impl SlippiCoreComparison {
             for (player_index, drift) in self.first_position_drift_by_player.iter().enumerate() {
                 if let Some(drift) = drift {
                     lines.push(format!(
-                        "| {} | {} | {} | {:?} ({}) | {} | {} |",
+                        "| {} | {} | {} | {} | {} | {} |",
                         player_index + 1,
                         drift.frame.0,
                         drift.source_frame,
-                        drift.expected_motion_state,
-                        drift.expected_slippi_state_id,
+                        expected_state_label(
+                            drift.expected_motion_state,
+                            drift.expected_slippi_state_id,
+                        ),
                         drift.actual_position.x - drift.expected_position.x,
                         drift.actual_position.y - drift.expected_position.y
                     ));
@@ -281,8 +292,11 @@ impl SlippiCoreComparison {
                 format!("- Slippi frame: {}", mismatch.source_frame),
                 format!("- Player: {}", mismatch.player_index + 1),
                 format!(
-                    "- Melee expected: {:?} ({})",
-                    mismatch.expected_motion_state, mismatch.expected_slippi_state_id
+                    "- Melee expected: {}",
+                    expected_state_label(
+                        mismatch.expected_motion_state,
+                        mismatch.expected_slippi_state_id,
+                    )
                 ),
                 format!("- Rust actual: {:?}", mismatch.actual_motion_state),
                 format!(
@@ -473,8 +487,8 @@ pub fn compare_slippi_export_with_core(
                         if input.ucf_dashback_amendment {
                             comparison.ucf_dashback_amendment_frames[player_index] += 1;
                         }
-                        inputs[player_index] = input.to_player_input();
                     }
+                    inputs[player_index] = effective_slippi_player_input(pre).to_player_input();
                     if let Some(state) = player_state_from_slippi_pre(
                         pre,
                         previous_posts[player_index].as_ref(),
@@ -509,15 +523,18 @@ pub fn compare_slippi_export_with_core(
             if !comparable_players[player_index] {
                 continue;
             }
-            let Some(expected_motion_state) = slippi_action_state_to_motion(post.action_state_id)
-            else {
+            let Some(expected_state) = slippi_action_state_to_expected(post.action_state_id) else {
                 comparison.unsupported_state_count += 1;
                 *unsupported_states.entry(post.action_state_id).or_default() += 1;
                 continue;
             };
 
             comparison.player_frames_compared[player_index] += 1;
-            let actual = snapshot.players[player_index].motion_state;
+            let actual_player = snapshot.players[player_index];
+            let actual = actual_player.motion_state;
+            let actual_action_state_id = actual_player.melee_action_state_id;
+            let states_match =
+                slippi_expected_state_matches(expected_state, actual, actual_action_state_id);
             let expected_position = post
                 .position
                 .map(slippi_position_to_core_milli)
@@ -540,7 +557,13 @@ pub fn compare_slippi_export_with_core(
                 .unwrap_or_default();
             let actual_velocity = snapshot.players[player_index].velocity.x;
             let actual_velocity_y = snapshot.players[player_index].velocity.y;
-            let velocity_diff = (expected_ground_velocity - actual_velocity).abs();
+            let expected_horizontal_velocity = expected_horizontal_velocity_x(
+                expected_state,
+                expected_ground_velocity,
+                expected_air_velocity,
+                actual_player.grounded,
+            );
+            let velocity_diff = (expected_horizontal_velocity - actual_velocity).abs();
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
             record_first_position_drift(
@@ -549,8 +572,11 @@ pub fn compare_slippi_export_with_core(
                 frame.frame,
                 player_index,
                 post.action_state_id,
-                expected_motion_state,
+                expected_state.action_state_id,
+                actual_action_state_id,
+                expected_state.motion_state,
                 actual,
+                states_match,
                 expected_position,
                 actual_position,
                 expected_ground_velocity,
@@ -560,7 +586,7 @@ pub fn compare_slippi_export_with_core(
                 actual_velocity_y,
             );
 
-            if actual != expected_motion_state {
+            if !states_match {
                 comparison.state_mismatch_count += 1;
                 comparison
                     .first_state_mismatch
@@ -569,7 +595,9 @@ pub fn compare_slippi_export_with_core(
                         source_frame: frame.frame,
                         player_index,
                         expected_slippi_state_id: post.action_state_id,
-                        expected_motion_state,
+                        expected_action_state_id: expected_state.action_state_id,
+                        actual_action_state_id,
+                        expected_motion_state: expected_state.motion_state,
                         actual_motion_state: actual,
                         expected_position,
                         actual_position,
@@ -605,16 +633,19 @@ pub fn compare_slippi_export_from_match_start_with_core(
     for (core_frame_index, frame) in export.frames.into_iter().take(frame_limit).enumerate() {
         let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
         for (player_index, input_slot) in inputs.iter_mut().enumerate() {
-            if let Some(input) = frame
+            if let Some(pre) = frame
                 .players
                 .get(&player_index.to_string())
                 .and_then(|player_frame| player_frame.pre.as_ref())
-                .and_then(|pre| pre.rust_player_input.as_ref())
             {
-                if input.ucf_dashback_amendment {
+                if pre
+                    .rust_player_input
+                    .as_ref()
+                    .is_some_and(|input| input.ucf_dashback_amendment)
+                {
                     comparison.ucf_dashback_amendment_frames[player_index] += 1;
                 }
-                *input_slot = input.to_player_input();
+                *input_slot = effective_slippi_player_input(pre).to_player_input();
             }
         }
 
@@ -633,15 +664,18 @@ pub fn compare_slippi_export_from_match_start_with_core(
             let Some(post) = &player_frame.post else {
                 continue;
             };
-            let Some(expected_motion_state) = slippi_action_state_to_motion(post.action_state_id)
-            else {
+            let Some(expected_state) = slippi_action_state_to_expected(post.action_state_id) else {
                 comparison.unsupported_state_count += 1;
                 *unsupported_states.entry(post.action_state_id).or_default() += 1;
                 continue;
             };
 
             comparison.player_frames_compared[player_index] += 1;
-            let actual = snapshot.players[player_index].motion_state;
+            let actual_player = snapshot.players[player_index];
+            let actual = actual_player.motion_state;
+            let actual_action_state_id = actual_player.melee_action_state_id;
+            let states_match =
+                slippi_expected_state_matches(expected_state, actual, actual_action_state_id);
             let expected_position = post
                 .position
                 .map(slippi_position_to_core_milli)
@@ -664,7 +698,13 @@ pub fn compare_slippi_export_from_match_start_with_core(
                 .unwrap_or_default();
             let actual_velocity = snapshot.players[player_index].velocity.x;
             let actual_velocity_y = snapshot.players[player_index].velocity.y;
-            let velocity_diff = (expected_ground_velocity - actual_velocity).abs();
+            let expected_horizontal_velocity = expected_horizontal_velocity_x(
+                expected_state,
+                expected_ground_velocity,
+                expected_air_velocity,
+                actual_player.grounded,
+            );
+            let velocity_diff = (expected_horizontal_velocity - actual_velocity).abs();
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
             record_first_position_drift(
@@ -673,8 +713,11 @@ pub fn compare_slippi_export_from_match_start_with_core(
                 frame.frame,
                 player_index,
                 post.action_state_id,
-                expected_motion_state,
+                expected_state.action_state_id,
+                actual_action_state_id,
+                expected_state.motion_state,
                 actual,
+                states_match,
                 expected_position,
                 actual_position,
                 expected_ground_velocity,
@@ -684,7 +727,7 @@ pub fn compare_slippi_export_from_match_start_with_core(
                 actual_velocity_y,
             );
 
-            if actual != expected_motion_state {
+            if !states_match {
                 comparison.state_mismatch_count += 1;
                 comparison
                     .first_state_mismatch
@@ -693,7 +736,9 @@ pub fn compare_slippi_export_from_match_start_with_core(
                         source_frame: frame.frame,
                         player_index,
                         expected_slippi_state_id: post.action_state_id,
-                        expected_motion_state,
+                        expected_action_state_id: expected_state.action_state_id,
+                        actual_action_state_id,
+                        expected_motion_state: expected_state.motion_state,
                         actual_motion_state: actual,
                         expected_position,
                         actual_position,
@@ -732,13 +777,13 @@ pub fn trace_slippi_export_from_match_start_with_core(
         let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
         let mut raw_inputs = [SlippiRustPlayerInput::default(); PLAYER_COUNT];
         for (player_index, input_slot) in inputs.iter_mut().enumerate() {
-            if let Some(input) = frame
+            if let Some(pre) = frame
                 .players
                 .get(&player_index.to_string())
                 .and_then(|player_frame| player_frame.pre.as_ref())
-                .and_then(|pre| pre.rust_player_input.as_ref())
             {
-                raw_inputs[player_index] = *input;
+                let input = effective_slippi_player_input(pre);
+                raw_inputs[player_index] = input;
                 *input_slot = input.to_player_input();
             }
         }
@@ -779,6 +824,7 @@ pub fn trace_slippi_export_from_match_start_with_core(
             .unwrap_or_default();
         let player = snapshot.players[config.player_index];
         let raw_input = raw_inputs[config.player_index];
+        let expected_state = slippi_action_state_to_expected(post.action_state_id);
         rows.push(SlippiCoreTraceRow {
             core_frame,
             source_frame: frame.frame,
@@ -790,7 +836,11 @@ pub fn trace_slippi_export_from_match_start_with_core(
             input_right_trigger: raw_input.right_trigger,
             input_ucf_dashback_amendment: raw_input.ucf_dashback_amendment,
             expected_slippi_state_id: post.action_state_id,
-            expected_motion_state: slippi_action_state_to_motion(post.action_state_id),
+            expected_action_state_id: expected_state
+                .map(|state| state.action_state_id)
+                .unwrap_or_else(|| MeleeActionStateId::new(post.action_state_id)),
+            actual_action_state_id: player.melee_action_state_id,
+            expected_motion_state: expected_state.and_then(|state| state.motion_state),
             actual_motion_state: player.motion_state,
             actual_motion_frame: player.state_frame,
             expected_position,
@@ -838,8 +888,11 @@ fn record_first_position_drift(
     source_frame: i32,
     player_index: usize,
     expected_slippi_state_id: u16,
-    expected_motion_state: MotionState,
+    expected_action_state_id: MeleeActionStateId,
+    actual_action_state_id: Option<MeleeActionStateId>,
+    expected_motion_state: Option<MotionState>,
     actual_motion_state: MotionState,
+    states_match: bool,
     expected_position: Vec2,
     actual_position: Vec2,
     expected_ground_velocity_x: i32,
@@ -848,7 +901,7 @@ fn record_first_position_drift(
     actual_velocity_x: i32,
     actual_velocity_y: i32,
 ) {
-    if actual_motion_state != expected_motion_state {
+    if !states_match {
         return;
     }
 
@@ -864,6 +917,8 @@ fn record_first_position_drift(
         source_frame,
         player_index,
         expected_slippi_state_id,
+        expected_action_state_id,
+        actual_action_state_id,
         expected_motion_state,
         actual_motion_state,
         expected_position,
@@ -897,13 +952,18 @@ fn player_state_from_slippi_pre(
         return None;
     };
     let position = pre.position.unwrap_or_default();
+    let source_position = SourceVec2 {
+        x: slippi_units_to_source_f32(Some(position[0])),
+        y: slippi_units_to_source_f32(Some(position[1])),
+    };
     let facing = pre.facing.unwrap_or(1.0);
     let mut player = PlayerState::new(
-        slippi_units_to_core_milli(Some(position[0])),
-        slippi_units_to_core_milli(Some(position[1])),
+        source_units_to_milli(source_position.x),
+        source_units_to_milli(source_position.y),
         if facing < 0.0 { -1 } else { 1 },
     );
-    player.motion_state = motion_state;
+    player.source_position = source_position;
+    player.set_motion_state_alias(motion_state);
     player.grounded = !matches!(
         motion_state,
         MotionState::Entry
@@ -933,15 +993,17 @@ fn player_state_from_slippi_pre(
     }
     if let Some(post) = previous_post {
         if let Some(speeds) = &post.self_induced_speeds {
-            let ground_x = slippi_units_to_core_milli(speeds.ground_x);
-            let air_x = slippi_units_to_core_milli(speeds.air_x);
-            let vertical = slippi_units_to_core_milli(speeds.y);
+            let ground_x = slippi_units_to_source_f32(speeds.ground_x);
+            let air_x = slippi_units_to_source_f32(speeds.air_x);
+            let vertical = slippi_units_to_source_f32(speeds.y);
             let horizontal = if player.grounded { ground_x } else { air_x };
+            player.source_self_velocity_x = horizontal;
+            player.source_self_velocity_y = vertical;
             player.velocity = Vec2 {
-                x: horizontal,
-                y: vertical,
+                x: source_units_to_milli(horizontal),
+                y: source_units_to_milli(vertical),
             };
-            player.ground_velocity_x = milli_to_source_units(ground_x);
+            player.ground_velocity_x = ground_x;
         }
         player.motion_frame = rounded_u8(post.action_state_counter);
     }
@@ -953,9 +1015,7 @@ fn seed_ucf_dashback_turn_for_diagnostic(pre: &SlippiPreFrame, player: &mut Play
     if player.motion_state != MotionState::Turn {
         return;
     }
-    let Some(input) = pre.rust_player_input.as_ref() else {
-        return;
-    };
+    let input = effective_slippi_player_input(pre);
     if !input.ucf_dashback_amendment || input.stick_x == 0 {
         return;
     }
@@ -1007,7 +1067,11 @@ pub fn write_slippi_core_trace_report(
 }
 
 fn slippi_units_to_core_milli(value: Option<f64>) -> i32 {
-    (value.unwrap_or_default() * 1000.0).round() as i32
+    source_units_to_milli(slippi_units_to_source_f32(value))
+}
+
+fn slippi_units_to_source_f32(value: Option<f64>) -> f32 {
+    value.unwrap_or_default() as f32
 }
 
 fn slippi_position_to_core_milli(position: [f64; 2]) -> Vec2 {
@@ -1019,6 +1083,98 @@ fn slippi_position_to_core_milli(position: [f64; 2]) -> Vec2 {
 
 fn diagnostic_core_frame(slippi_frame: i32) -> Frame {
     Frame(slippi_frame.max(0) as u32)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SlippiExpectedActionState {
+    action_state_id: MeleeActionStateId,
+    motion_state: Option<MotionState>,
+}
+
+fn slippi_action_state_to_expected(action_state_id: u16) -> Option<SlippiExpectedActionState> {
+    if let Some(motion_state) = slippi_action_state_to_motion(action_state_id) {
+        return Some(SlippiExpectedActionState {
+            action_state_id: MeleeActionStateId::new(action_state_id),
+            motion_state: Some(motion_state),
+        });
+    }
+    if slippi_source_only_action_state_is_known(action_state_id) {
+        return Some(SlippiExpectedActionState {
+            action_state_id: MeleeActionStateId::new(action_state_id),
+            motion_state: None,
+        });
+    }
+    None
+}
+
+fn slippi_source_only_action_state_is_known(action_state_id: u16) -> bool {
+    matches!(action_state_id, 45..=49)
+}
+
+fn slippi_expected_state_matches(
+    expected: SlippiExpectedActionState,
+    actual_motion_state: MotionState,
+    actual_action_state_id: Option<MeleeActionStateId>,
+) -> bool {
+    actual_action_state_id == Some(expected.action_state_id)
+        || expected
+            .motion_state
+            .is_some_and(|motion_state| actual_motion_state == motion_state)
+}
+
+fn expected_horizontal_velocity_x(
+    expected: SlippiExpectedActionState,
+    expected_ground_velocity_x: i32,
+    expected_air_velocity_x: i32,
+    actual_grounded: bool,
+) -> i32 {
+    let expected_grounded = expected
+        .motion_state
+        .map(slippi_motion_state_uses_ground_velocity)
+        .unwrap_or(actual_grounded);
+    if expected_grounded {
+        expected_ground_velocity_x
+    } else {
+        expected_air_velocity_x
+    }
+}
+
+fn slippi_motion_state_uses_ground_velocity(motion_state: MotionState) -> bool {
+    !matches!(
+        motion_state,
+        MotionState::Entry
+            | MotionState::EntryStart
+            | MotionState::EntryEnd
+            | MotionState::Pass
+            | MotionState::Fall
+            | MotionState::FallF
+            | MotionState::FallB
+            | MotionState::FallAerial
+            | MotionState::FallAerialF
+            | MotionState::FallAerialB
+            | MotionState::JumpF
+            | MotionState::JumpB
+            | MotionState::JumpAerialF
+            | MotionState::JumpAerialB
+            | MotionState::EscapeAir
+            | MotionState::FallSpecial
+            | MotionState::FallSpecialF
+            | MotionState::FallSpecialB
+    )
+}
+
+fn expected_state_label(
+    expected_motion_state: Option<MotionState>,
+    action_state_id: u16,
+) -> String {
+    expected_motion_state
+        .map(|state| format!("{state:?} ({action_state_id})"))
+        .unwrap_or_else(|| {
+            format!(
+                "{} ({action_state_id})",
+                slippi_action_state_name(action_state_id)
+            )
+        })
 }
 
 fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
@@ -1047,13 +1203,31 @@ fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
         35 => Some(MotionState::FallSpecial),
         36 => Some(MotionState::FallSpecialF),
         37 => Some(MotionState::FallSpecialB),
+        39 => Some(MotionState::Squat),
+        40 => Some(MotionState::SquatWait),
+        41 => Some(MotionState::SquatRv),
         42 => Some(MotionState::Landing),
         43 => Some(MotionState::LandingFallSpecial),
+        44 => Some(MotionState::Attack1),
+        50 => Some(MotionState::AttackDash),
+        53 => Some(MotionState::AttackS3),
+        56 => Some(MotionState::AttackHi3),
+        57 => Some(MotionState::AttackLw3),
+        60 => Some(MotionState::AttackS4),
+        63 => Some(MotionState::AttackHi4),
+        64 => Some(MotionState::AttackLw4),
+        65 => Some(MotionState::AttackAirN),
+        66 => Some(MotionState::AttackAirF),
+        67 => Some(MotionState::AttackAirB),
+        68 => Some(MotionState::AttackAirHi),
+        69 => Some(MotionState::AttackAirLw),
         70 => Some(MotionState::LandingAirN),
         71 => Some(MotionState::LandingAirF),
         72 => Some(MotionState::LandingAirB),
         73 => Some(MotionState::LandingAirHi),
         74 => Some(MotionState::LandingAirLw),
+        212 => Some(MotionState::Catch),
+        214 => Some(MotionState::CatchDash),
         178 => Some(MotionState::GuardOn),
         179 => Some(MotionState::Guard),
         180 => Some(MotionState::GuardOff),
@@ -1067,10 +1241,16 @@ fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
         322 => Some(MotionState::Entry),
         323 => Some(MotionState::EntryStart),
         324 => Some(MotionState::EntryEnd),
+        347 => Some(MotionState::SpecialN),
+        348 => Some(MotionState::SpecialAirN),
         349 => Some(MotionState::SpecialSStart),
         350 => Some(MotionState::SpecialS),
         351 => Some(MotionState::SpecialAirSStart),
         352 => Some(MotionState::SpecialAirS),
+        353 => Some(MotionState::SpecialHi),
+        354 => Some(MotionState::SpecialAirHi),
+        357 => Some(MotionState::SpecialLw),
+        359 => Some(MotionState::SpecialAirLw),
         _ => None,
     }
 }
@@ -1101,13 +1281,36 @@ fn slippi_action_state_name(action_state_id: u16) -> &'static str {
         35 => "FallSpecial",
         36 => "FallSpecialF",
         37 => "FallSpecialB",
+        39 => "Squat",
+        40 => "SquatWait",
+        41 => "SquatRv",
         42 => "Landing",
         43 => "LandingFallSpecial",
+        44 => "Attack11",
+        45 => "Attack12",
+        46 => "Attack13",
+        47 => "Attack100Start",
+        48 => "Attack100Loop",
+        49 => "Attack100End",
+        50 => "AttackDash",
+        53 => "AttackS3S",
+        56 => "AttackHi3",
+        57 => "AttackLw3",
+        60 => "AttackS4S",
+        63 => "AttackHi4",
+        64 => "AttackLw4",
+        65 => "AttackAirN",
+        66 => "AttackAirF",
+        67 => "AttackAirB",
+        68 => "AttackAirHi",
+        69 => "AttackAirLw",
         70 => "LandingAirN",
         71 => "LandingAirF",
         72 => "LandingAirB",
         73 => "LandingAirHi",
         74 => "LandingAirLw",
+        212 => "Catch",
+        214 => "CatchDash",
         178 => "GuardOn",
         179 => "Guard",
         180 => "GuardOff",
@@ -1123,11 +1326,132 @@ fn slippi_action_state_name(action_state_id: u16) -> &'static str {
         322 => "Entry",
         323 => "EntryStart",
         324 => "EntryEnd",
+        347 => "SpecialN",
+        348 => "SpecialAirN",
         349 => "SpecialSStart",
         350 => "SpecialS",
         351 => "SpecialAirSStart",
         352 => "SpecialAirS",
+        353 => "SpecialHi",
+        354 => "SpecialAirHi",
+        357 => "SpecialLw",
+        359 => "SpecialAirLw",
         _ => "Unknown",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slippi_action_state_table_covers_existing_rust_motion_aliases() {
+        for (action_state_id, motion_state) in [
+            (39, MotionState::Squat),
+            (40, MotionState::SquatWait),
+            (41, MotionState::SquatRv),
+            (44, MotionState::Attack1),
+            (50, MotionState::AttackDash),
+            (65, MotionState::AttackAirN),
+            (68, MotionState::AttackAirHi),
+            (212, MotionState::Catch),
+            (214, MotionState::CatchDash),
+            (347, MotionState::SpecialN),
+            (348, MotionState::SpecialAirN),
+            (353, MotionState::SpecialHi),
+            (354, MotionState::SpecialAirHi),
+            (357, MotionState::SpecialLw),
+            (359, MotionState::SpecialAirLw),
+        ] {
+            assert_eq!(
+                slippi_action_state_to_motion(action_state_id),
+                Some(motion_state),
+                "Slippi action state {action_state_id} should map to the existing Rust alias"
+            );
+        }
+    }
+
+    #[test]
+    fn slippi_action_state_table_knows_jab_followups_without_motion_aliasing() {
+        for (action_state_id, name) in [
+            (45, "Attack12"),
+            (46, "Attack13"),
+            (47, "Attack100Start"),
+            (48, "Attack100Loop"),
+            (49, "Attack100End"),
+        ] {
+            assert_eq!(slippi_action_state_name(action_state_id), name);
+            assert_eq!(
+                slippi_action_state_to_motion(action_state_id),
+                None,
+                "{name} stays source-only instead of becoming a Rust MotionState alias"
+            );
+            assert_eq!(
+                slippi_action_state_to_expected(action_state_id),
+                Some(SlippiExpectedActionState {
+                    action_state_id: MeleeActionStateId::new(action_state_id),
+                    motion_state: None,
+                }),
+                "{name} should still be supported by canonical action-state comparison"
+            );
+        }
+    }
+
+    #[test]
+    fn slippi_effective_input_preserves_compact_ucf_cardinal_stick() {
+        let pre = SlippiPreFrame {
+            action_state_id: None,
+            position: None,
+            facing: None,
+            main_stick: Some([-0.9875, 0.0]),
+            c_stick: Some([0.0, 0.0]),
+            trigger: None,
+            physical_l_trigger: None,
+            physical_r_trigger: None,
+            rust_player_input: Some(SlippiRustPlayerInput {
+                stick_x: -127,
+                stick_y: 0,
+                c_stick_x: 0,
+                c_stick_y: 0,
+                left_trigger: 0,
+                right_trigger: 0,
+                physical_button_bits: 0,
+                ucf_dashback_amendment: true,
+            }),
+        };
+
+        let input = effective_slippi_player_input(&pre);
+
+        assert_eq!(input.stick_x, -127);
+        assert!(input.ucf_dashback_amendment);
+    }
+
+    #[test]
+    fn slippi_effective_input_deadzone_cleans_compact_replay_noise() {
+        let pre = SlippiPreFrame {
+            action_state_id: None,
+            position: None,
+            facing: None,
+            main_stick: Some([0.0, 0.0]),
+            c_stick: Some([0.0, 0.0]),
+            trigger: None,
+            physical_l_trigger: None,
+            physical_r_trigger: None,
+            rust_player_input: Some(SlippiRustPlayerInput {
+                stick_x: -32,
+                stick_y: 5,
+                c_stick_x: 0,
+                c_stick_y: 0,
+                left_trigger: 0,
+                right_trigger: 0,
+                physical_button_bits: 0,
+                ucf_dashback_amendment: false,
+            }),
+        };
+
+        let input = effective_slippi_player_input(&pre);
+
+        assert_eq!((input.stick_x, input.stick_y), (0, 0));
     }
 }
 
@@ -1189,6 +1513,11 @@ struct SlippiPreFrame {
     action_state_id: Option<u16>,
     position: Option<[f64; 2]>,
     facing: Option<f64>,
+    main_stick: Option<[f64; 2]>,
+    c_stick: Option<[f64; 2]>,
+    trigger: Option<f64>,
+    physical_l_trigger: Option<f64>,
+    physical_r_trigger: Option<f64>,
     rust_player_input: Option<SlippiRustPlayerInput>,
 }
 
@@ -1234,6 +1563,65 @@ impl SlippiRustPlayerInput {
             .with_dpad_right(bits & HSD_DPAD_RIGHT != 0)
             .with_ucf_dashback_amendment(self.ucf_dashback_amendment)
     }
+}
+
+fn effective_slippi_player_input(pre: &SlippiPreFrame) -> SlippiRustPlayerInput {
+    let mut input = pre.rust_player_input.unwrap_or_default();
+    if pre.rust_player_input.is_none() {
+        if let Some([x, y]) = pre.main_stick {
+            input.stick_x = slippi_stick_to_core_i8(x);
+            input.stick_y = slippi_stick_to_core_i8(y);
+        }
+        if let Some([x, y]) = pre.c_stick {
+            input.c_stick_x = slippi_stick_to_core_i8(x);
+            input.c_stick_y = slippi_stick_to_core_i8(y);
+        }
+    }
+    let input_config = MeleeCommonData::PROVISIONAL.input_config();
+    input.stick_x = clean_replay_axis(input.stick_x, input_config.main_stick_deadzone_x);
+    input.stick_y = clean_replay_axis(input.stick_y, input_config.main_stick_deadzone_y);
+    input.c_stick_x = clean_replay_axis(input.c_stick_x, input_config.c_stick_deadzone_x);
+    input.c_stick_y = clean_replay_axis(input.c_stick_y, input_config.c_stick_deadzone_y);
+    if pre.physical_l_trigger.is_some() || pre.trigger.is_some() {
+        input.left_trigger = slippi_trigger_to_core_u8(pre.physical_l_trigger.or(pre.trigger));
+    }
+    if pre.physical_r_trigger.is_some() || pre.trigger.is_some() {
+        input.right_trigger = slippi_trigger_to_core_u8(pre.physical_r_trigger.or(pre.trigger));
+    }
+    input
+}
+
+fn clean_replay_axis(value: i8, deadzone: i8) -> i8 {
+    if (value as i16).abs() <= threshold_abs_i8(deadzone) {
+        0
+    } else {
+        value
+    }
+}
+
+fn threshold_abs_i8(value: i8) -> i16 {
+    if value == i8::MIN {
+        128
+    } else {
+        value.abs() as i16
+    }
+}
+
+fn slippi_stick_to_core_i8(value: f64) -> i8 {
+    if !value.is_finite() {
+        return 0;
+    }
+    (value * 127.0).round().clamp(-127.0, 127.0) as i8
+}
+
+fn slippi_trigger_to_core_u8(value: Option<f64>) -> u8 {
+    let Some(value) = value else {
+        return 0;
+    };
+    if !value.is_finite() {
+        return 0;
+    }
+    (value * 255.0).round().clamp(0.0, 255.0) as u8
 }
 
 #[derive(Debug, Clone, Deserialize)]

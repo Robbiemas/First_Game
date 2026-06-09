@@ -11,11 +11,22 @@ const DEPENDENCY_INSTALL_COMMAND = "npm install --prefix tools/slippi";
 const SLIPPI_NODE_ENTRYPOINT = "@slippi/slippi-js/node";
 const DEFAULT_EXPORT_FRAMES = 1800;
 const MELEE_MAIN_STICK_DEADZONE_X = 36;
+const MELEE_MAIN_STICK_DEADZONE_Y = 36;
+const MELEE_C_STICK_DEADZONE_X = 36;
+const MELEE_C_STICK_DEADZONE_Y = 36;
 const MELEE_TAP_X_THRESHOLD = 32;
 const MELEE_DASH_X = 102;
 const MAX_MELEE_INPUT_TIMER = 0xfe;
+const COMPACT_STICK_SCALE = 127;
+const HSD_STICK_RADIUS = 127;
+const HSD_PAD_STICK_CLAMP_MAX = 80;
+const HSD_PAD_STICK_SCALE = 80;
+const SLP_COMMAND_MESSAGE_SIZES = 0x35;
+const SLP_COMMAND_PRE_FRAME_UPDATE = 0x37;
 const UCF_PAD_BUFFER_SIZE = 4;
 const UCF_PAD_BUFFER_MASK = UCF_PAD_BUFFER_SIZE - 1;
+const UCF_CARDINAL_AXIS = 80;
+const UCF_CARDINAL_SNAP_RANGE = 6;
 const UCF_TILT_INTENT_DELTA = 75;
 
 const HSD_BUTTON_BITS = [
@@ -184,7 +195,96 @@ function slippiStickToNative(value) {
   if (!Number.isFinite(value)) {
     return 0;
   }
-  return clamp(Math.round(value * 127), -127, 127);
+  return clamp(Math.round(value * COMPACT_STICK_SCALE), -127, 127);
+}
+
+function slippiMainStickToNative(pre, rawJoystickX, rawJoystickY, playerSettings) {
+  return slippiAnalogStickToNative(
+    pre?.joystickX,
+    pre?.joystickY,
+    rawJoystickX,
+    rawJoystickY,
+    MELEE_MAIN_STICK_DEADZONE_X,
+    MELEE_MAIN_STICK_DEADZONE_Y,
+    isUcfPlayer(playerSettings),
+  );
+}
+
+function slippiCStickToNative(pre, rawCStickX, rawCStickY, playerSettings) {
+  return slippiAnalogStickToNative(
+    pre?.cStickX,
+    pre?.cStickY,
+    rawCStickX,
+    rawCStickY,
+    MELEE_C_STICK_DEADZONE_X,
+    MELEE_C_STICK_DEADZONE_Y,
+    isUcfPlayer(playerSettings),
+  );
+}
+
+function slippiAnalogStickToNative(
+  floatX,
+  floatY,
+  rawX,
+  rawY,
+  deadzoneX,
+  deadzoneY,
+  applyCardinals,
+) {
+  let native;
+  if (Number.isFinite(rawX) && Number.isFinite(rawY)) {
+    const raw = [clamp(Math.round(rawX), -128, 127), clamp(Math.round(rawY), -128, 127)];
+    native = hsdClampRawStick(raw[0], raw[1]);
+    if (applyCardinals) {
+      native = applyUcfCardinals(raw, native);
+    }
+  } else {
+    native = [slippiStickToNative(floatX), slippiStickToNative(floatY)];
+  }
+  return [cleanAxis(native[0], deadzoneX), cleanAxis(native[1], deadzoneY)];
+}
+
+function hsdClampRawStick(rawX, rawY) {
+  let x = rawX;
+  let y = rawY;
+  const radius = Math.sqrt(x * x + y * y);
+  if (radius > HSD_PAD_STICK_CLAMP_MAX) {
+    x = Math.trunc((x * HSD_PAD_STICK_CLAMP_MAX) / radius);
+    y = Math.trunc((y * HSD_PAD_STICK_CLAMP_MAX) / radius);
+  }
+  return [hsdScaledAxisToCoreAxis(x), hsdScaledAxisToCoreAxis(y)];
+}
+
+function hsdScaledAxisToCoreAxis(value) {
+  return clamp(
+    Math.round((value / HSD_PAD_STICK_SCALE) * HSD_STICK_RADIUS),
+    -HSD_STICK_RADIUS,
+    HSD_STICK_RADIUS,
+  );
+}
+
+function applyUcfCardinals(raw, native) {
+  if (
+    thresholdAbs(raw[0]) >= UCF_CARDINAL_AXIS &&
+    thresholdAbs(raw[1]) <= UCF_CARDINAL_SNAP_RANGE
+  ) {
+    return [fullAxis(raw[0]), 0];
+  }
+  if (
+    thresholdAbs(raw[1]) >= UCF_CARDINAL_AXIS &&
+    thresholdAbs(raw[0]) <= UCF_CARDINAL_SNAP_RANGE
+  ) {
+    return [0, fullAxis(raw[1])];
+  }
+  return native;
+}
+
+function fullAxis(value) {
+  return value < 0 ? -HSD_STICK_RADIUS : HSD_STICK_RADIUS;
+}
+
+function thresholdAbs(value) {
+  return Math.abs(value);
 }
 
 function slippiTriggerToByte(value) {
@@ -236,10 +336,26 @@ function playerSettingsByIndex(settings) {
   return players;
 }
 
-function convertPreFrame(pre) {
+function convertPreFrame(pre, rawExtras, playerSettings) {
   if (!pre) {
     return null;
   }
+  const rawJoystickX = rawExtras?.rawJoystickX ?? pre.rawJoystickX;
+  const rawJoystickY = rawExtras?.rawJoystickY ?? pre.rawJoystickY;
+  const rawCStickX = rawExtras?.rawCStickX;
+  const rawCStickY = rawExtras?.rawCStickY;
+  const [stickX, stickY] = slippiMainStickToNative(
+    pre,
+    rawJoystickX,
+    rawJoystickY,
+    playerSettings,
+  );
+  const [cStickX, cStickY] = slippiCStickToNative(
+    pre,
+    rawCStickX,
+    rawCStickY,
+    playerSettings,
+  );
 
   return {
     action_state_id: pre.actionStateId,
@@ -250,13 +366,15 @@ function convertPreFrame(pre) {
     trigger: roundFloat(pre.trigger),
     physical_l_trigger: roundFloat(pre.physicalLTrigger),
     physical_r_trigger: roundFloat(pre.physicalRTrigger),
-    raw_joystick_x: numberOrNull(pre.rawJoystickX),
-    raw_joystick_y: numberOrNull(pre.rawJoystickY),
+    raw_joystick_x: numberOrNull(rawJoystickX),
+    raw_joystick_y: numberOrNull(rawJoystickY),
+    raw_c_stick_x: numberOrNull(rawCStickX),
+    raw_c_stick_y: numberOrNull(rawCStickY),
     rust_player_input: {
-      stick_x: slippiStickToNative(pre.joystickX),
-      stick_y: slippiStickToNative(pre.joystickY),
-      c_stick_x: slippiStickToNative(pre.cStickX),
-      c_stick_y: slippiStickToNative(pre.cStickY),
+      stick_x: stickX,
+      stick_y: stickY,
+      c_stick_x: cStickX,
+      c_stick_y: cStickY,
       left_trigger: slippiTriggerToByte(pre.physicalLTrigger ?? pre.trigger),
       right_trigger: slippiTriggerToByte(pre.physicalRTrigger ?? pre.trigger),
       physical_button_bits: pre.physicalButtons || 0,
@@ -307,12 +425,106 @@ function numberOrNull(value) {
   return Number.isFinite(value) ? value : null;
 }
 
+function readReplayRawPreFrameExtras(replayPath) {
+  const bytes = fs.readFileSync(replayPath);
+  const rawDataPosition = slpRawDataPosition(bytes);
+  const rawDataLength = slpRawDataLength(bytes, rawDataPosition);
+  const messageSizes = slpMessageSizes(bytes, rawDataPosition);
+  const extras = new Map();
+
+  let position = rawDataPosition;
+  const stop = Math.min(bytes.length, rawDataPosition + rawDataLength);
+  while (position < stop) {
+    const command = bytes[position];
+    const payloadSize = messageSizes[command];
+    if (!Number.isInteger(payloadSize)) {
+      break;
+    }
+
+    const messageSize = payloadSize + 1;
+    if (messageSize <= 0 || position + messageSize > stop) {
+      break;
+    }
+
+    if (command === SLP_COMMAND_PRE_FRAME_UPDATE) {
+      const frame = bytes.readInt32BE(position + 0x1);
+      const playerIndex = bytes.readUInt8(position + 0x5);
+      const isFollower = bytes.readUInt8(position + 0x6) !== 0;
+      extras.set(rawPreFrameKey(frame, playerIndex, isFollower), {
+        rawJoystickX: readInt8OrNull(bytes, position + 0x3b, stop),
+        rawJoystickY: readInt8OrNull(bytes, position + 0x40, stop),
+        rawCStickX: readInt8OrNull(bytes, position + 0x41, stop),
+        rawCStickY: readInt8OrNull(bytes, position + 0x42, stop),
+      });
+    }
+
+    position += messageSize;
+  }
+
+  return extras;
+}
+
+function rawPreFrameKey(frame, playerIndex, isFollower) {
+  return `${frame}:${playerIndex}:${isFollower ? 1 : 0}`;
+}
+
+function slpRawDataPosition(bytes) {
+  if (bytes[0] === 0x36) {
+    return 0;
+  }
+  if (bytes[0] === "{".charCodeAt(0)) {
+    return 15;
+  }
+  return 0;
+}
+
+function slpRawDataLength(bytes, rawDataPosition) {
+  if (rawDataPosition === 0 || rawDataPosition < 4) {
+    return bytes.length;
+  }
+  const rawDataLength = bytes.readUInt32BE(rawDataPosition - 4);
+  return rawDataLength > 0 ? rawDataLength : bytes.length - rawDataPosition;
+}
+
+function slpMessageSizes(bytes, rawDataPosition) {
+  if (rawDataPosition === 0) {
+    return {
+      0x36: 0x140,
+      0x37: 0x6,
+      0x38: 0x46,
+      0x39: 0x1,
+    };
+  }
+  if (bytes[rawDataPosition] !== SLP_COMMAND_MESSAGE_SIZES) {
+    return {};
+  }
+
+  const payloadLength = bytes[rawDataPosition + 1];
+  const messageSizes = {
+    [SLP_COMMAND_MESSAGE_SIZES]: payloadLength,
+  };
+  for (let i = 0; i < payloadLength - 1; i += 3) {
+    const offset = rawDataPosition + 2 + i;
+    const command = bytes[offset];
+    messageSizes[command] = (bytes[offset + 1] << 8) | bytes[offset + 2];
+  }
+  return messageSizes;
+}
+
+function readInt8OrNull(bytes, offset, stop) {
+  if (offset >= stop || offset >= bytes.length) {
+    return null;
+  }
+  return bytes.readInt8(offset);
+}
+
 function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
   const { SlippiGame, State } = loadSlippiNode();
   const game = new SlippiGame(replayPath);
   const settings = game.getSettings();
   const metadata = game.getMetadata();
   const frames = game.getFrames();
+  const rawPreFrameExtras = readReplayRawPreFrameExtras(replayPath);
   const stateLookup = buildStateNameLookup(State);
   const playerSettings = playerSettingsByIndex(settings);
   const frameNumbers = Object.keys(frames)
@@ -326,8 +538,11 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
     const frame = frames[frameNumber];
     const players = {};
     for (const [playerIndex, framePlayer] of Object.entries(frame.players || {})) {
+      const rawExtras = rawPreFrameExtras.get(
+        rawPreFrameKey(frameNumber, Number(playerIndex), false),
+      );
       players[playerIndex] = {
-        pre: convertPreFrame(framePlayer.pre),
+        pre: convertPreFrame(framePlayer.pre, rawExtras, playerSettings[playerIndex]),
         post: convertPostFrame(framePlayer.post, stateLookup),
       };
     }
@@ -345,7 +560,7 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
       replay_path: path.resolve(replayPath),
       parser: SLIPPI_NODE_ENTRYPOINT,
       parser_note:
-        "Slippi pre-frame joystick floats are exported as observed; rust_player_input scales them with round(value * 127) into HSD-clamped signed bytes before the Rust core derives fighter f32 stick values. UCF replay metadata derives adapter-owned dashback amendment bits from raw stick history without rewriting the already recorded game-facing stick value.",
+        "Slippi pre-frame joystick floats are exported as observed; rust_player_input is the Melee-cleaned compact gameplay lane. When raw SendGamePreFrame stick bytes are available, they are HSD-clamped, UCF 0.84 cardinals are applied for UCF-tagged players, and PlCo x0/x4 deadzones are applied before packing signed -127..127 axes. Raw bytes at offsets 0x3B/0x40/0x41/0x42 remain in the export for audit/UCF metadata.",
     },
     settings: {
       slp_version: settings.slpVersion,
@@ -507,7 +722,7 @@ function nativeStickXFromPreFrame(pre) {
 }
 
 function cleanAxis(value, deadzone) {
-  return Math.abs(value) < deadzone ? 0 : value;
+  return Math.abs(value) <= deadzone ? 0 : value;
 }
 
 function updateAxisHoldTimer(timer, previous, current, threshold) {
@@ -604,6 +819,36 @@ function runSelfTest() {
   assert.strictEqual(slippiStickToNative(0), 0);
   assert.strictEqual(slippiTriggerToByte(1.0), 255);
   assert.deepStrictEqual(buttonNames((1 << 8) | (1 << 10)), ["a", "x"]);
+
+  const neutralNoisePre = convertPreFrame(
+    {
+      joystickX: 0,
+      joystickY: 0,
+      cStickX: 0,
+      cStickY: 0,
+      physicalButtons: 0,
+      buttons: 0,
+    },
+    { rawJoystickX: -20, rawJoystickY: 3 },
+    { controller_fix: "UCF" },
+  );
+  assert.strictEqual(neutralNoisePre.rust_player_input.stick_x, 0);
+  assert.strictEqual(neutralNoisePre.rust_player_input.stick_y, 0);
+
+  const ucfCardinalPre = convertPreFrame(
+    {
+      joystickX: -0.9875,
+      joystickY: 0,
+      cStickX: 0,
+      cStickY: 0,
+      physicalButtons: 0,
+      buttons: 0,
+    },
+    { rawJoystickX: -99, rawJoystickY: -1 },
+    { controller_fix: "UCF" },
+  );
+  assert.strictEqual(ucfCardinalPre.rust_player_input.stick_x, -127);
+  assert.strictEqual(ucfCardinalPre.rust_player_input.stick_y, 0);
 
   const dashbackFrames = [
     slippiUcfSelfTestFrame(46, 1, 0),

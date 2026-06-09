@@ -453,7 +453,7 @@
         2
       ],
       "status": "partial",
-      "notes": "Rust common drop-through platform state. Guard/GuardOn/GuardReflect enter through the held-shield pass gate; Squat arms platform_pass_pending/platform_pass_timer before entering the same Pass state. Pass seeds source x46C vertical velocity, then the shared airborne fall step applies gravity before translation, matching ftCo_Pass_Phys -> ft_80084DB0. Pass animation completion now enters Fall at the generated Falcon action 209 frame count, matching ftCo_Pass_Anim -> ftCo_Fall_Enter while continuing through the ordinary airborne path for that frame.",
+      "notes": "Rust common drop-through platform state. Guard/GuardOn/GuardReflect enter through the held-shield pass gate; Squat arms platform_pass_pending/platform_pass_timer before entering the same Pass state. Pass seeds source x46C vertical velocity, enters the ftCommon_8007D5D4-style ground-to-air ECB lock as a floor-contact bottom probe, then the shared airborne fall step applies gravity before translation, matching ftCo_Pass_Phys -> ft_80084DB0. After the lock expires, landing checks use generated Falcon action 209 JObj ECB samples instead of a pinned compatibility probe. Pass animation completion now enters Fall at the generated Falcon action 209 frame count, matching ftCo_Pass_Anim -> ftCo_Fall_Enter while continuing through the ordinary airborne path for that frame.",
       "source_refs": [
         {
           "label": "Melee Pass source",
@@ -972,7 +972,7 @@
         5
       ],
       "status": "partial",
-      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity before the action-script cmd_var[0] handoff, ground-to-air ECB bottom locking, generated Falcon action-table ECB samples, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits. Falcon action 44 now sources its cmd_var[0] skip-decay point from the extracted action script rather than a common-data placeholder.",
+      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity before the action-script cmd_var[0] handoff, ground-to-air ECB bottom locking as a rollback-owned floor-contact probe, generated Falcon action-table ECB samples after lock expiry, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits. Falcon action 44 now sources its cmd_var[0] skip-decay point from the extracted action script rather than a common-data placeholder.",
       "source_refs": [
         {
           "label": "Melee ECB JObj source setup",
@@ -1534,9 +1534,330 @@
       "known_gaps": [
         "Do not enter this by local shortcut; keep gameplay state canonical while modeling the remaining source animation blend details."
       ]
+    },
+    {
+      "id": "SourceDamage",
+      "label": "Damage / DamageFly 75-91",
+      "pos": [
+        10,
+        6
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only common Damage and DamageFly action ids 75-91 now bind through the compact runtime source export with motion_state: None. Rust core stores hitlag_frames for Fighter.dmg.x195c_hitlag_frames, freezes the fighter tick during hitlag, advances the Damage action through damage_hitstun_frames sourced from mv.co.damage.x0 = (int)(kb_applied * p_ftCommonData->x154), and carries compact-export source_action_total_frames so Damage/DamageFly exits wait for both !ftAnim_IsFramesRemaining and !x221C_b6. Air physics now mirrors ftCo_Damage_Phys/ftCo_DamageFly_Phys by using the locked ft_80084EEC gravity/friction path while x221C_b6 is true and the ordinary ft_80084DB0 fall/drift path after lockout clears. Ordinary Damage ids 75-86 now mirror the implemented floor-contact branch in ftCo_Damage_Coll: extracted CommonAttributes x1E0=5.0 and x1E4=0.5 gate |x8c_kb_vel|, 0.5 <= magnitude < 5.0 enters basic Landing, and high knockback enters source-only DownBoundU/D through baked FtPart_HipN pose metadata. DamageFly/DamageFlyRoll floor contact now mirrors the represented decomp order: PassiveStand then Passive through ftCo_800986B0 using rollback-owned x680/x684 digital L/R timers and extracted CommonAttributes x1C, x250, and x254; failed passive checks fall through to ftCo_80097D40 and enter source-only DownBoundU/D through the same baked hip-pose gate. This prevents legacy Fall/Wait MotionState logic from consuming inputs or replacing the canonical Damage action during lockout.",
+      "source_refs": [
+        {
+          "label": "Melee Damage source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Damage.c",
+          "function": "ftCo_8008DCE0 / ftCo_Damage_Anim / ftCo_Damage_Phys / ftCo_Damage_Coll / ftCo_DamageFly_Coll / ftCo_DamageFlyRoll_Coll"
+        },
+        {
+          "label": "Melee hitlag source",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_ProcessHit_8006D1EC / Fighter_8006A1BC"
+        },
+        {
+          "label": "Melee common motion-state table",
+          "path": ".research/doldecomp-melee/src/melee/ft/ftmotionstates.c",
+          "function": "ftCo_MS_DamageHi1..ftCo_MS_DamageFlyRoll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust rollback damage state",
+          "path": "crates/mole_core/src/state.rs",
+          "function": "PlayerState.damage_hitstun_frames / PlayerState.source_action_total_frames / apply_source_damage_results_with_action_total_frames"
+        },
+        {
+          "label": "Rust source-only damage tick",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "is_source_damage_player / advance_source_damage_state / source_action_animation_done / apply_source_damage_air_physics / apply_source_damage_floor_collision"
+        },
+        {
+          "label": "Damage physics contracts",
+          "path": "crates/mole_core/tests/core_contract.rs",
+          "function": "source_damage_anim_exit_waits_for_action_frames_after_lockout_clears / source_damage_unlocked_air_physics_uses_normal_fall_drift_before_anim_exit / source_damage_floor_contact_with_basic_knockback_enters_landing_like_ftco_damage_coll / source_damage_floor_contact_with_high_knockback_enters_down_bound_like_ftco_damage_coll / source_damage_fly_floor_contact_with_recent_digital_lr_enters_passive_like_ftco_8009872c / source_damage_fly_floor_contact_checks_passive_stand_before_passive_like_ftco_80098928 / source_damage_fly_floor_contact_falls_through_to_down_bound_like_ftco_damagefly_coll"
+        },
+        {
+          "label": "Runtime damage contracts",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay / runtime_source_hitlag_freezes_damage_action_pose_and_position_until_timer_expires / runtime_source_damage_lockout_keeps_damage_action_authoritative_after_hitlag / runtime_source_damage_carries_baked_action_total_frames_into_core / runtime_source_damage_high_knockback_uses_baked_hip_pose_to_enter_down_bound / runtime_source_damage_fly_roll_floor_contact_uses_baked_pose_to_enter_down_bound / runtime_source_damage_fly_recent_lr_uses_baked_passive_binding"
+        }
+      ],
+      "known_gaps": [
+        "Hammer-item passive veto state, wall/ceiling passive callbacks, exact PassiveStand model-velocity physics, wall/ceiling damage callbacks, SDI/ASDI, damage tumble special cases, DownWait side getup/roll routing, vertical-stick stand-up thresholds, and downed damage/passive callbacks remain pending."
+      ]
+    },
+    {
+      "id": "SourcePassive",
+      "label": "Passive / PassiveStand 199-201",
+      "pos": [
+        12,
+        6
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only Passive action id 199 and PassiveStandF/B action ids 200/201 are baked runtime actions with motion_state: None. DamageFly and DamageFlyRoll floor contact now attempts PassiveStand first, then Passive, using ftCo_800986B0-shaped checks: no represented Hammer item veto, source_lr_digital_press_timer (x680) < extracted x250, and source_previous_lr_digital_press_timer (x684) >= extracted x1C. PassiveStand selection compares source-normalized lstick.x against extracted x254 and chooses F/B from lstick.x * facing_dir. Passive/PassiveStand advance with baked source_action_total_frames and exit to Wait when no frames remain. Exact ft_80084FA8 model-velocity physics for PassiveStand and item-held Hammer veto state remain pending.",
+      "source_refs": [
+        {
+          "label": "Melee passive window source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownAttack.c",
+          "function": "ftCo_800986B0 / ftCo_8009872C"
+        },
+        {
+          "label": "Melee Passive source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Passive.c",
+          "function": "ftCo_800987D0 / ftCo_Passive_Anim / ftCo_Passive_Phys / ftCo_Passive_Coll"
+        },
+        {
+          "label": "Melee PassiveStand source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_PassiveStand.c",
+          "function": "ftCo_80098928 / ftCo_800989D4 / ftCo_PassiveStand_Anim / ftCo_PassiveStand_Phys / ftCo_PassiveStand_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust passive transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "try_enter_source_damage_fly_passive / source_passive_window_open / enter_source_passive_action / advance_source_passive_state"
+        },
+        {
+          "label": "Passive runtime contracts",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "runtime_source_damage_fly_recent_lr_uses_baked_passive_binding / runtime_source_passive_actions_resolve_from_canonical_action_ids"
+        }
+      ],
+      "known_gaps": [
+        "Hammer-item ftCo_800C5240 veto state, wall/ceiling passive states 202-204, exact ft_80084FA8 model-velocity branch for PassiveStand, and downed-state passive callbacks remain pending."
+      ]
+    },
+    {
+      "id": "SourceDownBound",
+      "label": "DownBoundU/D 183/191",
+      "pos": [
+        12,
+        7
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only DownBoundU/D action ids 183/191 are entered from ordinary Damage floor contact when |x8c_kb_vel| is at/above CommonAttributes x1E0 and from the represented DamageFly/DamageFlyRoll floor-contact fallback after PassiveStand/Passive checks fail. Runtime bakes FtPart_HipN matrix components into source_frame_capsules.bin and core applies the normal-fighter ftCo_80097570 choice: hip mtx[1][1] > 0 enters DownBoundU, otherwise DownBoundD, with x2226_b1 inversion available as rollback-owned state. The DownBound loop advances ground physics and support checks without falling back through a stale MotionState, then ftCo_DownBound_Anim-style animation exhaustion enters source-only DownWaitU/D instead of clamping at the last frame.",
+      "source_refs": [
+        {
+          "label": "Melee DownBound source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownBound.c",
+          "function": "ftCo_80097570 / ftCo_8009794C / ftCo_80097D40 / ftCo_DownBound_Anim / ftCo_DownBound_Phys / ftCo_DownBound_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust DownBound transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "apply_source_damage_fly_floor_collision / enter_source_damage_down_bound / source_down_bound_face_up / advance_source_down_bound_state / enter_source_down_wait"
+        },
+        {
+          "label": "Baked hip pose sidecar",
+          "path": "crates/mole_frame_data/src/lib.rs",
+          "function": "RuntimeSourceDownBoundPoseSample / source_down_bound_pose"
+        }
+      ],
+      "known_gaps": [
+        "DownWait side getup/roll routing, vertical-stick stand-up thresholds, downed damage/passive callbacks, and sandbag x2228_b2 side-orientation bounce routing remain pending."
+      ]
+    },
+    {
+      "id": "SourceDownWait",
+      "label": "DownWaitU/D 184/192",
+      "pos": [
+        15,
+        7
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only DownWaitU/D action ids 184/192 are entered from DownBound animation exhaustion via the Rust equivalent of ftCo_80097E8C. Core seeds rollback-owned source_down_wait_timer from extracted CommonAttributes x424, clears the DownBound hip-pose latch, keeps the source action authoritative with no MotionState alias, decrements the timer like ftCo_DownWait_Anim, and enters source-only DownStandU/D when the timer expires. The visible ftCo_DownWait_IASA slice is now ordered like the decomp for owned branches: fresh source-normalized HSD_PAD_A/HSD_PAD_B enters DownAttackU/D before fresh source-normalized HSD_PAD_LR enters DownStandU/D. While waiting, grounded down-state physics/support advances without falling through to legacy MotionState logic.",
+      "source_refs": [
+        {
+          "label": "Melee DownWait source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownBound.c",
+          "function": "ftCo_80097E8C / ftCo_DownWait_Anim / ftCo_DownWait_IASA / ftCo_DownWait_Phys / ftCo_DownWait_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust DownWait transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_source_down_wait / advance_source_down_wait_state / enter_source_down_stand / enter_source_down_attack"
+        },
+        {
+          "label": "Runtime DownWait contracts",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "runtime_source_down_bound_animation_end_uses_baked_down_wait_binding / runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / runtime_source_down_wait_fresh_attack_uses_baked_down_attack_binding / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
+        }
+      ],
+      "known_gaps": [
+        "DownWait side getup/roll routing through ftCo_Down_CheckInput, vertical-stick stand-up thresholds for ftCo_800980BC, c-stick down attack helper routing, and downed damage/passive callbacks remain pending."
+      ]
+    },
+    {
+      "id": "SourceDownStand",
+      "label": "DownStandU/D 186/194",
+      "pos": [
+        18,
+        7
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only DownStandU/D action ids 186/194 are entered from DownWait timer expiry via the Rust equivalent of ftCo_80098160, and from fresh source-normalized HSD_PAD_LR through the owned ftCo_800980BC branch. Runtime binds those canonical ids to baked Captain Falcon DownStand source rows 290/291, core keeps motion_state_alias None, advances grounded down-state physics/support, and exits to Wait when ftCo_DownStand_Anim-style animation exhaustion occurs.",
+      "source_refs": [
+        {
+          "label": "Melee DownStand source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownStand.c",
+          "function": "ftCo_800980BC / ftCo_80098160 / ftCo_DownStand_Anim / ftCo_DownStand_Phys / ftCo_DownStand_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust DownStand transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_source_down_stand / advance_source_down_stand_state"
+        },
+        {
+          "label": "Runtime DownStand contracts",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
+        }
+      ],
+      "known_gaps": [
+        "Vertical-stick stand-up via ftCo_800980BC and broader downed-state damage/passive callbacks remain pending."
+      ]
+    },
+    {
+      "id": "SourceDownAttack",
+      "label": "DownAttackU/D 187/195",
+      "pos": [
+        21,
+        7
+      ],
+      "status": "partial",
+      "notes": "Canonical source-only DownAttackU/D action ids 187/195 are entered from DownWait via the Rust equivalent of ftCo_800984D4 when the source-normalized pressed mask contains HSD_PAD_A or HSD_PAD_B. Runtime binds those canonical ids to baked Captain Falcon DownAttack source rows 187/195 with 50 frames, core keeps motion_state_alias None, advances grounded down-state physics/support, and exits to Wait when ftCo_DownAttack_Anim-style animation exhaustion occurs.",
+      "source_refs": [
+        {
+          "label": "Melee DownAttack source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownAttack.c",
+          "function": "ftCo_800984D4 / ftCo_8009856C / ftCo_DownAttack_Anim / ftCo_DownAttack_Phys / ftCo_DownAttack_Coll"
+        }
+      ],
+      "rust_refs": [
+        {
+          "label": "Rust DownAttack transition",
+          "path": "crates/mole_core/src/sim.rs",
+          "function": "enter_source_down_attack / advance_source_down_attack_state"
+        },
+        {
+          "label": "Runtime DownAttack contracts",
+          "path": "crates/mole_runtime/tests/runtime_contract.rs",
+          "function": "runtime_source_down_wait_fresh_attack_uses_baked_down_attack_binding / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
+        }
+      ],
+      "known_gaps": [
+        "C-stick down attack helper ftCo_800DF644 and exact ft_80084104 collision-helper distinction remain pending."
+      ]
     }
   ],
   "edges": [
+    {
+      "from": "Fall",
+      "to": "SourceDamage",
+      "label": "source hit confirm applies damage",
+      "status": "partial",
+      "notes": "Runtime source collision applies compact-source hitboxes to baked source hurt capsules, commits damage, selects the canonical Damage/DamageFly action id, and clears motion_state_alias so the Damage branch owns the victim.",
+      "input": "source hitbox intersects source hurt capsule",
+      "frames": "same runtime collision frame"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "Fall",
+      "label": "damage animation and lockout end airborne",
+      "status": "partial",
+      "notes": "Rust exits airborne source-only Damage to Fall only after damage_hitstun_frames has reached zero and the compact-export source_action_total_frames boundary says the Damage animation has no frames remaining.",
+      "input": "no player IASA during lockout",
+      "frames": "!ftAnim_IsFramesRemaining equivalent and damage_hitstun_frames reaches zero"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "Landing",
+      "label": "ordinary damage floor contact with basic knockback",
+      "status": "partial",
+      "notes": "Rust now mirrors ftCo_Damage_Coll for ordinary Damage ids 75-86 when floor contact occurs and |x8c_kb_vel| is below x1E0 but at/above x1E4: it calls the basic Landing transition. Extracted CommonAttributes values are x1E0=5.0 and x1E4=0.5.",
+      "input": "floor contact during ordinary Damage",
+      "frames": "ft_80081DD4 contact frame, 0.5 <= |kb_vel| < 5.0"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "SourceDownBound",
+      "label": "ordinary damage floor contact with high knockback",
+      "status": "partial",
+      "notes": "Rust now mirrors the high ftCo_Damage_Coll branch for ordinary Damage ids 75-86 when floor contact occurs and |x8c_kb_vel| is at/above x1E0: it enters source-only DownBoundU/D using baked FtPart_HipN pose metadata for the ftCo_80097570 U/D choice.",
+      "input": "floor contact during ordinary Damage",
+      "frames": "ft_80081DD4 contact frame, |kb_vel| >= 5.0"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "SourcePassive",
+      "label": "damagefly floor passive tech",
+      "status": "partial",
+      "notes": "Rust now mirrors the represented ftCo_DamageFly_Coll / ftCo_DamageFlyRoll_Coll passive-first branch for floor contact: ftCo_800986B0 uses rollback-owned x680/x684 digital L/R timers and extracted x1C/x250, then ftCo_80098928 checks PassiveStand before ftCo_8009872C enters Passive. The Hammer-item veto in ftCo_800C5240 remains pending because held item state is not represented yet.",
+      "input": "floor contact during DamageFly or DamageFlyRoll with recent digital L/R",
+      "frames": "ft_80081DD4 contact frame, passive check taken"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "SourceDownBound",
+      "label": "damagefly floor fallback after passive checks",
+      "status": "partial",
+      "notes": "Rust mirrors the represented ftCo_DamageFly_Coll / ftCo_DamageFlyRoll_Coll floor-contact fallback: when PassiveStand and Passive are not taken, ftCo_80090184 / DamageFlyRoll collision falls through to ftCo_80097D40 and enters source-only DownBoundU/D using baked FtPart_HipN pose metadata.",
+      "input": "floor contact during DamageFly or DamageFlyRoll",
+      "frames": "ft_80081DD4 contact frame, passive checks not taken"
+    },
+    {
+      "from": "SourcePassive",
+      "to": "Wait",
+      "label": "passive animation exhausted",
+      "status": "partial",
+      "notes": "Rust advances baked Passive/PassiveStand source_action_total_frames and exits to Wait when the frame boundary matches ftAnim_IsFramesRemaining false. PassiveStand exact ft_80084FA8 model-velocity physics remains a sub-gap.",
+      "input": "no Passive IASA",
+      "frames": "Passive or PassiveStand source_action_total_frames reached"
+    },
+    {
+      "from": "SourceDownBound",
+      "to": "SourceDownWait",
+      "label": "animation frames exhausted",
+      "status": "partial",
+      "notes": "Rust now mirrors ftCo_DownBound_Anim falling through to ftCo_80097E8C when ftAnim_IsFramesRemaining is false: DownBoundU enters DownWaitU, DownBoundD enters DownWaitD, and mv.co.downwait.x0 is seeded from extracted CommonAttributes x424.",
+      "input": "no DownBound interrupt/passive branch",
+      "frames": "DownBound source_action_total_frames reached"
+    },
+    {
+      "from": "SourceDownWait",
+      "to": "SourceDownStand",
+      "label": "downwait timer expires",
+      "status": "partial",
+      "notes": "Rust mirrors ftCo_DownWait_Anim decrementing mv.co.downwait.x0 and calling ftCo_80098160 when the timer reaches zero: DownWaitU enters DownStandU and DownWaitD enters DownStandD through canonical source-only action ids 186/194.",
+      "input": "mv.co.downwait.x0 reaches zero",
+      "frames": "mv.co.downwait.x0 <= 0"
+    },
+    {
+      "from": "SourceDownWait",
+      "to": "SourceDownStand",
+      "label": "fresh LR stand-up",
+      "status": "partial",
+      "notes": "Rust mirrors the owned LR half of ftCo_800980BC from ftCo_DownWait_IASA: a fresh source-normalized HSD_PAD_LR press enters DownStandU from DownWaitU and DownStandD from DownWaitD through canonical source-only action ids 186/194.",
+      "input": "input.x668 & HSD_PAD_LR",
+      "frames": "after ftCo_DownWait_Anim decrement and after ftCo_800984D4 / ftCo_Down_CheckInput priority"
+    },
+    {
+      "from": "SourceDownWait",
+      "to": "SourceDownAttack",
+      "label": "fresh A/B down attack",
+      "status": "partial",
+      "notes": "Rust mirrors the owned ftCo_800984D4 branch from ftCo_DownWait_IASA: a fresh source-normalized HSD_PAD_A or HSD_PAD_B press enters DownAttackU from DownWaitU and DownAttackD from DownWaitD through canonical source-only action ids 187/195.",
+      "input": "input.x668 & (HSD_PAD_A | HSD_PAD_B)",
+      "frames": "after ftCo_DownWait_Anim decrement, before ftCo_800980BC"
+    },
     {
       "from": "EntryEnd",
       "to": "Fall",
@@ -1757,7 +2078,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "aligned",
-      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry."
+      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry; the new Wait state's later physics callback can still apply same-frame grounded friction."
     },
     {
       "from": "WalkMiddle",
@@ -1765,7 +2086,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "aligned",
-      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry."
+      "notes": "Preserves carried ground velocity like ft_8008A244 instead of zeroing walk carry; the new Wait state's later physics callback can still apply same-frame grounded friction."
     },
     {
       "from": "WalkFast",
@@ -1773,7 +2094,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "aligned",
-      "notes": "Preserves full-speed walk carry for opposite-dash moonwalk setup."
+      "notes": "Preserves full-speed walk carry through the ft_8008A244-shaped state change, then allows same-frame Wait_Phys friction before opposite-dash moonwalk setup."
     },
     {
       "from": "WalkFast",

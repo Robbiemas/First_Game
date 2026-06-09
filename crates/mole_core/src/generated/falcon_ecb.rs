@@ -16903,13 +16903,11 @@ pub(crate) fn falcon_ecb_samples_for_motion_state(
         MotionState::SpecialAirHi => Some(&FALCON_ECB_ACTION_308),
         MotionState::SpecialLw => Some(&FALCON_ECB_ACTION_311),
         MotionState::SpecialAirLw => Some(&FALCON_ECB_ACTION_313),
+        MotionState::Entry => Some(&FALCON_ECB_ACTION_238),
         MotionState::EntryStart => Some(&FALCON_ECB_ACTION_238),
-        _ => None,
+        MotionState::EntryEnd => Some(&FALCON_ECB_ACTION_238),
     }
 }
 
 #[allow(dead_code)]
 pub(crate) const FALCON_ECB_UNMAPPED_DERIVED_STATES: &[&str] = &[];
-
-#[allow(dead_code)]
-pub(crate) const FALCON_ECB_NO_ACTION_SUBMOTION_STATES: &[&str] = &["Entry", "EntryEnd"];

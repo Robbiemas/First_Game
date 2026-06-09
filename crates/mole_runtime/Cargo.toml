@@ -11,8 +11,11 @@ wup = ["dep:rusb"]
 
 [dependencies]
 mole_core = { path = "../mole_core" }
+mole_frame_data = { path = "../mole_frame_data" }
 mole_input = { path = "../mole_input" }
 mole_replay = { path = "../mole_replay" }
+mole_rollback = { path = "../mole_rollback" }
+mole_signaling = { path = "../mole_signaling" }
 mole_transport = { path = "../mole_transport" }
 image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
 rusb = { version = "0.9.4", optional = true, features = ["vendored"] }

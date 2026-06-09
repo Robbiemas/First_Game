@@ -62,6 +62,97 @@
       "source_name": "x90",
       "stick_byte": 87
     },
+    "passive_input_age_threshold": {
+      "kind": "i32_ticks",
+      "offset": 28,
+      "raw": 0,
+      "source_name": "x1C",
+      "ticks": 0
+    },
+    "damage_duration_scale": {
+      "kind": "source_f32",
+      "offset": 340,
+      "raw": 0.4000000059604645,
+      "source_name": "x154"
+    },
+    "damage_knockback_velocity_scale": {
+      "kind": "source_f32",
+      "offset": 256,
+      "raw": 0.029999999329447746,
+      "source_name": "x100"
+    },
+    "damage_landing_basic_knockback_threshold": {
+      "kind": "source_f32",
+      "offset": 484,
+      "raw": 0.5,
+      "source_name": "x1E4"
+    },
+    "damage_landing_down_bound_knockback_threshold": {
+      "kind": "source_f32",
+      "offset": 480,
+      "raw": 5.0,
+      "source_name": "x1E0"
+    },
+    "damage_motion_tier_1_threshold": {
+      "kind": "source_f32",
+      "offset": 344,
+      "raw": 10.0,
+      "source_name": "x158"
+    },
+    "damage_motion_tier_2_threshold": {
+      "kind": "source_f32",
+      "offset": 348,
+      "raw": 21.0,
+      "source_name": "x15C"
+    },
+    "damage_motion_tier_3_threshold": {
+      "kind": "source_f32",
+      "offset": 352,
+      "raw": 32.0,
+      "source_name": "x160"
+    },
+    "passive_window_max": {
+      "kind": "source_f32",
+      "offset": 592,
+      "raw": 9.600000381469727,
+      "source_name": "x250"
+    },
+    "passive_stand_stick_x": {
+      "kind": "source_f32",
+      "offset": 596,
+      "raw": 1.5,
+      "source_name": "x254"
+    },
+    "damage_sakurai_air_angle_radians": {
+      "kind": "source_f32",
+      "offset": 324,
+      "raw": 0.7853981852531433,
+      "source_name": "x144_radians"
+    },
+    "damage_sakurai_ground_angle_degrees": {
+      "kind": "source_f32",
+      "offset": 328,
+      "raw": 44.0,
+      "source_name": "x148"
+    },
+    "damage_sakurai_ground_max_knockback": {
+      "kind": "source_f32",
+      "offset": 336,
+      "raw": 32.099998474121094,
+      "source_name": "x150"
+    },
+    "damage_sakurai_ground_min_knockback": {
+      "kind": "source_f32",
+      "offset": 332,
+      "raw": 32.0,
+      "source_name": "x14C"
+    },
+    "down_wait_timer": {
+      "kind": "source_f32",
+      "offset": 1060,
+      "raw": 0.0,
+      "source_name": "x424"
+    },
     "dash_defensive_action_window": {
       "kind": "f32_ticks",
       "offset": 72,
@@ -251,6 +342,30 @@
       "raw": 2.0,
       "source_name": "x6C"
     },
+    "hitlag_base_frames": {
+      "kind": "source_f32",
+      "offset": 412,
+      "raw": 3.0,
+      "source_name": "x19C"
+    },
+    "hitlag_crouch_multiplier": {
+      "kind": "source_f32",
+      "offset": 416,
+      "raw": 0.6666666865348816,
+      "source_name": "x1A0"
+    },
+    "hitlag_damage_scale": {
+      "kind": "source_f32",
+      "offset": 408,
+      "raw": 0.3333333432674408,
+      "source_name": "x198"
+    },
+    "hitlag_max_frames": {
+      "kind": "source_f32",
+      "offset": 404,
+      "raw": 20.0,
+      "source_name": "x194_unkHitLagFrames"
+    },
     "lcancel_divisor": {
       "kind": "source_f32",
       "offset": 232,
@@ -263,6 +378,54 @@
       "raw": 7,
       "source_name": "xE4",
       "ticks": 7
+    },
+    "knockback_cap": {
+      "kind": "source_f32",
+      "offset": 264,
+      "raw": 2500.0,
+      "source_name": "x108"
+    },
+    "knockback_damage_scale": {
+      "kind": "source_f32",
+      "offset": 272,
+      "raw": 0.10000000149011612,
+      "source_name": "x110"
+    },
+    "knockback_decay": {
+      "kind": "source_f32",
+      "offset": 248,
+      "raw": 2.0,
+      "source_name": "xF8"
+    },
+    "knockback_hit_count_scale": {
+      "kind": "source_f32",
+      "offset": 276,
+      "raw": 0.05000000074505806,
+      "source_name": "x114"
+    },
+    "knockback_result_offset": {
+      "kind": "source_f32",
+      "offset": 288,
+      "raw": 18.0,
+      "source_name": "x120"
+    },
+    "knockback_result_scale": {
+      "kind": "source_f32",
+      "offset": 284,
+      "raw": 1.399999976158142,
+      "source_name": "x11C"
+    },
+    "knockback_weight_multiplier": {
+      "kind": "source_f32",
+      "offset": 244,
+      "raw": 0.009999999776482582,
+      "source_name": "xF4"
+    },
+    "knockback_weight_set_damage": {
+      "kind": "source_f32",
+      "offset": 280,
+      "raw": 10.0,
+      "source_name": "x118"
     },
     "main_stick_deadzone_x": {
       "kind": "stick",

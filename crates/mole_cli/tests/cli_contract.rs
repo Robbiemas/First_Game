@@ -10,6 +10,7 @@ use mole_cli::{
     count_graph_statuses, find_project_root, parity_summary, parse_git_status, run_cli,
     verification_plan_for_changed_paths,
 };
+use mole_frame_data::decode_runtime_source_frame_capsules;
 use serde_json::json;
 
 #[test]
@@ -258,6 +259,47 @@ fn decomp_commands_report_missing_decomp_root_without_mutation() {
 }
 
 #[test]
+fn friend_connect_diagnostics_summarizes_bounded_netplay_log() {
+    let root = temp_project_root("friend_connect_diagnostics");
+    let log_path = root.join("logs/netplay/visible_host-test.jsonl");
+    fs::create_dir_all(log_path.parent().unwrap()).unwrap();
+    fs::write(
+        &log_path,
+        concat!(
+            "{\"role\":\"visible_host\",\"event\":\"frame_summary\",\"frame\":60,\"received_packets\":5,\"missing_remote_frames\":2,\"rollback_corrections\":1,\"last_remote_frame\":59,\"last_remote_checksum\":100,\"last_rtt_frames\":2,\"world_checksum\":200,\"packet_bundle_len\":8,\"speed_ppm\":1000000,\"advance_online_frame\":false,\"skip_online_frame\":false}\n",
+            "{\"role\":\"visible_host\",\"event\":\"frame_summary\",\"frame\":120,\"received_packets\":9,\"missing_remote_frames\":3,\"rollback_corrections\":2,\"last_remote_frame\":120,\"last_remote_checksum\":101,\"last_rtt_frames\":1,\"world_checksum\":201,\"packet_bundle_len\":8,\"speed_ppm\":1010000,\"advance_online_frame\":true,\"skip_online_frame\":false}\n",
+            "{\"role\":\"visible_host\",\"event\":\"frame_summary\",\"frame\":121,\"received_packets\":9,\"missing_remote_frames\":3,\"rollback_corrections\":2,\"last_remote_frame\":120,\"last_remote_checksum\":101,\"last_rtt_frames\":1,\"world_checksum\":201,\"packet_bundle_len\":8,\"speed_ppm\":1010000,\"advance_online_frame\":false,\"skip_online_frame\":true}\n",
+        ),
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "friend-connect".to_string(),
+        "diagnostics".to_string(),
+        "--log".to_string(),
+        log_path.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "friend-connect diagnostics");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["events"], 3);
+    assert_eq!(parsed["frame_summaries"], 3);
+    assert_eq!(parsed["last_frame"], 121);
+    assert_eq!(parsed["max_rollback_corrections"], 2);
+    assert_eq!(parsed["max_missing_remote_frames"], 3);
+    assert_eq!(parsed["max_packet_bundle_len"], 8);
+    assert_eq!(parsed["advance_events"], 1);
+    assert_eq!(parsed["skip_events"], 1);
+    assert_eq!(parsed["speed_ppm_min"], 1_000_000);
+    assert_eq!(parsed["speed_ppm_max"], 1_010_000);
+    assert_eq!(parsed["last_world_checksum"], 201);
+}
+
+#[test]
 fn frame_data_extract_returns_dolphin_mole_scoped_attack_air_n_artifact() {
     let root = temp_project_root("frame_data_extract");
     write_json(
@@ -439,7 +481,7 @@ fn frame_data_export_runtime_writes_native_capsule_module_from_artifact() {
             "overrides": []
         }),
     );
-    let output_path = root.join("crates/mole_runtime/src/generated/frame_data_boxes.rs");
+    let output_path = root.join("crates/mole_runtime/src/generated/source_frame_data.rs");
 
     let output = run_cli(&[
         "--root".to_string(),
@@ -807,7 +849,7 @@ fn frame_data_export_runtime_all_states_writes_combined_capsule_module() {
             }]
         }),
     );
-    let output_path = root.join("crates/mole_runtime/src/generated/frame_data_boxes.rs");
+    let output_path = root.join("legacy_frame_data_boxes.rs");
 
     let output = run_cli(&[
         "--root".to_string(),
@@ -832,12 +874,246 @@ fn frame_data_export_runtime_all_states_writes_combined_capsule_module() {
     assert_eq!(parsed["hitbox_frame_count"], 1);
     assert_eq!(parsed["hurtbox_frame_count"], 1);
     assert_eq!(parsed["source_artifact_paths"].as_array().unwrap().len(), 2);
+    assert_eq!(parsed["runtime_export_kind"], "legacy_baked_capsule_module");
+    assert!(generated.contains("SourceHitCapsule"));
+    assert!(generated.contains("SourceHurtCapsule"));
+    assert!(generated
+        .contains("pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"baked_frame_data_boxes\""));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("MotionState::Wait"));
-    assert!(generated.contains("DOLPHIN_MOLE_ATTACK_AIR_N_HIT_FRAME_7"));
-    assert!(generated.contains("DOLPHIN_MOLE_WAIT_HURT_FRAME_1"));
-    assert!(generated.contains("z: -1.25"));
-    assert!(generated.contains("z: 1.5"));
+    assert!(generated.contains("_HIT_FRAME_"));
+    assert!(generated.contains("_HURT_FRAME_"));
+}
+
+#[test]
+fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_export() {
+    let root = workspace_root();
+    let temp_root = temp_project_root("frame_data_export_runtime_compact_source_export");
+    let output_path = temp_root.join("source_frame_data.rs");
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "export-runtime".to_string(),
+        "--all-states".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--output".to_string(),
+        output_path.display().to_string(),
+        "--write".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let generated = fs::read_to_string(&output_path).unwrap();
+
+    assert_eq!(parsed["command"], "frame-data export-runtime");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["compact_manifest_detected"], true);
+    assert_eq!(parsed["runtime_export_kind"], "compact_source_export");
+    assert_eq!(parsed["state_count"], 105);
+    let gap_action_ids = parsed["rust_parity_gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|gap| gap["action_state_id"].as_u64())
+        .collect::<Vec<_>>();
+    assert!(
+        !gap_action_ids.contains(&40),
+        "GuardDamage is consumed by the GuardSetOff runtime binding"
+    );
+    assert!(
+        !gap_action_ids.contains(&36),
+        "Landing action-table id 36 is consumed by LandingFallSpecial"
+    );
+    assert!(
+        !gap_action_ids.contains(&238),
+        "Entry source action data is shared by the Entry, EntryStart, and EntryEnd runtime aliases"
+    );
+    assert_eq!(parsed["wrote_output"], true);
+    assert!(parsed["figatree_chunk_count"].as_u64().unwrap() >= 65);
+    assert!(parsed["figatree_chunk_bytes"].as_u64().unwrap() > 0);
+    assert!(generated.contains("RuntimeSourceExport"));
+    assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("RuntimeActionBinding"));
+    assert!(generated.contains("MeleeActionStateId::new(65)"));
+    assert!(generated.contains("MeleeActionStateId::new(75)"));
+    assert!(generated.contains("MeleeActionStateId::new(45)"));
+    assert!(generated.contains("MeleeActionStateId::new(46)"));
+    assert!(generated.contains("MeleeActionStateId::new(47)"));
+    assert!(generated.contains("MeleeActionStateId::new(48)"));
+    assert!(generated.contains("MeleeActionStateId::new(49)"));
+    assert!(generated.contains("MeleeActionStateId::new(91)"));
+    assert!(generated.contains("MeleeActionStateId::new(183)"));
+    assert!(generated.contains("MeleeActionStateId::new(184)"));
+    assert!(generated.contains("MeleeActionStateId::new(186)"));
+    assert!(generated.contains("MeleeActionStateId::new(187)"));
+    assert!(generated.contains("MeleeActionStateId::new(191)"));
+    assert!(generated.contains("MeleeActionStateId::new(192)"));
+    assert!(generated.contains("MeleeActionStateId::new(194)"));
+    assert!(generated.contains("MeleeActionStateId::new(195)"));
+    assert!(generated.contains("MeleeActionStateId::new(199)"));
+    assert!(generated.contains("MeleeActionStateId::new(200)"));
+    assert!(generated.contains("MeleeActionStateId::new(201)"));
+    assert!(generated.contains("source_action_key: \"DamageHi1\""));
+    assert!(generated.contains("source_action_key: \"Attack12\""));
+    assert!(generated.contains("source_action_key: \"Attack13\""));
+    assert!(generated.contains("source_action_key: \"Attack100Start\""));
+    assert!(generated.contains("source_action_key: \"Attack100Loop\""));
+    assert!(generated.contains("source_action_key: \"Attack100End\""));
+    assert!(generated.contains("source_action_key: \"DamageFlyRoll\""));
+    assert!(generated.contains("source_action_key: \"DownBoundU\""));
+    assert!(generated.contains("source_action_key: \"DownWaitU\""));
+    assert!(generated.contains("source_action_key: \"DownStandU\""));
+    assert!(generated.contains("source_action_key: \"DownAttackU\""));
+    assert!(generated.contains("source_action_key: \"DownBoundD\""));
+    assert!(generated.contains("source_action_key: \"DownWaitD\""));
+    assert!(generated.contains("source_action_key: \"DownStandD\""));
+    assert!(generated.contains("source_action_key: \"DownAttackD\""));
+    assert!(generated.contains("source_action_key: \"Passive\""));
+    assert!(generated.contains("source_action_key: \"PassiveStandF\""));
+    assert!(generated.contains("source_action_key: \"PassiveStandB\""));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(45), source_action_key: \"Attack12\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(46), source_action_key: \"Attack13\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(47), source_action_key: \"Attack100Start\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(48), source_action_key: \"Attack100Loop\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(49), source_action_key: \"Attack100End\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(75), source_action_key: \"DamageHi1\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(91), source_action_key: \"DamageFlyRoll\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(183), source_action_key: \"DownBoundU\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(184), source_action_key: \"DownWaitU\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(186), source_action_key: \"DownStandU\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(187), source_action_key: \"DownAttackU\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(191), source_action_key: \"DownBoundD\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(192), source_action_key: \"DownWaitD\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(194), source_action_key: \"DownStandD\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(195), source_action_key: \"DownAttackD\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(199), source_action_key: \"Passive\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(200), source_action_key: \"PassiveStandF\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(201), source_action_key: \"PassiveStandB\", motion_state: None }"
+    ));
+    assert!(generated.contains("MeleeActionStateId::new(322)"));
+    assert!(generated.contains("MeleeActionStateId::new(323)"));
+    assert!(generated.contains("MeleeActionStateId::new(324)"));
+    assert!(generated.contains("source_action_key: \"Entry\""));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(322), source_action_key: \"Entry\", motion_state: Some(MotionState::Entry) }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(323), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryStart) }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(324), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryEnd) }"
+    ));
+    assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
+    assert!(generated.contains("SOURCE_MANIFEST_JSON"));
+    assert!(generated.contains("SOURCE_EXPORT"));
+    assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
+    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/"));
+    assert!(generated.contains("MotionState::AttackAirN"));
+    assert!(generated.contains("AttackAirN"));
+    assert!(!generated.contains("SourceHitCapsule"));
+    assert!(!generated.contains("SourceHurtCapsule"));
+    assert!(!generated.contains("_HIT_FRAME_"));
+    assert!(!generated.contains("_HURT_FRAME_"));
+    assert!(generated.len() < 200_000);
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_manifest.json")
+        .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_frame_capsules.bin")
+        .exists());
+    let source_frame_capsules = fs::read(
+        output_path
+            .parent()
+            .unwrap()
+            .join("source_frame_data/source_frame_capsules.bin"),
+    )
+    .unwrap();
+    let decoded_capsules = decode_runtime_source_frame_capsules(&source_frame_capsules).unwrap();
+    let damage_air1 = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "DamageAir1")
+        .expect("all-states runtime export should bake DamageAir1");
+    let down_wait_u = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "DownWaitU")
+        .expect("all-states runtime export should bake DownWaitU");
+    assert_eq!(down_wait_u.frames.len(), 70);
+    let down_stand_u = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "DownStandU")
+        .expect("all-states runtime export should bake DownStandU");
+    assert_eq!(down_stand_u.frames.len(), 30);
+    let down_attack_u = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "DownAttackU")
+        .expect("all-states runtime export should bake DownAttackU");
+    assert_eq!(down_attack_u.frames.len(), 50);
+    let passive = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "Passive")
+        .expect("all-states runtime export should bake Passive");
+    assert_eq!(passive.frames.len(), 26);
+    let passive_stand_f = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "PassiveStandF")
+        .expect("all-states runtime export should bake PassiveStandF");
+    assert_eq!(passive_stand_f.frames.len(), 40);
+    let passive_stand_b = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "PassiveStandB")
+        .expect("all-states runtime export should bake PassiveStandB");
+    assert_eq!(passive_stand_b.frames.len(), 40);
+    let down_bound_pose = damage_air1
+        .frames
+        .get(1)
+        .expect("DamageAir1 should have a second source frame")
+        .down_bound_pose;
+    assert!(down_bound_pose.hip_mtx_1_1.is_finite());
+    assert!(down_bound_pose.hip_mtx_1_1.abs() > 0.001);
+    assert_eq!(parsed["companion_manifest_path"], serde_json::Value::Null);
 }
 
 #[test]
@@ -845,7 +1121,7 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
     let root = workspace_root();
     let temp_root = temp_project_root("frame_data_export_runtime_state_compact_manifest");
     let manifest_path = root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json");
-    let output_path = temp_root.join("frame_data_boxes.rs");
+    let output_path = temp_root.join("source_frame_data.rs");
 
     let output = run_cli(&[
         "--root".to_string(),
@@ -867,16 +1143,42 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
     assert_eq!(parsed["command"], "frame-data export-runtime");
     assert_eq!(parsed["ok"], true);
     assert_eq!(parsed["wrote_output"], true);
-    assert!(parsed["hitbox_count"].as_u64().unwrap() > 0);
-    assert!(parsed["hurtbox_count"].as_u64().unwrap() > 0);
+    assert_eq!(parsed["runtime_export_kind"], "compact_source_export");
+    assert!(parsed["figatree_chunk_count"].as_u64().unwrap() >= 1);
+    assert!(parsed["figatree_chunk_bytes"].as_u64().unwrap() > 0);
     assert_eq!(
         PathBuf::from(parsed["source_manifest_path"].as_str().unwrap()),
         manifest_path
     );
+    assert!(generated.contains("RuntimeSourceExport"));
+    assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("RuntimeActionBinding"));
+    assert!(generated.contains("MeleeActionStateId::new(65)"));
+    assert!(generated.contains("source_action_key: \"AttackAirN\""));
+    assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
+    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/attack_air_n.figatree.bin\")"));
     assert!(generated.contains("MotionState::AttackAirN"));
-    assert!(generated.contains("DOLPHIN_MOLE_ATTACK_AIR_N_HIT_FRAME_7"));
-    assert!(generated.contains("DOLPHIN_MOLE_ATTACK_AIR_N_HURT_FRAME_7"));
-    assert!(generated.contains("z: 6.227705001831055"));
+    assert!(generated.contains("AttackAirN"));
+    assert!(!generated.contains("SourceHitCapsule"));
+    assert!(!generated.contains("SourceHurtCapsule"));
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_manifest.json")
+        .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/attack_air_n.figatree.bin")
+        .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_frame_capsules.bin")
+        .exists());
 }
 
 #[test]
@@ -1460,6 +1762,98 @@ fn frame_data_extract_decodes_source_action_script_cmd_var_procedures() {
 }
 
 #[test]
+fn frame_data_extract_decodes_source_jab_script_procedures() {
+    let root = temp_project_root("frame_data_source_jab_procedures");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "AttackAirN",
+            "label": "Neutral Air",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 290}],
+            "summary": {"total_frames": 45, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 68,
+                "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x08000005u32,
+        0x74000001,
+        0x08000009,
+        0x74000000,
+        0x0800000a,
+        0x78000001,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "AttackAirN".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let decoded = parsed["artifact"]["decoded_action_script"]
+        .as_object()
+        .expect("source action script should decode jab combo/rapid fighter commands");
+    let procedures = decoded["procedures"].as_array().unwrap();
+
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_jab_combo"
+            && procedure["handler"] == "ftAction_80071AE8"
+            && procedure["frame"] == 5
+            && procedure["raw_words"] == json!(["0x74000001"])
+            && procedure["disabled"] == true
+    }));
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_jab_combo"
+            && procedure["handler"] == "ftAction_80071AE8"
+            && procedure["frame"] == 9
+            && procedure["raw_words"] == json!(["0x74000000"])
+            && procedure["disabled"] == false
+    }));
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_jab_rapid"
+            && procedure["handler"] == "ftAction_80071B28"
+            && procedure["frame"] == 10
+            && procedure["raw_words"] == json!(["0x78000001"])
+            && procedure["state"] == true
+    }));
+}
+
+#[test]
 fn frame_data_extract_decodes_source_hurt_state_procedures() {
     let root = temp_project_root("frame_data_source_hurt_state");
     write_json(
@@ -1844,6 +2238,200 @@ fn run_cli_defaults_to_json_for_ai_consumers() {
 }
 
 #[test]
+fn package_friend_playtest_dry_run_reports_closed_handoff_artifacts() {
+    let root = temp_project_root("package_friend_playtest_dry_run");
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "package".to_string(),
+        "friend-playtest".to_string(),
+        "--dry-run".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "package friend-playtest");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["dry_run"], true);
+    assert_eq!(parsed["verify"], true);
+    assert!(parsed["build_command"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tools/package_friend_playtest.ps1")));
+    assert!(parsed["artifacts"]["playtest_exe"]
+        .as_str()
+        .unwrap()
+        .ends_with("playtest\\MoleGame-FriendPlaytest.exe"));
+}
+
+#[test]
+fn package_local_internet_playtest_dry_run_reports_secondary_launcher_artifacts() {
+    let root = temp_project_root("package_local_internet_playtest_dry_run");
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "package".to_string(),
+        "local-internet-playtest".to_string(),
+        "--dry-run".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "package local-internet-playtest");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["dry_run"], true);
+    assert!(parsed["artifacts"]["playtest_exe"]
+        .as_str()
+        .unwrap()
+        .ends_with("playtest\\MoleGame-LocalInternetPlaytest.exe"));
+    assert!(parsed["build_command"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tools/package_friend_playtest.ps1")));
+}
+
+#[test]
+fn friend_connect_status_reports_role_controller_and_package_contract() {
+    let root = temp_project_root("friend_connect_status");
+    fs::create_dir_all(root.join("playtest")).unwrap();
+    fs::write(
+        root.join("playtest/MoleGame-FriendPlaytest.exe"),
+        b"placeholder",
+    )
+    .unwrap();
+    fs::write(
+        root.join("playtest/MoleGame-LocalInternetPlaytest.exe"),
+        b"placeholder",
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "friend-connect".to_string(),
+        "status".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "friend-connect status");
+    assert_eq!(parsed["mutated"], false);
+    assert_eq!(parsed["package_ready"], true);
+    assert_eq!(parsed["role_contract"]["host"]["player_slot"], 1);
+    assert_eq!(parsed["role_contract"]["host"]["network_index"], 0);
+    assert_eq!(parsed["role_contract"]["host"]["can_start_match"], true);
+    assert_eq!(parsed["role_contract"]["joiner"]["player_slot"], 2);
+    assert_eq!(parsed["role_contract"]["joiner"]["network_index"], 1);
+    assert_eq!(parsed["role_contract"]["joiner"]["can_start_match"], false);
+    assert_eq!(parsed["controller_contract"]["active_at_launch"], false);
+    assert!(parsed["controller_contract"]["activation_rule"]
+        .as_str()
+        .unwrap()
+        .contains("non-neutral gameplay input"));
+    assert!(parsed["controller_contract"]["extra_local_controllers"]
+        .as_str()
+        .unwrap()
+        .contains("future local doubles"));
+    assert_eq!(parsed["netplay_contract"]["default_input_delay_frames"], 2);
+    assert_eq!(
+        parsed["netplay_contract"]["manual_delay_override"],
+        "--netplay-delay N"
+    );
+    assert!(parsed["netplay_contract"]["slippi_delay_model"]
+        .as_str()
+        .unwrap()
+        .contains("F + delay"));
+    assert!(parsed["netplay_contract"]["initial_delay_pads"]
+        .as_str()
+        .unwrap()
+        .contains("neutral"));
+    assert_eq!(parsed["netplay_contract"]["rollback_window_frames"], 7);
+    assert_eq!(
+        parsed["netplay_contract"]["recent_input_retransmit_frames"],
+        8
+    );
+    assert!(parsed["netplay_contract"]["recent_input_datagram"]
+        .as_str()
+        .unwrap()
+        .contains("one bundled datagram"));
+    assert!(parsed["netplay_contract"]["ack_pruning"]
+        .as_str()
+        .unwrap()
+        .contains("frame < minAckFrame"));
+    assert!(parsed["netplay_contract"]["remote_receive_head"]
+        .as_str()
+        .unwrap()
+        .contains("packetNewestFrame - headFrame"));
+    assert!(parsed["netplay_contract"]["time_offset_sampling"]
+        .as_str()
+        .unwrap()
+        .contains("one CalcTimeOffsetUs-style timing sample"));
+    assert!(parsed["netplay_contract"]["remote_lookahead_stall"]
+        .as_str()
+        .unwrap()
+        .contains("does not advance"));
+    assert!(parsed["netplay_contract"]["slippi_time_sync"]
+        .as_str()
+        .unwrap()
+        .contains("CalcTimeOffsetUs"));
+    assert!(parsed["netplay_contract"]["slippi_dynamic_pacing"]
+        .as_str()
+        .unwrap()
+        .contains("m_EmulationSpeed"));
+    assert!(parsed["netplay_contract"]["match_frame_epoch"]
+        .as_str()
+        .unwrap()
+        .contains("match frame 0"));
+    assert!(parsed["netplay_contract"]["late_remote_input"]
+        .as_str()
+        .unwrap()
+        .contains("rollback confirmation"));
+    assert_eq!(
+        parsed["solo_internet_test_contract"]["mode"],
+        "visible-host-plus-visible-peer"
+    );
+    assert!(
+        parsed["solo_internet_test_contract"]["visible_peer_command"]
+            .as_str()
+            .unwrap()
+            .contains("--friend-connect --play")
+    );
+    assert!(
+        parsed["solo_internet_test_contract"]["visible_peer_command"]
+            .as_str()
+            .unwrap()
+            .contains("--connect-code")
+    );
+    assert!(
+        parsed["solo_internet_test_contract"]["visible_peer_command"]
+            .as_str()
+            .unwrap()
+            .contains("--friend-local-udp 127.0.0.1:41002")
+    );
+    assert_eq!(
+        parsed["solo_internet_test_contract"]["gameplay_transport"],
+        "direct UDP input packets over explicit loopback ports for same-machine visual testing"
+    );
+    assert!(parsed["solo_internet_test_contract"]["performance_readout"]
+        .as_str()
+        .unwrap()
+        .contains("CPU"));
+    assert!(parsed["solo_internet_test_contract"]["log_policy"]
+        .as_str()
+        .unwrap()
+        .contains("5 MB"));
+    assert_eq!(parsed["artifacts"]["playtest_exe"]["exists"], true);
+    assert_eq!(
+        parsed["artifacts"]["local_internet_playtest_exe"]["exists"],
+        true
+    );
+    assert!(parsed["build_command"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("friend-playtest")));
+}
+
+#[test]
 fn help_command_exposes_full_agent_command_catalog() {
     let output = run_cli(&["help".to_string()]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
@@ -1869,6 +2457,9 @@ fn help_command_exposes_full_agent_command_catalog() {
         "frame-data extract",
         "frame-data export-runtime",
         "frame-data show",
+        "package friend-playtest",
+        "package local-internet-playtest",
+        "friend-connect status",
         "decomp search",
         "decomp show",
         "decomp symbol",
@@ -1988,7 +2579,14 @@ fn help_command_exposes_full_agent_command_catalog() {
     assert!(frame_data_export_runtime["purpose"]
         .as_str()
         .unwrap()
-        .contains("native Rust runtime capsule module"));
+        .contains(
+            "source_frame_capsules.bin action/frame capsule and DownBound hip-pose sidecar consumed by player runtime"
+        ));
+    assert!(frame_data_export_runtime["writes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|path| path.as_str().unwrap().contains("source_frame_data")));
     assert!(frame_data_export_runtime["optional_flags"]
         .as_array()
         .unwrap()
@@ -2061,6 +2659,72 @@ fn help_command_exposes_full_agent_command_catalog() {
         .unwrap()
         .iter()
         .any(|example| { example.as_str().unwrap().contains("generated check --json") }));
+    let package_friend_playtest = commands
+        .iter()
+        .find(|command| command["name"] == "package friend-playtest")
+        .unwrap();
+    assert_eq!(package_friend_playtest["mutates_workspace"], true);
+    assert!(package_friend_playtest["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("one-file Windows Friend Connect playtest"));
+    assert!(package_friend_playtest["writes"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("playtest/MoleGame-FriendPlaytest.exe")));
+    assert!(package_friend_playtest["optional_flags"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("--dry-run")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example
+            .as_str()
+            .unwrap()
+            .contains("package friend-playtest")));
+    let package_local_internet_playtest = commands
+        .iter()
+        .find(|command| command["name"] == "package local-internet-playtest")
+        .unwrap();
+    assert_eq!(package_local_internet_playtest["mutates_workspace"], true);
+    assert!(package_local_internet_playtest["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("secondary one-file Windows launcher"));
+    assert!(package_local_internet_playtest["writes"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("playtest/MoleGame-LocalInternetPlaytest.exe")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| {
+            example
+                .as_str()
+                .unwrap()
+                .contains("package local-internet-playtest")
+        }));
+    let friend_connect_status = commands
+        .iter()
+        .find(|command| command["name"] == "friend-connect status")
+        .unwrap();
+    assert_eq!(friend_connect_status["mutates_workspace"], false);
+    assert!(friend_connect_status["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("controller activation"));
+    assert!(friend_connect_status["agent_notes"]
+        .as_str()
+        .unwrap()
+        .contains("host/code owner is P1"));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("friend-connect status")));
     let finish_check = commands
         .iter()
         .find(|command| command["name"] == "finish check")
@@ -2078,7 +2742,27 @@ fn help_command_exposes_full_agent_command_catalog() {
         .unwrap()
         .iter()
         .any(|example| { example.as_str().unwrap().contains("finish check --json") }));
+    let tests_command = commands
+        .iter()
+        .find(|command| command["name"] == "tests")
+        .unwrap();
+    assert!(tests_command["agent_notes"]
+        .as_str()
+        .unwrap()
+        .contains("one test-name filter"));
     assert_eq!(parsed["global_flags"]["--root"], "Project root override.");
+}
+
+#[test]
+fn tests_command_notes_cargo_filter_limit() {
+    let output = run_cli(&["tests".to_string()]).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert!(parsed["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|note| note.as_str().unwrap().contains("one test-name filter")));
 }
 
 #[test]
@@ -2202,6 +2886,10 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
         .iter()
         .find(|group| group["id"] == "value_sheets")
         .unwrap();
+    let runtime_source_frame_data = groups
+        .iter()
+        .find(|group| group["id"] == "runtime_source_frame_data")
+        .unwrap();
 
     assert_eq!(parsed["command"], "generated check");
     assert_eq!(parsed["mutated"], false);
@@ -2211,6 +2899,10 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
         .as_array()
         .unwrap()
         .contains(&json!("resources/melee/extracted/plco_common_data.json")));
+    assert!(runtime_source_frame_data["recommended_command"]
+        .as_str()
+        .unwrap()
+        .contains("source_frame_data.rs"));
     assert!(parsed["summary"]["stale_groups"].as_u64().unwrap() >= 1);
     assert!(parsed["summary"]["missing_output_groups"].as_u64().unwrap() >= 1);
 }

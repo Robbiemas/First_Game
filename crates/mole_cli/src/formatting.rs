@@ -80,6 +80,30 @@ pub(crate) fn format_text_report(report: &Value) -> String {
             }
         }
     }
+    if command == "friend-connect status" {
+        if let Some(package_ready) = report.get("package_ready").and_then(Value::as_bool) {
+            lines.push(format!("package ready: {package_ready}"));
+        }
+        if let Some(role) = report.get("role_contract") {
+            let host_slot = role
+                .get("host")
+                .and_then(|host| host.get("player_slot"))
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            let joiner_slot = role
+                .get("joiner")
+                .and_then(|joiner| joiner.get("player_slot"))
+                .and_then(Value::as_u64)
+                .unwrap_or(2);
+            lines.push(format!("host/code owner: P{host_slot} start owner"));
+            lines.push(format!("joiner/code connector: P{joiner_slot} wait start"));
+        }
+        if let Some(controller) = report.get("controller_contract") {
+            if let Some(rule) = controller.get("activation_rule").and_then(Value::as_str) {
+                lines.push(format!("controller activation: {rule}"));
+            }
+        }
+    }
     if let Some(next) = report.get("recommended_next").and_then(Value::as_array) {
         lines.push("recommended next:".to_string());
         lines.extend(

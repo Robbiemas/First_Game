@@ -1,12 +1,17 @@
+use mole_core::collision::{
+    source_damage_result_for_victim, Capsule3, SourceCollisionCapsule, SourceCollisionFrame,
+    SourceDamageResultInput, SourceDamageStage, SourceHitboxAttributes, Vec3,
+};
 use mole_core::{
     fighter_stick_axis_to_f32, input_common_data_field_sources,
     landing_contact_for_bottom_with_floor_skip, melee_units, melee_units_f32,
-    milli_to_source_units, source_units_to_milli, step_world, CommonDataExtractError,
-    CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
-    FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
-    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
-    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState, StageProfile,
-    StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
+    milli_to_source_units, source_units_to_milli, step_world, step_world_with_source_runtime_data,
+    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
+    FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
+    MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
+    MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
+    SourceActionKey, SourceDownBoundPose, StageProfile, StageSpawnPoint, StageSurface,
+    StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -348,16 +353,23 @@ fn source_turn_run_phys_velocity(
     profile: FighterProfile,
     common: MeleeCommonData,
 ) -> i32 {
-    let (accel, target_velocity) = source_dash_run_accel_and_target(profile, stick_x);
+    let (mut accel, target_velocity) = source_dash_run_accel_and_target(profile, stick_x);
 
     if accel != 0 && accel_mul as i32 * accel < 0 {
-        source_ground_accel_toward_target(
-            velocity_x,
-            accel,
-            target_velocity,
-            source_run_ground_friction(profile, common),
-            source_units_to_milli(profile.ground_max_horizontal_velocity),
-        )
+        if accel > 0 {
+            if velocity_x + accel > target_velocity {
+                accel -= source_run_ground_friction(profile, common);
+                if velocity_x + accel < target_velocity {
+                    accel = target_velocity - velocity_x;
+                }
+            }
+        } else if velocity_x + accel < target_velocity {
+            accel += source_run_ground_friction(profile, common);
+            if velocity_x + accel > target_velocity {
+                accel = target_velocity - velocity_x;
+            }
+        }
+        velocity_x + accel
     } else {
         let friction = source_run_ground_friction(profile, common);
         if velocity_x > friction {
@@ -388,26 +400,33 @@ fn source_dash_phys_velocity(
 
 fn source_air_drift_velocity(velocity_x: i32, stick_x: i32, profile: FighterProfile) -> i32 {
     let current_velocity = milli_to_source_units(velocity_x);
+    source_units_to_milli(source_air_drift_velocity_f32(
+        current_velocity,
+        stick_x,
+        profile,
+    ))
+}
+
+fn source_air_drift_velocity_f32(
+    current_velocity: f32,
+    stick_x: i32,
+    profile: FighterProfile,
+) -> f32 {
     let target_velocity = source_stick_scaled_velocity_f32(stick_x, profile.air_drift_max);
     if target_velocity == 0.0 {
-        return source_units_to_milli(source_apply_air_friction_to_zero_f32(
-            current_velocity,
-            profile.aerial_friction,
-        ));
+        return source_apply_air_friction_to_zero_f32(current_velocity, profile.aerial_friction);
     }
 
     let stick_accel = source_stick_scaled_velocity_f32(stick_x, profile.air_drift_stick_multiplier);
     let base_accel = stick_x.signum() as f32 * profile.aerial_drift_base;
-    source_units_to_milli(
-        current_velocity
-            + source_air_accel_for_velocity_f32(
-                current_velocity,
-                stick_accel + base_accel,
-                target_velocity,
-                profile.aerial_friction,
-                profile.air_max_horizontal_velocity,
-            ),
-    )
+    current_velocity
+        + source_air_accel_for_velocity_f32(
+            current_velocity,
+            stick_accel + base_accel,
+            target_velocity,
+            profile.aerial_friction,
+            profile.air_max_horizontal_velocity,
+        )
 }
 
 fn source_apply_air_friction_to_zero_f32(current_velocity: f32, friction: f32) -> f32 {
@@ -914,6 +933,7 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.jumpsquat_frames, 4);
     assert_eq!(profile.dash_frames, 15);
     assert_eq!(profile.max_run_brake_frames, Some(30));
+    assert_eq!(profile.weight.to_bits(), 104.0_f32.to_bits());
     assert_eq!(profile.standing_turn_direction_change_frames, 6);
     assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.normal_landing_lag_ticks, 4);
@@ -957,6 +977,9 @@ fn falcon_like_profile_keeps_ftco_dat_attr_floats_as_source_f32() {
     assert_source_f32(profile.aerial_friction, 0.009999999776482582);
     assert_source_f32(profile.fast_fall_velocity, 3.5);
     assert_source_f32(profile.air_max_horizontal_velocity, 3.0);
+    assert_source_f32(profile.weight, 104.0);
+    assert_source_f32(profile.player_nudge_body_center_x, 0.0);
+    assert_source_f32(profile.player_nudge_body_half_width, 3.5);
 }
 
 #[test]
@@ -995,6 +1018,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     put_f32_be(&mut bytes, 0x74, 3.5);
     put_f32_be(&mut bytes, 0x78, 1.26);
     put_f32_be(&mut bytes, 0x84, 7.0);
+    put_f32_be(&mut bytes, 0x88, 104.0);
     put_f32_be(&mut bytes, 0xe4, 5.0);
     put_f32_be(&mut bytes, 0xe8, 11.0);
     put_f32_be(&mut bytes, 0xec, 12.0);
@@ -1041,6 +1065,7 @@ fn extracted_ftco_dat_attrs_reads_big_endian_fighter_profile_fields() {
     assert_source_f32(profile.aerial_friction, 0.011);
     assert_source_f32(profile.fast_fall_velocity, 3.5);
     assert_source_f32(profile.air_max_horizontal_velocity, 1.26);
+    assert_source_f32(profile.weight, 104.0);
     assert_eq!(profile.standing_turn_direction_change_frames, 7);
     assert_eq!(profile.standing_turn_total_frames, 11);
     assert_eq!(profile.entry_platform_offset_y, 1_647);
@@ -1067,6 +1092,100 @@ fn extracted_ftco_dat_attrs_reports_missing_source_field() {
             required_len: 0x78,
             actual_len: 0x74,
         }
+    );
+}
+
+#[test]
+fn extracted_profile_carries_ftdata_x50_player_nudge_body_box() {
+    let profile = FighterProfile::from_ftdata_x50_player_nudge_body_box(
+        FighterProfile::falcon_like(),
+        0.25,
+        4.75,
+    );
+
+    assert_eq!(
+        profile.player_nudge_body_center_x.to_bits(),
+        0.25_f32.to_bits()
+    );
+    assert_eq!(
+        profile.player_nudge_body_half_width.to_bits(),
+        4.75_f32.to_bits()
+    );
+}
+
+#[test]
+fn grounded_fighters_compute_player_nudge_before_ground_velocity_like_ftcommon_8007e0e4() {
+    let mut world = World::for_two_players();
+    let mut left = PlayerState::new(-1_000, 0, 1);
+    left.set_motion_state_alias(MotionState::Wait);
+    left.grounded = true;
+
+    let mut right = PlayerState::new(1_000, 0, -1);
+    right.set_motion_state_alias(MotionState::Wait);
+    right.grounded = true;
+
+    assert!(
+        milli_to_source_units(right.position.x - left.position.x)
+            < left.profile.player_nudge_body_half_width
+                + right.profile.player_nudge_body_half_width
+    );
+
+    assert!(world.set_player_state_for_diagnostic(0, left));
+    assert!(world.set_player_state_for_diagnostic(1, right));
+    step_world(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let players = world.players();
+    assert_eq!(
+        players[0].player_nudge_x.to_bits(),
+        (-MeleeCommonData::provisional_mole().player_nudge_x).to_bits(),
+        "ftCommon_8007DD7C gives the left overlapping fighter negative xF8_playerNudgeVel.x"
+    );
+    assert_eq!(
+        players[1].player_nudge_x.to_bits(),
+        MeleeCommonData::provisional_mole().player_nudge_x.to_bits(),
+        "ftCommon_8007DD7C gives the right overlapping fighter positive xF8_playerNudgeVel.x"
+    );
+    assert_eq!(
+        players[0].position.x,
+        -1_000 - source_units_to_milli(MeleeCommonData::provisional_mole().player_nudge_x)
+    );
+    assert_eq!(
+        players[1].position.x,
+        1_000 + source_units_to_milli(MeleeCommonData::provisional_mole().player_nudge_x)
+    );
+    assert_eq!(players[0].velocity.x, 0);
+    assert_eq!(players[1].velocity.x, 0);
+}
+
+#[test]
+fn grounded_source_position_accumulates_sub_milli_velocity_before_projection() {
+    let profile = FighterProfile {
+        ground_friction: 0.0,
+        ground_max_horizontal_velocity: 3.0,
+        ..FighterProfile::falcon_like()
+    };
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = world.players()[0];
+    let initial_position_x = player.position.x;
+    let source_velocity = 1.0_f32 / 3.0;
+    player.ground_velocity_x = source_velocity;
+    player.source_self_velocity_x = source_velocity;
+    player.velocity.x = source_units_to_milli(source_velocity);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    for frame in 0..3 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+
+    assert_eq!(
+        world.players()[0].position.x,
+        initial_position_x + source_units_to_milli(source_velocity * 3.0),
+        "Melee carries fighter position as source float state; milli projection must not round each simulation tick"
     );
 }
 
@@ -1220,6 +1339,29 @@ fn input_threshold_defaults_match_extracted_plco_common_data() {
     assert_eq!(common.entry_collision_landing_lag_ticks, 120);
     assert_eq!(common.guard_on_catch_dash_window, 3);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 10);
+    assert_eq!(common.passive_input_age_threshold, 0);
+    assert_eq!(common.passive_window_max.to_bits(), 9.6_f32.to_bits());
+    assert_eq!(common.passive_stand_stick_x.to_bits(), 1.5_f32.to_bits());
+    assert_eq!(
+        common.player_nudge_x.to_bits(),
+        0.30000001192092896_f32.to_bits()
+    );
+    assert_eq!(
+        common.player_nudge_z.to_bits(),
+        0.10000000149011612_f32.to_bits()
+    );
+    assert_eq!(
+        common.player_nudge_z_clamp.to_bits(),
+        1.399999976158142_f32.to_bits()
+    );
+    assert_eq!(
+        common.transformed_player_nudge_z.to_bits(),
+        0.20000000298023224_f32.to_bits()
+    );
+    assert_eq!(
+        common.transformed_player_nudge_z_clamp.to_bits(),
+        3.799999952316284_f32.to_bits()
+    );
 }
 
 #[test]
@@ -1274,9 +1416,21 @@ fn grounded_common_scalars_remain_source_f32_not_milli_aliases() {
         (-0.5_f32).to_bits()
     );
     assert_eq!(
+        common
+            .damage_landing_down_bound_knockback_threshold
+            .to_bits(),
+        5.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_landing_basic_knockback_threshold.to_bits(),
+        0.5_f32.to_bits()
+    );
+    assert_eq!(
         common.entry_initial_scale_y.to_bits(),
         0.009999999776482582_f32.to_bits()
     );
+    assert_eq!(common.passive_window_max.to_bits(), 9.6_f32.to_bits());
+    assert_eq!(common.passive_stand_stick_x.to_bits(), 1.5_f32.to_bits());
 }
 
 #[test]
@@ -1670,6 +1824,48 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("fall animation blend source should be recorded");
     assert_eq!(fall_animation_blend.source_name, "x448");
     assert_eq!(fall_animation_blend.offset, 0x448);
+
+    for (rust_name, source_name, offset) in [
+        ("knockback_weight_multiplier", "xF4", 0xf4),
+        ("knockback_decay", "xF8", 0xf8),
+        ("damage_knockback_velocity_scale", "x100", 0x100),
+        ("knockback_cap", "x108", 0x108),
+        ("knockback_damage_scale", "x110", 0x110),
+        ("knockback_hit_count_scale", "x114", 0x114),
+        ("knockback_weight_set_damage", "x118", 0x118),
+        ("knockback_result_scale", "x11C", 0x11c),
+        ("knockback_result_offset", "x120", 0x120),
+        ("damage_sakurai_air_angle_radians", "x144_radians", 0x144),
+        ("damage_sakurai_ground_angle_degrees", "x148", 0x148),
+        ("damage_sakurai_ground_min_knockback", "x14C", 0x14c),
+        ("damage_sakurai_ground_max_knockback", "x150", 0x150),
+        ("damage_duration_scale", "x154", 0x154),
+        ("damage_motion_tier_1_threshold", "x158", 0x158),
+        ("damage_motion_tier_2_threshold", "x15C", 0x15c),
+        ("damage_motion_tier_3_threshold", "x160", 0x160),
+        ("hitlag_max_frames", "x194_unkHitLagFrames", 0x194),
+        ("hitlag_damage_scale", "x198", 0x198),
+        ("hitlag_base_frames", "x19C", 0x19c),
+        ("hitlag_crouch_multiplier", "x1A0", 0x1a0),
+        ("passive_input_age_threshold", "x1C", 0x1c),
+        (
+            "damage_landing_down_bound_knockback_threshold",
+            "x1E0",
+            0x1e0,
+        ),
+        ("damage_landing_basic_knockback_threshold", "x1E4", 0x1e4),
+        ("passive_window_max", "x250", 0x250),
+        ("passive_stand_stick_x", "x254", 0x254),
+        ("down_wait_timer", "x424", 0x424),
+    ] {
+        let source = sources
+            .iter()
+            .find(|source| source.rust_name == rust_name)
+            .unwrap_or_else(|| panic!("{rust_name} common-data source should be recorded"));
+        assert_eq!(source.source_name, source_name);
+        assert_eq!(source.offset, offset);
+        assert_eq!(source.provenance, CommonDataProvenance::ExtractedPlCo);
+    }
 }
 
 #[test]
@@ -1683,6 +1879,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x10, 0.12);
     put_f32_be(&mut bytes, 0x14, 0.31);
     put_f32_be(&mut bytes, 0x18, 0.55);
+    put_i32_be(&mut bytes, 0x1c, 6);
     put_f32_be(&mut bytes, 0x20, std::f32::consts::FRAC_PI_4);
     put_f32_be(&mut bytes, 0x24, 0.21);
     put_f32_be(&mut bytes, 0x28, 0.31);
@@ -1715,6 +1912,31 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0xe0, 0.44);
     put_i32_be(&mut bytes, 0xe4, 9);
     put_f32_be(&mut bytes, 0xe8, 3.5);
+    put_f32_be(&mut bytes, 0xf4, 0.011);
+    put_f32_be(&mut bytes, 0xf8, 2.25);
+    put_f32_be(&mut bytes, 0x100, 0.032);
+    put_f32_be(&mut bytes, 0x108, 2400.0);
+    put_f32_be(&mut bytes, 0x110, 0.12);
+    put_f32_be(&mut bytes, 0x114, 0.07);
+    put_f32_be(&mut bytes, 0x118, 11.0);
+    put_f32_be(&mut bytes, 0x11c, 1.6);
+    put_f32_be(&mut bytes, 0x120, 19.0);
+    put_f32_be(&mut bytes, 0x144, 0.79);
+    put_f32_be(&mut bytes, 0x148, 45.0);
+    put_f32_be(&mut bytes, 0x14c, 30.0);
+    put_f32_be(&mut bytes, 0x150, 33.0);
+    put_f32_be(&mut bytes, 0x154, 0.5);
+    put_f32_be(&mut bytes, 0x158, 9.0);
+    put_f32_be(&mut bytes, 0x15c, 20.0);
+    put_f32_be(&mut bytes, 0x160, 31.0);
+    put_f32_be(&mut bytes, 0x194, 18.0);
+    put_f32_be(&mut bytes, 0x198, 0.25);
+    put_f32_be(&mut bytes, 0x19c, 4.0);
+    put_f32_be(&mut bytes, 0x1a0, 0.75);
+    put_f32_be(&mut bytes, 0x1e0, 4.5);
+    put_f32_be(&mut bytes, 0x1e4, 8.0);
+    put_f32_be(&mut bytes, 0x250, 9.5);
+    put_f32_be(&mut bytes, 0x254, 1.25);
     put_f32_be(&mut bytes, 0x25c, -0.62);
     put_f32_be(&mut bytes, 0x314, 0.84);
     put_i32_be(&mut bytes, 0x318, 3);
@@ -1726,11 +1948,17 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x338, 0.812);
     put_f32_be(&mut bytes, 0x33c, 0.91);
     put_f32_be(&mut bytes, 0x344, 10.0);
+    put_f32_be(&mut bytes, 0x424, 61.0);
     put_f32_be(&mut bytes, 0x42c, 1.25);
     put_f32_be(&mut bytes, 0x430, 2.0);
     put_f32_be(&mut bytes, 0x440, 1.31);
     put_f32_be(&mut bytes, 0x444, 0.18);
     put_f32_be(&mut bytes, 0x448, 0.42);
+    put_f32_be(&mut bytes, 0x450, 0.19);
+    put_f32_be(&mut bytes, 0x454, 0.21);
+    put_f32_be(&mut bytes, 0x458, 1.9);
+    put_f32_be(&mut bytes, 0x45c, 0.37);
+    put_f32_be(&mut bytes, 0x460, 2.7);
     put_f32_be(&mut bytes, 0x464, 0.63);
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
@@ -1809,6 +2037,77 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.fast_fall_window, 2);
     assert_eq!(common.lcancel_window, 9);
     assert_eq!(common.lcancel_divisor.to_bits(), 3.5_f32.to_bits());
+    assert_eq!(
+        common.knockback_weight_multiplier.to_bits(),
+        0.011_f32.to_bits()
+    );
+    assert_eq!(common.knockback_decay.to_bits(), 2.25_f32.to_bits());
+    assert_eq!(common.knockback_cap.to_bits(), 2400.0_f32.to_bits());
+    assert_eq!(common.knockback_damage_scale.to_bits(), 0.12_f32.to_bits());
+    assert_eq!(
+        common.knockback_hit_count_scale.to_bits(),
+        0.07_f32.to_bits()
+    );
+    assert_eq!(
+        common.knockback_weight_set_damage.to_bits(),
+        11.0_f32.to_bits()
+    );
+    assert_eq!(common.knockback_result_scale.to_bits(), 1.6_f32.to_bits());
+    assert_eq!(common.knockback_result_offset.to_bits(), 19.0_f32.to_bits());
+    assert_eq!(
+        common.damage_knockback_velocity_scale.to_bits(),
+        0.032_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_sakurai_air_angle_radians.to_bits(),
+        0.79_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_sakurai_ground_angle_degrees.to_bits(),
+        45.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_sakurai_ground_min_knockback.to_bits(),
+        30.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_sakurai_ground_max_knockback.to_bits(),
+        33.0_f32.to_bits()
+    );
+    assert_eq!(common.damage_duration_scale.to_bits(), 0.5_f32.to_bits());
+    assert_eq!(
+        common.damage_motion_tier_1_threshold.to_bits(),
+        9.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_motion_tier_2_threshold.to_bits(),
+        20.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_motion_tier_3_threshold.to_bits(),
+        31.0_f32.to_bits()
+    );
+    assert_eq!(
+        common
+            .damage_landing_down_bound_knockback_threshold
+            .to_bits(),
+        4.5_f32.to_bits()
+    );
+    assert_eq!(
+        common.damage_landing_basic_knockback_threshold.to_bits(),
+        8.0_f32.to_bits()
+    );
+    assert_eq!(common.hitlag_max_frames.to_bits(), 18.0_f32.to_bits());
+    assert_eq!(common.hitlag_damage_scale.to_bits(), 0.25_f32.to_bits());
+    assert_eq!(common.hitlag_base_frames.to_bits(), 4.0_f32.to_bits());
+    assert_eq!(
+        common.hitlag_crouch_multiplier.to_bits(),
+        0.75_f32.to_bits()
+    );
+    assert_eq!(common.passive_input_age_threshold, 6);
+    assert_eq!(common.passive_window_max.to_bits(), 9.5_f32.to_bits());
+    assert_eq!(common.passive_stand_stick_x.to_bits(), 1.25_f32.to_bits());
+    assert_eq!(common.down_wait_timer.to_bits(), 61.0_f32.to_bits());
     assert_eq!(common.crouch_y, 44);
     assert_eq!(common.crouch_release_y, 36);
     assert_eq!(common.tilt_x, 32);
@@ -1848,6 +2147,17 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
         0.019999999552965164_f32.to_bits()
     );
     assert_eq!(common.entry_collision_landing_lag_ticks, 121);
+    assert_eq!(common.player_nudge_x.to_bits(), 0.19_f32.to_bits());
+    assert_eq!(common.player_nudge_z.to_bits(), 0.21_f32.to_bits());
+    assert_eq!(common.player_nudge_z_clamp.to_bits(), 1.9_f32.to_bits());
+    assert_eq!(
+        common.transformed_player_nudge_z.to_bits(),
+        0.37_f32.to_bits()
+    );
+    assert_eq!(
+        common.transformed_player_nudge_z_clamp.to_bits(),
+        2.7_f32.to_bits()
+    );
 }
 
 #[test]
@@ -3024,6 +3334,47 @@ fn melee_input_facts_expose_source_lr_edges_after_trigger_synthesis() {
 }
 
 #[test]
+fn source_lr_digital_press_timers_match_fighter_input_timer_block() {
+    let mut world = World::for_two_players();
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let first = world.players()[0];
+    assert_eq!(first.source_lr_digital_press_timer, 0);
+    assert_eq!(first.source_previous_lr_digital_press_timer, 0xff);
+
+    step_world(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let aged = world.players()[0];
+    assert_eq!(aged.source_lr_digital_press_timer, 1);
+    assert_eq!(aged.source_previous_lr_digital_press_timer, 0xff);
+
+    step_world(
+        &mut world,
+        Frame(2),
+        &[
+            PlayerInput::neutral().with_right_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let second = world.players()[0];
+    assert_eq!(second.source_lr_digital_press_timer, 0);
+    assert_eq!(second.source_previous_lr_digital_press_timer, 1);
+}
+
+#[test]
 fn melee_input_source_lr_uses_cleaned_nonzero_trigger_before_shield_threshold() {
     let thresholds = MeleeInputThresholds::default();
     let mut processor = MeleeInputProcessor::new(MeleeInputConfig {
@@ -3270,6 +3621,969 @@ fn source_locomotion_motion_vars_participate_in_checksum_and_snapshot() {
     assert_eq!(snapshot.run_brake_frames_remaining, 7);
     assert!(snapshot.turn_run_x14);
     assert_eq!(snapshot.motion_anim_rate_milli, 0);
+}
+
+#[test]
+fn world_applies_source_damage_stages_to_rollback_owned_damage_fields() {
+    let mut world = World::for_two_players();
+    let before_checksum = world.checksum();
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let stages = [
+        SourceDamageStage {
+            attacker_index: 0,
+            victim_index: 1,
+            hitbox_id: 1,
+            hurtbox_id: 10,
+            action_state_id: Some(MeleeActionStateId::new(65)),
+            source_action_key: Some(SourceActionKey::new("AttackAirN")),
+            source_frame: Some(7),
+            damage: 5.0,
+            env_damage: 5,
+            unk_count: 5,
+            hitbox,
+        },
+        SourceDamageStage {
+            attacker_index: 0,
+            victim_index: 1,
+            hitbox_id: 2,
+            hurtbox_id: 10,
+            action_state_id: Some(MeleeActionStateId::new(65)),
+            source_action_key: Some(SourceActionKey::new("AttackAirN")),
+            source_frame: Some(7),
+            damage: 3.0,
+            env_damage: 3,
+            unk_count: 3,
+            hitbox: SourceHitboxAttributes {
+                damage: 3,
+                ..hitbox
+            },
+        },
+    ];
+
+    assert_eq!(world.apply_source_damage_stages(&stages), 2);
+
+    let snapshot = world.snapshot();
+    assert_eq!(snapshot.players[1].damage_percent, 0.0);
+    assert_eq!(snapshot.players[1].damage_percent_temp, 8.0);
+    assert_eq!(snapshot.players[1].damage_applied, 5);
+    assert_ne!(before_checksum, world.checksum());
+}
+
+#[test]
+fn world_commits_staged_source_damage_like_fighter_take_damage_and_clears_stage_fields() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[1];
+    player.damage_percent = 997.0;
+    assert!(world.set_player_state_for_diagnostic(1, player));
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let stages = [SourceDamageStage {
+        attacker_index: 0,
+        victim_index: 1,
+        hitbox_id: 1,
+        hurtbox_id: 10,
+        action_state_id: Some(MeleeActionStateId::new(65)),
+        source_action_key: Some(SourceActionKey::new("AttackAirN")),
+        source_frame: Some(7),
+        damage: 5.0,
+        env_damage: 5,
+        unk_count: 5,
+        hitbox,
+    }];
+    world.apply_source_damage_stages(&stages);
+    let staged_checksum = world.checksum();
+
+    assert_eq!(world.commit_staged_source_damage(), 1);
+
+    let snapshot = world.snapshot();
+    assert_eq!(snapshot.players[1].damage_percent, 999.0);
+    assert_eq!(snapshot.players[1].damage_percent_temp, 0.0);
+    assert_eq!(snapshot.players[1].damage_applied, 0);
+    assert_ne!(staged_checksum, world.checksum());
+}
+
+#[test]
+fn world_source_damage_results_include_current_frame_staged_percent_temp_like_ftcoll() {
+    let world = World::for_two_players();
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 10,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let stages = [SourceDamageStage {
+        attacker_index: 0,
+        victim_index: 1,
+        hitbox_id: 1,
+        hurtbox_id: 10,
+        action_state_id: Some(MeleeActionStateId::new(65)),
+        source_action_key: Some(SourceActionKey::new("AttackAirN")),
+        source_frame: Some(7),
+        damage: 10.0,
+        env_damage: 10,
+        unk_count: 10,
+        hitbox,
+    }];
+
+    let result = world
+        .source_damage_results_for_stages(&stages)
+        .into_iter()
+        .find(|result| result.stage.victim_index == 1)
+        .expect("staged normal-path hit should produce a selected damage result");
+    let without_current_stage = source_damage_result_for_victim(
+        world.common_data(),
+        &stages,
+        SourceDamageResultInput {
+            victim_index: 1,
+            victim_percent: 0.0,
+            victim_percent_temp: 0.0,
+            victim_weight: FighterProfile::falcon_like().weight,
+            stage: 1.0,
+            attack: 1.0,
+            defense: 1.0,
+        },
+    )
+    .expect("same stage should produce a comparison result");
+    let with_current_stage = source_damage_result_for_victim(
+        world.common_data(),
+        &stages,
+        SourceDamageResultInput {
+            victim_index: 1,
+            victim_percent: 0.0,
+            victim_percent_temp: 10.0,
+            victim_weight: FighterProfile::falcon_like().weight,
+            stage: 1.0,
+            attack: 1.0,
+            defense: 1.0,
+        },
+    )
+    .expect("same stage should produce an accumulated comparison result");
+
+    assert_eq!(
+        result.knockback.to_bits(),
+        with_current_stage.knockback.to_bits()
+    );
+    assert!(result.knockback > without_current_stage.knockback);
+}
+
+#[test]
+fn source_damage_anim_exit_waits_for_action_frames_after_lockout_clears() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.motion_frame = 10;
+    victim.motion_anim_frame_milli = 10_000;
+    victim.damage_hitstun_frames = 1;
+    victim.source_action_total_frames = 12;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let still_damage = world.players()[1];
+    assert_eq!(still_damage.damage_hitstun_frames, 0);
+    assert_eq!(still_damage.motion_state_alias, None);
+    assert_eq!(
+        still_damage.melee_action_state_id,
+        Some(MeleeActionStateId::new(84))
+    );
+    assert_eq!(still_damage.motion_frame, 11);
+
+    step_world(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let exited = world.players()[1];
+    assert_eq!(exited.motion_state, MotionState::Fall);
+    assert_eq!(exited.motion_state_alias, Some(MotionState::Fall));
+}
+
+#[test]
+fn source_damage_unlocked_air_physics_uses_normal_fall_drift_before_anim_exit() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.motion_frame = 5;
+    victim.motion_anim_frame_milli = 5_000;
+    victim.damage_hitstun_frames = 0;
+    victim.source_action_total_frames = 12;
+    victim.velocity = Vec2 { x: 0, y: 0 };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_stick(127, 0),
+        ],
+    );
+
+    let drifted = world.players()[1];
+    assert_eq!(drifted.motion_state_alias, None);
+    assert_eq!(
+        drifted.melee_action_state_id,
+        Some(MeleeActionStateId::new(84))
+    );
+    assert_eq!(
+        drifted.velocity.x,
+        source_air_drift_velocity(0, 127, drifted.profile)
+    );
+    assert_eq!(
+        drifted.velocity.y,
+        source_units_to_milli(-drifted.profile.gravity)
+    );
+}
+
+#[test]
+fn source_damage_floor_contact_with_basic_knockback_enters_landing_like_ftco_damage_coll() {
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 20;
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: source_units_to_milli(1.0),
+        y: source_units_to_milli(-1.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let landed = world.players()[1];
+    assert!(landed.grounded);
+    assert_eq!(landed.position.y, floor.y);
+    assert_eq!(landed.motion_state, MotionState::Landing);
+    assert_eq!(landed.motion_state_alias, Some(MotionState::Landing));
+    assert_eq!(
+        landed.melee_action_state_id,
+        Some(MeleeActionStateId::new(42))
+    );
+    assert_eq!(landed.landing_lag_ticks, 0);
+}
+
+#[test]
+fn source_damage_floor_contact_with_high_knockback_enters_down_bound_like_ftco_damage_coll() {
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 20;
+    victim.source_down_bound_pose = Some(SourceDownBoundPose {
+        hip_mtx_0_1: 0.0,
+        hip_mtx_0_2: 0.0,
+        hip_mtx_1_1: 1.0,
+        hip_mtx_1_2: -1.0,
+    });
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: source_units_to_milli(20.0),
+        y: source_units_to_milli(-20.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let bounded = world.players()[1];
+    assert!(bounded.grounded);
+    assert_eq!(bounded.position.y, floor.y);
+    assert_eq!(bounded.motion_state_alias, None);
+    assert_eq!(
+        bounded.melee_action_state_id,
+        Some(MeleeActionStateId::new(183))
+    );
+    assert_eq!(
+        bounded.source_action_key,
+        Some(SourceActionKey::new("DownBoundU"))
+    );
+    assert_eq!(bounded.motion_frame, 0);
+    assert_eq!(bounded.velocity.y, 0);
+}
+
+#[test]
+fn source_damage_fly_floor_contact_with_recent_digital_lr_enters_passive_like_ftco_8009872c() {
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(91));
+    victim.source_action_key = Some(SourceActionKey::new("DamageFlyRoll"));
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 30;
+    victim.source_down_bound_pose = Some(SourceDownBoundPose {
+        hip_mtx_0_1: 0.0,
+        hip_mtx_0_2: 0.0,
+        hip_mtx_1_1: 1.0,
+        hip_mtx_1_2: -1.0,
+    });
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: source_units_to_milli(1.0),
+        y: source_units_to_milli(-1.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_trigger_digital(true),
+        ],
+        |_| None,
+        |action_state_id| match action_state_id.get() {
+            199 => Some(26),
+            183 | 191 => Some(26),
+            _ => None,
+        },
+    );
+
+    let passive = world.players()[1];
+    assert!(passive.grounded);
+    assert_eq!(passive.position.y, floor.y);
+    assert_eq!(
+        passive.melee_action_state_id,
+        Some(MeleeActionStateId::new(199))
+    );
+    assert_eq!(
+        passive.source_action_key,
+        Some(SourceActionKey::new("Passive"))
+    );
+    assert_eq!(passive.motion_state_alias, None);
+    assert_eq!(passive.source_action_total_frames, 26);
+    assert_eq!(passive.motion_frame, 0);
+    assert_eq!(passive.velocity.y, 0);
+}
+
+#[test]
+fn source_damage_fly_floor_contact_checks_passive_stand_before_passive_like_ftco_80098928() {
+    for (stick_x, expected_id, expected_key) in
+        [(127, 200, "PassiveStandF"), (-127, 201, "PassiveStandB")]
+    {
+        let common = MeleeCommonData {
+            passive_stand_stick_x: 0.5,
+            ..MeleeCommonData::PROVISIONAL
+        };
+        let mut world = World::for_two_players_with_common_data(common);
+        let floor = world.stage().main_floor;
+        let mut victim = world.players()[1];
+        victim.grounded = false;
+        victim.motion_state_alias = None;
+        victim.motion_state = MotionState::Fall;
+        victim.facing = 1;
+        victim.melee_action_state_id = Some(MeleeActionStateId::new(91));
+        victim.source_action_key = Some(SourceActionKey::new("DamageFlyRoll"));
+        victim.motion_frame = 0;
+        victim.motion_anim_frame_milli = 0;
+        victim.damage_hitstun_frames = 10;
+        victim.source_action_total_frames = 30;
+        victim.source_down_bound_pose = Some(SourceDownBoundPose {
+            hip_mtx_0_1: 0.0,
+            hip_mtx_0_2: 0.0,
+            hip_mtx_1_1: 1.0,
+            hip_mtx_1_2: -1.0,
+        });
+        victim.position = Vec2 {
+            x: (floor.left_x + floor.right_x) / 2,
+            y: 0,
+        };
+        victim.velocity = Vec2 {
+            x: source_units_to_milli(1.0),
+            y: source_units_to_milli(-20.0),
+        };
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+        let source_bottom_offset_y =
+            world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+        let mut victim = world.players()[1];
+        victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(0),
+            &[
+                PlayerInput::neutral(),
+                PlayerInput::neutral()
+                    .with_left_trigger_digital(true)
+                    .with_left_stick(stick_x, 0),
+            ],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                199 => Some(26),
+                200 | 201 => Some(40),
+                183 | 191 => Some(26),
+                _ => None,
+            },
+        );
+
+        let passive = world.players()[1];
+        assert!(
+            passive.grounded,
+            "expected floor contact before PassiveStand, got action {:?} key {:?} pos {:?} vel {:?}",
+            passive.melee_action_state_id,
+            passive.source_action_key,
+            passive.position,
+            passive.velocity
+        );
+        assert_eq!(passive.position.y, floor.y);
+        assert_eq!(
+            passive.melee_action_state_id,
+            Some(MeleeActionStateId::new(expected_id))
+        );
+        assert_eq!(
+            passive.source_action_key,
+            Some(SourceActionKey::new(expected_key))
+        );
+        assert_eq!(passive.motion_state_alias, None);
+        assert_eq!(passive.source_action_total_frames, 40);
+        assert_eq!(passive.motion_frame, 0);
+        assert_eq!(passive.velocity.y, 0);
+    }
+}
+
+#[test]
+fn source_damage_fly_floor_contact_falls_through_to_down_bound_like_ftco_damagefly_coll() {
+    for (action_state_id, source_action_key) in [(87, "DamageFlyHi"), (91, "DamageFlyRoll")] {
+        let mut world = World::for_two_players();
+        let floor = world.stage().main_floor;
+        let mut victim = world.players()[1];
+        victim.grounded = false;
+        victim.motion_state_alias = None;
+        victim.motion_state = MotionState::Fall;
+        victim.melee_action_state_id = Some(MeleeActionStateId::new(action_state_id));
+        victim.source_action_key = Some(SourceActionKey::new(source_action_key));
+        victim.motion_frame = 0;
+        victim.motion_anim_frame_milli = 0;
+        victim.damage_hitstun_frames = 10;
+        victim.source_action_total_frames = 20;
+        victim.source_down_bound_pose = Some(SourceDownBoundPose {
+            hip_mtx_0_1: 0.0,
+            hip_mtx_0_2: 0.0,
+            hip_mtx_1_1: 1.0,
+            hip_mtx_1_2: -1.0,
+        });
+        victim.position = Vec2 {
+            x: floor.left_x + 10_000,
+            y: 0,
+        };
+        victim.velocity = Vec2 {
+            x: source_units_to_milli(1.0),
+            y: source_units_to_milli(-1.0),
+        };
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+        let source_bottom_offset_y =
+            world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+        let mut victim = world.players()[1];
+        victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(0),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                183 | 191 => Some(26),
+                _ => None,
+            },
+        );
+
+        let bounded = world.players()[1];
+        assert!(
+            bounded.grounded,
+            "{source_action_key} should snap to the floor"
+        );
+        assert_eq!(bounded.position.y, floor.y);
+        assert_eq!(
+            bounded.melee_action_state_id,
+            Some(MeleeActionStateId::new(183)),
+            "{source_action_key} should fall through passive checks to DownBoundU"
+        );
+        assert_eq!(
+            bounded.source_action_key,
+            Some(SourceActionKey::new("DownBoundU"))
+        );
+        assert_eq!(bounded.motion_state_alias, None);
+        assert_eq!(bounded.motion_frame, 0);
+        assert_eq!(bounded.velocity.y, 0);
+    }
+}
+
+#[test]
+fn source_down_bound_animation_end_enters_down_wait_like_ftco_80097e8c() {
+    let common = MeleeCommonData {
+        down_wait_timer: 61.0,
+        ..MeleeCommonData::PROVISIONAL
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let floor = world.stage().main_floor;
+    let mut player = world.players()[1];
+    player.grounded = true;
+    player.motion_state_alias = None;
+    player.motion_state = MotionState::Fall;
+    player.melee_action_state_id = Some(MeleeActionStateId::new(183));
+    player.source_action_key = Some(SourceActionKey::new("DownBoundU"));
+    player.source_action_total_frames = 26;
+    player.motion_frame = 25;
+    player.motion_anim_frame_milli = 25_000;
+    player.source_down_wait_timer = 0.0;
+    player.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: floor.y,
+    };
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+        |_| None,
+        |action_state_id| match action_state_id.get() {
+            183 | 191 => Some(26),
+            184 | 192 => Some(70),
+            _ => None,
+        },
+    );
+
+    let waiting = world.players()[1];
+    assert!(waiting.grounded);
+    assert_eq!(
+        waiting.melee_action_state_id,
+        Some(MeleeActionStateId::new(184))
+    );
+    assert_eq!(
+        waiting.source_action_key,
+        Some(SourceActionKey::new("DownWaitU"))
+    );
+    assert_eq!(waiting.motion_state_alias, None);
+    assert_eq!(waiting.motion_frame, 0);
+    assert_eq!(waiting.motion_anim_frame_milli, 0);
+    assert_eq!(waiting.source_action_total_frames, 70);
+    assert_eq!(waiting.source_down_wait_timer.to_bits(), 61.0_f32.to_bits());
+}
+
+#[test]
+fn source_down_wait_timer_expiry_enters_down_stand_like_ftco_downwait_anim() {
+    for (wait_action_id, wait_key, stand_action_id, stand_key) in [
+        (184, "DownWaitU", 186, "DownStandU"),
+        (192, "DownWaitD", 194, "DownStandD"),
+    ] {
+        let mut world = World::for_two_players();
+        let floor = world.stage().main_floor;
+        let mut player = world.players()[1];
+        player.grounded = true;
+        player.motion_state_alias = None;
+        player.motion_state = MotionState::Fall;
+        player.melee_action_state_id = Some(MeleeActionStateId::new(wait_action_id));
+        player.source_action_key = Some(SourceActionKey::new(wait_key));
+        player.source_action_total_frames = 70;
+        player.source_down_wait_timer = 1.0;
+        player.motion_frame = 12;
+        player.motion_anim_frame_milli = 12_000;
+        player.position = Vec2 {
+            x: floor.left_x + 10_000,
+            y: floor.y,
+        };
+        assert!(world.set_player_state_for_diagnostic(1, player));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(wait_action_id as u32),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                186 | 194 => Some(30),
+                _ => None,
+            },
+        );
+
+        let standing = world.players()[1];
+        assert!(standing.grounded);
+        assert_eq!(
+            standing.melee_action_state_id,
+            Some(MeleeActionStateId::new(stand_action_id))
+        );
+        assert_eq!(
+            standing.source_action_key,
+            Some(SourceActionKey::new(stand_key))
+        );
+        assert_eq!(standing.motion_state_alias, None);
+        assert_eq!(standing.motion_frame, 0);
+        assert_eq!(standing.motion_anim_frame_milli, 0);
+        assert_eq!(standing.source_action_total_frames, 30);
+        assert_eq!(standing.source_down_wait_timer.to_bits(), 0.0_f32.to_bits());
+    }
+}
+
+#[test]
+fn source_down_wait_fresh_lr_enters_down_stand_like_ftco_800980bc() {
+    for (wait_action_id, wait_key, stand_action_id, stand_key) in [
+        (184, "DownWaitU", 186, "DownStandU"),
+        (192, "DownWaitD", 194, "DownStandD"),
+    ] {
+        let mut world = World::for_two_players();
+        let floor = world.stage().main_floor;
+        let mut player = world.players()[1];
+        player.grounded = true;
+        player.motion_state_alias = None;
+        player.motion_state = MotionState::Fall;
+        player.melee_action_state_id = Some(MeleeActionStateId::new(wait_action_id));
+        player.source_action_key = Some(SourceActionKey::new(wait_key));
+        player.source_action_total_frames = 70;
+        player.source_down_wait_timer = 10.0;
+        player.motion_frame = 12;
+        player.motion_anim_frame_milli = 12_000;
+        player.position = Vec2 {
+            x: floor.left_x + 10_000,
+            y: floor.y,
+        };
+        assert!(world.set_player_state_for_diagnostic(1, player));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(wait_action_id as u32),
+            &[
+                PlayerInput::neutral(),
+                PlayerInput::neutral().with_left_trigger_digital(true),
+            ],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                186 | 194 => Some(30),
+                _ => None,
+            },
+        );
+
+        let standing = world.players()[1];
+        assert!(standing.grounded);
+        assert_eq!(
+            standing.melee_action_state_id,
+            Some(MeleeActionStateId::new(stand_action_id))
+        );
+        assert_eq!(
+            standing.source_action_key,
+            Some(SourceActionKey::new(stand_key))
+        );
+        assert_eq!(standing.motion_state_alias, None);
+        assert_eq!(standing.motion_frame, 0);
+        assert_eq!(standing.motion_anim_frame_milli, 0);
+        assert_eq!(standing.source_action_total_frames, 30);
+        assert_eq!(standing.source_down_wait_timer.to_bits(), 0.0_f32.to_bits());
+    }
+}
+
+#[test]
+fn source_down_wait_fresh_attack_enters_down_attack_like_ftco_800984d4() {
+    for (wait_action_id, wait_key, attack_action_id, attack_key) in [
+        (184, "DownWaitU", 187, "DownAttackU"),
+        (192, "DownWaitD", 195, "DownAttackD"),
+    ] {
+        let mut world = World::for_two_players();
+        let floor = world.stage().main_floor;
+        let mut player = world.players()[1];
+        player.grounded = true;
+        player.motion_state_alias = None;
+        player.motion_state = MotionState::Fall;
+        player.melee_action_state_id = Some(MeleeActionStateId::new(wait_action_id));
+        player.source_action_key = Some(SourceActionKey::new(wait_key));
+        player.source_action_total_frames = 70;
+        player.source_down_wait_timer = 10.0;
+        player.motion_frame = 12;
+        player.motion_anim_frame_milli = 12_000;
+        player.position = Vec2 {
+            x: floor.left_x + 10_000,
+            y: floor.y,
+        };
+        assert!(world.set_player_state_for_diagnostic(1, player));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(wait_action_id as u32),
+            &[
+                PlayerInput::neutral(),
+                PlayerInput::neutral().with_attack(true),
+            ],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                187 | 195 => Some(40),
+                _ => None,
+            },
+        );
+
+        let attacking = world.players()[1];
+        assert!(attacking.grounded);
+        assert_eq!(
+            attacking.melee_action_state_id,
+            Some(MeleeActionStateId::new(attack_action_id))
+        );
+        assert_eq!(
+            attacking.source_action_key,
+            Some(SourceActionKey::new(attack_key))
+        );
+        assert_eq!(attacking.motion_state_alias, None);
+        assert_eq!(attacking.motion_frame, 0);
+        assert_eq!(attacking.motion_anim_frame_milli, 0);
+        assert_eq!(attacking.source_action_total_frames, 40);
+        assert_eq!(
+            attacking.source_down_wait_timer.to_bits(),
+            9.0_f32.to_bits()
+        );
+    }
+}
+
+#[test]
+fn world_applies_source_collision_frame_through_decomp_damage_pipeline() {
+    let mut world = World::for_two_players();
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 10,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let collision_frame = SourceCollisionFrame {
+        hits: vec![SourceCollisionCapsule::new(
+            0,
+            1,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(true)
+        .with_source_pose(
+            Some(MeleeActionStateId::new(65)),
+            Some(SourceActionKey::new("AttackAirN")),
+            7,
+        )
+        .with_hitbox_attributes(hitbox)],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.5, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(false)],
+    };
+
+    let step = world.apply_source_collision_frame(&collision_frame);
+
+    assert_eq!(step.confirms.len(), 1);
+    assert_eq!(step.stages.len(), 1);
+    assert_eq!(step.results.len(), 1);
+    assert_eq!(step.applied_stage_count, 1);
+    assert_eq!(step.stages[0].unk_count, 10);
+    assert_eq!(step.results[0].stage.victim_index, 1);
+    assert!(step.results[0].knockback > 0.0);
+    assert_eq!(world.players()[1].damage_percent, 0.0);
+    assert_eq!(world.players()[1].damage_percent_temp, 10.0);
+    assert_eq!(world.players()[1].damage_applied, 10);
+}
+
+#[test]
+fn world_source_collision_logs_hit_victims_by_hit_group_like_hitcapsule_victims_1() {
+    let mut world = World::for_two_players();
+    let strong_hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let weak_hitbox = SourceHitboxAttributes {
+        damage: 3,
+        ..strong_hitbox
+    };
+    let collision_frame = SourceCollisionFrame {
+        hits: vec![
+            SourceCollisionCapsule::new(
+                0,
+                1,
+                Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+            )
+            .with_source_pose(
+                Some(MeleeActionStateId::new(65)),
+                Some(SourceActionKey::new("AttackAirN")),
+                7,
+            )
+            .with_hitbox_attributes(strong_hitbox),
+            SourceCollisionCapsule::new(
+                0,
+                2,
+                Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+            )
+            .with_source_pose(
+                Some(MeleeActionStateId::new(65)),
+                Some(SourceActionKey::new("AttackAirN")),
+                7,
+            )
+            .with_hitbox_attributes(weak_hitbox),
+        ],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.5, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(false)],
+    };
+
+    let step = world.apply_source_collision_frame(&collision_frame);
+
+    assert_eq!(step.confirms.len(), 1);
+    assert_eq!(step.stages.len(), 1);
+    assert_eq!(step.applied_stage_count, 1);
+    assert_eq!(step.stages[0].hitbox_id, 1);
+    assert_eq!(world.players()[1].damage_percent_temp, 5.0);
+    assert_eq!(world.players()[1].damage_applied, 5);
+}
+
+#[test]
+fn world_source_collision_keeps_hit_victim_log_while_active_hitbox_remains() {
+    let mut world = World::for_two_players();
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let collision_frame = SourceCollisionFrame {
+        hits: vec![SourceCollisionCapsule::new(
+            0,
+            1,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+        )
+        .with_source_pose(
+            Some(MeleeActionStateId::new(65)),
+            Some(SourceActionKey::new("AttackAirN")),
+            7,
+        )
+        .with_hitbox_attributes(hitbox)],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.5, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(false)],
+    };
+
+    let first = world.apply_source_collision_frame(&collision_frame);
+    let after_first_damage = world.players()[1].damage_percent_temp;
+    let second = world.apply_source_collision_frame(&collision_frame);
+
+    assert_eq!(first.applied_stage_count, 1);
+    assert_eq!(after_first_damage, 5.0);
+    assert!(second.confirms.is_empty());
+    assert!(second.stages.is_empty());
+    assert_eq!(second.applied_stage_count, 0);
+    assert_eq!(world.players()[1].damage_percent_temp, after_first_damage);
 }
 
 #[test]
@@ -3566,6 +4880,112 @@ fn world_snapshot_exposes_render_state_without_mutating_core() {
 }
 
 #[test]
+fn world_carries_canonical_melee_action_identity_alongside_motion_alias() {
+    let mut world = World::for_two_players();
+
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(14))
+    );
+    assert_eq!(
+        world.players()[0].source_action_key,
+        Some(SourceActionKey::new("Wait1"))
+    );
+    assert_eq!(
+        world.players()[0].motion_state_alias,
+        Some(MotionState::Wait)
+    );
+
+    let mut player = world.players()[0];
+    player.grounded = false;
+    player.motion_state = MotionState::Fall;
+    player.motion_frame = 0;
+    player.position.y = melee_units_f32(30.0);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::AttackAirN);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("AttackAirN"))
+    );
+    assert_eq!(player.motion_state_alias, Some(MotionState::AttackAirN));
+
+    let snapshot = world.snapshot().players[0];
+    assert_eq!(
+        snapshot.melee_action_state_id,
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        snapshot.source_action_key,
+        Some(SourceActionKey::new("AttackAirN"))
+    );
+    assert_eq!(snapshot.motion_state_alias, Some(MotionState::AttackAirN));
+
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Entry);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(322))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("Entry"))
+    );
+
+    player.set_motion_state_alias(MotionState::EntryEnd);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(324))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("Entry"))
+    );
+}
+
+#[test]
+fn wait_anim_advances_source_pose_like_ftco_wait_anim() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Wait);
+    player.motion_frame = 0;
+    player.motion_anim_frame_milli = 0;
+    player.motion_anim_rate_milli = 1_000;
+    player.grounded = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let player = world.snapshot().players[0];
+    assert_eq!(player.motion_state, MotionState::Wait);
+    assert_eq!(player.state_frame, 1);
+    assert_eq!(player.animation_frame, 1);
+    assert_eq!(player.source_pose_frame, 2);
+    assert_eq!(
+        player.source_pose_action_key,
+        Some(SourceActionKey::new("Wait1"))
+    );
+}
+
+#[test]
 fn world_derives_melee_snapshot_from_rollback_owned_input_state() {
     let mut world = World::for_two_players();
     let neutral = PlayerInput::neutral();
@@ -3697,13 +5117,13 @@ fn ground_jump_takeoff_enters_forward_or_backward_jump_state_from_stick() {
     let forward_jump = [
         PlayerInput::neutral()
             .with_jump(true)
-            .with_left_stick(20, 0),
+            .with_left_stick(60, 0),
         PlayerInput::neutral(),
     ];
     let backward_jump = [
         PlayerInput::neutral()
             .with_jump(true)
-            .with_left_stick(-30, 0),
+            .with_left_stick(-60, 0),
         PlayerInput::neutral(),
     ];
 
@@ -3890,6 +5310,46 @@ fn ground_jump_takeoff_uses_previous_knee_bend_ground_velocity_without_takeoff_f
                     .ground_to_air_jump_momentum_multiplier
         ),
         "ftCo_Jump_Enter scales the carried self_vel from the prior grounded frame"
+    );
+}
+
+#[test]
+fn ground_jump_takeoff_uses_pre_input_stick_from_knee_bend_anim_frame() {
+    let profile = FighterProfile::falcon_like();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, -1, profile);
+    player.motion_state = MotionState::KneeBend;
+    player.motion_frame = profile.jumpsquat_frames - 1;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(95);
+    player.velocity.x = 95;
+    world.set_player_state_for_diagnostic(0, player);
+    world.set_input_history_for_diagnostic(
+        [
+            PlayerInput::neutral()
+                .with_jump(true)
+                .with_left_stick(102, -75),
+            PlayerInput::neutral(),
+        ],
+        [MeleeInputTimers::expired(); 2],
+    );
+
+    let current_takeoff_input = [
+        PlayerInput::neutral()
+            .with_jump(true)
+            .with_left_stick(110, -63),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &current_takeoff_input);
+
+    let expected_velocity = source_units_to_milli(
+        milli_to_source_units(95) * profile.ground_to_air_jump_momentum_multiplier
+            + source_stick_scaled_velocity_f32(102, profile.jump_horizontal_initial_velocity),
+    );
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpB);
+    assert_eq!(
+        world.players()[0].velocity.x, expected_velocity,
+        "ftCo_KneeBend_Anim enters Jump before the frame's input callback, so ftCo_Jump_Enter uses the prior cleaned lstick.x for initial horizontal jump velocity"
     );
 }
 
@@ -4301,7 +5761,7 @@ fn aerial_jump_horizontal_velocity_uses_profile_source_field_then_source_physics
 }
 
 #[test]
-fn aerial_jump_transition_frame_applies_source_air_drift() {
+fn aerial_jump_transition_frame_applies_first_source_air_drift() {
     let profile = FighterProfile {
         air_jump_horizontal_multiplier: 0.73,
         air_drift_stick_multiplier: 0.04,
@@ -4336,6 +5796,35 @@ fn aerial_jump_transition_frame_applies_source_air_drift() {
     assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
     assert_eq!(world.players()[0].velocity.x, 790);
     assert_eq!(world.players()[0].position.x - before_x, 790);
+}
+
+#[test]
+fn aerial_drift_uses_cleaned_melee_main_stick_deadzone() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::JumpAerialF;
+    player.motion_state_alias = Some(MotionState::JumpAerialF);
+    player.melee_action_state_id = Some(MeleeActionStateId::new(27));
+    player.source_action_key = Some(SourceActionKey::new("JumpAerialF"));
+    player.motion_frame = 5;
+    player.grounded = false;
+    player.position.y = melee_units_f32(80.0);
+    player.velocity = Vec2 { x: 885, y: 2_010 };
+    player.source_self_velocity_x = milli_to_source_units(885);
+    player.source_self_velocity_y = milli_to_source_units(2_010);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(-27, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::JumpAerialF);
+    assert_eq!(world.players()[0].velocity.x, 875);
 }
 
 #[test]
@@ -5179,6 +6668,39 @@ fn escape_air_uses_fixed_force_along_stick_angle() {
         squared_magnitude(right.players()[0].velocity),
         force * 3
     ));
+}
+
+#[test]
+fn escape_air_diagonal_uses_hsd_normalized_stick_angle_before_force() {
+    let mut world = World::for_two_players();
+    let jump = [
+        PlayerInput::neutral().with_jump(true),
+        PlayerInput::neutral(),
+    ];
+    let diagonal_air_dodge = [
+        PlayerInput::neutral()
+            .with_left_trigger_digital(true)
+            .with_left_trigger_analog(255)
+            .with_left_stick(-83, -95),
+        PlayerInput::neutral(),
+    ];
+
+    for frame in 0..=4 {
+        step_world(&mut world, Frame(frame), &jump);
+    }
+    step_world(&mut world, Frame(5), &diagonal_air_dodge);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::EscapeAir);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        -1827,
+        "ftCo_80099A9C uses the HSD nml_stick float angle before applying escapeair_force"
+    );
+    assert_eq!(
+        world.players()[0].velocity.y,
+        -2108,
+        "ftCo_EscapeAir_Phys applies escapeair_decay on the entry frame"
+    );
 }
 
 #[test]
@@ -6301,6 +7823,47 @@ fn pass_state_applies_normal_air_drift_without_action() {
 }
 
 #[test]
+fn pass_air_drift_advances_from_source_self_velocity_like_ft_80084db0() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    let source_velocity_x = -0.4695_f32;
+    let stick_x = -87;
+    player.motion_state = MotionState::Pass;
+    player.motion_state_alias = Some(MotionState::Pass);
+    player.source_action_key = Some(SourceActionKey::new("Pass"));
+    player.melee_action_state_id = Some(MeleeActionStateId::new(244));
+    player.motion_frame = 2;
+    player.grounded = false;
+    player.position = Vec2 { x: 0, y: 50_000 };
+    player.velocity.x = source_units_to_milli(source_velocity_x);
+    player.source_self_velocity_x = source_velocity_x;
+    player.velocity.y = 0;
+    player.source_self_velocity_y = 0.0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(stick_x, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let expected_source_velocity =
+        source_air_drift_velocity_f32(source_velocity_x, stick_x as i32, player.profile);
+    assert_eq!(
+        world.players()[0].source_self_velocity_x.to_bits(),
+        expected_source_velocity.to_bits(),
+        "ft_80084DB0/ftCommon_8007D28C advances Fighter.self_vel.x from the stored float, not from the rounded render velocity"
+    );
+    assert_eq!(
+        world.players()[0].velocity.x,
+        source_units_to_milli(expected_source_velocity)
+    );
+}
+
+#[test]
 fn pass_animation_completion_enters_fall() {
     let mut world = World::for_two_players();
     let mut player = world.players()[0];
@@ -6394,7 +7957,7 @@ fn pass_entry_records_and_clears_source_floor_skip() {
 }
 
 #[test]
-fn escape_air_from_pass_reloads_source_jobj_ecb_bottom_probe() {
+fn escape_air_from_pass_preserves_locked_floor_probe() {
     let mut world = World::for_two_players();
     let frame = enter_pass_from_left_platform(&mut world);
 
@@ -6414,7 +7977,7 @@ fn escape_air_from_pass_reloads_source_jobj_ecb_bottom_probe() {
 
     let player = world.players()[0];
     assert_eq!(player.motion_state, MotionState::EscapeAir);
-    assert_eq!(player.ecb_bottom_offset_y, 2_790);
+    assert_eq!(player.ecb_bottom_offset_y, 0);
 }
 
 #[test]
@@ -7005,21 +8568,23 @@ fn landing_fall_special_render_pose_uses_source_scaled_landing_animation_rate() 
 }
 
 #[test]
-fn ground_jump_escape_air_preserves_locked_bottom_probe_for_same_frame_floor_landing() {
+fn ground_jump_escape_air_uses_locked_floor_probe_for_same_frame_landing() {
     let mut world = World::for_two_players();
     let mut player = world.players()[0];
     player.motion_state = MotionState::JumpF;
     player.motion_frame = 0;
     player.position = Vec2 {
-        x: melee_units_f32(33.349),
+        x: melee_units_f32(35.357_224),
         y: melee_units_f32(1.900_1),
     };
     player.velocity = Vec2 {
-        x: melee_units_f32(-2.006),
+        x: melee_units_f32(-1.577_344),
         y: melee_units_f32(1.9),
     };
+    player.source_self_velocity_x = -1.577_344;
+    player.source_self_velocity_y = 1.9;
     player.ecb_bottom_offset_y = 0;
-    player.ecb_bottom_lock_timer = 8;
+    player.ecb_bottom_lock_timer = 9;
     player.grounded = false;
     assert!(world.set_player_state_for_diagnostic(0, player));
 
@@ -7034,13 +8599,10 @@ fn ground_jump_escape_air_preserves_locked_bottom_probe_for_same_frame_floor_lan
         ],
     );
 
-    assert_eq!(
-        world.players()[0].motion_state,
-        MotionState::LandingFallSpecial
-    );
-    assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
-    assert_eq!(world.players()[0].velocity.y, 0);
-    assert!(world.players()[0].grounded);
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::LandingFallSpecial);
+    assert!(player.grounded);
+    assert_eq!(player.position.y, world.stage().main_floor.y);
 }
 
 #[test]
@@ -7051,10 +8613,14 @@ fn pass_landing_uses_source_bottom_floor_probe_after_skipping_platform() {
     let mut player = world.players()[0];
     assert_eq!(player.motion_state, MotionState::Pass);
     assert_eq!(player.ecb_bottom_offset_y, 0);
-    player.position.x = melee_units_f32(-19.669_746);
-    player.position.y = melee_units_f32(1.520_097);
-    player.velocity.x = melee_units_f32(0.75);
-    player.velocity.y = melee_units_f32(-2.58);
+    player.motion_frame = 25;
+    player.ecb_bottom_lock_timer = 0;
+    player.position.x = melee_units_f32(-20.413_055);
+    player.position.y = melee_units_f32(-0.029_897);
+    player.velocity.x = melee_units_f32(-0.842_192);
+    player.velocity.y = melee_units_f32(-2.9);
+    player.source_self_velocity_x = -0.842_192;
+    player.source_self_velocity_y = -2.9;
     player.grounded = false;
     assert!(world.set_player_state_for_diagnostic(0, player));
 
@@ -7066,6 +8632,39 @@ fn pass_landing_uses_source_bottom_floor_probe_after_skipping_platform() {
 
     assert_eq!(world.players()[0].motion_state, MotionState::Landing);
     assert_eq!(world.players()[0].position.y, world.stage().main_floor.y);
+}
+
+#[test]
+fn pass_crossing_main_floor_remains_pass_until_collision_callback_frame() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::Pass;
+    player.motion_state_alias = Some(MotionState::Pass);
+    player.melee_action_state_id = Some(MeleeActionStateId::new(244));
+    player.source_action_key = Some(SourceActionKey::new("Pass"));
+    player.motion_frame = 24;
+    player.grounded = false;
+    player.floor_skip_surface = Some(1);
+    player.ecb_bottom_offset_y = 0;
+    player.ecb_bottom_lock_timer = 0;
+    player.position = Vec2 {
+        x: -19_571,
+        y: 2_870,
+    };
+    player.velocity = Vec2 { x: -852, y: -2_900 };
+    player.source_self_velocity_x = milli_to_source_units(-852);
+    player.source_self_velocity_y = milli_to_source_units(-2_900);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(217),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Pass);
+    assert_eq!(world.players()[0].position.y, -30);
+    assert_eq!(world.players()[0].velocity.y, -2_900);
 }
 
 #[test]
@@ -7203,6 +8802,40 @@ fn ordinary_landing_neutral_exits_to_wait_on_animation_completion() {
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     assert_eq!(world.players()[0].motion_frame, 0);
+}
+
+#[test]
+fn ordinary_landing_walk_iasa_keeps_same_tick_walk_velocity() {
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut player = world.players()[0];
+    player.grounded = true;
+    player.set_motion_state_alias(MotionState::Landing);
+    player.motion_frame = player.profile.normal_landing_lag_ticks;
+    player.motion_anim_frame_milli = i32::from(player.motion_frame) * 1_000;
+    player.position = Vec2 { x: 0, y: floor.y };
+    player.velocity = Vec2 { x: 0, y: 0 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(100, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let walked = world.players()[0];
+    assert_eq!(walked.motion_state, MotionState::WalkSlow);
+    assert!(
+        walked.velocity.x > 0,
+        "ftCo_Landing_IASA -> ftCo_Walk_CheckInput should preserve same-tick Walk_Phys velocity"
+    );
+    assert!(
+        walked.position.x > 0,
+        "same-tick walk velocity should translate on the Landing IASA frame"
+    );
 }
 
 #[test]
@@ -7494,7 +9127,10 @@ fn escape_air_landing_enters_landing_fall_special_instead_of_wait() {
     let player = world.players()[0];
     assert!(player.grounded);
     assert_eq!(player.motion_state, MotionState::LandingFallSpecial);
-    assert!(player.velocity.x > 0);
+    assert_eq!(
+        player.velocity.x, 0,
+        "stick x 30 is inside Fighter_Spaghetti input cleanup, so this is a straight down air dodge"
+    );
     assert_eq!(player.velocity.y, 0);
 }
 
@@ -8961,13 +10597,18 @@ fn walk_rollout_frame_routes_opposite_dash_through_turn_physics_before_dash_entr
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     assert_eq!(world.players()[0].facing, 1);
-    assert_eq!(world.players()[0].velocity.x, full_walk_velocity);
+    let wait_frame_velocity = source_general_grounded_friction_velocity(
+        full_walk_velocity,
+        world.players()[0].profile,
+        common,
+    );
+    assert_eq!(world.players()[0].velocity.x, wait_frame_velocity);
 
     step_world(&mut world, Frame(42), &dash_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     let turn_frame_velocity = source_general_grounded_friction_velocity(
-        full_walk_velocity,
+        wait_frame_velocity,
         world.players()[0].profile,
         common,
     );
@@ -9794,6 +11435,32 @@ fn dash_neutral_stick_applies_dash_friction_before_dash_ends() {
 }
 
 #[test]
+fn dash_physics_uses_melee_cleaned_main_stick_deadzone() {
+    let profile = FighterProfile::falcon_like();
+    let common = MeleeCommonData::provisional_mole();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, -1, profile);
+    player.motion_state = MotionState::Dash;
+    player.motion_frame = 4;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(-2_220);
+    player.velocity.x = -2_220;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let inside_deadzone = [
+        PlayerInput::neutral().with_left_stick(5, -10),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &inside_deadzone);
+
+    assert_eq!(
+        world.players()[0].velocity.x,
+        source_dash_phys_velocity(-2_220, 0, profile, common),
+        "Fighter input cleanup zeroes lstick.x when ABS(lstick.x) <= p_ftCommonData->x0 before Dash_Phys chooses neutral friction"
+    );
+}
+
+#[test]
 fn dash_entry_x0_is_consumed_before_next_normal_dash_physics_tick() {
     let mut world = World::for_two_players();
     let full_right = [
@@ -10555,6 +12222,92 @@ fn completed_dash_runs_wait_physics_on_the_same_frame() {
 }
 
 #[test]
+fn released_walk_runs_wait_physics_on_the_same_frame() {
+    let profile = FighterProfile::falcon_like();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, -1, profile);
+    player.motion_state = MotionState::WalkMiddle;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(609);
+    player.velocity.x = 609;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    step_world(&mut world, Frame(0), &neutral);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(
+        world.players()[0].velocity.x, 529,
+        "ftCo_Walk_IASA can fall through to Wait, then Wait_Phys/ft_80084F3C applies traction in the same source frame"
+    );
+    assert_eq!(
+        world.players()[0].position.x,
+        529,
+        "the frame's ground translation uses the Wait-traction-adjusted gr_vel"
+    );
+}
+
+#[test]
+fn landing_turn_iasa_runs_turn_physics_on_the_same_frame() {
+    let profile = FighterProfile::falcon_like();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, 1, profile);
+    player.motion_state = MotionState::Landing;
+    player.motion_frame = profile.normal_landing_lag_ticks;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(390);
+    player.velocity.x = 390;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let turn_left = [
+        PlayerInput::neutral().with_left_stick(-44, -25),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &turn_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Turn);
+    assert_eq!(
+        world.players()[0].velocity.x, 310,
+        "ftCo_Landing_IASA can enter Turn, then Turn_Phys/ft_80084F3C applies traction in the same source frame"
+    );
+    assert_eq!(
+        world.players()[0].position.x,
+        310,
+        "the frame's ground translation uses the Turn-traction-adjusted gr_vel"
+    );
+}
+
+#[test]
+fn completed_landing_fall_special_dash_runs_wait_input_and_dash_physics_on_the_same_frame() {
+    let profile = FighterProfile::falcon_like();
+    let common = MeleeCommonData::provisional_mole();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, -1, profile);
+    player.motion_state = MotionState::LandingFallSpecial;
+    player.motion_frame = common.escapeair_landing_lag_ticks - 1;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(-648);
+    player.velocity.x = -648;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let dash_left = [
+        PlayerInput::neutral().with_left_stick(-127, 0),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(
+        world.players()[0].position.x, -648,
+        "ftCo_Landing_Anim can fall through ft_8008A2BC to Wait before input/phys; the entry frame translates with the carried gr_vel, not LandingFallSpecial traction"
+    );
+    assert_eq!(
+        world.players()[0].velocity.x, -2_000,
+        "Wait_IASA enters Dash, then Dash_Phys consumes mv.co.dash.x0 without adding the stale LandingFallSpecial traction"
+    );
+}
+
+#[test]
 fn run_state_accepts_specials_in_source_priority_order() {
     let mut side = World::for_two_players();
     let mut up = World::for_two_players();
@@ -11023,6 +12776,50 @@ fn turn_run_keeps_old_facing_until_velocity_crosses_zero() {
 }
 
 #[test]
+fn turn_run_overshoot_keeps_accel_minus_run_friction_like_ftco_turnrun_phys() {
+    let mut world = World::for_two_players();
+    let profile = world.players()[0].profile;
+    let common = world.common_data();
+    let stick_x = 125;
+    let current_velocity =
+        source_stick_scaled_velocity(stick_x, profile.dash_run_terminal_velocity);
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::TurnRun;
+    player.motion_state_alias = Some(MotionState::TurnRun);
+    player.source_action_key = Some(SourceActionKey::new("TurnRun"));
+    player.melee_action_state_id = Some(MeleeActionStateId::new(19));
+    player.motion_frame = profile.action_frames.turn_run_cmd_var1_frame + 5;
+    player.motion_anim_frame_milli = i32::from(player.motion_frame) * 1_000;
+    player.grounded = true;
+    player.facing = 1;
+    player.turn_facing_after = 1;
+    player.turn_has_turned = true;
+    player.turn_run_x14 = true;
+    player.turn_run_accel_mul = -1;
+    player.ground_velocity_x = milli_to_source_units(current_velocity);
+    player.velocity.x = current_velocity;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_stick(stick_x as i8, 0),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let expected_velocity =
+        source_turn_run_phys_velocity(current_velocity, stick_x, -1, profile, common);
+    assert!(
+        expected_velocity > current_velocity,
+        "the decomp TurnRun overshoot branch continues past target velocity by accel minus x60 friction"
+    );
+    assert_eq!(world.players()[0].motion_state, MotionState::TurnRun);
+    assert_eq!(world.players()[0].velocity.x, expected_velocity);
+}
+
+#[test]
 fn turn_run_resume_from_velocity_crossing_holds_script_frame_one_more_tick() {
     let mut world = World::for_two_players();
     let dash_left = [
@@ -11187,9 +12984,15 @@ fn turn_run_completion_enters_run_through_source_x58_gate() {
     step_world(&mut world, Frame(2), &left);
     assert_eq!(world.players()[0].motion_state, MotionState::TurnRun);
 
+    let mut run_entry_frame = None;
     for frame in 3..=(4 + profile.action_frames.turn_run_total_frames as u32) {
         step_world(&mut world, Frame(frame), &left);
+        if world.players()[0].motion_state == MotionState::Run {
+            run_entry_frame = Some(frame);
+            break;
+        }
     }
+    assert!(run_entry_frame.is_some());
 
     assert_eq!(world.players()[0].motion_state, MotionState::Run);
     assert_eq!(world.players()[0].facing, -1);
@@ -11241,6 +13044,101 @@ fn turn_run_completion_uses_previous_frame_run_gate_before_current_input() {
     assert_eq!(
         world.players()[0].run_no_interrupt_frames,
         world.common_data().run_turn_run_no_interrupt_frames
+    );
+}
+
+#[test]
+fn turn_run_completion_into_run_uses_source_friction_handoff_tick() {
+    let mut world = World::for_two_players();
+    let common = world.common_data();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::TurnRun;
+    player.motion_state_alias = Some(MotionState::TurnRun);
+    player.source_action_key = Some(SourceActionKey::new("TurnRun"));
+    player.melee_action_state_id = Some(MeleeActionStateId::new(19));
+    player.grounded = true;
+    player.facing = 1;
+    player.turn_facing_after = 1;
+    player.turn_has_turned = true;
+    player.turn_run_accel_mul = -1;
+    player.turn_run_completion_pending = true;
+    player.turn_run_completion_enters_run = true;
+    player.ground_velocity_x = 2.788125;
+    player.source_self_velocity_x = 2.788125;
+    player.velocity.x = source_units_to_milli(2.788125);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let opposite_stick = [
+        PlayerInput::neutral().with_left_stick(-121, -38),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &opposite_stick);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::Run,
+        "ftCo_TurnRun_Anim may enter Run, but the frame's IASA callback already ran as TurnRun_IASA"
+    );
+    assert_eq!(
+        world.players()[0].velocity.x,
+        source_units_to_milli(source_apply_ground_friction_to_zero_f32(
+            2.788125,
+            source_run_ground_friction_f32(world.players()[0].profile, common),
+        )),
+        "the TurnRun->Run completion tick follows the source friction handoff before ordinary Run_Phys consumes current stick"
+    );
+}
+
+#[test]
+fn turn_run_resume_advances_when_pause_started_after_velocity_crossing() {
+    let profile = quick_turn_run_profile();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let right = [
+        PlayerInput::neutral().with_left_stick(127, 0),
+        PlayerInput::neutral(),
+    ];
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::TurnRun);
+    player.motion_frame = profile.action_frames.turn_run_cmd_var1_frame;
+    player.motion_anim_frame_milli = i32::from(player.motion_frame) * 1_000;
+    player.motion_cmd_var1 = 0;
+    player.turn_run_x14 = false;
+    player.turn_run_resume_advances = false;
+    player.turn_run_accel_mul = -1;
+    player.turn_facing_after = 1;
+    player.turn_has_turned = false;
+    player.ground_velocity_x = 1.0;
+    player.velocity.x = 1_000;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &right);
+
+    let paused = world.players()[0];
+    assert_eq!(paused.motion_state, MotionState::TurnRun);
+    assert_eq!(
+        paused.motion_frame,
+        profile.action_frames.turn_run_cmd_var1_frame
+    );
+    assert!(paused.turn_run_x14);
+    assert!(paused.turn_run_resume_advances);
+
+    step_world(&mut world, Frame(1), &right);
+
+    let resumed = world.players()[0];
+    assert_eq!(resumed.motion_state, MotionState::TurnRun);
+    assert_eq!(
+        resumed.motion_frame,
+        profile.action_frames.turn_run_cmd_var1_frame + 1
+    );
+    assert_eq!(resumed.motion_cmd_var1, 0);
+    assert!(
+        !resumed.turn_run_resume_advances,
+        "resume flag should be consumed once the paused script frame advances"
+    );
+    assert_eq!(
+        resumed.facing, 1,
+        "ftCo_TurnRun_Anim flips facing when the pause resumes"
     );
 }
 
@@ -12411,6 +14309,64 @@ fn attack1_accepts_jump_on_falcon_iasa_frame() {
     step_world(&mut world, Frame(16), &jump);
 
     assert_eq!(world.players()[0].motion_state, MotionState::KneeBend);
+}
+
+#[test]
+fn attack11_repeated_a_enters_canonical_attack12_like_ftco_attack1() {
+    let mut world = World::for_two_players();
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &jab);
+    for frame in 1..=8 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(9), &jab);
+
+    let player = &world.players()[0];
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(45))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("Attack12"))
+    );
+    assert_eq!(player.motion_state_alias, None);
+}
+
+#[test]
+fn attack12_repeated_a_enters_canonical_attack13_like_ftco_attack1() {
+    let mut world = World::for_two_players();
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world(&mut world, Frame(0), &jab);
+    for frame in 1..=8 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(9), &jab);
+    for frame in 10..=16 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    step_world(&mut world, Frame(17), &jab);
+
+    let player = &world.players()[0];
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(46))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("Attack13"))
+    );
+    assert_eq!(player.motion_state_alias, None);
 }
 
 #[test]

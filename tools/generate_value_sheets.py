@@ -62,6 +62,16 @@ GLOBAL_CATEGORIES = {
         "fall_animation_drift_threshold",
         "fall_animation_blend",
     ],
+    "collision_damage": [
+        "knockback_weight_multiplier",
+        "knockback_decay",
+        "knockback_cap",
+        "knockback_damage_scale",
+        "knockback_hit_count_scale",
+        "knockback_weight_set_damage",
+        "knockback_result_scale",
+        "knockback_result_offset",
+    ],
     "defense_and_platforms": [
         "crouch_y",
         "crouch_release_y",
@@ -143,6 +153,7 @@ CHARACTER_CATEGORIES = {
         "landingairlw_lag",
     ],
     "entry_and_collision": [
+        "weight",
         "entry_platform_offset_y",
     ],
 }

@@ -72,21 +72,12 @@ MOTION_STATE_ACTION_MAP: tuple[tuple[str, int], ...] = (
     ("SpecialAirHi", 308),
     ("SpecialLw", 311),
     ("SpecialAirLw", 313),
+    ("Entry", 238),
     ("EntryStart", 238),
+    ("EntryEnd", 238),
 )
 
 UNMAPPED_DERIVED_MOTION_STATES: tuple[str, ...] = (
-)
-
-NO_ACTION_SUBMOTION_MOTION_STATES: tuple[tuple[str, str], ...] = (
-    (
-        "Entry",
-        "ftCo_MS_Entry uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
-    ),
-    (
-        "EntryEnd",
-        "ftCo_MS_EntryEnd uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
-    ),
 )
 
 

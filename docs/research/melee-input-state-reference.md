@@ -132,14 +132,35 @@ controller-driver guess.
 
 ### Subframe Pad Capture
 
-Melee's fighter callbacks still consume one current/previous pad snapshot per
-game frame, but the pad layer can collect raw controller samples between those
-frames. Public latency research describes console Melee as effectively polling
-controllers around twice per 60 Hz frame, and the local decomp shows the same
-layering shape: `HSD_PadRenewRawStatus` calls `PADRead`, stores samples in the
-HSD raw queue, `HSD_PadRenewMasterStatus` consumes queued samples, and
+Melee has a subframe controller-capture layer, but the fighter state machine
+still consumes one current/previous pad snapshot per 60 Hz game frame. Public
+latency research describes console Melee as effectively polling controllers
+around 120 Hz while the game engine runs at 60 Hz, and the local decomp shows
+the same layering shape: `HSD_PadRenewRawStatus` calls `PADRead`, stores samples
+in the HSD raw queue, `HSD_PadRenewMasterStatus` consumes a queued sample, and
 `HSD_PadRenewGameStatus` exposes the game-facing snapshot consumed by
 `Fighter_Spaghetti_8006AD10`.
+
+I did not find decomp evidence for vanilla fighter gameplay consuming multiple
+pad snapshots inside one action tick. The important boundary is:
+
+```text
+raw pad/adapter samples, possibly faster than 60 Hz
+  -> HSD raw queue / capture-window collapse
+  -> one HSD_PadGameStatus snapshot
+  -> one Fighter.input current/previous update for the frame
+  -> state IASA / physics / collision
+```
+
+The exact hardware/host rate depends on the layer being measured. Console
+Melee's useful gameplay-latency description is roughly two controller polls per
+60 Hz frame. WUP-028 adapter reverse-engineering reports a 1 kHz JoyBus-side
+communication loop after adapter polling starts, while Dolphin's native adapter
+source reads USB interrupt payloads on a background read thread and exposes the
+latest `GCPadStatus` to the emulated SI/PAD path. I found no reliable source
+that makes `512 Hz` a Melee gameplay rate, and `124/125 Hz` is better treated as
+a host/USB polling observation unless tied to a specific adapter stack. None of
+those faster rates creates mid-frame Melee action-state evaluation.
 
 For the native WUP path, this means the adapter should capture raw USB reports
 off the gameplay thread and collapse the in-memory capture window before the
@@ -154,6 +175,21 @@ sample in the window establishes origin before the collapsed gameplay sample is
 processed. This keeps low-latency capture outside `mole_core`; the Rust core
 still advances deterministic fighter simulation at 60 Hz from a single
 rollback-owned input snapshot.
+
+Rollback may use subframe capture timing as metadata before the next 60 Hz
+commit boundary: for example, sample timestamps, capture-window counts, or local
+input-delay/prediction decisions. That metadata must not change which input is
+visible to an already-started core frame, and it must not introduce half-frame
+fighter state. Slippi replay parity follows the same boundary: `.slp` pre-frame
+records are once-per-frame character snapshots collected immediately before
+controller inputs drive the next action, not full WUP adapter packet streams.
+
+For future online play, a 120/240 Hz runtime scheduler can run inside the engine
+shell around the 60 Hz core: receive remote packets, update prediction, decide
+which local capture-window sample becomes the next committed frame input, and
+perform rollback/resimulation of whole 60 Hz frames before the next present. The
+authoritative result must be byte-for-byte equivalent to running the Melee-shaped
+60 Hz input/state pipeline with the same committed per-frame inputs.
 
 Source comparison note: the local Dolphin/Slippi adapter sources keep the WUP
 payload as raw `0..255` stick/trigger bytes, mark a newly connected controller
@@ -214,8 +250,13 @@ core simulation rules.
   a player as UCF, `tools/slippi_replay_to_inputs.cjs` derives the adapter-owned
   dashback amendment from the recorded raw two-frame x delta and writes the bit
   into `rust_player_input`; vanilla-tagged players leave the bit false. This
-  keeps replay oracle runs realistic for UCF replays without moving UCF logic
-  into the Rust core.
+  compact lane is also the Melee-cleaned gameplay input: complete raw stick
+  byte pairs are HSD-clamped, UCF cardinals are applied with the same `80`/`6`
+  source thresholds, and PlCo `x0`/`x4` deadzones are applied before signed
+  `-127..127` axes reach core replay. The runtime consumes that compact lane
+  when present and falls back to Slippi floats only when an older export lacks
+  it, keeping replay oracle runs realistic without moving UCF logic into the
+  Rust core.
 
 Important nuance: UCF is input wrapping, not a new movement mechanic. The Rust
 simulation should consume decomp-shaped current/previous pad snapshots, tap
@@ -631,9 +672,16 @@ visible source, so the Rust state no longer routes shield/roll/walk/run brake
 directly out of TurnRun before the source-shaped animation/physics exit.
 When TurnRun hands off to Run, Rust now records a provisional `x430`-shaped
 no-interrupt timer so immediate neutral/opposite stick cannot become RunBrake
-or a fresh TurnRun on the very next frame. The exact `x430` value still needs
-extraction from `PlCo.dat`; the current one-frame value is a lower-bound
-contract for source ordering, not a final data value.
+or a fresh TurnRun on the very next frame. As of 2026-06-09, the stale Rust
+contract that applied ordinary same-frame `Run_Phys` on this handoff was
+removed; the handoff now uses the source run-friction path while preserving
+Run identity. The Slippi parity slice at source frames 760-768 still shows an
+unresolved velocity gap on frame 764 (`expected gx 2148`, `actual 2708` milli),
+so the next pass must verify the exact decomp data/callback source of that
+larger speed reduction before changing constants or adding a shortcut. The
+exact `x430` value still needs extraction from `PlCo.dat`; the current
+one-frame value is a lower-bound contract for source ordering, not a final data
+value.
 `RunBrake` now mirrors the source IASA shape more closely: jump and crouch are
 available, but forward or soft stick does not immediately cancel back to Run or
 walk. When extracted character attributes provide
@@ -730,9 +778,13 @@ checksum/snapshot fields. This keeps moonwalk follow-through emergent from
 velocity plus state transition timing, not from a moonwalk-specific patch.
 Walk exit now follows the same source-shaped `ft_8008A244` rule: if the sampled
 stick leaves the walk condition or points opposite without a dash-strength tap,
-Rust enters `Wait` without clearing `gr_vel`. That matters for max-length Falcon
-moonwalk setup because a full-speed walk carry can survive a sampled rollout
-frame, enter the opposite smash-turn/dash-out path, and then feed
+Rust enters `Wait` without clearing `gr_vel`. Because Melee runs input callbacks
+before the later physics callback priority, that new `Wait` state can still run
+`Wait_Phys`/`ft_80084F3C` on the same 60 Hz tick; "preserve carried `gr_vel`"
+means the state transition does not zero the carry, not that the carry is exempt
+from source friction. That matters for max-length Falcon moonwalk setup because
+a full-speed walk carry can survive the `ft_8008A244` transition, receive the
+same-frame Wait friction stage, enter the opposite smash-turn/dash-out path, and then feed
 `ftCo_Dash_Enter`'s additive initial-dash delta instead of being stopped first.
 The walk states now also consume the source-shaped action slice before shield,
 jump, or continued walk: catch/grab wins first, then B-specials in walk source
@@ -750,8 +802,8 @@ walking B-special directions, attack interrupting continued walk, Walk entering
 Squat after dash checks, last-valid-frame Walk-to-Dash, and boundary-frame
 slow-walk behavior. A soft opposite walk stick now follows the same source
 shape as `ft_8008A244`: it exits `Walk` to `Wait` without flipping facing or
-clearing carried ground velocity, and without continuing left/right walk during
-that frame. If the opposite stick is still held on the following frame, the
+clearing carried ground velocity, then the later same-frame `Wait_Phys` callback
+may apply ordinary grounded friction. If the opposite stick is still held on the following frame, the
 normal `Wait` priority ladder can enter `Turn`, preserving Melee's turn timing
 instead of bypassing it through instant opposite walking.
 
@@ -1060,14 +1112,18 @@ and soft platforms in Rust core units, chooses the highest crossed surface under
 the ECB bottom, and preserves the existing Melee state split: ordinary contact
 enters `Landing`, while `EscapeAir`/`FallSpecial` contact enters
 `LandingFallSpecial`. Rust now represents the source ground-to-air ECB lock
-from `ftCommon_8007D5D4` as rollback state: ground jump sets a 10-frame
-`ecb_bottom_lock_timer`, preserves the existing bottom probe while locked, and
-unlocks back to the JObj-sourced probe after the timer expires or the player
-lands. Rust now generates a Captain Falcon ECB table from extracted per-frame
-JObj ECB samples from `PlCaAJ.dat`/`PlCaNr.dat`; landing checks previous-frame
-and current-frame bottom points separately, and render snapshots expose the same
-active gameplay ECB so the SDL debug overlay draws the core-owned diamond
-instead of rebuilding one from sprite dimensions. The generated table maps only
+from `ftCommon_8007D5D4` as rollback state: ground jump, Pass, and other
+ground-to-air source paths set a 10-frame `ecb_bottom_lock_timer` and keep the
+previous floor-contact bottom probe while the action animation changes the
+JObj-sourced desired ECB. In the current Rust root-coordinate model that locked
+floor probe is stored as `ecb_bottom_offset_y = 0`; once the lock expires,
+landing checks resume using generated per-action JObj ECB samples, and landing
+also clears the lock. Rust now generates a Captain Falcon ECB table from
+extracted per-frame JObj ECB samples from `PlCaAJ.dat`/`PlCaNr.dat`; landing
+checks previous-frame and current-frame bottom points separately, and render
+snapshots expose the same active gameplay ECB so the SDL debug overlay draws the
+core-owned diamond instead of rebuilding one from sprite dimensions. The
+generated table maps only
 states with explicit action-table equivalents and writes its coverage ledger to
 `docs/state_graphs/parity_reports/falcon_ecb_coverage.json`. The old Rust
 `Air` umbrella has been removed from the Falcon core path; remaining derived or
@@ -1095,11 +1151,13 @@ now also extracts Captain Falcon `landingairn_lag`, `landingairf_lag`,
 `ftCo_DatAttrs +0xE8..+0xF8` and uses those values to gate LandingAir IASA.
 Stale landing-lag scaling through common data `xE4`/`xE8` and
 `ftAnim_SetAnimRate` remain pending. They must not be aliased to nearby-looking
-actions. The full Slippi replay still diverges before that local slice because
-earlier position/state history is not yet in parity. This is still a
-vertical-contact slice; ledges, walls, ceilings, cliff catch, full pass-through
-platform timing, remaining source collision callbacks, and root-position/ECB
-ownership need continued decomp review before being treated as parity.
+actions. As of the 2026-06-05 ECB/contact sweep, `mole replay check --frames
+360 --mode match-start` reports zero state mismatches, zero unsupported states,
+and no position drift for the bundled Slippi Falcon-ditto trace. That is an ECB
+checkpoint, not full gameplay parity: ground-velocity diffs, ledges, walls,
+ceilings, cliff catch, full pass-through platform timing, remaining source
+collision callbacks, and root-position/ECB ownership need continued decomp
+review before being treated as parity.
 
 Horizontal jump velocity uses main-stick x and character jump attributes, then
 clamps against character max horizontal jump velocity. This is another reason
@@ -1223,12 +1281,12 @@ Grounded locomotion callback audit for the current Falcon movement slice:
 | State | Source callback order and field ownership | Current Rust parity note |
 | --- | --- | --- |
 | `Wait` | `Wait_Anim` may enter `DownSpot`, otherwise loops wait animation; `Wait_IASA` owns action, shield, jump, dash, squat, turn, then walk priority; `Wait_Phys` applies `ft_80084F3C` friction through `xE4_ground_accel_1`; `Wait_Coll` uses the grounded cliff/floor callback. | Rust preserves carried `gr_vel` through Wait and applies source-shaped friction before collision. |
-| `WalkSlow/Middle/Fast` | `Walk_IASA` checks catch/action/special/jump/dash/squat, then `ft_8008A244`, then walk bucket update; `Walk_Anim` updates animation rate from `gr_vel`/`mv.co.walk.x0`; `Walk_Phys` is `ftWalkCommon_800E0060`, using stick-scaled target, `walk_accel`, PlCo `x30` taper, `x440`, and `gr_friction`. | Rust keeps explicit walk bucket states, deterministic Falcon profile/common-data values, `mv.co.walk.x0`-style storage, animation-rate updates, and source-shaped bucket remap for the walk helper. |
+| `WalkSlow/Middle/Fast` | `Walk_IASA` checks catch/action/special/jump/dash/squat, then `ft_8008A244`, then walk bucket update; `Walk_Anim` updates animation rate from `gr_vel`/`mv.co.walk.x0`; `Walk_Phys` is `ftWalkCommon_800E0060`, using stick-scaled target, `walk_accel`, PlCo `x30` taper, `x440`, and `gr_friction`. If `ft_8008A244` changes to Wait during IASA, the later physics callback priority runs the new `Wait_Phys` on that same tick. | Rust keeps explicit walk bucket states, deterministic Falcon profile/common-data values, `mv.co.walk.x0`-style storage, animation-rate updates, source-shaped bucket remap for the walk helper, and same-frame Wait friction after Walk exits without zeroing `gr_vel`. |
 | `Turn` | `Turn_Anim_Inner` decrements `frames_to_turn`, flips facing when it reaches zero, and `Turn_IASA` temporarily flips facing for pre-turn action checks; `x1C` can replay latched A/B on the turn frame; dash-out arms through `fn_800C9C2C`; `Turn_Phys` is `ft_80084F3C`. | Rust covers delayed facing flip, carried `gr_vel`, source-shaped temporary-facing attack checks, A/B latch fields, dash-out, trace exposure for Turn vars, and same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn. |
 | `Dash` | `Dash_Enter` stores the initial dash delta in `mv.co.dash.x0` and stages it through `ftCommon_800804A0`/`xE8_ground_accel_2`; `Dash_Anim` owns animation-completion fallback; `Dash_IASA` has early and late action windows plus `cmd_vars[0]` Run handoff and `x54` fall-through decay; `Dash_Phys` consumes `x0` on the same engine frame, then later uses `getAccelAndTarget`. | Rust models the entry delta, same-frame physics callback, `cmd_var[0]` frame-16 Run gate, same-frame Run_Phys handoff, frame-29 non-run fallback, live-stick acceleration after `x0` consumption, IASA decay, dash-back gating, and non-run completion to Wait with carried `gr_vel`. |
 | `Run` | `Run_Anim` derives animation rate from `gr_vel` or stored `mv.co.run.x4` and decrements `mv.co.run.x0` before `Run_IASA`; `Run_IASA` checks specials, dash catch, dash attack, guard, jump, then TurnRun through PlCo `x38` or RunBrake after the no-interrupt timer; `Run_Phys` uses `getAccelAndTarget`, PlCo `x5C`, and records `mv.co.run.x4`. | Rust covers source action priority, animation-phase no-interrupt decrement, run acceleration taper, RunBrake entry, extracted `x38` TurnRun entry after no-interrupt, and same-frame TurnRun_Phys on the entry tick. |
 | `RunBrake` | `RunBrake_Enter` stores `max_run_brake_frames`; `RunBrake_Anim` decrements that timer and may pause animation through command vars around PlCo `x42C`; `RunBrake_IASA` checks jump, command-var-gated TurnRun, then squat; `RunBrake_Phys` applies `gr_friction * x60`; `RunBrake_Coll` stays grounded. | Rust covers explicit state identity, extracted Falcon `max_run_brake_frames == 30`, `cmd_vars[0]` TurnRun branch, `cmd_vars[1]`/`x42C` pause slot, jump/squat interrupts, and `x60` friction. Remaining gap is broader callback/collision parity, not the grounded locomotion TurnRun branch. |
-| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at the source pause/resume gate, jump-only IASA, and completion-gated `fn_800CA644` Run handoff. Remaining gap is broader callback/collision parity. |
+| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at the source pause/resume gate, jump-only IASA, completion-gated `fn_800CA644` Run handoff, and no longer applies ordinary same-frame Run_Phys on the handoff tick. Remaining confirmed gap: Slippi source frame 764 expects a larger handoff speed drop than current `gr_friction * x60` produces; resolve from decomp/source data before tuning. |
 | `RunDirect` | `RunDirect_Anim/Phys/Coll` delegate to Run; `RunDirect_IASA` mirrors Run action priority but uses `fp->mv.ca.specials.grav <= 0` before `fn_800CA698` same-facing Run handoff, then falls through to `ft_8008A244`. | Rust keeps RunDirect as explicit diagnostic/Slippi state identity and covers same-facing Run handoff plus Wait fallback for injected RunDirect; no normal source entry path has been found in the current decomp search. |
 
 ## Fast Fall
@@ -1765,15 +1823,33 @@ the replay metadata says a player used UCF, the main recorded player input
 floats should be treated as the game-facing UCF-influenced inputs for that
 frame, while the small raw analog fields are only partial lower-level evidence.
 
+The local replay bridge therefore treats `rust_player_input` as the compact
+Melee-cleaned gameplay lane. During export, complete raw stick byte pairs are
+decoded from `SendGamePreFrame`, HSD-clamped to the radius-80 native stick,
+optionally passed through the same UCF 0.84 cardinal snap used by
+`mole_input`, and deadzone-cleaned with PlCo `x0`/`x4` before being packed as
+signed `-127..127` axes. Runtime replay comparison preserves that compact lane
+when present, because it may carry UCF full-cardinal intent that Slippi's
+game-facing float lane records as `-0.9875`; the float lane is only a fallback
+for older exports. Runtime comparison still applies the same deadzone cleanup
+defensively so stale compact exports with raw sub-deadzone jitter cannot create
+state transitions that Melee did not take.
+
 Current Rust diagnostic status: the sequential match-start oracle should be run
-from an export that includes negative pre-game frames. Reports now separate the
+from an export that includes negative pre-game frames. Reports separate the
 Rust core frame from the source Slippi frame and print position/velocity deltas
-on the first state mismatch. In the current local replay, the first useful
-match-start mismatch is source frame `17`, player 2: Melee is still in
-`LandingFallSpecial` on Battlefield top platform while Rust has entered `Fall`
-with an x-position delta of about `2.112` Melee units. Treat that as a
-position/history or platform collision diagnostic, not as evidence for a custom
-landing state.
+on the first state mismatch. The 2026-06-05 compact-input correction resolves
+the earlier player 2 source-frame `-19..-14` Dash/KneeBend drift: frame `-19`
+now preserves UCF full stick `-127`, and source frames `-20..-14` trace with
+zero x-position and horizontal velocity deltas. It also resolves the later
+source-frame `384` raw-noise Turn mismatch by deadzone-cleaning stale compact
+axes instead of allowing raw `(-20, 3)` jitter to reach core gameplay. In the
+current local replay export, unsupported state count is `0`; the first
+remaining position drift is player 2 source frame `764` during `Run` (`+506`
+milli x), and the first remaining state mismatch is player 2 source frame `891`
+where Rust is still in `Run` while Slippi has entered `KneeBend`. Treat that as
+the next grounded locomotion/state-priority parity target, not as a replay raw
+input bridge issue unless a new trace proves the compact lane is wrong.
 
 Local source anchors:
 

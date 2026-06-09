@@ -445,6 +445,17 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 104.0,
+          "kind": "source_f32",
+          "offset": 136,
+          "offset_hex": "0x88",
+          "provenance": "extracted_melee_dat",
+          "raw": 104.0,
+          "rust_name": "weight",
+          "source_name": "weight"
+        },
+        {
           "comparison_value_kind": "milli",
           "converted_value": 1647,
           "kind": "entry_platform_offset_milli",

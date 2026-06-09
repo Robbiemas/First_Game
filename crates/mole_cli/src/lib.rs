@@ -15,6 +15,7 @@ mod frame_data;
 mod frame_data_sampler;
 mod generated;
 mod graph;
+mod package;
 mod replay;
 mod verify;
 
@@ -47,6 +48,8 @@ enum CliCommand {
     Replay(ReplayCommand),
     Decomp(DecompCommand),
     FrameData(FrameDataCommand),
+    Package(PackageCommand),
+    FriendConnect(FriendConnectCommand),
     Doctor,
     Tests,
     Handoff,
@@ -103,6 +106,18 @@ pub(crate) enum FrameDataCommand {
     ExportRuntimeAll(FrameDataExportBatchOptions),
     Sample(FrameDataSampleOptions),
     Show(FrameDataOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum PackageCommand {
+    FriendPlaytest { verify: bool, dry_run: bool },
+    LocalInternetPlaytest { verify: bool, dry_run: bool },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum FriendConnectCommand {
+    Status,
+    Diagnostics { log: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -377,6 +392,10 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "replay" => parse_replay_command(&positional[1..]).map(CliCommand::Replay),
         "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
         "frame-data" => parse_frame_data_command(&positional[1..]).map(CliCommand::FrameData),
+        "package" => parse_package_command(&positional[1..]).map(CliCommand::Package),
+        "friend-connect" => {
+            parse_friend_connect_command(&positional[1..]).map(CliCommand::FriendConnect)
+        }
         "doctor" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Doctor),
         "tests" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Tests),
         "handoff" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Handoff),
@@ -386,6 +405,66 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "request" => parse_request_command(&positional[1..]).map(CliCommand::Request),
         "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
         other => Err(format!("unknown mole command: {other}")),
+    }
+}
+
+fn parse_friend_connect_command(args: &[String]) -> Result<FriendConnectCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("status");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "status" => ensure_no_extra_args("friend-connect status", rest)
+            .map(|()| FriendConnectCommand::Status),
+        "diagnostics" => parse_friend_connect_diagnostics(rest),
+        other => Err(format!("unknown mole friend-connect command: {other}")),
+    }
+}
+
+fn parse_friend_connect_diagnostics(args: &[String]) -> Result<FriendConnectCommand, String> {
+    let mut log = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--log" => {
+                log = Some(take_flag_value(args, &mut index, "--log")?);
+            }
+            other => {
+                return Err(format!(
+                    "unexpected argument for friend-connect diagnostics: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    Ok(FriendConnectCommand::Diagnostics { log })
+}
+
+fn parse_package_command(args: &[String]) -> Result<PackageCommand, String> {
+    let Some(subcommand) = args.first().map(String::as_str) else {
+        return Err("package requires a subcommand".to_string());
+    };
+    match subcommand {
+        "friend-playtest" | "local-internet-playtest" => {
+            let mut verify = true;
+            let mut dry_run = false;
+            for arg in &args[1..] {
+                match arg.as_str() {
+                    "--verify" => verify = true,
+                    "--no-verify" => verify = false,
+                    "--dry-run" => dry_run = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for package {subcommand}: {other}"
+                        ))
+                    }
+                }
+            }
+            if subcommand == "friend-playtest" {
+                Ok(PackageCommand::FriendPlaytest { verify, dry_run })
+            } else {
+                Ok(PackageCommand::LocalInternetPlaytest { verify, dry_run })
+            }
+        }
+        other => Err(format!("unknown mole package command: {other}")),
     }
 }
 
@@ -974,6 +1053,8 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Replay(command) => replay::replay_report(&options.root, command),
         CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
         CliCommand::FrameData(command) => frame_data::frame_data_report(&options.root, command),
+        CliCommand::Package(command) => package::package_report(&options.root, command),
+        CliCommand::FriendConnect(command) => friend_connect_report(&options.root, command),
         CliCommand::Doctor => doctor_report(&options.root),
         CliCommand::Tests => tests_report(&options.root),
         CliCommand::Handoff => handoff_report(&options.root),
@@ -1004,6 +1085,267 @@ fn parity_report(root: &Path) -> Value {
     let mut report = base_report("parity", root);
     report["parity"] = serde_json::to_value(parity).expect("parity summary serializes");
     report
+}
+
+fn friend_connect_report(root: &Path, command: &FriendConnectCommand) -> Value {
+    match command {
+        FriendConnectCommand::Status => friend_connect_status_report(root),
+        FriendConnectCommand::Diagnostics { log } => friend_connect_diagnostics_report(root, log),
+    }
+}
+
+fn friend_connect_diagnostics_report(root: &Path, log: &Option<String>) -> Value {
+    let mut report = base_report("friend-connect diagnostics", root);
+    let Some(log_path) = friend_connect_diagnostics_log_path(root, log) else {
+        report["ok"] = json!(false);
+        report["error"] = json!("no netplay log found; pass --log <path> or run Friend Connect");
+        return report;
+    };
+
+    let Ok(text) = fs::read_to_string(&log_path) else {
+        report["ok"] = json!(false);
+        report["log_path"] = json!(log_path.display().to_string());
+        report["error"] = json!("failed to read netplay log");
+        return report;
+    };
+
+    let mut events = 0u64;
+    let mut frame_summaries = 0u64;
+    let mut last_frame = None::<u64>;
+    let mut max_rollback_corrections = 0u64;
+    let mut max_missing_remote_frames = 0u64;
+    let mut max_packet_bundle_len = 0u64;
+    let mut advance_events = 0u64;
+    let mut skip_events = 0u64;
+    let mut speed_ppm_min = None::<u64>;
+    let mut speed_ppm_max = None::<u64>;
+    let mut last_world_checksum = None::<u64>;
+    let mut parse_errors = 0u64;
+
+    for line in text.lines().filter(|line| !line.trim().is_empty()) {
+        let Ok(value) = serde_json::from_str::<Value>(line) else {
+            parse_errors = parse_errors.saturating_add(1);
+            continue;
+        };
+        events = events.saturating_add(1);
+        if value.get("event").and_then(Value::as_str) == Some("frame_summary") {
+            frame_summaries = frame_summaries.saturating_add(1);
+        }
+        if let Some(frame) = value.get("frame").and_then(Value::as_u64) {
+            last_frame = Some(last_frame.map(|last| last.max(frame)).unwrap_or(frame));
+        }
+        max_rollback_corrections = max_rollback_corrections.max(
+            value
+                .get("rollback_corrections")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+        );
+        max_missing_remote_frames = max_missing_remote_frames.max(
+            value
+                .get("missing_remote_frames")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+        );
+        max_packet_bundle_len = max_packet_bundle_len.max(
+            value
+                .get("packet_bundle_len")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+        );
+        if value
+            .get("advance_online_frame")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            advance_events = advance_events.saturating_add(1);
+        }
+        if value
+            .get("skip_online_frame")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            skip_events = skip_events.saturating_add(1);
+        }
+        if let Some(speed_ppm) = value.get("speed_ppm").and_then(Value::as_u64) {
+            speed_ppm_min = Some(
+                speed_ppm_min
+                    .map(|current| current.min(speed_ppm))
+                    .unwrap_or(speed_ppm),
+            );
+            speed_ppm_max = Some(
+                speed_ppm_max
+                    .map(|current| current.max(speed_ppm))
+                    .unwrap_or(speed_ppm),
+            );
+        }
+        if let Some(checksum) = value.get("world_checksum").and_then(Value::as_u64) {
+            last_world_checksum = Some(checksum);
+        }
+    }
+
+    report["ok"] = json!(parse_errors == 0 && events > 0);
+    report["log_path"] = json!(log_path.display().to_string());
+    report["events"] = json!(events);
+    report["frame_summaries"] = json!(frame_summaries);
+    report["parse_errors"] = json!(parse_errors);
+    report["last_frame"] = json!(last_frame);
+    report["max_rollback_corrections"] = json!(max_rollback_corrections);
+    report["max_missing_remote_frames"] = json!(max_missing_remote_frames);
+    report["max_packet_bundle_len"] = json!(max_packet_bundle_len);
+    report["advance_events"] = json!(advance_events);
+    report["skip_events"] = json!(skip_events);
+    report["speed_ppm_min"] = json!(speed_ppm_min);
+    report["speed_ppm_max"] = json!(speed_ppm_max);
+    report["last_world_checksum"] = json!(last_world_checksum);
+    report["agent_notes"] = json!([
+        "Rollback corrections should increase only when a late remote input differs from prediction.",
+        "packet_bundle_len should normally be nonzero during gameplay; Friend Connect sends the recent input window as one Slippi-shaped datagram.",
+        "advance_events and skip_events should be rare on stable links and explain visible pacing changes."
+    ]);
+    report
+}
+
+fn friend_connect_diagnostics_log_path(root: &Path, log: &Option<String>) -> Option<PathBuf> {
+    if let Some(log) = log {
+        let path = PathBuf::from(log);
+        return Some(if path.is_absolute() {
+            path
+        } else {
+            root.join(path)
+        });
+    }
+
+    let log_dir = root.join("logs/netplay");
+    fs::read_dir(log_dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("jsonl"))
+        .filter_map(|path| {
+            let modified = fs::metadata(&path).ok()?.modified().ok()?;
+            Some((modified, path))
+        })
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, path)| path)
+}
+
+fn friend_connect_status_report(root: &Path) -> Value {
+    let playtest_exe = root.join("playtest/MoleGame-FriendPlaytest.exe");
+    let local_internet_playtest_exe = root.join("playtest/MoleGame-LocalInternetPlaytest.exe");
+    let mut report = base_report("friend-connect status", root);
+    report["ok"] = json!(true);
+    report["mutated"] = json!(false);
+    report["package_ready"] = json!(playtest_exe.is_file());
+    report["role_contract"] = json!({
+        "mode": "friend-connect singles",
+        "assignment_rule": "lobby role is authoritative; sorted peer codes do not decide player slots",
+        "host": {
+            "role": "code owner",
+            "player_slot": 1,
+            "network_index": 0,
+            "can_start_match": true,
+        },
+        "joiner": {
+            "role": "code connector",
+            "player_slot": 2,
+            "network_index": 1,
+            "can_start_match": false,
+        },
+        "start_owner": "host/code owner",
+    });
+    report["controller_contract"] = json!({
+        "mode": "single local active controller per Friend Connect client",
+        "active_at_launch": false,
+        "activation_rule": "the first connected local WUP/GameCube controller that produces non-neutral gameplay input latches as the active local controller",
+        "host_mapping": "active local controller drives rollback P1",
+        "joiner_mapping": "active local controller drives rollback P2",
+        "extra_local_controllers": "ignored for this singles playtest; reserved for future local doubles",
+        "wup_missing_or_busy": "nonfatal; runtime keeps both windows open and retries",
+    });
+    report["netplay_contract"] = json!({
+        "default_input_delay_frames": 2,
+        "manual_delay_override": "--netplay-delay N",
+        "slippi_delay_model": "physical input sampled on match frame F is scheduled and transmitted immediately for game frame F + delay",
+        "initial_delay_pads": "on the first online send, neutral pads are queued for the initial delay window before the first real delayed input, matching Slippi handleSendInputs",
+        "rollback_window_frames": 7,
+        "recent_input_retransmit_frames": 8,
+        "recent_input_retain_frames": 128,
+        "recent_input_datagram": "recent local inputs are transmitted as one bundled datagram ordered newest-to-oldest, mirroring Slippi SendSlippiPad's queued pad packet instead of sending one UDP datagram per frame",
+        "ack_pruning": "acked local inputs are pruned with Slippi's frame < minAckFrame rule; the ack boundary frame remains available for repair",
+        "remote_receive_head": "incoming bundled remote pads are copied only while their frames are newer than the current remote head, matching Slippi inputsToCopy = packetNewestFrame - headFrame; overlapping older bytes do not backfill or overwrite rollback history",
+        "time_offset_sampling": "a bundled input datagram contributes one CalcTimeOffsetUs-style timing sample from the newest packet frame, not one sample per bundled pad frame",
+        "remote_lookahead_stall": "when the latest remote input is outside Slippi's ROLLBACK_MAX_FRAMES lookahead, the runtime resends queued local inputs and does not advance the online match frame",
+        "slippi_time_sync": "runtime mirrors Slippi CalcTimeOffsetUs early sync: every 30 online frames through frame 120, an ahead client stalls when trimmed-average offset exceeds 10000us, capped to 5 skipped frames",
+        "slippi_dynamic_pacing": "after frame 120, runtime mirrors Slippi shouldAdvanceOnlineFrame m_EmulationSpeed pacing: offset samples adjust frame deadlines from 99.5% to 101.0%, with far-behind advance hints spaced every 5 frames",
+        "match_frame_epoch": "match frame 0 begins when Friend Connect gameplay starts; launch-window frames are not used as gameplay packet frames",
+        "late_remote_input": "accepted packets older than the current match frame are fed back through rollback confirmation when a snapshot is still available",
+        "stale_remote_input": "packets older than the retained rollback snapshot window are ignored for correction instead of crashing the runtime",
+    });
+    report["signaling_contract"] = json!({
+        "supabase_role": "rendezvous and match-start signaling only",
+        "gameplay_transport": "direct UDP input packets",
+        "start_delivery": "host rebroadcasts match_start so the joiner listener can catch it before game start",
+    });
+    report["solo_internet_test_contract"] = json!({
+        "mode": "visible-host-plus-visible-peer",
+        "visible_host_command": "mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2 --friend-code CODE --auto-start --friend-local-udp 127.0.0.1:41001",
+        "visible_peer_command": "mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2 --friend-code PEER --connect-code CODE --friend-local-udp 127.0.0.1:41002",
+        "headless_peer_command": "mole_runtime.exe --friend-connect-headless-peer --connect-code CODE --netplay-delay 2",
+        "visible_peer_slot": 2,
+        "headless_peer_input": "deterministic neutral input remains available for explicit headless diagnostics",
+        "supabase_role": "same setup rendezvous and match-start signaling as Friend Connect",
+        "gameplay_transport": "direct UDP input packets over explicit loopback ports for same-machine visual testing",
+        "performance_readout": "visible Friend Connect status panels show CPU nHZ headroom before the deterministic 60 Hz cap wait",
+        "log_policy": "bounded JSONL role logs under logs/netplay, capped at 5 MB per role/session without per-packet spam",
+        "nat_hairpin_note": "same-machine internet testing may expose router NAT hairpin limits; the runtime must log endpoint/UDP reachability instead of silently faking loopback",
+    });
+    report["artifacts"] = json!({
+        "dist_dir": file_status(&root.join("dist/MoleGame-FriendPlaytest")),
+        "dist_zip": file_status(&root.join("dist/MoleGame-FriendPlaytest.zip")),
+        "dist_exe": file_status(&root.join("dist/MoleGame-FriendPlaytest.exe")),
+        "local_internet_dist_exe": file_status(&root.join("dist/MoleGame-LocalInternetPlaytest.exe")),
+        "playtest_exe": file_status(&playtest_exe),
+        "local_internet_playtest_exe": file_status(&local_internet_playtest_exe),
+    });
+    report["build_command"] = json!([
+        "cargo",
+        "run",
+        "-p",
+        "mole_cli",
+        "--",
+        "package",
+        "friend-playtest",
+        "--json"
+    ]);
+    report
+}
+
+fn file_status(path: &Path) -> Value {
+    match fs::metadata(path) {
+        Ok(metadata) => json!({
+            "path": path.display().to_string(),
+            "exists": true,
+            "is_file": metadata.is_file(),
+            "is_dir": metadata.is_dir(),
+            "len": if metadata.is_file() { Some(metadata.len()) } else { None },
+            "modified_unix_seconds": metadata.modified().ok().and_then(system_time_unix_seconds),
+        }),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => json!({
+            "path": path.display().to_string(),
+            "exists": false,
+        }),
+        Err(error) => json!({
+            "path": path.display().to_string(),
+            "exists": false,
+            "error": error.to_string(),
+        }),
+    }
+}
+
+fn system_time_unix_seconds(time: SystemTime) -> Option<u64> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
 }
 
 fn snapshot_report(root: &Path) -> Value {
@@ -1065,6 +1407,7 @@ fn tests_report(root: &Path) -> Value {
     report["notes"] = json!([
         "Run full workspace tests after Rust core or generated table changes.",
         "Run graph/parity Python tests after docs/state_graphs or tools changes.",
+        "Cargo accepts one test-name filter per cargo test invocation; run multiple exact tests as separate cargo test commands or use one shared substring/module filter.",
         "Mole CLI is read-only; it reports commands but does not run them."
     ]);
     report
@@ -1243,6 +1586,9 @@ fn expected_command_names() -> Vec<&'static str> {
         "frame-data extract",
         "frame-data export-runtime",
         "frame-data show",
+        "package friend-playtest",
+        "package local-internet-playtest",
+        "friend-connect status",
         "doctor",
         "tests",
         "handoff",
@@ -1494,16 +1840,19 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json",
             "cargo run -p mole_cli -- frame-data extract --character dolphin_mole --source-character captain --state AttackAirN --write --json",
             "cargo run -p mole_cli -- frame-data extract --all-states --character dolphin_mole --source-character captain --write --json",
-            "cargo run -p mole_cli -- frame-data export-runtime --character dolphin_mole --state AttackAirN --output crates/mole_runtime/src/generated/frame_data_boxes.rs --write --json",
-            "cargo run -p mole_cli -- frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/frame_data_boxes.rs --write --json",
+            "cargo run -p mole_cli -- frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/source_frame_data.rs --write --json",
             "cargo run -p mole_cli -- frame-data show --character dolphin_mole --state AttackAirN --format markdown",
+            "cargo run -p mole_cli -- package friend-playtest --json",
+            "cargo run -p mole_cli -- package local-internet-playtest --json",
+            "cargo run -p mole_cli -- friend-connect status --json",
+            "cargo run -p mole_cli -- friend-connect diagnostics --log logs\\netplay\\visible_host.jsonl --json",
             "cargo run -p mole_cli -- request next --json",
             "cargo run -p mole_cli -- request add --id trace-summary --title \"Trace Summary\" --request \"Add a compact trace summary command.\" --context \"Agents need shorter logs.\" --expected \"JSON summary.\" --json",
             "cargo run -p mole_cli -- request done --id trace-summary --result \"Implemented and verified.\" --json"
         ],
         "ai_contract": {
             "read_only_by_default": true,
-            "mutating_commands": ["frame-data extract", "frame-data export-runtime", "replay check", "request add", "request done"],
+            "mutating_commands": ["frame-data extract", "frame-data export-runtime", "package friend-playtest", "package local-internet-playtest", "replay check", "request add", "request done"],
             "no_interactive_prompts": true,
             "stable_json_schema_version": SCHEMA_VERSION,
             "nonzero_exit_on_cli_usage_error": true
@@ -1720,14 +2069,14 @@ fn command_help_catalog() -> Value {
         {
             "name": "frame-data export-runtime",
             "usage": "mole frame-data export-runtime --character ID (--state MotionState|--all-states) [--output PATH] [--write] [--json]",
-            "purpose": "Generate the native Rust runtime capsule module from extracted frame-data artifacts while preserving source-space floats and Z before the runtime flattens for current 2D play.",
+            "purpose": "Generate runtime frame-data assets from extracted source data. Compact all-states export emits provenance sidecars plus a baked source_frame_capsules.bin action/frame capsule and DownBound hip-pose sidecar consumed by player runtime.",
             "mutates_workspace": true,
-            "writes": ["crates/mole_runtime/src/generated/frame_data_boxes.rs when --write is present"],
+            "writes": ["crates/mole_runtime/src/generated/source_frame_data.rs", "crates/mole_runtime/src/generated/source_frame_data/*"],
             "output_modes": ["json"],
             "required_flags": ["--character", "--state or --all-states"],
             "optional_flags": ["--all-states", "--output", "--write", "--root", "--json"],
             "aliases": [],
-            "agent_notes": "Use after frame-data extract/show confirms the canonical artifacts; --all-states emits one combined character module with reusable character, MotionState, and source-frame match arms."
+            "agent_notes": "Use after frame-data extract/show confirms the canonical artifacts; compact --all-states embeds source-shaped Rust assets so runtime does not read raw Melee DAT files or evaluate FigaTree/JObj data during play."
         },
         {
             "name": "frame-data show",
@@ -1740,6 +2089,54 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--format"],
             "aliases": [],
             "agent_notes": "Use after extraction to cite the canonical artifact that also feeds the Move Keyframes dev-tool tab."
+        },
+        {
+            "name": "package friend-playtest",
+            "usage": "mole package friend-playtest [--verify|--no-verify] [--dry-run] [--json]",
+            "purpose": "Build the one-file Windows Friend Connect playtest package and, by default, verify that it extracts and the packaged runtime starts without depending on the repo asset path.",
+            "mutates_workspace": true,
+            "writes": ["dist/MoleGame-FriendPlaytest", "dist/MoleGame-FriendPlaytest.zip", "dist/MoleGame-FriendPlaytest.exe", "dist/MoleGame-LocalInternetPlaytest.exe", "playtest/MoleGame-FriendPlaytest.exe", "playtest/MoleGame-LocalInternetPlaytest.exe"],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--verify", "--no-verify", "--dry-run", "--root", "--json", "--text", "--format"],
+            "aliases": ["package"],
+            "agent_notes": "Use this instead of manually remembering the PowerShell package script. The default verification catches stale packaged assets and hardcoded development asset roots before sending the exe to a tester."
+        },
+        {
+            "name": "package local-internet-playtest",
+            "usage": "mole package local-internet-playtest [--verify|--no-verify] [--dry-run] [--json]",
+            "purpose": "Build the secondary one-file Windows launcher that extracts the Friend Connect package, generates a local room code, and starts both the visible host and headless internet peer.",
+            "mutates_workspace": true,
+            "writes": ["dist/MoleGame-FriendPlaytest", "dist/MoleGame-FriendPlaytest.zip", "dist/MoleGame-FriendPlaytest.exe", "dist/MoleGame-LocalInternetPlaytest.exe", "playtest/MoleGame-FriendPlaytest.exe", "playtest/MoleGame-LocalInternetPlaytest.exe"],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--verify", "--no-verify", "--dry-run", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use this when the solo visible-host plus headless-peer EXE needs to be refreshed after runtime or package changes."
+        },
+        {
+            "name": "friend-connect status",
+            "usage": "mole friend-connect status [--json|--text]",
+            "purpose": "Report the current Friend Connect role, controller activation, signaling, and playtest artifact contract without mutating the workspace.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["friend-connect"],
+            "agent_notes": "Use before packaging or handoff to confirm the host/code owner is P1/start owner, the joiner is P2, and controllers latch only after first real local input."
+        },
+        {
+            "name": "friend-connect diagnostics",
+            "usage": "mole friend-connect diagnostics [--log PATH] [--json|--text]",
+            "purpose": "Summarize bounded Friend Connect JSONL logs into rollback, packet bundle, checksum, and pacing counters for playtest diagnosis.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--log", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after a local or friend internet playtest. Without --log it reads the newest logs/netplay/*.jsonl file."
         },
         {
             "name": "doctor",
@@ -1763,7 +2160,7 @@ fn command_help_catalog() -> Value {
             "required_flags": [],
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Reports commands only; it intentionally does not execute them."
+            "agent_notes": "Reports commands only; it intentionally does not execute them. Cargo accepts one test-name filter per invocation; run multiple exact tests as separate cargo test commands or use one shared substring/module filter."
         },
         {
             "name": "handoff",

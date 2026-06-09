@@ -1,11 +1,28 @@
+use std::io::Write;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::{fs, io};
 
+use serde::Serialize;
+
+use mole_frame_data::{
+    decode_runtime_source_frame_capsules, RuntimeSourceCapsuleSample, RuntimeSourceFrameSample,
+};
+
+use mole_core::collision::{
+    source_collision_hits, source_damage_accumulator_after_stages, source_damage_result_for_victim,
+    source_damage_stages_from_confirms, source_hit_confirms, Capsule3, SourceCollisionCapsule,
+    SourceCollisionFrame, SourceCollisionHit, SourceDamageAccumulator, SourceDamageResult,
+    SourceDamageResultInput, SourceDamageStage, SourceHitConfirm, SourceHitboxAttributes,
+    SourceHitboxLifecycleId, Vec3,
+};
 use mole_core::{
-    source_root_motion_position, step_world, EcbDiamond, Frame, GameCubePadStatus, MeleeInputFacts,
-    MotionState, PlayerInput, StageProfile, StageSurface, StageSurfaceKind, Vec2, World,
-    WorldSnapshot, TICK_NANOS,
+    source_root_motion_position, step_world, step_world_with_source_runtime_data, EcbDiamond,
+    Frame, GameCubePadStatus, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MotionState,
+    PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, SourceCollisionStep,
+    SourceDownBoundPose, StageProfile, StageSurface, StageSurfaceKind, Vec2, World, WorldSnapshot,
+    TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
 use mole_transport::{InputPacket, PacketAcceptResult};
@@ -39,8 +56,9 @@ pub use slippi_diagnostic::{
     SlippiCoreTraceRow,
 };
 
-#[path = "generated/frame_data_boxes.rs"]
-mod frame_data_boxes;
+#[rustfmt::skip]
+#[path = "generated/source_frame_data.rs"]
+mod source_frame_data;
 
 pub mod wup_input;
 pub use wup_input::{
@@ -54,10 +72,8 @@ pub use wup_input::WupInputSource;
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
 const CORE_TO_SCREEN_SCALE_DENOMINATOR: i64 = 1_000_000;
-const RUNTIME_CHARACTER_ID: &str = "dolphin_mole";
 const SOURCE_SPACE_MELEE_XYZ: &str = "melee_xyz";
 const PROJECTED_VIEW_DERIVED_DEBUG: &str = "derived_debug_view";
-const SOURCE_ARTIFACT_GENERATED: &str = "generated_frame_data_boxes";
 
 pub fn default_play_world() -> World {
     World::for_slippi_battlefield_singles_match_start()
@@ -94,6 +110,14 @@ impl FixedStepClock {
     }
 }
 
+pub fn frame_pacing_sleep_nanos(elapsed_nanos: u64) -> u64 {
+    TICK_NANOS.saturating_sub(elapsed_nanos)
+}
+
+pub fn frame_pacing_coarse_sleep_nanos(_remaining_nanos: u64) -> u64 {
+    0
+}
+
 pub trait InputSource {
     fn poll_inputs(&mut self, frame: Frame) -> [PlayerInput; 2];
 }
@@ -106,6 +130,344 @@ pub fn step_world_from_input_source<S: InputSource + ?Sized>(
     let inputs = input_source.poll_inputs(frame);
     step_world(world, frame, &inputs);
     inputs
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetplayLogRole {
+    VisibleHost,
+    HeadlessPeer,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NetplayLogEvent<'a> {
+    role: NetplayLogRole,
+    event: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    room_code: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    peer_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frame: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sent_packets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    received_packets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duplicate_packets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unsupported_packets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    missing_remote_frames: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rollback_corrections: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_remote_frame: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_remote_checksum: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_remote_sequence: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_acked_sequence: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_rtt_frames: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    world_checksum: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    packet_bundle_len: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    speed_ppm: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    advance_online_frame: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    skip_online_frame: Option<bool>,
+}
+
+impl<'a> NetplayLogEvent<'a> {
+    pub const fn new(role: NetplayLogRole, event: &'a str) -> Self {
+        Self {
+            role,
+            event,
+            room_code: None,
+            peer_id: None,
+            frame: None,
+            message: None,
+            sent_packets: None,
+            received_packets: None,
+            duplicate_packets: None,
+            unsupported_packets: None,
+            missing_remote_frames: None,
+            rollback_corrections: None,
+            last_remote_frame: None,
+            last_remote_checksum: None,
+            last_remote_sequence: None,
+            last_acked_sequence: None,
+            last_rtt_frames: None,
+            world_checksum: None,
+            packet_bundle_len: None,
+            speed_ppm: None,
+            advance_online_frame: None,
+            skip_online_frame: None,
+        }
+    }
+
+    pub const fn with_room_code(mut self, room_code: &'a str) -> Self {
+        self.room_code = Some(room_code);
+        self
+    }
+
+    pub const fn with_peer_id(mut self, peer_id: &'a str) -> Self {
+        self.peer_id = Some(peer_id);
+        self
+    }
+
+    pub const fn with_frame(mut self, frame: Frame) -> Self {
+        self.frame = Some(frame.0);
+        self
+    }
+
+    pub const fn with_message(mut self, message: &'a str) -> Self {
+        self.message = Some(message);
+        self
+    }
+
+    pub fn with_netplay_stats(mut self, stats: &UdpRuntimeStats) -> Self {
+        self.sent_packets = nonzero_u32(stats.sent_packets);
+        self.received_packets = nonzero_u32(stats.received_packets);
+        self.duplicate_packets = nonzero_u32(stats.duplicate_packets);
+        self.unsupported_packets = nonzero_u32(stats.unsupported_packets);
+        self.missing_remote_frames = nonzero_u32(stats.missing_remote_frames);
+        self.rollback_corrections = nonzero_u32(stats.rollback_corrections);
+        self.last_remote_frame = stats.last_remote_frame.map(|frame| frame.0);
+        self.last_remote_checksum = stats.last_remote_checksum;
+        self.last_remote_sequence = stats.last_remote_sequence;
+        self.last_acked_sequence = stats.last_acked_sequence;
+        self.last_rtt_frames = stats.last_rtt_frames;
+        self
+    }
+
+    pub const fn with_world_checksum(mut self, checksum: u64) -> Self {
+        self.world_checksum = Some(checksum);
+        self
+    }
+
+    pub const fn with_packet_bundle_len(mut self, len: u32) -> Self {
+        self.packet_bundle_len = Some(len);
+        self
+    }
+
+    pub const fn with_pacing(
+        mut self,
+        speed_ppm: u32,
+        advance_online_frame: bool,
+        skip_online_frame: bool,
+    ) -> Self {
+        self.speed_ppm = Some(speed_ppm);
+        self.advance_online_frame = Some(advance_online_frame);
+        self.skip_online_frame = Some(skip_online_frame);
+        self
+    }
+}
+
+const fn nonzero_u32(value: u32) -> Option<u32> {
+    if value == 0 {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct BoundedNetplayLogger<W> {
+    writer: W,
+    max_bytes: usize,
+    written_bytes: usize,
+    cap_logged: bool,
+    disabled: bool,
+}
+
+impl<W: Write> BoundedNetplayLogger<W> {
+    pub const fn new(writer: W, max_bytes: usize) -> Self {
+        Self {
+            writer,
+            max_bytes,
+            written_bytes: 0,
+            cap_logged: false,
+            disabled: false,
+        }
+    }
+
+    pub fn write_event(&mut self, event: NetplayLogEvent<'_>) -> io::Result<bool> {
+        let mut line = serde_json::to_vec(&event)?;
+        line.push(b'\n');
+        if self.disabled || !self.write_line(&line)? {
+            self.write_cap_event(event.role)?;
+            return Ok(false);
+        }
+        Ok(true)
+    }
+
+    fn write_line(&mut self, line: &[u8]) -> io::Result<bool> {
+        if self.disabled {
+            return Ok(false);
+        }
+        if self.written_bytes.saturating_add(line.len()) > self.max_bytes {
+            return Ok(false);
+        }
+        self.writer.write_all(line)?;
+        self.written_bytes = self.written_bytes.saturating_add(line.len());
+        Ok(true)
+    }
+
+    fn write_cap_event(&mut self, role: NetplayLogRole) -> io::Result<()> {
+        if self.cap_logged {
+            self.disabled = true;
+            return Ok(());
+        }
+        self.cap_logged = true;
+        let mut line = serde_json::to_vec(&NetplayLogEvent::new(role, "log_cap_reached"))?;
+        line.push(b'\n');
+        let _ = self.write_line(&line)?;
+        self.disabled = true;
+        Ok(())
+    }
+}
+
+pub fn apply_source_collisions_for_world(world: &mut World) -> SourceCollisionStep {
+    let frame = RenderFrame::from_world(world);
+    source_collision_step_from_frame(world, &frame)
+}
+
+pub fn step_world_with_source_collisions(
+    world: &mut World,
+    frame: Frame,
+    inputs: &[PlayerInput; 2],
+) {
+    step_world_with_source_runtime_data(
+        world,
+        frame,
+        inputs,
+        runtime_source_pose_metadata_for_player,
+        runtime_source_action_total_frames_for_action_state_id,
+    );
+    let source_step = apply_source_collisions_for_world(world);
+    world.apply_source_damage_results_with_action_total_frames(
+        &source_step.results,
+        runtime_source_action_total_frames_for_action_state_id,
+    );
+    world.commit_staged_source_damage();
+}
+
+pub fn preload_runtime_source_frame_data() -> Result<usize, String> {
+    let actions = runtime_source_actions()?;
+    Ok(actions.len())
+}
+
+pub fn runtime_source_frame_data_is_preloaded() -> bool {
+    RUNTIME_SOURCE_ACTION_CACHE.get().is_some()
+}
+
+pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollisionFrame {
+    let mut hits = Vec::new();
+    let mut hurts = Vec::new();
+    for player_index in 0..frame.player_positions.len() {
+        let source_frame = source_frame_for_player(frame, player_index);
+        let source_action_key = source_action_key_for_player(frame, player_index);
+        let action_state_id = frame.player_source_pose_action_state_ids[player_index];
+        let source_root_z = source_render_root_motion_z(frame, player_index);
+        let source_capsules = runtime_source_frame_capsules(source_action_key, source_frame);
+        hits.extend(source_capsules.hit_capsules.into_iter().map(|capsule| {
+            SourceCollisionCapsule::new(
+                player_index,
+                capsule.id,
+                source_capsule_to_world_3d(
+                    capsule,
+                    frame.player_positions[player_index],
+                    frame.player_model_facing(player_index),
+                    source_root_z,
+                ),
+            )
+            .with_owner_grounded(frame.player_grounded[player_index])
+            .with_source_pose(action_state_id, source_action_key, source_frame)
+            .with_optional_hitbox_lifecycle(capsule.hitbox_lifecycle_id)
+            .with_optional_hitbox_attributes(capsule.hitbox)
+        }));
+        hurts.extend(source_capsules.hurt_capsules.into_iter().map(|capsule| {
+            SourceCollisionCapsule::new(
+                player_index,
+                capsule.id,
+                source_capsule_to_world_3d(
+                    capsule,
+                    frame.player_positions[player_index],
+                    frame.player_model_facing(player_index),
+                    source_root_z,
+                ),
+            )
+            .with_owner_grounded(frame.player_grounded[player_index])
+            .with_source_pose(action_state_id, source_action_key, source_frame)
+        }));
+    }
+    SourceCollisionFrame { hits, hurts }
+}
+
+pub fn source_collision_hits_from_frame(frame: &RenderFrame) -> Vec<SourceCollisionHit> {
+    source_collision_hits(&source_collision_frame_from_frame(frame))
+}
+
+pub fn source_collision_step_from_frame(
+    world: &mut World,
+    frame: &RenderFrame,
+) -> SourceCollisionStep {
+    let collision_frame = source_collision_frame_from_frame(frame);
+    world.apply_source_collision_frame(&collision_frame)
+}
+
+pub fn source_hit_confirms_from_frame(frame: &RenderFrame) -> Vec<SourceHitConfirm> {
+    source_hit_confirms(&source_collision_frame_from_frame(frame))
+}
+
+pub fn source_damage_stages_from_frame(frame: &RenderFrame) -> Vec<SourceDamageStage> {
+    source_damage_stages_from_confirms(&source_hit_confirms_from_frame(frame))
+}
+
+pub fn source_damage_results_from_frame(frame: &RenderFrame) -> Vec<SourceDamageResult> {
+    let stages = source_damage_stages_from_frame(frame);
+    source_damage_results_from_stages_for_frame(frame, &stages)
+}
+
+pub fn source_damage_results_from_stages_for_frame(
+    frame: &RenderFrame,
+    stages: &[SourceDamageStage],
+) -> Vec<SourceDamageResult> {
+    let mut results = Vec::new();
+    for victim_index in 0..frame.player_positions.len() {
+        let accumulator = source_damage_accumulator_after_stages(
+            SourceDamageAccumulator {
+                victim_index,
+                percent_temp: frame.player_damage_percent_temps[victim_index],
+                applied_damage: frame.player_damage_applied[victim_index],
+            },
+            stages,
+        );
+        if let Some(result) = source_damage_result_for_victim(
+            frame.common_data,
+            stages,
+            SourceDamageResultInput {
+                victim_index,
+                victim_percent: frame.player_damage_percents[victim_index],
+                victim_percent_temp: accumulator.percent_temp,
+                victim_weight: frame.player_profile_weights[victim_index],
+                stage: 1.0,
+                attack: 1.0,
+                defense: 1.0,
+            },
+        ) {
+            results.push(result);
+        }
+    }
+    results
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -215,13 +577,29 @@ fn axis_to_i8(value: i16) -> i8 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderFrame {
     pub frame: Frame,
+    pub common_data: MeleeCommonData,
     pub player_positions: [Vec2; 2],
     pub player_velocities: [Vec2; 2],
     pub player_ecbs: [EcbDiamond; 2],
+    pub player_grounded: [bool; 2],
     pub player_facings: [i8; 2],
+    pub player_damage_percents: [f32; 2],
+    pub player_damage_percent_temps: [f32; 2],
+    pub player_damage_applied: [u16; 2],
+    pub player_damage_knockbacks: [f32; 2],
+    pub player_damage_angles: [u16; 2],
+    pub player_damage_elements: [u8; 2],
+    pub player_hitlag_frames: [u8; 2],
+    pub player_damage_hitstun_frames: [u16; 2],
+    pub player_profile_weights: [f32; 2],
+    pub player_action_state_ids: [Option<MeleeActionStateId>; 2],
+    pub player_source_action_keys: [Option<SourceActionKey>; 2],
+    pub player_motion_state_aliases: [Option<MotionState>; 2],
     pub player_motion_states: [MotionState; 2],
     pub player_state_frames: [u8; 2],
     pub player_animation_frames: [u8; 2],
+    pub player_source_pose_action_state_ids: [Option<MeleeActionStateId>; 2],
+    pub player_source_pose_action_keys: [Option<SourceActionKey>; 2],
     pub player_source_pose_motion_states: [MotionState; 2],
     pub player_source_pose_frames: [u8; 2],
     pub player_source_pose_model_facings: [i8; 2],
@@ -261,13 +639,63 @@ impl RenderFrame {
     pub fn from_snapshot(snapshot: WorldSnapshot) -> Self {
         Self {
             frame: snapshot.frame,
+            common_data: snapshot.common_data,
             player_positions: [snapshot.players[0].position, snapshot.players[1].position],
             player_velocities: [snapshot.players[0].velocity, snapshot.players[1].velocity],
             player_ecbs: [
                 snapshot.players[0].active_ecb,
                 snapshot.players[1].active_ecb,
             ],
+            player_grounded: [snapshot.players[0].grounded, snapshot.players[1].grounded],
             player_facings: [snapshot.players[0].facing, snapshot.players[1].facing],
+            player_damage_percents: [
+                snapshot.players[0].damage_percent,
+                snapshot.players[1].damage_percent,
+            ],
+            player_damage_percent_temps: [
+                snapshot.players[0].damage_percent_temp,
+                snapshot.players[1].damage_percent_temp,
+            ],
+            player_damage_applied: [
+                snapshot.players[0].damage_applied,
+                snapshot.players[1].damage_applied,
+            ],
+            player_damage_knockbacks: [
+                snapshot.players[0].damage_knockback,
+                snapshot.players[1].damage_knockback,
+            ],
+            player_damage_angles: [
+                snapshot.players[0].damage_angle,
+                snapshot.players[1].damage_angle,
+            ],
+            player_damage_elements: [
+                snapshot.players[0].damage_element,
+                snapshot.players[1].damage_element,
+            ],
+            player_hitlag_frames: [
+                snapshot.players[0].hitlag_frames,
+                snapshot.players[1].hitlag_frames,
+            ],
+            player_damage_hitstun_frames: [
+                snapshot.players[0].damage_hitstun_frames,
+                snapshot.players[1].damage_hitstun_frames,
+            ],
+            player_profile_weights: [
+                snapshot.players[0].profile_weight,
+                snapshot.players[1].profile_weight,
+            ],
+            player_action_state_ids: [
+                snapshot.players[0].melee_action_state_id,
+                snapshot.players[1].melee_action_state_id,
+            ],
+            player_source_action_keys: [
+                snapshot.players[0].source_action_key,
+                snapshot.players[1].source_action_key,
+            ],
+            player_motion_state_aliases: [
+                snapshot.players[0].motion_state_alias,
+                snapshot.players[1].motion_state_alias,
+            ],
             player_motion_states: [
                 snapshot.players[0].motion_state,
                 snapshot.players[1].motion_state,
@@ -279,6 +707,14 @@ impl RenderFrame {
             player_animation_frames: [
                 snapshot.players[0].animation_frame,
                 snapshot.players[1].animation_frame,
+            ],
+            player_source_pose_action_state_ids: [
+                snapshot.players[0].source_pose_action_state_id,
+                snapshot.players[1].source_pose_action_state_id,
+            ],
+            player_source_pose_action_keys: [
+                snapshot.players[0].source_pose_action_key,
+                snapshot.players[1].source_pose_action_key,
             ],
             player_source_pose_motion_states: [
                 snapshot.players[0].source_pose_motion_state,
@@ -627,12 +1063,12 @@ impl RenderScene {
         let player_sprites = [
             LegacySpriteCue::for_player(
                 frame.player_motion_states[0],
-                frame.player_state_frames[0],
+                frame.player_animation_frames[0],
                 frame.player_model_facing(0),
             ),
             LegacySpriteCue::for_player(
                 frame.player_motion_states[1],
-                frame.player_state_frames[1],
+                frame.player_animation_frames[1],
                 frame.player_model_facing(1),
             ),
         ];
@@ -702,21 +1138,32 @@ impl RenderScene {
 }
 
 pub fn project_asset_root() -> PathBuf {
+    if let Some(root) = std::env::var_os("MOLE_ASSET_ROOT").map(PathBuf::from) {
+        if !root.as_os_str().is_empty() {
+            return root;
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(root) = packaged_asset_root_for_exe(&exe_path) {
+            return root;
+        }
+    }
+
+    source_asset_root()
+}
+
+pub fn packaged_asset_root_for_exe(exe_path: &Path) -> Option<PathBuf> {
+    let root = exe_path.parent()?;
+    has_runtime_assets(root).then(|| root.to_path_buf())
+}
+
+fn source_asset_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-#[derive(Debug, Clone, Copy)]
-struct RuntimeSourcePoint {
-    x: f64,
-    y: f64,
-    z: f64,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct RuntimeSourceCapsule {
-    a: RuntimeSourcePoint,
-    b: RuntimeSourcePoint,
-    radius: f64,
+fn has_runtime_assets(root: &Path) -> bool {
+    root.join("background.png").is_file() && root.join("DolphinMole").is_dir()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -742,11 +1189,12 @@ impl DebugOverlay {
     pub fn from_frame_with_udp_stats(frame: &RenderFrame, stats: &UdpRuntimeStats) -> Self {
         let mut overlay = Self::from_frame(frame);
         overlay.lines.push(format!(
-            "UDP TX {} RX {} DUP {} MISS {}",
+            "UDP TX {} RX {} DUP {} MISS {} RB {}",
             stats.sent_packets,
             stats.received_packets,
             stats.duplicate_packets,
-            stats.missing_remote_frames
+            stats.missing_remote_frames,
+            stats.rollback_corrections
         ));
         overlay.lines.push(format!(
             "REMOTE FRAME {} CHECKSUM {}",
@@ -771,11 +1219,19 @@ impl DebugOverlay {
 }
 
 fn player_state_overlay_line(frame: &RenderFrame, index: usize) -> String {
+    let action = frame.player_action_state_ids[index]
+        .map(|action| action.get().to_string())
+        .unwrap_or_else(|| "NONE".to_string());
     format!(
-        "P{} {} F{}",
+        "P{} A{} {} F{} D{} K{:.1} H{} S{}",
         index + 1,
+        action,
         format!("{:?}", frame.player_motion_states[index]).to_ascii_uppercase(),
-        frame.player_state_frames[index]
+        frame.player_state_frames[index],
+        frame.player_damage_percents[index] as u16,
+        frame.player_damage_knockbacks[index],
+        frame.player_hitlag_frames[index],
+        frame.player_damage_hitstun_frames[index]
     )
 }
 
@@ -803,10 +1259,25 @@ impl FrameDebugLog {
             })
             .collect::<Vec<_>>()
             .join(",");
+        let source_hit_confirms = source_hit_confirms_from_frame(frame)
+            .iter()
+            .map(source_hit_confirm_json)
+            .collect::<Vec<_>>()
+            .join(",");
+        let source_damage_stages = source_damage_stages_from_frame(frame)
+            .iter()
+            .map(source_damage_stage_json)
+            .collect::<Vec<_>>()
+            .join(",");
+        let source_damage_results = source_damage_results_from_frame(frame)
+            .iter()
+            .map(source_damage_result_json)
+            .collect::<Vec<_>>()
+            .join(",");
 
         Self {
             json_line: format!(
-                "{{\"frame\":{},\"checksum\":{},\"p1_bits\":{},\"p2_bits\":{},\"players\":[{},{}],\"render_transform\":{{\"center_x\":{},\"ground_y\":{},\"pixels_per_core_unit_milli\":{}}},\"match_intro_label\":{},\"entry_platforms\":[{}]}}",
+                "{{\"frame\":{},\"checksum\":{},\"p1_bits\":{},\"p2_bits\":{},\"players\":[{},{}],\"render_transform\":{{\"center_x\":{},\"ground_y\":{},\"pixels_per_core_unit_milli\":{}}},\"match_intro_label\":{},\"entry_platforms\":[{}],\"source_hit_confirms\":[{}],\"source_damage_stages\":[{}],\"source_damage_results\":[{}]}}",
                 frame.frame.0,
                 frame.checksum,
                 inputs[0].bits(),
@@ -820,7 +1291,10 @@ impl FrameDebugLog {
                     Some(label) => format!("\"{label}\""),
                     None => "null".to_string(),
                 },
-                entry_platforms
+                entry_platforms,
+                source_hit_confirms,
+                source_damage_stages,
+                source_damage_results
             ),
         }
     }
@@ -828,6 +1302,93 @@ impl FrameDebugLog {
     pub fn to_json_line(&self) -> String {
         self.json_line.clone()
     }
+}
+
+fn source_hit_confirm_json(confirm: &SourceHitConfirm) -> String {
+    format!(
+        "{{\"attacker_index\":{},\"victim_index\":{},\"hitbox_id\":{},\"hurtbox_id\":{},\"action_state_id\":{},\"source_action_key\":{},\"source_frame\":{},\"hitbox\":{}}}",
+        confirm.attacker_index,
+        confirm.victim_index,
+        confirm.hitbox_id,
+        confirm.hurtbox_id,
+        optional_action_state_id_json(confirm.action_state_id),
+        optional_source_action_key_json(confirm.source_action_key),
+        optional_source_frame_json(confirm.source_frame),
+        source_hitbox_attributes_json(confirm.hitbox)
+    )
+}
+
+fn source_damage_stage_json(stage: &SourceDamageStage) -> String {
+    format!(
+        "{{\"attacker_index\":{},\"victim_index\":{},\"hitbox_id\":{},\"hurtbox_id\":{},\"action_state_id\":{},\"source_action_key\":{},\"source_frame\":{},\"damage\":{},\"env_damage\":{},\"unk_count\":{},\"hitbox\":{}}}",
+        stage.attacker_index,
+        stage.victim_index,
+        stage.hitbox_id,
+        stage.hurtbox_id,
+        optional_action_state_id_json(stage.action_state_id),
+        optional_source_action_key_json(stage.source_action_key),
+        optional_source_frame_json(stage.source_frame),
+        stage.damage,
+        stage.env_damage,
+        stage.unk_count,
+        source_hitbox_attributes_json(stage.hitbox)
+    )
+}
+
+fn source_damage_result_json(result: &SourceDamageResult) -> String {
+    let stage = result.stage;
+    format!(
+        "{{\"attacker_index\":{},\"victim_index\":{},\"hitbox_id\":{},\"hurtbox_id\":{},\"action_state_id\":{},\"source_action_key\":{},\"source_frame\":{},\"damage\":{},\"env_damage\":{},\"unk_count\":{},\"knockback\":{},\"angle\":{},\"element\":{},\"hitbox\":{}}}",
+        stage.attacker_index,
+        stage.victim_index,
+        stage.hitbox_id,
+        stage.hurtbox_id,
+        optional_action_state_id_json(stage.action_state_id),
+        optional_source_action_key_json(stage.source_action_key),
+        optional_source_frame_json(stage.source_frame),
+        stage.damage,
+        stage.env_damage,
+        stage.unk_count,
+        result.knockback,
+        result.angle,
+        result.element,
+        source_hitbox_attributes_json(stage.hitbox)
+    )
+}
+
+fn optional_action_state_id_json(value: Option<MeleeActionStateId>) -> String {
+    value
+        .map(|id| id.get().to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn optional_source_action_key_json(value: Option<SourceActionKey>) -> String {
+    value
+        .map(|key| format!("\"{}\"", key.as_str()))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn optional_source_frame_json(value: Option<u8>) -> String {
+    value
+        .map(|frame| frame.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn source_hitbox_attributes_json(hitbox: SourceHitboxAttributes) -> String {
+    format!(
+        "{{\"bone\":{},\"hit_group\":{},\"damage\":{},\"angle\":{},\"knockback_growth\":{},\"weight_set_knockback\":{},\"base_knockback\":{},\"element\":{},\"shield_damage\":{},\"hit_grounded\":{},\"hit_aerial\":{}}}",
+        hitbox.bone,
+        hitbox.hit_group,
+        hitbox.damage,
+        hitbox.angle,
+        hitbox.knockback_growth,
+        hitbox.weight_set_knockback,
+        hitbox.base_knockback,
+        hitbox.element,
+        hitbox.shield_damage,
+        hitbox.hit_grounded,
+        hitbox.hit_aerial
+    )
 }
 
 fn render_rect_json(rect: RenderRect) -> String {
@@ -858,17 +1419,35 @@ fn player_debug_json(
         .join(",");
 
     format!(
-        "{{\"index\":{},\"bits\":{},\"motion_state\":\"{:?}\",\"state_frame\":{},\"position_x\":{},\"position_y\":{},\"velocity_x\":{},\"velocity_y\":{},\"ecb\":[{}]}}",
+        "{{\"index\":{},\"bits\":{},\"action_state_id\":{},\"source_action_key\":{},\"motion_state\":\"{:?}\",\"motion_state_alias\":{},\"state_frame\":{},\"position_x\":{},\"position_y\":{},\"velocity_x\":{},\"velocity_y\":{},\"damage_percent\":{},\"damage_percent_temp\":{},\"damage_applied\":{},\"damage_knockback\":{},\"damage_angle\":{},\"damage_element\":{},\"hitlag_frames\":{},\"damage_hitstun_frames\":{},\"profile_weight\":{},\"ecb\":[{}]}}",
         index,
         input.bits(),
+        optional_action_state_id_json(frame.player_action_state_ids[index]),
+        optional_source_action_key_json(frame.player_source_action_keys[index]),
         frame.player_motion_states[index],
+        optional_motion_state_json(frame.player_motion_state_aliases[index]),
         frame.player_state_frames[index],
         frame.player_positions[index].x,
         frame.player_positions[index].y,
         frame.player_velocities[index].x,
         frame.player_velocities[index].y,
+        frame.player_damage_percents[index],
+        frame.player_damage_percent_temps[index],
+        frame.player_damage_applied[index],
+        frame.player_damage_knockbacks[index],
+        frame.player_damage_angles[index],
+        frame.player_damage_elements[index],
+        frame.player_hitlag_frames[index],
+        frame.player_damage_hitstun_frames[index],
+        frame.player_profile_weights[index],
         ecb
     )
+}
+
+fn optional_motion_state_json(value: Option<MotionState>) -> String {
+    value
+        .map(|state| format!("\"{state:?}\""))
+        .unwrap_or_else(|| "null".to_string())
 }
 
 fn player_rect(
@@ -920,27 +1499,21 @@ fn player_hitbox_pills(
 ) -> Vec<RenderCapsule> {
     let source_frame = source_frame_for_player(frame, index);
     let source_root_z = source_render_root_motion_z(frame, index);
-    frame_data_boxes::hit_capsules(
-        RUNTIME_CHARACTER_ID,
-        frame.player_source_pose_motion_states[index],
-        source_frame,
-    )
-    .iter()
-    .map(|hitbox| runtime_source_capsule_from_generated(hitbox.capsule))
-    .collect::<Vec<_>>()
-    .into_iter()
-    .map(|hitbox| {
-        render_source_capsule(
-            hitbox,
-            frame.player_positions[index],
-            frame.player_model_facing(index),
-            source_root_z,
-            transform,
-            RenderColor::HITBOX_PILL,
-            SOURCE_ARTIFACT_GENERATED,
-        )
-    })
-    .collect()
+    runtime_source_frame_capsules(source_action_key_for_player(frame, index), source_frame)
+        .hit_capsules
+        .into_iter()
+        .map(|hitbox| {
+            render_source_capsule(
+                hitbox,
+                frame.player_positions[index],
+                frame.player_model_facing(index),
+                source_root_z,
+                transform,
+                RenderColor::HITBOX_PILL,
+                source_frame_data::SOURCE_ARTIFACT_KIND,
+            )
+        })
+        .collect()
 }
 
 fn player_hurtbox_pills(
@@ -950,31 +1523,48 @@ fn player_hurtbox_pills(
 ) -> Vec<RenderCapsule> {
     let source_frame = source_frame_for_player(frame, index);
     let source_root_z = source_render_root_motion_z(frame, index);
-    frame_data_boxes::hurt_capsules(
-        RUNTIME_CHARACTER_ID,
-        frame.player_source_pose_motion_states[index],
-        source_frame,
-    )
-    .iter()
-    .map(|hurtbox| runtime_source_capsule_from_generated(hurtbox.capsule))
-    .collect::<Vec<_>>()
-    .into_iter()
-    .map(|hurtbox| {
-        render_source_capsule(
-            hurtbox,
-            frame.player_positions[index],
-            frame.player_model_facing(index),
-            source_root_z,
-            transform,
-            RenderColor::HURTBOX_PILL,
-            SOURCE_ARTIFACT_GENERATED,
-        )
-    })
-    .collect()
+    runtime_source_frame_capsules(source_action_key_for_player(frame, index), source_frame)
+        .hurt_capsules
+        .into_iter()
+        .map(|hurtbox| {
+            render_source_capsule(
+                hurtbox,
+                frame.player_positions[index],
+                frame.player_model_facing(index),
+                source_root_z,
+                transform,
+                RenderColor::HURTBOX_PILL,
+                source_frame_data::SOURCE_ARTIFACT_KIND,
+            )
+        })
+        .collect()
 }
 
 fn source_frame_for_player(frame: &RenderFrame, index: usize) -> u8 {
     frame.player_source_pose_frames[index]
+}
+
+fn source_action_key_for_player(frame: &RenderFrame, index: usize) -> Option<SourceActionKey> {
+    if let Some(action_state_id) = frame.player_source_pose_action_state_ids[index] {
+        if let Some(key) = source_frame_data::source_action_key_for_action_state_id(action_state_id)
+        {
+            return Some(SourceActionKey::new(key));
+        }
+        return frame.player_source_pose_action_keys[index]
+            .or(frame.player_source_action_keys[index]);
+    }
+    if let Some(key) = frame.player_source_pose_action_keys[index] {
+        return Some(key);
+    }
+    if let Some(key) = frame.player_source_action_keys[index] {
+        return Some(key);
+    }
+    if let Some(action_state_id) = frame.player_action_state_ids[index] {
+        return source_frame_data::source_action_key_for_action_state_id(action_state_id)
+            .map(SourceActionKey::new);
+    }
+    source_frame_data::source_action_key_for_state(frame.player_source_pose_motion_states[index])
+        .map(SourceActionKey::new)
 }
 
 fn source_render_root_motion_z(frame: &RenderFrame, index: usize) -> f64 {
@@ -1034,25 +1624,247 @@ fn source_point_to_world_flattened(
     }
 }
 
+fn source_capsule_to_world_3d(
+    capsule: RuntimeSourceCapsule,
+    root_position: Vec2,
+    facing: i8,
+    source_root_z: f64,
+) -> Capsule3 {
+    Capsule3::new(
+        source_point_to_world_3d(capsule.a, root_position, facing, source_root_z),
+        source_point_to_world_3d(capsule.b, root_position, facing, source_root_z),
+        source_units_to_core_units_f32(capsule.radius),
+    )
+}
+
+fn source_point_to_world_3d(
+    point: RuntimeSourcePoint,
+    root_position: Vec2,
+    facing: i8,
+    source_root_z: f64,
+) -> Vec3 {
+    let facing_sign = if facing < 0 { -1.0_f64 } else { 1.0_f64 };
+    Vec3::new(
+        root_position.x as f32
+            + source_units_to_core_units_f32(point.z - source_root_z) * facing_sign as f32,
+        root_position.y as f32 + source_units_to_core_units_f32(point.y),
+        source_units_to_core_units_f32(-point.x * facing_sign),
+    )
+}
+
 fn source_units_to_core_units(value: f64) -> i32 {
     (value * 1_000.0).round() as i32
 }
 
-fn runtime_source_capsule_from_generated(
-    capsule: frame_data_boxes::SourceCapsule,
-) -> RuntimeSourceCapsule {
+fn source_units_to_core_units_f32(value: f64) -> f32 {
+    (value * 1_000.0) as f32
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct RuntimeSourcePoint {
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct RuntimeSourceCapsule {
+    id: u64,
+    a: RuntimeSourcePoint,
+    b: RuntimeSourcePoint,
+    radius: f64,
+    hitbox_lifecycle_id: Option<SourceHitboxLifecycleId>,
+    hitbox: Option<SourceHitboxAttributes>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct RuntimeSourceFrameCapsules {
+    source_frame: u8,
+    down_bound_pose: SourceDownBoundPose,
+    hit_capsules: Vec<RuntimeSourceCapsule>,
+    hurt_capsules: Vec<RuntimeSourceCapsule>,
+}
+
+#[derive(Clone)]
+struct RuntimeSourceAction {
+    source_action_key: SourceActionKey,
+    total_frames: u8,
+    frames: Vec<RuntimeSourceFrameCapsules>,
+}
+
+static RUNTIME_SOURCE_ACTION_CACHE: OnceLock<Result<Vec<RuntimeSourceAction>, String>> =
+    OnceLock::new();
+
+fn runtime_source_frame_capsules(
+    source_action_key: Option<SourceActionKey>,
+    source_frame: u8,
+) -> RuntimeSourceFrameCapsules {
+    let Some(source_action_key) = source_action_key else {
+        return RuntimeSourceFrameCapsules::empty(source_frame);
+    };
+    let Ok(cache) = runtime_source_actions() else {
+        return RuntimeSourceFrameCapsules::empty(source_frame);
+    };
+    cache
+        .iter()
+        .find(|action| action.source_action_key == source_action_key)
+        .and_then(|action| action.frame(source_frame).cloned())
+        .unwrap_or_else(|| RuntimeSourceFrameCapsules::empty(source_frame))
+}
+
+fn runtime_source_action_total_frames_for_action_state_id(
+    action_state_id: MeleeActionStateId,
+) -> Option<u8> {
+    source_frame_data::source_action_key_for_action_state_id(action_state_id)
+        .map(SourceActionKey::new)
+        .and_then(runtime_source_action_total_frames)
+}
+
+fn runtime_source_pose_metadata_for_player(
+    player: &PlayerState,
+) -> Option<SourceActionPoseMetadata> {
+    Some(SourceActionPoseMetadata {
+        down_bound_pose: runtime_source_down_bound_pose(
+            source_action_key_for_player_state(player),
+            source_frame_for_player_state(player),
+        ),
+    })
+}
+
+fn source_action_key_for_player_state(player: &PlayerState) -> Option<SourceActionKey> {
+    if let Some(action_state_id) = player.melee_action_state_id {
+        if let Some(key) = source_frame_data::source_action_key_for_action_state_id(action_state_id)
+        {
+            return Some(SourceActionKey::new(key));
+        }
+    }
+    player.source_action_key
+}
+
+fn source_frame_for_player_state(player: &PlayerState) -> u8 {
+    let frame = player.motion_frame.saturating_add(1);
+    if player.source_action_total_frames > 0 {
+        frame.min(player.source_action_total_frames)
+    } else {
+        frame
+    }
+}
+
+fn runtime_source_down_bound_pose(
+    source_action_key: Option<SourceActionKey>,
+    source_frame: u8,
+) -> Option<SourceDownBoundPose> {
+    let source_action_key = source_action_key?;
+    let cache = runtime_source_actions().ok()?;
+    let pose = cache
+        .iter()
+        .find(|action| action.source_action_key == source_action_key)?
+        .frame(source_frame)?
+        .down_bound_pose;
+    Some(pose)
+}
+
+fn runtime_source_action_total_frames(source_action_key: SourceActionKey) -> Option<u8> {
+    let cache = runtime_source_actions().ok()?;
+    cache
+        .iter()
+        .find(|action| action.source_action_key == source_action_key)
+        .map(|action| action.total_frames)
+}
+
+fn runtime_source_actions() -> Result<&'static Vec<RuntimeSourceAction>, String> {
+    match RUNTIME_SOURCE_ACTION_CACHE.get_or_init(load_all_runtime_source_actions) {
+        Ok(actions) => Ok(actions),
+        Err(error) => Err(error.clone()),
+    }
+}
+
+fn load_all_runtime_source_actions() -> Result<Vec<RuntimeSourceAction>, String> {
+    decode_runtime_source_frame_capsules(source_frame_data::SOURCE_FRAME_CAPSULES_BYTES)?
+        .into_iter()
+        .map(|action| {
+            let source_action_key =
+                SourceActionKey::new(leak_runtime_source_action_key(action.source_action_key));
+            Ok(RuntimeSourceAction {
+                source_action_key,
+                total_frames: action.total_frames,
+                frames: action
+                    .frames
+                    .into_iter()
+                    .map(runtime_source_frame_from_sample)
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+fn leak_runtime_source_action_key(key: String) -> &'static str {
+    Box::leak(key.into_boxed_str())
+}
+
+fn runtime_source_frame_from_sample(
+    sample: RuntimeSourceFrameSample,
+) -> RuntimeSourceFrameCapsules {
+    RuntimeSourceFrameCapsules {
+        source_frame: sample.source_frame,
+        down_bound_pose: SourceDownBoundPose {
+            hip_mtx_0_1: sample.down_bound_pose.hip_mtx_0_1 as f32,
+            hip_mtx_0_2: sample.down_bound_pose.hip_mtx_0_2 as f32,
+            hip_mtx_1_1: sample.down_bound_pose.hip_mtx_1_1 as f32,
+            hip_mtx_1_2: sample.down_bound_pose.hip_mtx_1_2 as f32,
+        },
+        hit_capsules: sample
+            .hit_capsules
+            .into_iter()
+            .map(runtime_source_capsule_from_sample)
+            .collect(),
+        hurt_capsules: sample
+            .hurt_capsules
+            .into_iter()
+            .map(runtime_source_capsule_from_sample)
+            .collect(),
+    }
+}
+
+fn runtime_source_capsule_from_sample(sample: RuntimeSourceCapsuleSample) -> RuntimeSourceCapsule {
     RuntimeSourceCapsule {
+        id: sample.id,
         a: RuntimeSourcePoint {
-            x: capsule.a.x,
-            y: capsule.a.y,
-            z: capsule.a.z,
+            x: sample.a.x,
+            y: sample.a.y,
+            z: sample.a.z,
         },
         b: RuntimeSourcePoint {
-            x: capsule.b.x,
-            y: capsule.b.y,
-            z: capsule.b.z,
+            x: sample.b.x,
+            y: sample.b.y,
+            z: sample.b.z,
         },
-        radius: capsule.radius,
+        radius: sample.radius,
+        hitbox_lifecycle_id: sample.hitbox_lifecycle_id,
+        hitbox: sample.hitbox,
+    }
+}
+
+impl RuntimeSourceFrameCapsules {
+    fn empty(source_frame: u8) -> Self {
+        Self {
+            source_frame,
+            down_bound_pose: SourceDownBoundPose {
+                hip_mtx_0_1: 0.0,
+                hip_mtx_0_2: 0.0,
+                hip_mtx_1_1: 0.0,
+                hip_mtx_1_2: 0.0,
+            },
+            hit_capsules: Vec::new(),
+            hurt_capsules: Vec::new(),
+        }
+    }
+}
+
+impl RuntimeSourceAction {
+    fn frame(&self, source_frame: u8) -> Option<&RuntimeSourceFrameCapsules> {
+        let index = usize::from(source_frame.checked_sub(1)?);
+        self.frames.get(index)
     }
 }
 
@@ -1379,6 +2191,7 @@ pub struct UdpRuntimeStats {
     pub duplicate_packets: u32,
     pub unsupported_packets: u32,
     pub missing_remote_frames: u32,
+    pub rollback_corrections: u32,
     pub last_remote_frame: Option<Frame>,
     pub last_remote_checksum: Option<u64>,
     pub last_remote_sequence: Option<u32>,
@@ -1404,11 +2217,23 @@ impl UdpRuntimeStats {
         match result {
             PacketAcceptResult::Accepted => {
                 self.received_packets = self.received_packets.saturating_add(1);
-                self.last_remote_frame = Some(packet.frame);
+                self.last_remote_frame = Some(
+                    self.last_remote_frame
+                        .map(|frame| Frame(frame.0.max(packet.frame.0)))
+                        .unwrap_or(packet.frame),
+                );
                 self.last_remote_checksum = Some(packet.checksum);
-                self.last_remote_sequence = Some(packet.sequence);
-                self.last_acked_sequence = Some(packet.ack_sequence);
-                self.last_rtt_frames = Some(local_frame.0.saturating_sub(packet.ack_sequence));
+                self.last_remote_sequence = Some(
+                    self.last_remote_sequence
+                        .map(|sequence| sequence.max(packet.sequence))
+                        .unwrap_or(packet.sequence),
+                );
+                let newest_acked_sequence = self
+                    .last_acked_sequence
+                    .map(|sequence| sequence.max(packet.ack_sequence))
+                    .unwrap_or(packet.ack_sequence);
+                self.last_acked_sequence = Some(newest_acked_sequence);
+                self.last_rtt_frames = Some(local_frame.0.saturating_sub(newest_acked_sequence));
             }
             PacketAcceptResult::Duplicate => {
                 self.duplicate_packets = self.duplicate_packets.saturating_add(1);
@@ -1421,6 +2246,10 @@ impl UdpRuntimeStats {
 
     pub fn record_missing_remote_frame(&mut self) {
         self.missing_remote_frames = self.missing_remote_frames.saturating_add(1);
+    }
+
+    pub fn record_rollback_correction(&mut self) {
+        self.rollback_corrections = self.rollback_corrections.saturating_add(1);
     }
 }
 

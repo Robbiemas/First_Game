@@ -22,7 +22,10 @@
         -1
       ],
       "status": "reference",
-      "notes": "EntryEnd uses x6C0, optionally calls ftColl_8007B760 with x6C8, then enters normal airborne/fall handling.",
+      "melee_action_state_id": 324,
+      "source_action_table_id": 238,
+      "source_action_key": "Entry",
+      "notes": "EntryEnd uses x6C0, optionally calls ftColl_8007B760 with x6C8, then enters normal airborne/fall handling. Runtime pose/capsule coverage shares Captain Falcon action-table slot 238 (`Entry`) with the Entry family.",
       "source_refs": [
         {
           "label": "Melee EntryEnd source",
@@ -43,6 +46,10 @@
         -2
       ],
       "status": "reference",
+      "melee_action_state_id": 323,
+      "source_action_table_id": 238,
+      "source_action_key": "Entry",
+      "source_submotion": "ftCo_SM_EntryStart",
       "notes": "EntryStart uses x6BC, x6C4, and accessory/platform interpolation before calling ftCo_800C6B6C.",
       "source_refs": [
         {
@@ -64,7 +71,10 @@
         -3
       ],
       "status": "reference",
-      "notes": "ftCo_MS_Entry waits on Player_GetUnk4C, hides the fighter, records base Y, then transitions into EntryStart.",
+      "melee_action_state_id": 322,
+      "source_action_table_id": 238,
+      "source_action_key": "Entry",
+      "notes": "ftCo_MS_Entry waits on Player_GetUnk4C, hides the fighter, records base Y, then transitions into EntryStart. Runtime pose/capsule coverage shares Captain Falcon action-table slot 238 (`Entry`) with the Entry family.",
       "source_refs": [
         {
           "label": "Melee Entry source",
@@ -84,6 +94,10 @@
         0
       ],
       "status": "reference",
+      "melee_action_state_id": 14,
+      "source_action_table_id": 2,
+      "source_action_key": "Wait1",
+      "source_submotion": "ftCo_SM_Wait1_0",
       "notes": "Grounded standstill / neutral state.",
       "source_refs": [
         {
@@ -284,6 +298,10 @@
         1
       ],
       "status": "reference",
+      "melee_action_state_id": 24,
+      "source_action_table_id": 15,
+      "source_action_key": "Landing",
+      "source_submotion": "ftCo_SM_Kneebend",
       "notes": "Jump squat. Grounded IASA can enter KneeBend before the same frame's Phys callback, so ftCo_KneeBend_Phys/ft_80084F3C applies grounded friction and writes self_vel/x74_anim_vel through ftCommon_ApplyGroundMovement. On animation completion, ftCo_KneeBend_Anim enters JumpF/JumpB before Phys, so ftCo_Jump_Enter scales the previous grounded self_vel by ground_to_air_jump_momentum_multiplier without a fresh takeoff-frame KneeBend friction tick."
     },
     {
@@ -311,6 +329,10 @@
         2
       ],
       "status": "reference",
+      "melee_action_state_id": 22,
+      "source_action_table_id": 13,
+      "source_action_key": "Run",
+      "source_submotion": "ftCo_SM_Run",
       "notes": "RunDirect is a common motion-state table identity that reuses Run submotion/physics callbacks but has its own IASA callback. Local decomp search shows callbacks and table registration, but no normal Fighter_ChangeMotionState entry site."
     },
     {
@@ -720,9 +742,108 @@
       ],
       "status": "reference",
       "notes": "Down aerial landing state. ftCo_LandingAir_IASA is empty; ftCo_LandingAir_Anim delegates to ftCo_Landing_Anim for the no-frames Wait exit after ftAnim_SetAnimRate scales the landing animation to the selected lag."
+    },
+    {
+      "id": "SourceDamage",
+      "label": "Damage / DamageFly 75-91",
+      "pos": [
+        10,
+        6
+      ],
+      "status": "reference",
+      "notes": "Common Damage and DamageFly action states 75-91 are real Melee motion ids, not aliases of Fall or Wait. Fighter_ProcessHit computes hitlag in Fighter.dmg.x195c_hitlag_frames, enters hitlag with x2219_b5, then ftCo_8008DCE0 selects the Damage/DamageFly motion id and seeds mv.co.damage.x0 from kb_applied * p_ftCommonData->x154. ftCo_Damage_Anim decrements that timer and only exits to Fall/ground handling after the Damage action is no longer locked out. ftCo_Damage_Coll handles ordinary Damage floor contact by comparing |x8c_kb_vel| with CommonAttributes x1E0 and x1E4: high knockback calls ftCo_80097D40, which enters DownBoundU/DownBoundD action ids 183/191 through the hip/JObj orientation helper ftCo_80097570; middle knockback enters basic Landing; low knockback grounds without a motion change. ftCo_DamageFly_Coll calls ftCo_80090184 on floor contact, which checks PassiveStand then Passive before falling through to ftCo_80097D40. ftCo_DamageFlyRoll_Coll follows the same passive-first, DownBound-fallback order inline.",
+      "source_refs": [
+        {
+          "label": "Melee Damage source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Damage.c",
+          "function": "ftCo_8008DCE0 / ftCo_Damage_Anim / ftCo_DamageFly_Anim / ftCo_Damage_Coll / ftCo_DamageFly_Coll"
+        },
+        {
+          "label": "Melee hitlag source",
+          "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
+          "function": "Fighter_ProcessHit_8006D1EC / Fighter_8006A1BC"
+        },
+        {
+          "label": "Melee common motion-state table",
+          "path": ".research/doldecomp-melee/src/melee/ft/ftmotionstates.c",
+          "function": "ftCo_MS_DamageHi1..ftCo_MS_DamageFlyRoll"
+        }
+      ]
+    },
+    {
+      "id": "SourcePassive",
+      "label": "Passive / PassiveStand 199-201",
+      "pos": [
+        12,
+        6
+      ],
+      "status": "reference",
+      "notes": "Ground tech/passive source states. ftCo_800986B0 returns true only when ftCo_800C5240 is false, x680 is below CommonAttributes x250, and x684 is at/above CommonAttributes x1C. ftCo_80098928 checks PassiveStand first: if ABS(input.lstick.x) is at/above x254 it chooses PassiveStandF or PassiveStandB from input.lstick.x * facing_dir. ftCo_8009872C then checks the same window for Passive. Passive and PassiveStand both ground airborne fighters through ftCommon_8007D7FC, call Fighter_ChangeMotionState with ids 199, 200, or 201, and exit to Wait when ftAnim_IsFramesRemaining is false.",
+      "source_refs": [
+        {
+          "label": "Melee passive window source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_DownAttack.c",
+          "function": "ftCo_800986B0 / ftCo_8009872C"
+        },
+        {
+          "label": "Melee Passive source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Passive.c",
+          "function": "ftCo_800987D0 / ftCo_Passive_Anim / ftCo_Passive_Phys / ftCo_Passive_Coll"
+        },
+        {
+          "label": "Melee PassiveStand source",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_PassiveStand.c",
+          "function": "ftCo_80098928 / ftCo_800989D4 / ftCo_PassiveStand_Anim / ftCo_PassiveStand_Phys / ftCo_PassiveStand_Coll"
+        }
+      ]
     }
   ],
   "edges": [
+    {
+      "from": "Fall",
+      "to": "SourceDamage",
+      "label": "fighter hurtbox hit",
+      "status": "reference",
+      "notes": "Fighter_ProcessHit and ftCo_8008DCE0 route a damaging hit into a selected Damage/DamageFly motion id and seed the damage timers.",
+      "input": "hitbox collision resolves as damage",
+      "frames": "hit processing frame"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "Fall",
+      "label": "damage animation ends airborne",
+      "status": "reference",
+      "notes": "ftCo_Damage_Anim calls ftCo_Fall_Enter when no animation frames remain, the fighter is airborne, and the damage lockout bit has cleared.",
+      "input": "no player IASA during lockout",
+      "frames": "ftAnim_IsFramesRemaining false and x221C_b6 false"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "Landing",
+      "label": "ordinary damage floor contact with basic knockback",
+      "status": "reference",
+      "notes": "ftCo_Damage_Coll calls ftCo_Landing_Enter_Basic when ordinary Damage floor contact occurs and |x8c_kb_vel| is below p_ftCommonData->x1E0 but at/above p_ftCommonData->x1E4. Extracted PlCo CommonAttributes values are x1E0=5.0 and x1E4=0.5.",
+      "input": "floor contact during ordinary Damage",
+      "frames": "ft_80081DD4 contact frame, 0.5 <= |kb_vel| < 5.0"
+    },
+    {
+      "from": "SourceDamage",
+      "to": "SourcePassive",
+      "label": "damagefly floor passive tech",
+      "status": "reference",
+      "notes": "ftCo_DamageFly_Coll calls ftCo_80090184 on floor contact; that helper tries ftCo_80098928 PassiveStand first, then ftCo_8009872C Passive. ftCo_DamageFlyRoll_Coll follows the same order inline before falling through to DownBound.",
+      "input": "floor contact during DamageFly or DamageFlyRoll with ftCo_800986B0 true",
+      "frames": "ft_80081DD4 contact frame"
+    },
+    {
+      "from": "SourcePassive",
+      "to": "Wait",
+      "label": "passive animation exhausted",
+      "status": "reference",
+      "notes": "ftCo_Passive_Anim and ftCo_PassiveStand_Anim call ft_8008A2BC when ftAnim_IsFramesRemaining is false.",
+      "input": "no Passive IASA",
+      "frames": "ftAnim_IsFramesRemaining false"
+    },
     {
       "from": "EntryEnd",
       "to": "Fall",
@@ -830,7 +951,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "reference",
-      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel; the later physics priority can run Wait_Phys on the same tick."
     },
     {
       "from": "WalkMiddle",
@@ -838,7 +959,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "reference",
-      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel; the later physics priority can run Wait_Phys on the same tick."
     },
     {
       "from": "WalkFast",
@@ -846,7 +967,7 @@
       "input": "release stick or leave walk condition",
       "frames": "current frame",
       "status": "reference",
-      "notes": "ft_8008A244 changes to Wait without clearing gr_vel."
+      "notes": "ft_8008A244 changes to Wait without clearing gr_vel; the later physics priority can run Wait_Phys on the same tick."
     },
     {
       "from": "WalkFast",
@@ -868,7 +989,7 @@
         }
       ],
       "physics": [
-        "Walk exit does not clear gr_vel.",
+        "Walk exit does not clear gr_vel; same-frame Wait_Phys may still apply grounded friction.",
         "Dash entry computes the xE8 delta from current gr_vel and facing_dir.",
         "This preserved walk carry is a required moonwalk setup input to the Dash velocity lifecycle."
       ]

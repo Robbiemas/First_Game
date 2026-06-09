@@ -901,15 +901,71 @@
           "rust_value": 120,
           "source_field": "x6C8",
           "status": "match"
+        },
+        {
+          "category": "collision_damage",
+          "decomp_value": 0,
+          "field": "passive_input_age_threshold",
+          "kind": "i32_ticks",
+          "note": "",
+          "offset": "0x1c",
+          "provenance": "extracted_melee_dat",
+          "raw": 0,
+          "rust_field": "passive_input_age_threshold",
+          "rust_value": 0,
+          "source_field": "x1C",
+          "status": "match"
+        },
+        {
+          "category": "collision_damage",
+          "decomp_value": 9.600000381469727,
+          "field": "passive_window_max",
+          "kind": "source_f32",
+          "note": "",
+          "offset": "0x250",
+          "provenance": "extracted_melee_dat",
+          "raw": 9.600000381469727,
+          "rust_field": "passive_window_max",
+          "rust_value": 9.600000381469727,
+          "source_field": "x250",
+          "status": "match"
+        },
+        {
+          "category": "collision_damage",
+          "decomp_value": 1.5,
+          "field": "passive_stand_stick_x",
+          "kind": "source_f32",
+          "note": "",
+          "offset": "0x254",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.5,
+          "rust_field": "passive_stand_stick_x",
+          "rust_value": 1.5,
+          "source_field": "x254",
+          "status": "match"
+        },
+        {
+          "category": "collision_damage",
+          "decomp_value": 0.0,
+          "field": "down_wait_timer",
+          "kind": "source_f32",
+          "note": "",
+          "offset": "0x424",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.0,
+          "rust_field": "down_wait_timer",
+          "rust_value": 0.0,
+          "source_field": "x424",
+          "status": "match"
         }
       ],
       "summary": {
         "actionable": 0,
         "derived": 0,
         "diff": 0,
-        "match": 64,
+        "match": 68,
         "missing": 0,
-        "total": 64
+        "total": 68
       }
     },
     "test_character_values": {
@@ -1450,6 +1506,20 @@
         },
         {
           "category": "entry_and_collision",
+          "decomp_value": 104.0,
+          "field": "weight",
+          "kind": "source_f32",
+          "note": "",
+          "offset": "0x88",
+          "provenance": "extracted_melee_dat",
+          "raw": 104.0,
+          "rust_field": "weight",
+          "rust_value": 104.0,
+          "source_field": "weight",
+          "status": "match"
+        },
+        {
+          "category": "entry_and_collision",
           "decomp_value": 1647,
           "field": "entry_platform_offset_y",
           "kind": "entry_platform_offset_milli",
@@ -1467,9 +1537,9 @@
         "actionable": 0,
         "derived": 0,
         "diff": 0,
-        "match": 39,
+        "match": 40,
         "missing": 0,
-        "total": 39
+        "total": 40
       }
     }
   }

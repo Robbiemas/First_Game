@@ -608,8 +608,8 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     text = build_parity_ledger_overview(graphs, sheets)
 
     assert "Parity Ledger" in text
-    assert "global_common_values: 6 categories, 64 fields" in text
-    assert "captain_falcon_values: 5 categories, 39 fields" in text
+    assert "global_common_values: 7 categories, 91 fields" in text
+    assert "captain_falcon_values: 5 categories, 40 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text
     assert "Dash-related physics edges:" in text
     assert "moonwalk" in text.lower()
@@ -621,18 +621,47 @@ def test_ecb_coverage_summary_keeps_unmapped_derived_states_visible():
     text = format_ecb_coverage(coverage)
 
     assert "Captain Falcon ECB Coverage" in text
-    assert "Mapped exact action-table states: 70" in text
+    assert "Mapped exact action-table states: 72" in text
     assert "Missing sampled mappings: 0" in text
-    assert "No action-submotion ECB states:" in text
+    assert "Shared source-action aliases:" in text
     assert "Entry" in text
     assert coverage["unmapped_derived_motion_states"] == []
     assert "KneeBend" not in coverage["unmapped_derived_motion_states"]
     assert "GuardReflect" not in coverage["unmapped_derived_motion_states"]
+    assert "Entry" not in coverage["unmapped_derived_motion_states"]
     assert "EntryStart" not in coverage["unmapped_derived_motion_states"]
+    assert "EntryEnd" not in coverage["unmapped_derived_motion_states"]
     assert "SpecialS" not in coverage["unmapped_derived_motion_states"]
     assert "SpecialAirS" not in coverage["unmapped_derived_motion_states"]
-    assert "Do not alias these states to nearby animation records" in text
+    assert "Shared aliases must point at the exact Melee source action data" in text
     assert "Air" not in coverage["unmapped_derived_motion_states"]
+
+
+def test_melee_reference_graph_exposes_decomp_motion_identity_and_source_binding():
+    graph = next(graph for graph in load_graphs(GRAPH_DIR) if graph["id"] == "melee_reference")
+    nodes = {node["id"]: node for node in graph["nodes"]}
+
+    assert nodes["Wait"]["melee_action_state_id"] == 14
+    assert nodes["Wait"]["source_action_table_id"] == 2
+    assert nodes["Wait"]["source_action_key"] == "Wait1"
+    assert nodes["Wait"]["source_submotion"] == "ftCo_SM_Wait1_0"
+    assert nodes["Entry"]["melee_action_state_id"] == 322
+    assert nodes["Entry"]["source_action_table_id"] == 238
+    assert nodes["Entry"]["source_action_key"] == "Entry"
+    assert nodes["EntryStart"]["melee_action_state_id"] == 323
+    assert nodes["EntryStart"]["source_action_table_id"] == 238
+    assert nodes["EntryStart"]["source_action_key"] == "Entry"
+    assert nodes["EntryStart"]["source_submotion"] == "ftCo_SM_EntryStart"
+    assert nodes["EntryEnd"]["melee_action_state_id"] == 324
+    assert nodes["EntryEnd"]["source_action_table_id"] == 238
+    assert nodes["EntryEnd"]["source_action_key"] == "Entry"
+    assert nodes["RunDirect"]["melee_action_state_id"] == 22
+    assert nodes["RunDirect"]["source_action_table_id"] == 13
+    assert nodes["RunDirect"]["source_action_key"] == "Run"
+    assert nodes["KneeBend"]["melee_action_state_id"] == 24
+    assert nodes["KneeBend"]["source_action_table_id"] == 15
+    assert nodes["KneeBend"]["source_action_key"] == "Landing"
+    assert nodes["KneeBend"]["source_submotion"] == "ftCo_SM_Kneebend"
 
 
 def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
@@ -656,7 +685,7 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
         row for row in rows if row["field"] == "run_brake_animation_pause_velocity"
     )
 
-    assert len(rows) == 64
+    assert len(rows) == 91
     assert dash_x["source_field"] == "x3C"
     assert dash_x["decomp_value"] == 102
     assert dash_x["rust_field"] == "dash_x"
@@ -709,7 +738,7 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     entry_offset = next(row for row in rows if row["field"] == "entry_platform_offset_y")
     landing_air_f = next(row for row in rows if row["field"] == "landingairf_lag")
 
-    assert len(rows) == 39
+    assert len(rows) == 40
     assert dash_initial["decomp_value"] == 2.0
     assert dash_initial["rust_field"] == "dash_initial_velocity"
     assert dash_initial["rust_value"] == 2.0

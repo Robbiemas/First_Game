@@ -7,7 +7,15 @@ use std::{
 
 use crate::{
     base_report, frame_data_sampler, FrameDataBatchOptions, FrameDataCommand,
-    FrameDataExportBatchOptions, FrameDataExportOptions, FrameDataOptions, FrameDataSampleOptions,
+    FrameDataExportBatchOptions, FrameDataExportOptions, FrameDataOptions,
+};
+use mole_core::{
+    melee_action_state_id_for_motion_state, source_binding_for_motion_state, MotionState,
+    MotionStateSourceBinding,
+};
+use mole_frame_data::{
+    encode_runtime_source_frame_capsules, FrameDataSampleOptions, RuntimeFigatreeChunk,
+    RuntimeSourceActionFrameSamples, RuntimeSourceExport, RuntimeSourceExportEvaluator,
 };
 
 pub(crate) fn frame_data_report(root: &Path, command: &FrameDataCommand) -> Value {
@@ -315,7 +323,7 @@ fn compact_manifest_action(
             .unwrap_or(Value::Null),
         "derived_frame_capsules": {
             "materialized": false,
-            "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; frame capsules are sampled at view/runtime time",
+            "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export",
         },
     })
 }
@@ -352,7 +360,7 @@ fn compact_manifest_rig(root: &Path, source_character: &str) -> (Value, Vec<Stri
             "derived_samples": {
                 "canonical": false,
                 "ecb_samples_path": path_for_artifact(root, &action_ecb_samples_path(root, source_character)),
-                "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data",
+                "reason": "sampled frame capsules are debug/dev-tool views derived on demand from compact ftData.x30, JObj, and FigaTree data; player runtime bakes equivalent compact frame capsules during preload, not during gameplay",
             },
         }),
         errors,
@@ -568,22 +576,67 @@ fn export_runtime_report(root: &Path, options: &FrameDataExportOptions) -> Value
     report["source_manifest_path"] = json!(source_manifest_path.display().to_string());
     report["output_path"] = json!(output_path.display().to_string());
 
-    let export_result = if source_manifest_path.exists() {
-        read_json_object(&source_manifest_path).and_then(|manifest| {
-            let action = manifest_action_for_state(&manifest, &options.state)?;
-            let source_character = manifest
-                .get("source_character")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            RuntimeFrameDataExport::from_manifest_action(
-                root,
-                &options.character,
-                source_character,
-                &options.state,
-                action,
-            )
-        })
-    } else {
+    if source_manifest_path.exists() {
+        match read_json_object(&source_manifest_path)
+            .and_then(|manifest| {
+                manifest_action_for_state(&manifest, &options.state)?;
+                RuntimeSourceExportModule::from_manifest(
+                    root,
+                    &options.character,
+                    &source_manifest_path,
+                    &manifest,
+                    Some(&options.state),
+                )
+            })
+            .and_then(|module| {
+                let generated = generate_runtime_source_export_module(&module)?;
+                Ok((module, generated))
+            }) {
+            Ok((module, generated)) => {
+                report["ok"] = json!(true);
+                report["runtime_export_kind"] = json!("compact_source_export");
+                report["state_count"] = json!(module.state_count());
+                report["source_only_action_count"] = json!(module.source_only_action_count);
+                report["figatree_chunk_count"] = json!(module.figatree_chunk_count());
+                report["figatree_chunk_bytes"] = json!(module.figatree_chunk_bytes());
+                report["source_frame_count"] = json!(module.source_frame_count());
+                report["hitbox_frame_count"] = json!(module.hitbox_frame_count());
+                report["hurtbox_frame_count"] = json!(module.hurtbox_frame_count());
+                report["hitbox_count"] = json!(module.hitbox_count());
+                report["hurtbox_count"] = json!(module.hurtbox_count());
+                report["generated_bytes"] = json!(generated.total_bytes());
+                report["generated_module_bytes"] = json!(generated.module_text.len());
+                report["generated_sidecar_bytes"] = json!(generated.sidecar_bytes());
+                report["errors"] = json!([]);
+                if options.write {
+                    match write_runtime_source_export_module(&output_path, &generated) {
+                        Ok(()) => report["wrote_output"] = json!(true),
+                        Err(error) => {
+                            report["ok"] = json!(false);
+                            report["errors"] = json!([error]);
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                report["ok"] = json!(false);
+                report["runtime_export_kind"] = json!("compact_source_export");
+                report["state_count"] = json!(0);
+                report["source_only_action_count"] = json!(0);
+                report["figatree_chunk_count"] = json!(0);
+                report["figatree_chunk_bytes"] = json!(0);
+                report["hitbox_frame_count"] = json!(0);
+                report["hurtbox_frame_count"] = json!(0);
+                report["hitbox_count"] = json!(0);
+                report["hurtbox_count"] = json!(0);
+                report["generated_bytes"] = json!(0);
+                report["errors"] = json!([error]);
+            }
+        }
+        return report;
+    }
+
+    let export_result = {
         read_json_object(&artifact_path).and_then(|artifact| {
             RuntimeFrameDataExport::from_artifact(&options.character, &options.state, &artifact)
         })
@@ -606,6 +659,7 @@ fn export_runtime_report(root: &Path, options: &FrameDataExportOptions) -> Value
     }) {
         Ok((export, generated)) => {
             report["ok"] = json!(true);
+            report["runtime_export_kind"] = json!("legacy_baked_capsule_module");
             report["hitbox_frame_count"] = json!(export.hitbox_frame_count());
             report["hurtbox_frame_count"] = json!(export.hurtbox_frame_count());
             report["hitbox_count"] = json!(export.hitbox_count());
@@ -626,10 +680,12 @@ fn export_runtime_report(root: &Path, options: &FrameDataExportOptions) -> Value
         }
         Err(error) => {
             report["ok"] = json!(false);
+            report["runtime_export_kind"] = json!("legacy_baked_capsule_module");
             report["hitbox_frame_count"] = json!(0);
             report["hurtbox_frame_count"] = json!(0);
             report["hitbox_count"] = json!(0);
             report["hurtbox_count"] = json!(0);
+            report["source_frame_count"] = json!(0);
             report["generated_bytes"] = json!(0);
             report["errors"] = json!([error]);
         }
@@ -645,6 +701,7 @@ fn export_runtime_batch_report(root: &Path, options: &FrameDataExportBatchOption
     report["wrote_output"] = json!(false);
     report["compact_manifest_detected"] = json!(false);
     report["requires_sampler"] = json!(false);
+    report["runtime_export_kind"] = json!("legacy_baked_capsule_module");
 
     let frame_data_dir = root
         .join("resources")
@@ -803,6 +860,8 @@ fn apply_compact_manifest_runtime_batch_export(
     report["compact_manifest_detected"] = json!(true);
     report["requires_sampler"] = json!(false);
     report["requires_batched_sampler"] = json!(false);
+    report["runtime_export_kind"] = json!("compact_source_export");
+    report["companion_manifest_path"] = Value::Null;
 
     let manifest = match read_json_object(source_manifest_path) {
         Ok(manifest) => manifest,
@@ -815,29 +874,57 @@ fn apply_compact_manifest_runtime_batch_export(
             report["hurtbox_frame_count"] = json!(0);
             report["hitbox_count"] = json!(0);
             report["hurtbox_count"] = json!(0);
+            report["figatree_chunk_count"] = json!(0);
+            report["figatree_chunk_bytes"] = json!(0);
             report["generated_bytes"] = json!(0);
             report["errors"] = json!([error]);
             return;
         }
     };
-    let actions = manifest
-        .get("actions")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let source_character = manifest
-        .get("source_character")
-        .and_then(Value::as_str)
-        .map(str::to_string);
 
-    let mut entries = Vec::new();
-    let mut errors = Vec::new();
+    let Some(actions) = manifest.get("actions").and_then(Value::as_array) else {
+        report["ok"] = json!(false);
+        report["state_count"] = json!(0);
+        report["source_artifact_paths"] = json!([source_manifest_path.display().to_string()]);
+        report["rust_parity_gaps"] = json!([]);
+        report["hitbox_frame_count"] = json!(0);
+        report["hurtbox_frame_count"] = json!(0);
+        report["hitbox_count"] = json!(0);
+        report["hurtbox_count"] = json!(0);
+        report["figatree_chunk_count"] = json!(0);
+        report["figatree_chunk_bytes"] = json!(0);
+        report["generated_bytes"] = json!(0);
+        report["errors"] = json!(["compact source manifest requires actions array"]);
+        return;
+    };
+
+    let mut consumed_source_action_table_ids = DERIVED_RUNTIME_SOURCE_BINDINGS
+        .iter()
+        .filter_map(|runtime_motion_state| {
+            source_binding_for_runtime_motion_state_variant(runtime_motion_state)
+                .ok()
+                .flatten()
+                .map(|binding| u64::from(binding.source_action_table_id))
+        })
+        .collect::<BTreeSet<_>>();
+    consumed_source_action_table_ids.extend(
+        CANONICAL_SOURCE_ONLY_BINDINGS
+            .iter()
+            .map(|binding| u64::from(binding.source_action_table_id)),
+    );
     let mut rust_parity_gaps = Vec::new();
     let mut used_runtime_states = BTreeSet::new();
 
     for action in actions {
-        let action_state = manifest_action_state_key(&action);
-        let Some(runtime_motion_state) = artifact_runtime_motion_state(&action_state, &action)
+        let action_state = manifest_action_state_key(action);
+        let action_table_id = action.get("action_state_id").and_then(Value::as_u64);
+        if action_table_id.is_some_and(|id| consumed_source_action_table_ids.contains(&id)) {
+            continue;
+        }
+        let Some(runtime_motion_state) = action
+            .get("runtime_motion_state")
+            .and_then(Value::as_str)
+            .filter(|state| RUST_MOTION_STATE_VARIANTS.contains(state))
         else {
             rust_parity_gaps.push(json!({
                 "state": action_state,
@@ -848,7 +935,20 @@ fn apply_compact_manifest_runtime_batch_export(
             }));
             continue;
         };
-        if !used_runtime_states.insert(runtime_motion_state.clone()) {
+        match source_binding_for_runtime_motion_state_variant(runtime_motion_state) {
+            Ok(Some(_)) => {}
+            Ok(None) => continue,
+            Err(error) => {
+                rust_parity_gaps.push(json!({
+                    "state": action_state,
+                    "runtime_motion_state": runtime_motion_state,
+                    "source_action_key": action.get("source_action_key").cloned().unwrap_or(Value::Null),
+                    "reason": error,
+                }));
+                continue;
+            }
+        }
+        if !used_runtime_states.insert(runtime_motion_state.to_string()) {
             rust_parity_gaps.push(json!({
                 "state": action_state,
                 "runtime_motion_state": runtime_motion_state,
@@ -857,47 +957,40 @@ fn apply_compact_manifest_runtime_batch_export(
             }));
             continue;
         }
-        match RuntimeFrameDataExport::from_manifest_action(
-            root,
-            &options.character,
-            source_character.clone(),
-            &runtime_motion_state,
-            &action,
-        ) {
-            Ok(export) => entries.push(RuntimeFrameDataModuleEntry {
-                export,
-                artifact_path: source_manifest_path.to_path_buf(),
-            }),
-            Err(error) => errors.push(format!("{action_state}: {error}")),
-        }
+
+        let _ = action_state;
     }
 
-    match generate_runtime_frame_data_module(root, &entries) {
-        Ok(generated) => {
-            report["ok"] = json!(!entries.is_empty() && errors.is_empty());
-            report["state_count"] = json!(entries.len());
+    match RuntimeSourceExportModule::from_manifest(
+        root,
+        &options.character,
+        source_manifest_path,
+        &manifest,
+        None,
+    )
+    .and_then(|module| {
+        let generated = generate_runtime_source_export_module(&module)?;
+        Ok((module, generated))
+    }) {
+        Ok((module, generated)) => {
+            report["ok"] = json!(module.state_count() > 0);
+            report["state_count"] = json!(module.state_count());
+            report["source_only_action_count"] = json!(rust_parity_gaps.len());
             report["source_artifact_paths"] = json!([source_manifest_path.display().to_string()]);
             report["rust_parity_gaps"] = json!(rust_parity_gaps);
-            report["hitbox_frame_count"] = json!(entries
-                .iter()
-                .map(|entry| entry.export.hitbox_frame_count())
-                .sum::<usize>());
-            report["hurtbox_frame_count"] = json!(entries
-                .iter()
-                .map(|entry| entry.export.hurtbox_frame_count())
-                .sum::<usize>());
-            report["hitbox_count"] = json!(entries
-                .iter()
-                .map(|entry| entry.export.hitbox_count())
-                .sum::<usize>());
-            report["hurtbox_count"] = json!(entries
-                .iter()
-                .map(|entry| entry.export.hurtbox_count())
-                .sum::<usize>());
-            report["generated_bytes"] = json!(generated.len());
-            report["errors"] = json!(errors);
+            report["source_frame_count"] = json!(module.source_frame_count());
+            report["hitbox_frame_count"] = json!(module.hitbox_frame_count());
+            report["hurtbox_frame_count"] = json!(module.hurtbox_frame_count());
+            report["hitbox_count"] = json!(module.hitbox_count());
+            report["hurtbox_count"] = json!(module.hurtbox_count());
+            report["figatree_chunk_count"] = json!(module.figatree_chunk_count());
+            report["figatree_chunk_bytes"] = json!(module.figatree_chunk_bytes());
+            report["generated_bytes"] = json!(generated.total_bytes());
+            report["generated_module_bytes"] = json!(generated.module_text.len());
+            report["generated_sidecar_bytes"] = json!(generated.sidecar_bytes());
+            report["errors"] = json!([]);
             if options.write {
-                match write_runtime_frame_data_module(output_path, &generated) {
+                match write_runtime_source_export_module(output_path, &generated) {
                     Ok(()) => report["wrote_output"] = json!(true),
                     Err(error) => {
                         report["ok"] = json!(false);
@@ -915,9 +1008,11 @@ fn apply_compact_manifest_runtime_batch_export(
             report["hurtbox_frame_count"] = json!(0);
             report["hitbox_count"] = json!(0);
             report["hurtbox_count"] = json!(0);
+            report["source_frame_count"] = json!(0);
+            report["figatree_chunk_count"] = json!(0);
+            report["figatree_chunk_bytes"] = json!(0);
             report["generated_bytes"] = json!(0);
-            errors.push(error);
-            report["errors"] = json!(errors);
+            report["errors"] = json!([error]);
         }
     }
 }
@@ -944,6 +1039,21 @@ fn manifest_action_for_state<'a>(manifest: &'a Value, state: &str) -> Result<&'a
             })
         })
         .ok_or_else(|| format!("source manifest action `{state}` not found"))
+}
+
+fn manifest_action_for_action_state_id(
+    manifest: &Value,
+    action_state_id: u64,
+) -> Result<&Value, String> {
+    manifest
+        .get("actions")
+        .and_then(Value::as_array)
+        .and_then(|actions| {
+            actions.iter().find(|action| {
+                action.get("action_state_id").and_then(Value::as_u64) == Some(action_state_id)
+            })
+        })
+        .ok_or_else(|| format!("source manifest action id `{action_state_id}` not found"))
 }
 
 fn artifact_state_key(path: &Path, artifact: &Value) -> String {
@@ -1003,7 +1113,7 @@ fn frame_data_runtime_output_path(root: &Path, output: Option<&str>) -> PathBuf 
                 .join("mole_runtime")
                 .join("src")
                 .join("generated")
-                .join("frame_data_boxes.rs")
+                .join("source_frame_data.rs")
         })
 }
 
@@ -1022,6 +1132,55 @@ fn write_runtime_frame_data_module(path: &Path, generated: &str) -> Result<(), S
             path.display()
         )
     })
+}
+
+fn write_runtime_source_export_module(
+    path: &Path,
+    generated: &RuntimeSourceGeneratedModule,
+) -> Result<(), String> {
+    write_runtime_frame_data_module(path, &generated.module_text)?;
+    let parent = path.parent().ok_or_else(|| {
+        format!(
+            "runtime source export path {} has no parent directory",
+            path.display()
+        )
+    })?;
+    let sidecar_dir = parent.join(RUNTIME_SOURCE_SIDECAR_DIR);
+    if sidecar_dir.exists() {
+        fs::remove_dir_all(&sidecar_dir).map_err(|error| {
+            format!(
+                "failed to clear runtime source sidecar directory {}: {error}",
+                sidecar_dir.display()
+            )
+        })?;
+    }
+    if generated.sidecars.is_empty() {
+        return Ok(());
+    }
+    fs::create_dir_all(&sidecar_dir).map_err(|error| {
+        format!(
+            "failed to create runtime source sidecar directory {}: {error}",
+            sidecar_dir.display()
+        )
+    })?;
+    for sidecar in &generated.sidecars {
+        let sidecar_path = parent.join(&sidecar.relative_path);
+        if let Some(sidecar_parent) = sidecar_path.parent() {
+            fs::create_dir_all(sidecar_parent).map_err(|error| {
+                format!(
+                    "failed to create runtime source sidecar directory {}: {error}",
+                    sidecar_parent.display()
+                )
+            })?;
+        }
+        fs::write(&sidecar_path, &sidecar.bytes).map_err(|error| {
+            format!(
+                "failed to write runtime source sidecar {}: {error}",
+                sidecar_path.display()
+            )
+        })?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -1093,6 +1252,879 @@ struct RuntimeSourcePoint {
     z: f64,
 }
 
+#[derive(Debug, Clone)]
+struct RuntimeSourceExportModule {
+    character: String,
+    source_character: Option<String>,
+    manifest_text: String,
+    figatree_chunks: Vec<RuntimeFigatreeChunkExport>,
+    baked_source_actions: Vec<RuntimeSourceActionFrameSamples>,
+    state_bindings: Vec<RuntimeStateBindingExport>,
+    source_only_action_count: usize,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeFigatreeChunkExport {
+    source_action_key: String,
+    file_name: String,
+    bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeStateBindingExport {
+    action_state_id: u64,
+    runtime_motion_state: Option<String>,
+    source_action_key: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CanonicalRuntimeSourceBinding {
+    action_state_id: u16,
+    source_action_table_id: u16,
+    source_action_key: &'static str,
+}
+
+const DERIVED_RUNTIME_SOURCE_BINDINGS: &[&str] = &[
+    "RunDirect",
+    "KneeBend",
+    "GuardSetOff",
+    "GuardReflect",
+    "LandingFallSpecial",
+    "EntryStart",
+    "EntryEnd",
+];
+
+const CANONICAL_SOURCE_ONLY_BINDINGS: &[CanonicalRuntimeSourceBinding] = &[
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 45,
+        source_action_table_id: 47,
+        source_action_key: "Attack12",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 46,
+        source_action_table_id: 48,
+        source_action_key: "Attack13",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 47,
+        source_action_table_id: 49,
+        source_action_key: "Attack100Start",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 48,
+        source_action_table_id: 50,
+        source_action_key: "Attack100Loop",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 49,
+        source_action_table_id: 51,
+        source_action_key: "Attack100End",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 75,
+        source_action_table_id: 165,
+        source_action_key: "DamageHi1",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 76,
+        source_action_table_id: 166,
+        source_action_key: "DamageHi2",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 77,
+        source_action_table_id: 167,
+        source_action_key: "DamageHi3",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 78,
+        source_action_table_id: 168,
+        source_action_key: "DamageN1",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 79,
+        source_action_table_id: 169,
+        source_action_key: "DamageN2",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 80,
+        source_action_table_id: 170,
+        source_action_key: "DamageN3",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 81,
+        source_action_table_id: 171,
+        source_action_key: "DamageLw1",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 82,
+        source_action_table_id: 172,
+        source_action_key: "DamageLw2",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 83,
+        source_action_table_id: 173,
+        source_action_key: "DamageLw3",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 84,
+        source_action_table_id: 174,
+        source_action_key: "DamageAir1",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 85,
+        source_action_table_id: 175,
+        source_action_key: "DamageAir2",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 86,
+        source_action_table_id: 176,
+        source_action_key: "DamageAir3",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 87,
+        source_action_table_id: 177,
+        source_action_key: "DamageFlyHi",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 88,
+        source_action_table_id: 178,
+        source_action_key: "DamageFlyN",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 89,
+        source_action_table_id: 179,
+        source_action_key: "DamageFlyLw",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 90,
+        source_action_table_id: 180,
+        source_action_key: "DamageFlyTop",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 91,
+        source_action_table_id: 181,
+        source_action_key: "DamageFlyRoll",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 183,
+        source_action_table_id: 288,
+        source_action_key: "DownBoundU",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 184,
+        source_action_table_id: 184,
+        source_action_key: "DownWaitU",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 186,
+        source_action_table_id: 290,
+        source_action_key: "DownStandU",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 187,
+        source_action_table_id: 187,
+        source_action_key: "DownAttackU",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 191,
+        source_action_table_id: 289,
+        source_action_key: "DownBoundD",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 192,
+        source_action_table_id: 192,
+        source_action_key: "DownWaitD",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 194,
+        source_action_table_id: 291,
+        source_action_key: "DownStandD",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 195,
+        source_action_table_id: 195,
+        source_action_key: "DownAttackD",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 199,
+        source_action_table_id: 199,
+        source_action_key: "Passive",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 200,
+        source_action_table_id: 200,
+        source_action_key: "PassiveStandF",
+    },
+    CanonicalRuntimeSourceBinding {
+        action_state_id: 201,
+        source_action_table_id: 201,
+        source_action_key: "PassiveStandB",
+    },
+];
+
+#[derive(Debug, Clone)]
+struct RuntimeSourceGeneratedModule {
+    module_text: String,
+    sidecars: Vec<RuntimeSourceSidecar>,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeSourceSidecar {
+    relative_path: PathBuf,
+    bytes: Vec<u8>,
+}
+
+impl RuntimeSourceGeneratedModule {
+    fn sidecar_bytes(&self) -> usize {
+        self.sidecars
+            .iter()
+            .map(|sidecar| sidecar.bytes.len())
+            .sum()
+    }
+
+    fn total_bytes(&self) -> usize {
+        self.module_text.len() + self.sidecar_bytes()
+    }
+}
+
+const RUNTIME_SOURCE_SIDECAR_DIR: &str = "source_frame_data";
+const RUNTIME_SOURCE_MANIFEST_FILE: &str = "source_manifest.json";
+const RUNTIME_SOURCE_FRAME_CAPSULES_FILE: &str = "source_frame_capsules.bin";
+
+impl RuntimeSourceExportModule {
+    fn from_manifest(
+        root: &Path,
+        character: &str,
+        _manifest_path: &Path,
+        manifest: &Value,
+        state_filter: Option<&str>,
+    ) -> Result<Self, String> {
+        let source_character = manifest
+            .get("source_character")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let actions = manifest
+            .get("actions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "compact source manifest requires actions array".to_string())?;
+        let action_table_path = source_action_table_path_from_manifest(root, manifest)?;
+        let action_table = read_json_object(&action_table_path)?;
+        let plcaaj_path = action_table_plcaaj_path(root, &action_table)?;
+        let mut chunks_by_key = BTreeMap::<String, RuntimeFigatreeChunkExport>::new();
+        let mut state_bindings = Vec::new();
+        let mut used_runtime_states = BTreeSet::new();
+        let mut source_only_action_count = 0usize;
+        let mut runtime_actions = Vec::new();
+        let mut runtime_action_keys = BTreeSet::new();
+
+        for action in actions {
+            if let Some(state_filter) = state_filter {
+                let matches_filter = action.get("state").and_then(Value::as_str)
+                    == Some(state_filter)
+                    || action.get("runtime_motion_state").and_then(Value::as_str)
+                        == Some(state_filter)
+                    || action.get("source_action_key").and_then(Value::as_str)
+                        == Some(state_filter);
+                if !matches_filter {
+                    continue;
+                }
+            }
+
+            let runtime_motion_state = action
+                .get("runtime_motion_state")
+                .and_then(Value::as_str)
+                .filter(|state| RUST_MOTION_STATE_VARIANTS.contains(state));
+            match runtime_motion_state {
+                Some(runtime_motion_state)
+                    if used_runtime_states.insert(runtime_motion_state.to_string()) =>
+                {
+                    let Some(source_binding) =
+                        source_binding_for_runtime_motion_state_variant(runtime_motion_state)?
+                    else {
+                        source_only_action_count += 1;
+                        continue;
+                    };
+                    let source_action_key = source_binding.source_action_key.as_str().to_string();
+                    if !chunks_by_key.contains_key(&source_action_key) {
+                        chunks_by_key.insert(
+                            source_action_key.clone(),
+                            RuntimeFigatreeChunkExport {
+                                source_action_key: source_action_key.clone(),
+                                file_name: runtime_figatree_chunk_file_name(&source_action_key),
+                                bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
+                            },
+                        );
+                    }
+                    if runtime_action_keys.insert(source_action_key.clone()) {
+                        runtime_actions.push(compact_runtime_manifest_action(action)?);
+                    }
+                    state_bindings.push(RuntimeStateBindingExport {
+                        action_state_id: u64::from(source_binding.action_state_id.get()),
+                        runtime_motion_state: Some(runtime_motion_state.to_string()),
+                        source_action_key,
+                    });
+                }
+                Some(_) | None => {
+                    source_only_action_count += 1;
+                }
+            }
+        }
+
+        for runtime_motion_state in DERIVED_RUNTIME_SOURCE_BINDINGS {
+            if state_filter.is_some_and(|state_filter| state_filter != *runtime_motion_state) {
+                continue;
+            }
+            if !used_runtime_states.insert((*runtime_motion_state).to_string()) {
+                continue;
+            }
+            let source_binding =
+                source_binding_for_runtime_motion_state_variant(runtime_motion_state)?.ok_or_else(
+                    || {
+                        format!(
+                            "derived runtime MotionState `{runtime_motion_state}` has no Melee source binding"
+                        )
+                    },
+                )?;
+            let source_action_table_id = u64::from(source_binding.source_action_table_id);
+            let source_action_key = source_binding.source_action_key.as_str();
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            if !chunks_by_key.contains_key(source_action_key) {
+                chunks_by_key.insert(
+                    source_action_key.to_string(),
+                    RuntimeFigatreeChunkExport {
+                        source_action_key: source_action_key.to_string(),
+                        file_name: runtime_figatree_chunk_file_name(source_action_key),
+                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
+                    },
+                );
+            }
+            if runtime_action_keys.insert(source_action_key.to_string()) {
+                runtime_actions.push(compact_runtime_manifest_action(action)?);
+            }
+            if action
+                .get("runtime_motion_state")
+                .and_then(Value::as_str)
+                .filter(|state| RUST_MOTION_STATE_VARIANTS.contains(state))
+                .is_none()
+            {
+                source_only_action_count = source_only_action_count.saturating_sub(1);
+            }
+            state_bindings.push(RuntimeStateBindingExport {
+                action_state_id: u64::from(source_binding.action_state_id.get()),
+                runtime_motion_state: Some((*runtime_motion_state).to_string()),
+                source_action_key: source_action_key.to_string(),
+            });
+        }
+
+        for source_binding in CANONICAL_SOURCE_ONLY_BINDINGS {
+            if state_filter
+                .is_some_and(|state_filter| state_filter != source_binding.source_action_key)
+            {
+                continue;
+            }
+            let source_action_table_id = u64::from(source_binding.source_action_table_id);
+            let source_action_key = source_binding.source_action_key;
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            if !chunks_by_key.contains_key(source_action_key) {
+                chunks_by_key.insert(
+                    source_action_key.to_string(),
+                    RuntimeFigatreeChunkExport {
+                        source_action_key: source_action_key.to_string(),
+                        file_name: runtime_figatree_chunk_file_name(source_action_key),
+                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
+                    },
+                );
+            }
+            if runtime_action_keys.insert(source_action_key.to_string()) {
+                runtime_actions.push(compact_runtime_manifest_action(action)?);
+            }
+            source_only_action_count = source_only_action_count.saturating_sub(1);
+            state_bindings.push(RuntimeStateBindingExport {
+                action_state_id: u64::from(source_binding.action_state_id),
+                runtime_motion_state: None,
+                source_action_key: source_action_key.to_string(),
+            });
+        }
+
+        if state_filter.is_some() && state_bindings.is_empty() {
+            return Err(format!(
+                "compact source manifest action `{}` has no current Rust MotionState binding",
+                state_filter.unwrap_or_default()
+            ));
+        }
+        let manifest_text = compact_runtime_source_manifest(manifest, runtime_actions)?;
+        let figatree_chunks = chunks_by_key.into_values().collect::<Vec<_>>();
+        let baked_source_actions = bake_runtime_source_frame_capsules(
+            character,
+            source_character.as_deref(),
+            &manifest_text,
+            &figatree_chunks,
+        )?;
+
+        Ok(Self {
+            character: character.to_string(),
+            source_character,
+            manifest_text,
+            figatree_chunks,
+            baked_source_actions,
+            state_bindings,
+            source_only_action_count,
+        })
+    }
+
+    fn figatree_chunk_count(&self) -> usize {
+        self.figatree_chunks.len()
+    }
+
+    fn figatree_chunk_bytes(&self) -> usize {
+        self.figatree_chunks
+            .iter()
+            .map(|chunk| chunk.bytes.len())
+            .sum()
+    }
+
+    fn state_count(&self) -> usize {
+        self.state_bindings.len()
+    }
+
+    fn source_frame_count(&self) -> usize {
+        self.baked_source_actions
+            .iter()
+            .map(|action| action.frames.len())
+            .sum()
+    }
+
+    fn hitbox_count(&self) -> usize {
+        self.baked_source_actions
+            .iter()
+            .flat_map(|action| &action.frames)
+            .map(|frame| frame.hit_capsules.len())
+            .sum()
+    }
+
+    fn hurtbox_count(&self) -> usize {
+        self.baked_source_actions
+            .iter()
+            .flat_map(|action| &action.frames)
+            .map(|frame| frame.hurt_capsules.len())
+            .sum()
+    }
+
+    fn hitbox_frame_count(&self) -> usize {
+        self.baked_source_actions
+            .iter()
+            .flat_map(|action| &action.frames)
+            .filter(|frame| !frame.hit_capsules.is_empty())
+            .count()
+    }
+
+    fn hurtbox_frame_count(&self) -> usize {
+        self.baked_source_actions
+            .iter()
+            .flat_map(|action| &action.frames)
+            .filter(|frame| !frame.hurt_capsules.is_empty())
+            .count()
+    }
+}
+
+fn bake_runtime_source_frame_capsules(
+    character: &str,
+    source_character: Option<&str>,
+    manifest_text: &str,
+    figatree_chunks: &[RuntimeFigatreeChunkExport],
+) -> Result<Vec<RuntimeSourceActionFrameSamples>, String> {
+    let runtime_chunks = figatree_chunks
+        .iter()
+        .map(|chunk| RuntimeFigatreeChunk {
+            source_action_key: chunk.source_action_key.as_str(),
+            bytes: chunk.bytes.as_slice(),
+        })
+        .collect::<Vec<_>>();
+    let source_export = RuntimeSourceExport {
+        character,
+        source_character,
+        manifest_json: manifest_text,
+        figatree_chunks: &runtime_chunks,
+    };
+    let source_export = RuntimeSourceExportEvaluator::from_export(source_export)?;
+    figatree_chunks
+        .iter()
+        .map(|chunk| {
+            let evaluator = source_export.action_frame_evaluator(&FrameDataSampleOptions {
+                character: character.to_string(),
+                source_character: source_character.map(str::to_string),
+                state: chunk.source_action_key.clone(),
+                frame: 1,
+            })?;
+            let total_frames = evaluator.total_frames().min(u64::from(u8::MAX));
+            let frames = (1..=total_frames)
+                .map(|frame| evaluator.sample_frame_capsules(frame))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(RuntimeSourceActionFrameSamples {
+                source_action_key: chunk.source_action_key.clone(),
+                total_frames: total_frames as u8,
+                frames,
+            })
+        })
+        .collect()
+}
+
+fn generate_runtime_source_export_module(
+    module: &RuntimeSourceExportModule,
+) -> Result<RuntimeSourceGeneratedModule, String> {
+    let mut output = String::new();
+    output.push_str(concat!(
+        "// Generated compact Melee source frame-data export.\n",
+        "// Runtime loads the CLI-baked action/frame capsule and DownBound hip-pose sidecar.\n",
+        "// Gameplay, rendering, collision, and player startup must not sample source FigaTrees.\n\n",
+        "// Canonical Melee action-state bindings may have no Rust MotionState alias.\n",
+        "use mole_core::{MeleeActionStateId, MotionState};\n",
+        "use mole_frame_data::{RuntimeFigatreeChunk, RuntimeSourceExport};\n\n",
+        "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"runtime_source_frame_data\";\n",
+    ));
+    output.push_str(&format!(
+        "#[allow(dead_code)]\npub(crate) const SOURCE_MANIFEST_JSON: &str = include_str!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_MANIFEST_FILE}\");\n\n",
+    ));
+    output.push_str(&format!(
+        "pub(crate) const SOURCE_FRAME_CAPSULES_BYTES: &[u8] = include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_FRAME_CAPSULES_FILE}\");\n\n",
+    ));
+
+    output.push_str(
+        "#[allow(dead_code)]\npub(crate) const FIGATREE_CHUNKS: &[RuntimeFigatreeChunk<'static>] = &[\n",
+    );
+    for chunk in &module.figatree_chunks {
+        output.push_str(&format!(
+            "    RuntimeFigatreeChunk {{ source_action_key: {}, bytes: include_bytes!(\"{}/{}\") }},\n",
+            rust_string_literal(&chunk.source_action_key),
+            RUNTIME_SOURCE_SIDECAR_DIR,
+            chunk.file_name
+        ));
+    }
+    output.push_str("];\n\n");
+
+    output.push_str(&format!(
+        "#[allow(dead_code)]\npub(crate) static SOURCE_EXPORT: RuntimeSourceExport<'static> = RuntimeSourceExport {{\n    character: {},\n    source_character: {},\n    manifest_json: SOURCE_MANIFEST_JSON,\n    figatree_chunks: FIGATREE_CHUNKS,\n}};\n\n",
+        rust_string_literal(&module.character),
+        module
+            .source_character
+            .as_deref()
+            .map(|source_character| format!("Some({})", rust_string_literal(source_character)))
+            .unwrap_or_else(|| "None".to_string())
+    ));
+
+    output.push_str(concat!(
+        "#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n",
+        "pub(crate) struct RuntimeActionBinding {\n",
+        "    pub(crate) action_state_id: MeleeActionStateId,\n",
+        "    pub(crate) source_action_key: &'static str,\n",
+        "    pub(crate) motion_state: Option<MotionState>,\n",
+        "}\n\n",
+        "pub(crate) const ACTION_BINDINGS: &[RuntimeActionBinding] = &[\n",
+    ));
+    for binding in &module.state_bindings {
+        let motion_state = match binding.runtime_motion_state.as_deref() {
+            Some(runtime_motion_state) => {
+                let state_variant =
+                    validate_current_rust_motion_state_variant(runtime_motion_state)?;
+                format!("Some(MotionState::{state_variant})")
+            }
+            None => "None".to_string(),
+        };
+        output.push_str(&format!(
+            "    RuntimeActionBinding {{ action_state_id: MeleeActionStateId::new({}), source_action_key: {}, motion_state: {motion_state} }},\n",
+            binding.action_state_id,
+            rust_string_literal(&binding.source_action_key)
+        ));
+    }
+    output.push_str(concat!(
+        "];\n\n",
+        "pub(crate) fn action_binding_for_motion_state(state: MotionState) -> Option<&'static RuntimeActionBinding> {\n",
+        "    ACTION_BINDINGS\n",
+        "        .iter()\n",
+        "        .find(|binding| binding.motion_state == Some(state))\n",
+        "}\n\n",
+        "pub(crate) fn source_action_key_for_action_state_id(\n",
+        "    action_state_id: MeleeActionStateId,\n",
+        ") -> Option<&'static str> {\n",
+        "    ACTION_BINDINGS\n",
+        "        .iter()\n",
+        "        .find(|binding| binding.action_state_id == action_state_id)\n",
+        "        .map(|binding| binding.source_action_key)\n",
+        "}\n\n",
+        "pub(crate) fn source_action_key_for_state(state: MotionState) -> Option<&'static str> {\n",
+        "    action_binding_for_motion_state(state).map(|binding| binding.source_action_key)\n",
+        "}\n",
+    ));
+
+    let mut sidecars = vec![
+        RuntimeSourceSidecar {
+            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+                .join(RUNTIME_SOURCE_MANIFEST_FILE),
+            bytes: module.manifest_text.as_bytes().to_vec(),
+        },
+        RuntimeSourceSidecar {
+            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+                .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
+            bytes: encode_runtime_source_frame_capsules(&module.baked_source_actions)?,
+        },
+    ];
+    sidecars.extend(
+        module
+            .figatree_chunks
+            .iter()
+            .map(|chunk| RuntimeSourceSidecar {
+                relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR).join(&chunk.file_name),
+                bytes: chunk.bytes.clone(),
+            }),
+    );
+
+    Ok(RuntimeSourceGeneratedModule {
+        module_text: output,
+        sidecars,
+    })
+}
+
+fn compact_runtime_source_manifest(
+    manifest: &Value,
+    actions: Vec<Value>,
+) -> Result<String, String> {
+    let skeleton_joints =
+        required_manifest_array(manifest, &["rig", "skeleton", "data", "joints"])?
+            .iter()
+            .map(compact_runtime_skeleton_joint)
+            .collect::<Result<Vec<_>, _>>()?;
+    let hurtboxes =
+        required_manifest_array(manifest, &["rig", "hurtbox_inits", "data", "hurtboxes"])?
+            .iter()
+            .map(compact_runtime_hurtbox_init)
+            .collect::<Result<Vec<_>, _>>()?;
+    let compact = json!({
+        "schema_version": 2,
+        "artifact_kind": "runtime_source_frame_data_manifest",
+        "target_character": manifest.get("target_character").cloned().unwrap_or(Value::Null),
+        "source_character": manifest.get("source_character").cloned().unwrap_or(Value::Null),
+        "source_space": manifest.get("source_space").cloned().unwrap_or_else(|| json!("melee_xyz")),
+        "projection": manifest.get("projection").cloned().unwrap_or_else(|| json!({})),
+        "rig": {
+            "skeleton": {
+                "data": {
+                    "joints": skeleton_joints,
+                },
+            },
+            "hurtbox_inits": {
+                "data": {
+                    "hurtboxes": hurtboxes,
+                },
+            },
+        },
+        "actions": actions,
+    });
+    serde_json::to_string(&compact)
+        .map_err(|error| format!("failed to serialize compact runtime source manifest: {error}"))
+}
+
+fn compact_runtime_manifest_action(action: &Value) -> Result<Value, String> {
+    let figatree = required_manifest_value(action, &["source_action", "figatree"])?;
+    Ok(json!({
+        "state": action.get("state").cloned().unwrap_or(Value::Null),
+        "runtime_motion_state": action.get("runtime_motion_state").cloned().unwrap_or(Value::Null),
+        "source_action_key": action.get("source_action_key").cloned().unwrap_or(Value::Null),
+        "source_action_name": action.get("source_action_name").cloned().unwrap_or(Value::Null),
+        "action_state_id": required_manifest_value(action, &["action_state_id"])?.clone(),
+        "total_frames": required_manifest_value(action, &["total_frames"])?.clone(),
+        "source_action": {
+            "figatree": compact_runtime_figatree(figatree)?,
+        },
+        "decoded_action_script": {
+            "procedures": compact_runtime_procedures(action)?,
+        },
+    }))
+}
+
+fn compact_runtime_figatree(figatree: &Value) -> Result<Value, String> {
+    let tracks = required_manifest_array(figatree, &["tracks"])?
+        .iter()
+        .map(compact_runtime_figatree_track)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(json!({
+        "root": figatree.get("root").cloned().unwrap_or(Value::Null),
+        "track_counts_by_node": required_manifest_value(figatree, &["track_counts_by_node"])?.clone(),
+        "tracks": tracks,
+    }))
+}
+
+fn compact_runtime_figatree_track(track: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "data_offset": required_manifest_value(track, &["data_offset"])?.clone(),
+        "frac_slope_raw": required_manifest_value(track, &["frac_slope_raw"])?.clone(),
+        "frac_value_raw": required_manifest_value(track, &["frac_value_raw"])?.clone(),
+        "length": required_manifest_value(track, &["length"])?.clone(),
+        "obj_type": required_manifest_value(track, &["obj_type"])?.clone(),
+        "startframe": required_manifest_value(track, &["startframe"])?.clone(),
+    }))
+}
+
+fn compact_runtime_skeleton_joint(joint: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "flags_raw": required_manifest_value(joint, &["flags_raw"])?.clone(),
+        "parent_index": joint.get("parent_index").cloned().unwrap_or(Value::Null),
+        "position_raw": required_manifest_value(joint, &["position_raw"])?.clone(),
+        "rotation_raw": required_manifest_value(joint, &["rotation_raw"])?.clone(),
+        "scale_raw": required_manifest_value(joint, &["scale_raw"])?.clone(),
+    }))
+}
+
+fn compact_runtime_hurtbox_init(hurtbox: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "a_offset_raw": required_manifest_value(hurtbox, &["a_offset_raw"])?.clone(),
+        "b_offset_raw": required_manifest_value(hurtbox, &["b_offset_raw"])?.clone(),
+        "bone_idx": required_manifest_value(hurtbox, &["bone_idx"])?.clone(),
+        "height": required_manifest_value(hurtbox, &["height"])?.clone(),
+        "id": required_manifest_value(hurtbox, &["id"])?.clone(),
+        "is_grabbable": required_manifest_value(hurtbox, &["is_grabbable"])?.clone(),
+        "scale_raw": required_manifest_value(hurtbox, &["scale_raw"])?.clone(),
+    }))
+}
+
+fn compact_runtime_procedures(action: &Value) -> Result<Vec<Value>, String> {
+    Ok(
+        required_manifest_array(action, &["decoded_action_script", "procedures"])?
+            .iter()
+            .filter_map(|procedure| {
+                let name = procedure.get("procedure").and_then(Value::as_str)?;
+                matches!(
+                name,
+                "fighter.spawn_hitbox"
+                    | "fighter.clear_all_hitboxes"
+                    | "fighter.set_hurt_state"
+                    | "fighter.set_jab_combo"
+                    | "fighter.set_jab_rapid"
+            )
+            .then(|| {
+                let mut compact = json!({
+                    "procedure": name,
+                    "frame": procedure.get("frame").cloned().unwrap_or(Value::Null),
+                    "word_offset": procedure.get("word_offset").cloned().unwrap_or(Value::Null),
+                    "raw_words": procedure.get("raw_words").cloned().unwrap_or_else(|| json!([])),
+                });
+                if let Some(disabled) = procedure.get("disabled") {
+                    compact["disabled"] = disabled.clone();
+                }
+                if let Some(state) = procedure.get("state") {
+                    compact["state"] = state.clone();
+                }
+                compact
+            })
+            })
+            .collect(),
+    )
+}
+
+fn required_manifest_value<'a>(value: &'a Value, path: &[&str]) -> Result<&'a Value, String> {
+    let mut current = value;
+    for field in path {
+        current = current.get(field).ok_or_else(|| {
+            format!(
+                "runtime source manifest is missing required field `{}`",
+                path.join(".")
+            )
+        })?;
+    }
+    Ok(current)
+}
+
+fn required_manifest_array<'a>(value: &'a Value, path: &[&str]) -> Result<&'a [Value], String> {
+    required_manifest_value(value, path)?
+        .as_array()
+        .map(Vec::as_slice)
+        .ok_or_else(|| {
+            format!(
+                "runtime source manifest field `{}` must be an array",
+                path.join(".")
+            )
+        })
+}
+
+fn source_action_table_path_from_manifest(
+    root: &Path,
+    manifest: &Value,
+) -> Result<PathBuf, String> {
+    let relative = manifest
+        .get("sources")
+        .and_then(Value::as_array)
+        .and_then(|sources| {
+            sources.iter().find_map(|source| {
+                (source.get("kind").and_then(Value::as_str) == Some("source_action_table"))
+                    .then(|| source.get("path").and_then(Value::as_str))
+                    .flatten()
+            })
+        })
+        .ok_or_else(|| "source manifest is missing source_action_table path".to_string())?;
+    Ok(root.join(relative))
+}
+
+fn action_table_plcaaj_path(root: &Path, action_table: &Value) -> Result<PathBuf, String> {
+    let relative = action_table
+        .get("metadata")
+        .and_then(|metadata| metadata.get("plcaaj_file"))
+        .or_else(|| {
+            action_table
+                .get("source")
+                .and_then(|source| source.get("plcaaj_file"))
+        })
+        .or_else(|| action_table.get("plcaaj_file"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| "action animation table is missing plcaaj_file metadata".to_string())?;
+    Ok(root.join(relative))
+}
+
+fn read_action_figatree_chunk(path: &Path, action: &Value) -> Result<Vec<u8>, String> {
+    let source_action = action.get("source_action").ok_or_else(|| {
+        format!(
+            "manifest action {} is missing source_action metadata",
+            manifest_action_state_key(action)
+        )
+    })?;
+    let offset = source_action
+        .get("figatree_archive_offset")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            format!(
+                "manifest action {} is missing figatree_archive_offset",
+                manifest_action_state_key(action)
+            )
+        })? as usize;
+    let size = source_action
+        .get("figatree_archive_size")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            format!(
+                "manifest action {} is missing figatree_archive_size",
+                manifest_action_state_key(action)
+            )
+        })? as usize;
+    let bytes =
+        fs::read(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let end = offset.saturating_add(size);
+    if end > bytes.len() {
+        return Err(format!(
+            "figatree archive slice {}..{} is outside {} bytes in {}",
+            offset,
+            end,
+            bytes.len(),
+            path.display()
+        ));
+    }
+    Ok(bytes[offset..end].to_vec())
+}
+
+fn runtime_figatree_chunk_file_name(source_action_key: &str) -> String {
+    format!(
+        "{}.figatree.bin",
+        screaming_snake_identifier(source_action_key).to_ascii_lowercase()
+    )
+}
+
 fn generate_runtime_frame_data_module(
     root: &Path,
     entries: &[RuntimeFrameDataModuleEntry],
@@ -1114,6 +2146,9 @@ fn generate_runtime_frame_data_module(
         "// Hit capsules use ftColl_8007AD18 previous/current centers from ftAction_8007121C data.\n",
         "// Hurt capsules use ftData.x30 samples transformed by the action FigaTree/JObj skeleton.\n\n",
         "use mole_core::MotionState;\n\n",
+        "// Baked from source_action_frame_sample middleware samples.\n",
+        "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"baked_frame_data_boxes\";\n",
+        "\n",
         "#[derive(Debug, Clone, Copy, PartialEq)]\n",
         "pub(crate) struct SourcePoint {\n",
         "    pub(crate) x: f64,\n",
@@ -1309,68 +2344,6 @@ impl RuntimeFrameDataExport {
             hit_frames,
             hurt_frames,
         })
-    }
-
-    fn from_manifest_action(
-        root: &Path,
-        character: &str,
-        source_character: Option<String>,
-        state: &str,
-        action: &Value,
-    ) -> Result<Self, String> {
-        validate_current_rust_motion_state_variant(state)?;
-        let total_frames = action
-            .get("total_frames")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| {
-                format!(
-                    "manifest action {} requires total_frames before runtime export",
-                    manifest_action_state_key(action)
-                )
-            })?;
-        let source_action_key = action
-            .get("source_action_key")
-            .and_then(Value::as_str)
-            .unwrap_or(state)
-            .to_string();
-        let keyframes = frame_data_sampler::sample_action_keyframes(
-            root,
-            &FrameDataSampleOptions {
-                character: character.to_string(),
-                source_character,
-                state: source_action_key,
-                frame: 1,
-            },
-        )?
-        .into_iter()
-        .filter(|sample| {
-            sample
-                .get("frame")
-                .and_then(Value::as_u64)
-                .is_some_and(|frame| frame <= total_frames)
-        })
-        .map(|sample| {
-            json!({
-                "frame": sample.get("frame").cloned().unwrap_or(Value::Null),
-                "hitboxes": sample
-                    .get("hit_capsules")
-                    .cloned()
-                    .unwrap_or_else(|| json!([])),
-                "hurtboxes": sample
-                    .get("hurt_capsules")
-                    .cloned()
-                    .unwrap_or_else(|| json!([])),
-            })
-        })
-        .collect::<Vec<_>>();
-        Self::from_artifact(
-            character,
-            state,
-            &json!({
-                "state": state,
-                "keyframes": keyframes,
-            }),
-        )
     }
 
     fn hitbox_frame_count(&self) -> usize {
@@ -1822,6 +2795,8 @@ enum DecodedProcedure {
     SpawnHitbox(DecodedHitbox),
     SetHurtState(DecodedHurtState),
     SetCmdVar(DecodedCmdVar),
+    SetJabCombo(DecodedJabCombo),
+    SetJabRapid(DecodedJabRapid),
     ClearAllHitboxes {
         frame: u64,
         word_offset: usize,
@@ -1869,6 +2844,22 @@ struct DecodedCmdVar {
     raw_word: u32,
     cmd_var: u64,
     value: u64,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedJabCombo {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    disabled: bool,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedJabRapid {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    state: bool,
 }
 
 const FIGHTER_CMD_LENGTHS: [usize; 49] = [
@@ -1962,6 +2953,102 @@ const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "Landing",
     "Pass",
 ];
+
+fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
+    Some(match state {
+        "Wait" => MotionState::Wait,
+        "Entry" => MotionState::Entry,
+        "EntryStart" => MotionState::EntryStart,
+        "EntryEnd" => MotionState::EntryEnd,
+        "WalkSlow" => MotionState::WalkSlow,
+        "WalkMiddle" => MotionState::WalkMiddle,
+        "WalkFast" => MotionState::WalkFast,
+        "Dash" => MotionState::Dash,
+        "Run" => MotionState::Run,
+        "RunDirect" => MotionState::RunDirect,
+        "RunBrake" => MotionState::RunBrake,
+        "TurnRun" => MotionState::TurnRun,
+        "Turn" => MotionState::Turn,
+        "Squat" => MotionState::Squat,
+        "SquatWait" => MotionState::SquatWait,
+        "SquatRv" => MotionState::SquatRv,
+        "SpecialN" => MotionState::SpecialN,
+        "SpecialSStart" => MotionState::SpecialSStart,
+        "SpecialS" => MotionState::SpecialS,
+        "SpecialHi" => MotionState::SpecialHi,
+        "SpecialLw" => MotionState::SpecialLw,
+        "SpecialAirN" => MotionState::SpecialAirN,
+        "SpecialAirSStart" => MotionState::SpecialAirSStart,
+        "SpecialAirS" => MotionState::SpecialAirS,
+        "SpecialAirHi" => MotionState::SpecialAirHi,
+        "SpecialAirLw" => MotionState::SpecialAirLw,
+        "AttackAirN" => MotionState::AttackAirN,
+        "AttackAirF" => MotionState::AttackAirF,
+        "AttackAirB" => MotionState::AttackAirB,
+        "AttackAirHi" => MotionState::AttackAirHi,
+        "AttackAirLw" => MotionState::AttackAirLw,
+        "LandingAirN" => MotionState::LandingAirN,
+        "LandingAirF" => MotionState::LandingAirF,
+        "LandingAirB" => MotionState::LandingAirB,
+        "LandingAirHi" => MotionState::LandingAirHi,
+        "LandingAirLw" => MotionState::LandingAirLw,
+        "Catch" => MotionState::Catch,
+        "CatchDash" => MotionState::CatchDash,
+        "Attack1" => MotionState::Attack1,
+        "AttackDash" => MotionState::AttackDash,
+        "AttackS3" => MotionState::AttackS3,
+        "AttackHi3" => MotionState::AttackHi3,
+        "AttackLw3" => MotionState::AttackLw3,
+        "AttackS4" => MotionState::AttackS4,
+        "AttackHi4" => MotionState::AttackHi4,
+        "AttackLw4" => MotionState::AttackLw4,
+        "KneeBend" => MotionState::KneeBend,
+        "JumpF" => MotionState::JumpF,
+        "JumpB" => MotionState::JumpB,
+        "Fall" => MotionState::Fall,
+        "FallF" => MotionState::FallF,
+        "FallB" => MotionState::FallB,
+        "FallAerial" => MotionState::FallAerial,
+        "FallAerialF" => MotionState::FallAerialF,
+        "FallAerialB" => MotionState::FallAerialB,
+        "JumpAerialF" => MotionState::JumpAerialF,
+        "JumpAerialB" => MotionState::JumpAerialB,
+        "GuardOn" => MotionState::GuardOn,
+        "Guard" => MotionState::Guard,
+        "GuardOff" => MotionState::GuardOff,
+        "GuardSetOff" => MotionState::GuardSetOff,
+        "GuardReflect" => MotionState::GuardReflect,
+        "EscapeN" => MotionState::EscapeN,
+        "EscapeF" => MotionState::EscapeF,
+        "EscapeB" => MotionState::EscapeB,
+        "EscapeAir" => MotionState::EscapeAir,
+        "FallSpecial" => MotionState::FallSpecial,
+        "FallSpecialF" => MotionState::FallSpecialF,
+        "FallSpecialB" => MotionState::FallSpecialB,
+        "LandingFallSpecial" => MotionState::LandingFallSpecial,
+        "Landing" => MotionState::Landing,
+        "Pass" => MotionState::Pass,
+        _ => return None,
+    })
+}
+
+fn source_binding_for_runtime_motion_state_variant(
+    state: &str,
+) -> Result<Option<MotionStateSourceBinding>, String> {
+    validate_current_rust_motion_state_variant(state)?;
+    let motion_state = motion_state_for_runtime_variant(state).ok_or_else(|| {
+        format!(
+            "Rust MotionState does not contain {state}; import can keep the source artifact, but runtime export needs a state parity update first"
+        )
+    })?;
+    let expected_action_state_id = melee_action_state_id_for_motion_state(motion_state);
+    let source_binding = source_binding_for_motion_state(motion_state);
+    debug_assert_eq!(
+        source_binding.map(|binding| binding.action_state_id),
+        source_binding.map(|_| expected_action_state_id)
+    );
+    Ok(source_binding)
+}
 
 fn decoded_action_script_artifact(
     root: &Path,
@@ -2297,6 +3384,20 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                             word,
                         )));
                     }
+                    19 => {
+                        procedures.push(DecodedProcedure::SetJabCombo(decode_set_jab_combo(
+                            current_frame,
+                            word_offset,
+                            word,
+                        )));
+                    }
+                    20 => {
+                        procedures.push(DecodedProcedure::SetJabRapid(decode_set_jab_rapid(
+                            current_frame,
+                            word_offset,
+                            word,
+                        )));
+                    }
                     _ => {}
                 }
                 word_offset += length;
@@ -2378,6 +3479,24 @@ fn decode_set_cmd_var(frame: u64, word_offset: usize, raw_word: u32) -> DecodedC
         raw_word,
         cmd_var: ((raw_word >> 24) & 0x03) as u64,
         value: (raw_word & 0x00ff_ffff) as u64,
+    }
+}
+
+fn decode_set_jab_combo(frame: u64, word_offset: usize, raw_word: u32) -> DecodedJabCombo {
+    DecodedJabCombo {
+        frame,
+        word_offset,
+        raw_word,
+        disabled: (raw_word & 0x03ff_ffff) != 0,
+    }
+}
+
+fn decode_set_jab_rapid(frame: u64, word_offset: usize, raw_word: u32) -> DecodedJabRapid {
+    DecodedJabRapid {
+        frame,
+        word_offset,
+        raw_word,
+        state: (raw_word & 0x03ff_ffff) != 0,
     }
 }
 
@@ -2467,6 +3586,22 @@ fn decoded_action_script_json(decoded: &DecodedActionScript, root: &Path) -> Val
                 "raw_words": raw_words_json(&[cmd_var.raw_word]),
                 "cmd_var": cmd_var.cmd_var,
                 "value": cmd_var.value,
+            }),
+            DecodedProcedure::SetJabCombo(jab_combo) => json!({
+                "procedure": "fighter.set_jab_combo",
+                "handler": "ftAction_80071AE8",
+                "frame": jab_combo.frame,
+                "word_offset": jab_combo.word_offset,
+                "raw_words": raw_words_json(&[jab_combo.raw_word]),
+                "disabled": jab_combo.disabled,
+            }),
+            DecodedProcedure::SetJabRapid(jab_rapid) => json!({
+                "procedure": "fighter.set_jab_rapid",
+                "handler": "ftAction_80071B28",
+                "frame": jab_rapid.frame,
+                "word_offset": jab_rapid.word_offset,
+                "raw_words": raw_words_json(&[jab_rapid.raw_word]),
+                "state": jab_rapid.state,
             }),
             DecodedProcedure::ClearAllHitboxes {
                 frame,
@@ -2932,7 +4067,10 @@ where
                 DecodedProcedure::ClearAllHitboxes { .. } => {
                     active.clear();
                 }
-                DecodedProcedure::SetHurtState(_) | DecodedProcedure::SetCmdVar(_) => {}
+                DecodedProcedure::SetHurtState(_)
+                | DecodedProcedure::SetCmdVar(_)
+                | DecodedProcedure::SetJabCombo(_)
+                | DecodedProcedure::SetJabRapid(_) => {}
             }
             procedure_index += 1;
         }
@@ -2976,6 +4114,8 @@ fn procedure_frame(procedure: &DecodedProcedure) -> u64 {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.frame,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.frame,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.frame,
+        DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.frame,
+        DecodedProcedure::SetJabRapid(jab_rapid) => jab_rapid.frame,
         DecodedProcedure::ClearAllHitboxes { frame, .. } => *frame,
     }
 }
@@ -2985,6 +4125,8 @@ fn procedure_word_offset(procedure: &DecodedProcedure) -> usize {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.word_offset,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.word_offset,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.word_offset,
+        DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.word_offset,
+        DecodedProcedure::SetJabRapid(jab_rapid) => jab_rapid.word_offset,
         DecodedProcedure::ClearAllHitboxes { word_offset, .. } => *word_offset,
     }
 }

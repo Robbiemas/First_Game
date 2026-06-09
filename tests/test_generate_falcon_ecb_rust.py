@@ -258,7 +258,9 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     assert "MotionState::LandingAirB => Some(&FALCON_ECB_ACTION_75)" in rust
     assert "MotionState::LandingAirHi => Some(&FALCON_ECB_ACTION_76)" in rust
     assert "MotionState::LandingAirLw => Some(&FALCON_ECB_ACTION_77)" in rust
+    assert "MotionState::Entry => Some(&FALCON_ECB_ACTION_238)" in rust
     assert "MotionState::EntryStart => Some(&FALCON_ECB_ACTION_238)" in rust
+    assert "MotionState::EntryEnd => Some(&FALCON_ECB_ACTION_238)" in rust
     assert "MotionState::SpecialSStart => Some(&FALCON_ECB_ACTION_303)" in rust
     assert "MotionState::SpecialS => Some(&FALCON_ECB_ACTION_304)" in rust
     assert "MotionState::SpecialAirSStart => Some(&FALCON_ECB_ACTION_305)" in rust
@@ -267,15 +269,17 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     coverage = build_coverage_payload(samples)
     assert "KneeBend" not in coverage["unmapped_derived_motion_states"]
     assert "GuardReflect" not in coverage["unmapped_derived_motion_states"]
+    assert "Entry" not in coverage["unmapped_derived_motion_states"]
     assert "EntryStart" not in coverage["unmapped_derived_motion_states"]
+    assert "EntryEnd" not in coverage["unmapped_derived_motion_states"]
     assert coverage["unmapped_derived_motion_states"] == []
-    assert coverage["no_action_submotion_motion_states"] == [
-        {
-            "motion_state": "Entry",
-            "reason": "ftCo_MS_Entry uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
-        },
-        {
-            "motion_state": "EntryEnd",
-            "reason": "ftCo_MS_EntryEnd uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map.",
-        },
+    assert sorted(coverage.keys()) == [
+        "id",
+        "mapped_action_count",
+        "mapped_motion_state_count",
+        "mapped_motion_states",
+        "missing_sampled_mappings",
+        "source",
+        "title",
+        "unmapped_derived_motion_states",
     ]

@@ -1,6 +1,6 @@
 # Native Rust Rollback Architecture And Network Plan
 
-Updated: 2026-05-28
+Updated: 2026-06-05
 
 This document is the handoff roadmap for moving Mole from the current Pygame
 prototype into a native, low-latency, rollback-ready Rust platform fighter.
@@ -103,6 +103,13 @@ reverse-engineering notes add the important origin caveat: the adapter has a
 separate Origins command, but reliable synchronous origin retrieval requires
 deliberate polling/reset control, so this project must keep raw samples and
 origin diagnostics visible instead of letting UCF hide a bad pre-UCF layer.
+The rate numbers are layer-specific: public Melee latency research describes
+console controller polling as effectively about 120 Hz against a 60 Hz game
+engine, while WUP-028 reverse-engineering reports 1 kHz JoyBus-side adapter
+communication after polling starts. The decomp boundary still exposes one
+`HSD_PadGameStatus` snapshot to fighter input for each game frame; faster
+capture is a latency/input-boundary concern, not a mid-frame fighter-state
+simulation rule.
 
 References:
 
@@ -117,11 +124,25 @@ Melee-side ASM/Gecko support. Its public docs and repositories show the pieces,
 but not every production matchmaking detail. The useful architectural lesson is
 still clear: matchmaking and connection setup can be server-assisted, but the
 match simulation and rollback live on the players' machines.
+The Slippi replay spec reinforces the same input boundary: pre-frame updates are
+emitted exactly once per frame per character immediately before controller input
+is used for that character's next action. Slippi files can preserve processed
+and some raw/UCF analog fields for that frame, but they are not high-frequency
+WUP packet logs.
+The public Slippi Dolphin fork also keeps netplay around small frame-indexed
+pad payloads, ACKs, checksums, and delay frames. Its `SlippiPad` transfers only
+the 8-byte pad data portion for a frame, batches queued inputs into one packet,
+and keeps a configurable online delay that defaults to two frames. Because
+Slippi lives inside Dolphin, rollback has to coexist with emulator savestate
+machinery; the Rust engine should not inherit that whole-emulator burden. We
+should preserve Slippi's small input/checksum/rollback shape, then snapshot only
+the authoritative Mole gameplay state needed to replay whole 60 Hz frames.
 
 References:
 
 - [Slippi Netplay](https://slippi.gg/netplay)
 - [Project Slippi repository](https://github.com/project-slippi/project-slippi)
+- [Slippi replay file spec](https://github.com/project-slippi/slippi-wiki/blob/master/SPEC.md)
 - [Slippi SSBM ASM repository](https://github.com/project-slippi/slippi-ssbm-asm)
 
 ### GGRS Shape
@@ -376,8 +397,11 @@ Owns:
 - Rollback/desync visualizer.
 - Latency/packet debug overlays.
 
-Tools can be Python, Rust, or web-based as convenient. They are not part of the
-rollback-critical runtime.
+Rust is preferred for tooling that feeds engine data, runtime exports, or parity
+checks that must stay byte/type-shaped with the Rust runtime. Existing Python
+tools are legacy/reference paths and should be ported when actively extending
+that pipeline. Web-based views may remain view layers over Rust-owned data.
+These tools are not part of the rollback-critical runtime.
 
 ## Authoritative Model
 
@@ -475,6 +499,30 @@ analog and trigger bytes win; digital buttons are OR-merged across the window to
 preserve short edges, matching the HSD raw-queue merge shape. A newly connected
 port still uses the first connected sample as its origin.
 
+This is the input side of "sub-tick." It must match Melee's shape: higher-rate
+raw capture can exist before the pad/game boundary, then the game-facing fighter
+input is finalized as one `HSD_PadGameStatus -> Fighter.input` snapshot for the
+60 Hz simulation frame.
+
+Current Friend Connect singles controller ownership is deliberately local and
+minimal. A machine starts with no active gameplay controller even if multiple
+WUP ports are connected. The first connected local WUP/GameCube controller that
+produces non-neutral gameplay input latches as that machine's active local
+controller. The code-owner maps that active controller to rollback P1; the
+code-connector maps it to rollback P2. Extra local controllers are ignored in
+the singles playtest and should be reserved for a later local-doubles design.
+This is a local-input routing rule only; it does not alter Melee-shaped
+game-facing input once the controller is selected.
+
+The rollback/runtime side may also run a higher-rate scheduler at a multiple of
+60 Hz, such as 120 Hz or 240 Hz. Those sub-frame scheduler passes may receive
+network packets, update prediction confidence, select the next committed local
+input from the capture window, prepare a rollback, or resimulate whole 60 Hz
+frames before the next visible frame is presented. They must not advance fighter
+physics, action-state timers, hitboxes, ECB, damage, or animation by half-frames.
+All authoritative gameplay output remains the same 60 Hz sequence that would be
+produced without the higher-rate scheduler.
+
 ### Native Pre-UCF Pad Processing
 
 The native WUP path mirrors the Melee pad stack before UCF is layered on top:
@@ -545,13 +593,24 @@ frame 2
 Runtime timing only decides when to call the core. It does not change gameplay
 results.
 
-### Deterministic Numbers
+### Decomp-Native Numbers
 
-Prefer fixed-point or integer world units for authoritative state. Avoid
-cross-platform float drift in state that affects gameplay.
+Use the same value shape as the decomp for authoritative fighter state. For
+Melee fighter motion this means source-shaped `f32` values, not fixed-point or
+milli-integer substitutes: `Fighter_procUpdate` updates `gr_vel`,
+`self_vel`, `x74_anim_vel`, `xF8_playerNudgeVel`, and `cur_pos` as floats, then
+the JObj render path receives `cur_pos` through `HSD_JObjSetTranslate`.
 
-Rendering can convert deterministic units to pixels/floats after the snapshot is
-produced.
+Integer or milli-unit fields may exist only as legacy compatibility/readout
+projections while the Rust codebase is being migrated. They must not become the
+source of truth for gameplay, replay parity, collision, or render-root state,
+and new decomp-backed work should avoid adding logic that converts source floats
+to milli integers and then back again. If rollback determinism needs guardrails,
+solve that around deterministic `f32` evaluation and checksums rather than by
+changing Melee-authored float state into a different numeric model.
+
+Rendering can convert source floats to pixels at the final screen transform.
+Gameplay and collision should carry source floats until that boundary.
 
 ### State-Local Transitions
 
@@ -579,6 +638,12 @@ must model that no-frames-remaining route to `Wait` separately from any IASA
 transition. Empty IASA callbacks, such as `ftCo_LandingAir_IASA`, should stay
 empty instead of borrowing another state's interrupt list.
 
+State changes made by an earlier callback priority can affect the later physics
+callback on the same 60 Hz tick. For example, `Walk_IASA -> ft_8008A244` changes
+to `Wait` without clearing `gr_vel`; the subsequent physics priority then runs
+the new `Wait_Phys`/`ft_80084F3C` and may apply grounded friction immediately.
+Do not interpret "preserve carried `gr_vel`" as "skip same-frame source physics."
+
 `KneeBend` takeoff is a concrete example of the required callback ordering.
 `ftCo_KneeBend_Anim` may enter `JumpF`/`JumpB` on the same 60 Hz tick; the new
 airborne state's IASA callback can then accept fresh airborne actions such as
@@ -587,12 +652,12 @@ ordinary air drift/gravity on that first jump tick. The Rust core should keep
 that separation explicit: IASA action checks are not the same thing as physics.
 
 ECB/contact state is also rollback-owned. Source ground-to-air transitions call
-`ftCommon_8007D5D4`, set a 10-frame ECB lock, and preserve the previous bottom
-probe while the JObj-sourced ECB changes under the animation. The current Rust
-bootstrap records this as `ecb_bottom_lock_timer`, but full parity requires
-parsed per-action/per-frame JObj ECB data from Falcon action animation resources
-such as `PlCaAJ.dat`; hardcoded EscapeAir bottom probes are diagnostic
-waypoints, not the final architecture.
+`ftCommon_8007D5D4`, set a 10-frame ECB lock, and preserve the previous
+floor-contact bottom probe while the JObj-sourced desired ECB changes under the
+animation. In the Rust root-coordinate model, that locked floor-contact probe is
+stored as `ecb_bottom_offset_y = 0`; after the lock expires, collision resumes
+sampling the generated per-action JObj ECB table. Hardcoded EscapeAir or Pass
+bottom probes must not replace this path.
 
 ### Motion State Parity Rule
 
@@ -674,6 +739,47 @@ snapshot ring capacity: 16 or 32
 
 This can change after profiling, but starting compact keeps debugging easier.
 
+Snapshots are not full application or renderer state. They are the minimum
+authoritative state needed to restore a frame and replay the same core steps
+from frame-indexed inputs. Start with a plain cloneable/debuggable snapshot,
+then optimize its layout after parity and checksum tests are solid.
+
+Current implementation note: `mole_rollback::SnapshotBuffer` must store
+`mole_core::WorldRollbackSnapshot`, not a cloned `World`. Restore is an
+in-place operation on the current `World`, so static runtime configuration
+(`StageProfile`, `MeleeCommonData`, and per-player `FighterProfile`) remains
+owned by the session instead of being copied through every saved frame. The
+rollback snapshot carries mutable authoritative frame/player/input/combat-log
+state, including canonical Melee action-state identity and source animation
+fields. When a new gameplay-authoritative field is added to `PlayerState` or
+`World`, add it to the core rollback snapshot and checksum together.
+
+The first authoritative snapshot slice should include:
+
+- frame index and deterministic RNG/checksum state
+- every active player's canonical Melee action-state id and Rust alias
+- source animation frame, state frame, facing, position, velocity, acceleration,
+  grounded/airborne flags, jumps, ECB/contact locks, and floor/platform refs
+- Melee input snapshot fields owned by core: current/previous sticks, button
+  masks, tap timers, trigger timers, and UCF amendment bits already committed
+  for that frame
+- damage/combat state: percent, stale/hitlag/hitstun timers, knockback,
+  invulnerability/intangibility, shield, grabbed/capture/downed/passive state,
+  and active hit/hurt/collision owner state
+- active deterministic items/projectiles/stage actors once those become
+  gameplay-authoritative
+
+Do not include:
+
+- SDL/window state, GPU resources, debug overlays, audio mixers, UI, filesystem
+  handles, adapter threads, sockets, or raw uncommitted WUP capture buffers
+- baked source-frame tables or static character/stage data that can be indexed
+  by id after restore
+
+The restore contract is stricter than "positions match." After restore and
+resim, action ids, timers, velocities, collision ownership, damage state, and
+checksum must match. Position-only rollback would hide desyncs until combat.
+
 ### Frame Data
 
 For each frame, store:
@@ -689,14 +795,15 @@ For each frame, store:
 
 Every simulation tick:
 
-1. Poll local controller as late as possible.
-2. Add local input for current frame.
-3. Poll remote packets.
-4. If remote input is missing, predict.
-5. Save snapshot before advance.
-6. Advance one frame.
-7. Send local input packet.
-8. Exchange checksum periodically.
+1. Run any higher-rate scheduler passes due before this 60 Hz commit.
+2. Poll/collapse local controller capture as late as possible.
+3. Add the committed local input for the current 60 Hz frame.
+4. Drain remote packets and ACKs.
+5. If remote input is missing, predict from the last known input.
+6. Save the minimal authoritative snapshot before advance.
+7. Advance one whole 60 Hz core frame.
+8. Send queued local input packets with checksum/ACK metadata.
+9. Exchange/check periodic checksums.
 
 ### Correction Loop
 
@@ -710,11 +817,98 @@ When a confirmed remote input arrives for an old frame:
 6. Resimulate each frame back to present.
 7. Update checksums.
 
+Higher-rate 120/240 Hz runtime passes may perform this correction before the
+next visible frame is presented, but they still restore and resimulate whole 60
+Hz core frames. They do not create sub-frame fighter updates.
+
 ### Local Feel
 
 Local input should enter the local simulation without an artificial buffer by
 default. Optional input delay may exist for netplay quality settings, but it
 should be explicit and visible.
+
+Current Friend Connect uses a Slippi-shaped netplay buffer layer rather than a
+delay-based simulation stall. The source anchors are:
+
+- `.research/project-slippi-Ishiiruka/Source/Core/Core/ConfigManager.cpp`
+  loads `SlippiOnlineDelay` with default `2`.
+- `.research/project-slippi-Ishiiruka/Source/Core/Core/Slippi/SlippiNetplay.h`
+  defines `ROLLBACK_MAX_FRAMES 7`.
+- `.research/project-slippi-Ishiiruka/Source/Core/Core/Slippi/SlippiNetplay.cpp`
+  queues local pads, drops ACKed pads, sends queued pad data, and exposes a
+  bounded remote pad history for rollback.
+- `.research/project-slippi-Ishiiruka/Source/Core/Core/HW/EXI_DeviceSlippi.cpp`
+  implements the online send boundary: on the first online frame it queues
+  neutral delay pads, then sends the current physical input as `frame + delay`;
+  it also uses `ROLLBACK_MAX_FRAMES` as the remote lookahead/rollback window.
+- `.research/project-slippi-Ishiiruka/Data/Sys/GameSettings/GALE01r2.ini`
+  includes `Apply Delay to all In-Game Scenes`, which applies online delay
+  outside the online scene.
+
+The Rust translation for Friend Connect is intentionally engine-native:
+gameplay starts from match frame `0` after lobby start, not from window launch
+frames; local physical input uses `mole_rollback::SlippiInputDelayBuffer`, so
+physical input sampled on match frame `F` is scheduled and transmitted
+immediately for game frame `F + delay`; the default delay is `2`; the first
+online send queues neutral pads for the initial delay window before the first
+real delayed input, matching `handleSendInputs(frame == 1)`; the rollback
+lookahead window is `7` frames; the newest `8` future-stamped input packets are
+retransmitted as one bundled datagram ordered newest-to-oldest until peer ACKs
+allow old packets to drop; ACK pruning follows Slippi's `frame < minAckFrame`
+boundary, so the ACK frame itself remains available for repair; incoming
+bundled remote pads use Slippi's `inputsToCopy = packetNewestFrame - headFrame`
+rule, so only frames newer than the current remote head are copied into rollback
+history and overlapping older bytes do not backfill holes or overwrite accepted
+input; and late remote packets older than the current match frame call rollback
+confirmation while a snapshot is still retained. A bundled datagram contributes
+one `CalcTimeOffsetUs`-style timing sample from its newest frame rather than one
+sample per included pad frame. Packets older than the retained snapshot window
+are ignored for correction instead of panicking. This is a rollback/runtime
+transport layer; it must not alter Melee-shaped 60 Hz fighter logic once inputs
+are committed.
+
+Friend Connect also translates Slippi's online-frame skip gate. After draining
+UDP packets for the current match frame, if the newest remote input is older
+than the `ROLLBACK_MAX_FRAMES` lookahead window, the runtime resends the queued
+local packets without staging a new local input and without advancing
+`match_frame`. This is the Rust equivalent of
+`CEXISlippi::shouldSkipOnlineFrame` returning true and
+`SlippiNetplayClient::SendSlippiPad(nullptr)` resending queued pads.
+
+Friend Connect diagnostics are intentionally compact and bounded. Runtime JSONL
+frame summaries include structured packet counts, rollback corrections, missing
+remote frames, latest remote frame/checksum, world checksum, bundled input count,
+and Slippi pacing decisions. Use
+`cargo run -p mole_cli -- friend-connect diagnostics --log <path> --json` after
+a local or friend internet test to summarize those logs without dumping
+per-packet spam.
+
+The runtime also translates Slippi's early online time-sync stall. Incoming pad
+packets update the same kind of frame-offset sample used by
+`SlippiNetplayClient::CalcTimeOffsetUs`: receive time minus half RTT, compared
+against the latest local sent pad frame/time, plus the 16683 us frame delta.
+Every `SLIPPI_ONLINE_LOCKSTEP_INTERVAL` (`30`) online frames through frame
+`120`, an ahead client stalls when the trimmed-average offset is above
+`10000` us, capped to `5` skipped frames. This is the source-backed convergence
+layer that keeps a client from sitting several frames ahead merely because it is
+still inside the rollback lookahead window.
+
+After frame `120`, the Rust runtime also translates Slippi's
+`shouldAdvanceOnlineFrame` pacing layer. It does not change fighter logic or the
+deterministic 60 Hz frame contract. Instead it mirrors Dolphin's
+`m_EmulationSpeed` boundary by scaling Friend Connect's runtime deadline from
+`99.5%` to `101.0%` based on the same `CalcTimeOffsetUs` samples. When the local
+instance is more than `16683 + 10000` us behind, it also honors Slippi's
+far-behind advance hint: up to `3` advance hints after frame `120`, spaced at
+one hint every `5` online frames. In Mole this is represented as an immediate
+next runtime deadline, not as a mid-frame fighter update.
+
+Because the repair window intentionally resends recent inputs, packets can arrive
+out of order. UDP timing and ACK tracking must therefore be monotonic: an older
+repair packet may fill a missing frame, but it must not move the latest observed
+remote sequence or peer-ACK sequence backward. Moving those counters backward
+keeps both clients retransmitting stale ranges and reads as artificial input
+latency.
 
 ## Network Plan
 
@@ -761,6 +955,13 @@ Use direct UDP for:
 ### Layer 2: Supabase Signaling
 
 Purpose: free server-assisted connection setup, not gameplay transport.
+
+Current Friend Connect setup uses a shared code as the room. The code-owner is
+authoritative for lobby role, becomes P1, and is the only peer allowed to start
+the match. The peer who enters that code becomes P2 and waits for a
+`match_start` signal. Start is rebroadcast briefly so a late listener does not
+miss the transition, but simulation still begins as deterministic 60 Hz P2P
+rollback once both peers are connected.
 
 Supabase can handle:
 

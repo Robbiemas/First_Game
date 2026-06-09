@@ -295,7 +295,9 @@ backward moonwalk velocity without adding a `Moonwalk` state.
 - [x] **Step 2: Remove the Walk-to-Wait velocity clear**
 
 Model `ft_8008A244`: exiting Walk to Wait changes state/facing timing but does
-not clear `gr_vel`. Wait friction can settle the carry later.
+not clear `gr_vel`. Because Melee input callbacks precede the later physics
+priority, the new `Wait` state's `Wait_Phys` can apply grounded friction on that
+same tick.
 
 - [x] **Step 3: Update docs and graph metadata**
 

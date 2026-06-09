@@ -172,6 +172,20 @@ impl WupInputMapper {
         trace
     }
 
+    pub fn map_capture_window_to_local_player_trace(
+        &mut self,
+        samples: &[[WupPort; PORT_COUNT]],
+        active_port: &mut Option<usize>,
+    ) -> WupInputTrace {
+        self.prime_origins_from_capture_window(samples);
+        let mut trace = self.map_collapsed_ports_to_local_player_trace(
+            collapse_wup_capture_window(samples),
+            active_port,
+        );
+        trace.capture_report_count = samples.len().min(u8::MAX as usize) as u8;
+        trace
+    }
+
     fn map_collapsed_ports_to_input_trace(
         &mut self,
         ports: [WupPort; PORT_COUNT],
@@ -185,56 +199,111 @@ impl WupInputMapper {
         for (port_index, port) in ports.into_iter().enumerate() {
             trace.adapter_ports[port_index] = port.connected;
             if !port.connected {
-                self.origins[port_index] = None;
-                self.recenter_frames[port_index] = 0;
-                self.melee_processors[port_index] = MeleeInputProcessor::default();
-                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
+                self.reset_port(port_index);
                 continue;
             }
 
-            if self.origins[port_index].is_none() {
-                self.origins[port_index] = Some(port.pad);
-                self.melee_processors[port_index] = MeleeInputProcessor::default();
-                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
-            }
-            if self.update_recenter_combo(port_index, port.pad) {
-                self.melee_processors[port_index] = MeleeInputProcessor::default();
-                self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
-            }
-
             if player_index < trace.players.len() {
-                let origin = self.origins[port_index].unwrap_or(port.pad);
-                let calibrated = gamecube_pad_with_origin(port.pad, origin);
-                let native = native_gamecube_pad_with_origin(port.pad, origin);
-                let preprocessed = if self.config.ucf_enabled {
-                    self.ucf_preprocessors[port_index]
-                        .preprocess_pad_with_native_result(calibrated, native)
-                } else {
-                    UcfPreprocessedPad {
-                        pad: native,
-                        dashback_amendment: false,
-                    }
-                };
-                let snapshot = self.melee_processors[port_index].update(preprocessed.pad);
-                let input = player_input_from_snapshot(snapshot)
-                    .with_ucf_dashback_amendment(preprocessed.dashback_amendment);
-                trace.inputs[player_index] = input;
-                trace.players[player_index] = Some(WupPlayerInputTrace {
-                    source_port: port_index,
-                    raw: port.pad,
-                    origin,
-                    origin_adjusted: calibrated,
-                    native,
-                    ucf: preprocessed.pad,
-                    dashback_amendment: preprocessed.dashback_amendment,
-                    snapshot,
-                    input,
-                });
+                let player = self.map_connected_port(port_index, port);
+                trace.inputs[player_index] = player.input;
+                trace.players[player_index] = Some(player);
                 player_index += 1;
             }
         }
 
         trace
+    }
+
+    fn map_collapsed_ports_to_local_player_trace(
+        &mut self,
+        ports: [WupPort; PORT_COUNT],
+        active_port: &mut Option<usize>,
+    ) -> WupInputTrace {
+        let mut trace = WupInputTrace {
+            ucf_enabled: self.config.ucf_enabled,
+            ..WupInputTrace::default()
+        };
+        let mut players = [None; PORT_COUNT];
+
+        for (port_index, port) in ports.into_iter().enumerate() {
+            trace.adapter_ports[port_index] = port.connected;
+            if !port.connected {
+                self.reset_port(port_index);
+                if *active_port == Some(port_index) {
+                    *active_port = None;
+                }
+                continue;
+            }
+
+            players[port_index] = Some(self.map_connected_port(port_index, port));
+        }
+
+        let selected_port = active_port
+            .and_then(|port_index| players.get(port_index).copied().flatten())
+            .map(|player| player.source_port)
+            .or_else(|| {
+                *active_port = None;
+                players
+                    .iter()
+                    .flatten()
+                    .find(|player| player_input_is_active(player.input))
+                    .map(|player| player.source_port)
+            });
+
+        if let Some(port_index) = selected_port {
+            if let Some(player) = players[port_index] {
+                *active_port = Some(port_index);
+                trace.inputs[0] = player.input;
+                trace.players[0] = Some(player);
+            }
+        }
+
+        trace
+    }
+
+    fn map_connected_port(&mut self, port_index: usize, port: WupPort) -> WupPlayerInputTrace {
+        if self.origins[port_index].is_none() {
+            self.origins[port_index] = Some(port.pad);
+            self.melee_processors[port_index] = MeleeInputProcessor::default();
+            self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
+        }
+        if self.update_recenter_combo(port_index, port.pad) {
+            self.melee_processors[port_index] = MeleeInputProcessor::default();
+            self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
+        }
+
+        let origin = self.origins[port_index].unwrap_or(port.pad);
+        let calibrated = gamecube_pad_with_origin(port.pad, origin);
+        let native = native_gamecube_pad_with_origin(port.pad, origin);
+        let preprocessed = if self.config.ucf_enabled {
+            self.ucf_preprocessors[port_index].preprocess_pad_with_native_result(calibrated, native)
+        } else {
+            UcfPreprocessedPad {
+                pad: native,
+                dashback_amendment: false,
+            }
+        };
+        let snapshot = self.melee_processors[port_index].update(preprocessed.pad);
+        let input = player_input_from_snapshot(snapshot)
+            .with_ucf_dashback_amendment(preprocessed.dashback_amendment);
+        WupPlayerInputTrace {
+            source_port: port_index,
+            raw: port.pad,
+            origin,
+            origin_adjusted: calibrated,
+            native,
+            ucf: preprocessed.pad,
+            dashback_amendment: preprocessed.dashback_amendment,
+            snapshot,
+            input,
+        }
+    }
+
+    fn reset_port(&mut self, port_index: usize) {
+        self.origins[port_index] = None;
+        self.recenter_frames[port_index] = 0;
+        self.melee_processors[port_index] = MeleeInputProcessor::default();
+        self.ucf_preprocessors[port_index] = UcfInputPreprocessor::default();
     }
 
     fn prime_origins_from_capture_window(&mut self, samples: &[[WupPort; PORT_COUNT]]) {
@@ -313,6 +382,10 @@ fn player_input_from_snapshot(snapshot: MeleeInputSnapshot) -> PlayerInput {
         .with_dpad_down(snapshot.held.dpad_down())
         .with_dpad_left(snapshot.held.dpad_left())
         .with_dpad_right(snapshot.held.dpad_right())
+}
+
+fn player_input_is_active(input: PlayerInput) -> bool {
+    input.bits() != PlayerInput::neutral().bits()
 }
 
 fn parse_port(bytes: &[u8]) -> WupPort {
@@ -496,6 +569,21 @@ impl WupInputSource {
         Ok(trace)
     }
 
+    pub fn poll_local_player_input(
+        &mut self,
+        active_port: &mut Option<usize>,
+    ) -> Result<PlayerInput, rusb::Error> {
+        let samples = self
+            .capture
+            .drain_capture_window(WUP_GAMEPLAY_CAPTURE_POLL_TIMEOUT)?;
+        let trace = self
+            .mapper
+            .map_capture_window_to_local_player_trace(&samples, active_port);
+        self.latest = [trace.inputs[0], PlayerInput::neutral()];
+        self.latest_trace = Some(trace);
+        Ok(self.latest[0])
+    }
+
     pub const fn latest_inputs(&self) -> [PlayerInput; 2] {
         self.latest
     }
@@ -567,6 +655,110 @@ mod tests {
         assert_eq!(WUP_GAMEPLAY_CAPTURE_POLL_TIMEOUT, Duration::ZERO);
     }
 
+    #[test]
+    fn local_player_trace_does_not_activate_connected_neutral_ports() {
+        let mut mapper = WupInputMapper::default();
+        let mut active_port = None;
+        let trace = mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                None,
+                None,
+            ])],
+            &mut active_port,
+        );
+
+        assert_eq!(active_port, None);
+        assert_eq!(trace.inputs[0], PlayerInput::neutral());
+        assert_eq!(trace.players[0], None);
+    }
+
+    #[test]
+    fn local_player_trace_latches_first_active_port_across_all_adapter_ports() {
+        let mut mapper = WupInputMapper::default();
+        let mut active_port = None;
+        mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+            ])],
+            &mut active_port,
+        );
+
+        let trace = mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus {
+                    buttons: GameCubeButtonState::empty().with_a(true),
+                    ..GameCubePadStatus::neutral()
+                }),
+                Some(GameCubePadStatus {
+                    buttons: GameCubeButtonState::empty().with_b(true),
+                    ..GameCubePadStatus::neutral()
+                }),
+            ])],
+            &mut active_port,
+        );
+
+        assert_eq!(active_port, Some(2));
+        assert!(trace.inputs[0].attack());
+        assert_eq!(trace.players[0].map(|player| player.source_port), Some(2));
+        assert_eq!(trace.inputs[1], PlayerInput::neutral());
+    }
+
+    #[test]
+    fn local_player_trace_keeps_latched_port_until_disconnect() {
+        let mut mapper = WupInputMapper::default();
+        let mut active_port = Some(2);
+        mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+            ])],
+            &mut active_port,
+        );
+
+        let trace = mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus {
+                    buttons: GameCubeButtonState::empty().with_a(true),
+                    ..GameCubePadStatus::neutral()
+                }),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+                Some(GameCubePadStatus::neutral()),
+            ])],
+            &mut active_port,
+        );
+
+        assert_eq!(active_port, Some(2));
+        assert_eq!(trace.players[0].map(|player| player.source_port), Some(2));
+        assert!(!trace.inputs[0].attack());
+
+        let relatch = mapper.map_capture_window_to_local_player_trace(
+            &[ports_with([
+                Some(GameCubePadStatus {
+                    buttons: GameCubeButtonState::empty().with_a(true),
+                    ..GameCubePadStatus::neutral()
+                }),
+                Some(GameCubePadStatus::neutral()),
+                None,
+                Some(GameCubePadStatus::neutral()),
+            ])],
+            &mut active_port,
+        );
+
+        assert_eq!(active_port, Some(0));
+        assert!(relatch.inputs[0].attack());
+        assert_eq!(relatch.players[0].map(|player| player.source_port), Some(0));
+    }
+
     fn connected_sample(stick_x: u8) -> [WupPort; PORT_COUNT] {
         [
             WupPort {
@@ -580,5 +772,15 @@ mod tests {
             WupPort::default(),
             WupPort::default(),
         ]
+    }
+
+    fn ports_with(pads: [Option<GameCubePadStatus>; PORT_COUNT]) -> [WupPort; PORT_COUNT] {
+        pads.map(|pad| match pad {
+            Some(pad) => WupPort {
+                connected: true,
+                pad,
+            },
+            None => WupPort::default(),
+        })
     }
 }

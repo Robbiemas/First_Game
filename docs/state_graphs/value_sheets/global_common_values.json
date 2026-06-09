@@ -450,6 +450,309 @@
     {
       "fields": [
         {
+          "comparison_value_kind": "ticks",
+          "converted_value": 0,
+          "kind": "i32_ticks",
+          "offset": 28,
+          "offset_hex": "0x1c",
+          "provenance": "extracted_melee_dat",
+          "raw": 0,
+          "rust_name": "passive_input_age_threshold",
+          "source_name": "x1C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.029999999329447746,
+          "kind": "source_f32",
+          "offset": 256,
+          "offset_hex": "0x100",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.029999999329447746,
+          "rust_name": "damage_knockback_velocity_scale",
+          "source_name": "x100"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.7853981852531433,
+          "kind": "source_f32",
+          "offset": 324,
+          "offset_hex": "0x144",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.7853981852531433,
+          "rust_name": "damage_sakurai_air_angle_radians",
+          "source_name": "x144_radians"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 44.0,
+          "kind": "source_f32",
+          "offset": 328,
+          "offset_hex": "0x148",
+          "provenance": "extracted_melee_dat",
+          "raw": 44.0,
+          "rust_name": "damage_sakurai_ground_angle_degrees",
+          "source_name": "x148"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.0,
+          "kind": "source_f32",
+          "offset": 332,
+          "offset_hex": "0x14c",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.0,
+          "rust_name": "damage_sakurai_ground_min_knockback",
+          "source_name": "x14C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.099998474121094,
+          "kind": "source_f32",
+          "offset": 336,
+          "offset_hex": "0x150",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.099998474121094,
+          "rust_name": "damage_sakurai_ground_max_knockback",
+          "source_name": "x150"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.4000000059604645,
+          "kind": "source_f32",
+          "offset": 340,
+          "offset_hex": "0x154",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.4000000059604645,
+          "rust_name": "damage_duration_scale",
+          "source_name": "x154"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 10.0,
+          "kind": "source_f32",
+          "offset": 344,
+          "offset_hex": "0x158",
+          "provenance": "extracted_melee_dat",
+          "raw": 10.0,
+          "rust_name": "damage_motion_tier_1_threshold",
+          "source_name": "x158"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 21.0,
+          "kind": "source_f32",
+          "offset": 348,
+          "offset_hex": "0x15c",
+          "provenance": "extracted_melee_dat",
+          "raw": 21.0,
+          "rust_name": "damage_motion_tier_2_threshold",
+          "source_name": "x15C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.0,
+          "kind": "source_f32",
+          "offset": 352,
+          "offset_hex": "0x160",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.0,
+          "rust_name": "damage_motion_tier_3_threshold",
+          "source_name": "x160"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 20.0,
+          "kind": "source_f32",
+          "offset": 404,
+          "offset_hex": "0x194",
+          "provenance": "extracted_melee_dat",
+          "raw": 20.0,
+          "rust_name": "hitlag_max_frames",
+          "source_name": "x194_unkHitLagFrames"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.3333333432674408,
+          "kind": "source_f32",
+          "offset": 408,
+          "offset_hex": "0x198",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.3333333432674408,
+          "rust_name": "hitlag_damage_scale",
+          "source_name": "x198"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 3.0,
+          "kind": "source_f32",
+          "offset": 412,
+          "offset_hex": "0x19c",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0,
+          "rust_name": "hitlag_base_frames",
+          "source_name": "x19C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.6666666865348816,
+          "kind": "source_f32",
+          "offset": 416,
+          "offset_hex": "0x1a0",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.6666666865348816,
+          "rust_name": "hitlag_crouch_multiplier",
+          "source_name": "x1A0"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 5.0,
+          "kind": "source_f32",
+          "offset": 480,
+          "offset_hex": "0x1e0",
+          "provenance": "extracted_melee_dat",
+          "raw": 5.0,
+          "rust_name": "damage_landing_down_bound_knockback_threshold",
+          "source_name": "x1E0"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.5,
+          "kind": "source_f32",
+          "offset": 484,
+          "offset_hex": "0x1e4",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.5,
+          "rust_name": "damage_landing_basic_knockback_threshold",
+          "source_name": "x1E4"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 9.600000381469727,
+          "kind": "source_f32",
+          "offset": 592,
+          "offset_hex": "0x250",
+          "provenance": "extracted_melee_dat",
+          "raw": 9.600000381469727,
+          "rust_name": "passive_window_max",
+          "source_name": "x250"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.5,
+          "kind": "source_f32",
+          "offset": 596,
+          "offset_hex": "0x254",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.5,
+          "rust_name": "passive_stand_stick_x",
+          "source_name": "x254"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.0,
+          "kind": "source_f32",
+          "offset": 1060,
+          "offset_hex": "0x424",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.0,
+          "rust_name": "down_wait_timer",
+          "source_name": "x424"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.009999999776482582,
+          "kind": "source_f32",
+          "offset": 244,
+          "offset_hex": "0xf4",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.009999999776482582,
+          "rust_name": "knockback_weight_multiplier",
+          "source_name": "xF4"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.0,
+          "kind": "source_f32",
+          "offset": 248,
+          "offset_hex": "0xf8",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0,
+          "rust_name": "knockback_decay",
+          "source_name": "xF8"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2500.0,
+          "kind": "source_f32",
+          "offset": 264,
+          "offset_hex": "0x108",
+          "provenance": "extracted_melee_dat",
+          "raw": 2500.0,
+          "rust_name": "knockback_cap",
+          "source_name": "x108"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.10000000149011612,
+          "kind": "source_f32",
+          "offset": 272,
+          "offset_hex": "0x110",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.10000000149011612,
+          "rust_name": "knockback_damage_scale",
+          "source_name": "x110"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.05000000074505806,
+          "kind": "source_f32",
+          "offset": 276,
+          "offset_hex": "0x114",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.05000000074505806,
+          "rust_name": "knockback_hit_count_scale",
+          "source_name": "x114"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 10.0,
+          "kind": "source_f32",
+          "offset": 280,
+          "offset_hex": "0x118",
+          "provenance": "extracted_melee_dat",
+          "raw": 10.0,
+          "rust_name": "knockback_weight_set_damage",
+          "source_name": "x118"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.399999976158142,
+          "kind": "source_f32",
+          "offset": 284,
+          "offset_hex": "0x11c",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.399999976158142,
+          "rust_name": "knockback_result_scale",
+          "source_name": "x11C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 18.0,
+          "kind": "source_f32",
+          "offset": 288,
+          "offset_hex": "0x120",
+          "provenance": "extracted_melee_dat",
+          "raw": 18.0,
+          "rust_name": "knockback_result_offset",
+          "source_name": "x120"
+        }
+      ],
+      "id": "collision_damage",
+      "label": "Collision Damage"
+    },
+    {
+      "fields": [
+        {
           "comparison_value_kind": "stick_byte",
           "converted_value": 87,
           "kind": "stick",

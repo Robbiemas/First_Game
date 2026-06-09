@@ -12,8 +12,8 @@ set "PATH=%USERPROFILE%\.cargo\bin;%SDL3_ROOT%\lib\x64;%PATH%"
 if exist "%~dp0Open State Graphs.cmd" (
     start "Mole Game Dev Tool" "%~dp0Open State Graphs.cmd"
 )
-echo Launching Mole Rust SDL3 runtime...
-call cargo run -p mole_runtime --features "sdl wup" -- --sdl --play --input-trace
+echo Launching Mole Rust SDL3 local runtime...
+call cargo run --release -p mole_runtime --features "sdl wup" -- --sdl --play --input-trace
 if errorlevel 1 (
     echo Mole Rust SDL3 runtime exited with an error.
     pause

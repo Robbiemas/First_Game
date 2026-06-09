@@ -1,11 +1,18 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::time::Duration;
 
 use mole_core::{Frame, PlayerInput};
 
 pub const INPUT_PACKET_VERSION: u8 = 2;
 pub const INPUT_PACKET_WIRE_LEN: usize = 30;
+pub const INPUT_PACKET_DATAGRAM_VERSION: u8 = 3;
+pub const INPUT_PACKET_DATAGRAM_HEADER_LEN: usize = 2;
+pub const INPUT_PACKET_DATAGRAM_RECORD_LEN: usize = INPUT_PACKET_WIRE_LEN - 1;
+pub const INPUT_PACKET_DATAGRAM_MAX_PACKETS: usize = 128;
+pub const INPUT_PACKET_DATAGRAM_MAX_WIRE_LEN: usize = INPUT_PACKET_DATAGRAM_HEADER_LEN
+    + INPUT_PACKET_DATAGRAM_RECORD_LEN * INPUT_PACKET_DATAGRAM_MAX_PACKETS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InputPacket {
@@ -101,6 +108,118 @@ impl InputPacket {
 pub enum PacketDecodeError {
     WrongLength { expected: usize, actual: usize },
     UnsupportedVersion(u8),
+    EmptyDatagram,
+    TooManyPackets { max: usize, actual: usize },
+    MalformedDatagram { actual: usize },
+    NonContiguousDatagram,
+    MixedPlayerDatagram,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InputPacketDatagram {
+    packets: Vec<InputPacket>,
+}
+
+impl InputPacketDatagram {
+    pub fn from_packets(packets: Vec<InputPacket>) -> Result<Self, PacketDecodeError> {
+        if packets.is_empty() {
+            return Err(PacketDecodeError::EmptyDatagram);
+        }
+        if packets.len() > INPUT_PACKET_DATAGRAM_MAX_PACKETS {
+            return Err(PacketDecodeError::TooManyPackets {
+                max: INPUT_PACKET_DATAGRAM_MAX_PACKETS,
+                actual: packets.len(),
+            });
+        }
+        validate_packet_datagram_shape(&packets)?;
+        Ok(Self { packets })
+    }
+
+    pub fn from_wire_bytes(bytes: &[u8]) -> Result<Self, PacketDecodeError> {
+        if bytes.first().copied() == Some(INPUT_PACKET_VERSION) {
+            return Self::from_packets(vec![InputPacket::from_wire_bytes(bytes)?]);
+        }
+        if bytes.first().copied() != Some(INPUT_PACKET_DATAGRAM_VERSION) {
+            return Err(PacketDecodeError::UnsupportedVersion(
+                bytes.first().copied().unwrap_or_default(),
+            ));
+        }
+        if bytes.len() < INPUT_PACKET_DATAGRAM_HEADER_LEN {
+            return Err(PacketDecodeError::WrongLength {
+                expected: INPUT_PACKET_DATAGRAM_HEADER_LEN,
+                actual: bytes.len(),
+            });
+        }
+        let packet_count = bytes[1] as usize;
+        if packet_count == 0 {
+            return Err(PacketDecodeError::EmptyDatagram);
+        }
+        if packet_count > INPUT_PACKET_DATAGRAM_MAX_PACKETS {
+            return Err(PacketDecodeError::TooManyPackets {
+                max: INPUT_PACKET_DATAGRAM_MAX_PACKETS,
+                actual: packet_count,
+            });
+        }
+        let expected_len =
+            INPUT_PACKET_DATAGRAM_HEADER_LEN + packet_count * INPUT_PACKET_DATAGRAM_RECORD_LEN;
+        if bytes.len() != expected_len {
+            return Err(PacketDecodeError::MalformedDatagram {
+                actual: bytes.len(),
+            });
+        }
+
+        let mut packets = Vec::with_capacity(packet_count);
+        for record in
+            bytes[INPUT_PACKET_DATAGRAM_HEADER_LEN..].chunks_exact(INPUT_PACKET_DATAGRAM_RECORD_LEN)
+        {
+            let mut packet_bytes = [0u8; INPUT_PACKET_WIRE_LEN];
+            packet_bytes[0] = INPUT_PACKET_VERSION;
+            packet_bytes[1..].copy_from_slice(record);
+            packets.push(InputPacket::from_wire_bytes(&packet_bytes)?);
+        }
+        Self::from_packets(packets)
+    }
+
+    pub fn to_wire_bytes(&self) -> Vec<u8> {
+        assert!(
+            !self.packets.is_empty(),
+            "input packet datagram must contain at least one packet"
+        );
+        assert!(
+            self.packets.len() <= INPUT_PACKET_DATAGRAM_MAX_PACKETS,
+            "input packet datagram exceeds max packet count"
+        );
+        let mut bytes = Vec::with_capacity(
+            INPUT_PACKET_DATAGRAM_HEADER_LEN
+                + self.packets.len() * INPUT_PACKET_DATAGRAM_RECORD_LEN,
+        );
+        bytes.push(INPUT_PACKET_DATAGRAM_VERSION);
+        bytes.push(self.packets.len() as u8);
+        for packet in &self.packets {
+            bytes.extend_from_slice(&packet.to_wire_bytes()[1..]);
+        }
+        bytes
+    }
+
+    pub fn packets(&self) -> &[InputPacket] {
+        &self.packets
+    }
+}
+
+fn validate_packet_datagram_shape(packets: &[InputPacket]) -> Result<(), PacketDecodeError> {
+    let Some(newest) = packets.first() else {
+        return Err(PacketDecodeError::EmptyDatagram);
+    };
+    for (index, packet) in packets.iter().enumerate() {
+        if packet.player_index != newest.player_index {
+            return Err(PacketDecodeError::MixedPlayerDatagram);
+        }
+        let expected_frame = newest.frame.0.saturating_sub(index as u32);
+        if packet.frame.0 != expected_frame {
+            return Err(PacketDecodeError::NonContiguousDatagram);
+        }
+    }
+    Ok(())
 }
 
 pub trait Transport {
@@ -274,7 +393,10 @@ pub struct UdpTransport {
 
 impl UdpTransport {
     pub fn bind(local: SocketAddr, peer: SocketAddr) -> io::Result<Self> {
-        let socket = UdpSocket::bind(local)?;
+        Self::from_socket(UdpSocket::bind(local)?, peer)
+    }
+
+    pub fn from_socket(socket: UdpSocket, peer: SocketAddr) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
         Ok(Self { socket, peer })
     }
@@ -292,14 +414,25 @@ impl UdpTransport {
         Ok(())
     }
 
+    pub fn send_packet_datagram(&self, datagram: &InputPacketDatagram) -> io::Result<()> {
+        self.socket.send_to(&datagram.to_wire_bytes(), self.peer)?;
+        Ok(())
+    }
+
     pub fn try_recv_packet(&self) -> io::Result<Option<InputPacket>> {
-        let mut bytes = [0u8; INPUT_PACKET_WIRE_LEN];
+        Ok(self
+            .try_recv_packet_datagram()?
+            .and_then(|datagram| datagram.packets().first().copied()))
+    }
+
+    pub fn try_recv_packet_datagram(&self) -> io::Result<Option<InputPacketDatagram>> {
+        let mut bytes = [0u8; INPUT_PACKET_DATAGRAM_MAX_WIRE_LEN];
         match self.socket.recv_from(&mut bytes) {
             Ok((len, source)) => {
                 if source != self.peer {
                     return Ok(None);
                 }
-                InputPacket::from_wire_bytes(&bytes[..len])
+                InputPacketDatagram::from_wire_bytes(&bytes[..len])
                     .map(Some)
                     .map_err(|error| {
                         io::Error::new(io::ErrorKind::InvalidData, format!("{error:?}"))
@@ -316,6 +449,107 @@ impl UdpTransport {
             Err(error) => Err(error),
         }
     }
+}
+
+pub fn discover_public_udp_endpoint(
+    socket: &UdpSocket,
+    stun_server: SocketAddr,
+    timeout: Duration,
+) -> io::Result<SocketAddr> {
+    let transaction_id = stun_transaction_id();
+    let request = stun_binding_request(transaction_id);
+    socket.set_nonblocking(false)?;
+    socket.set_read_timeout(Some(timeout))?;
+    let result = (|| {
+        socket.send_to(&request, stun_server)?;
+        let mut bytes = [0u8; 512];
+        let (len, _source) = socket.recv_from(&mut bytes)?;
+        parse_stun_binding_response(&bytes[..len], transaction_id)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid STUN response"))
+    })();
+    let _ = socket.set_read_timeout(None);
+    let _ = socket.set_nonblocking(true);
+    result
+}
+
+pub fn parse_stun_binding_response(bytes: &[u8], transaction_id: [u8; 12]) -> Option<SocketAddr> {
+    const STUN_BINDING_SUCCESS: u16 = 0x0101;
+    const STUN_MAGIC_COOKIE: u32 = 0x2112_A442;
+    const XOR_MAPPED_ADDRESS: u16 = 0x0020;
+    const MAPPED_ADDRESS: u16 = 0x0001;
+
+    if bytes.len() < 20 {
+        return None;
+    }
+    let message_type = u16::from_be_bytes(bytes[0..2].try_into().ok()?);
+    let message_len = u16::from_be_bytes(bytes[2..4].try_into().ok()?) as usize;
+    let magic_cookie = u32::from_be_bytes(bytes[4..8].try_into().ok()?);
+    if message_type != STUN_BINDING_SUCCESS || magic_cookie != STUN_MAGIC_COOKIE {
+        return None;
+    }
+    if bytes.get(8..20)? != transaction_id {
+        return None;
+    }
+    let end = 20usize.checked_add(message_len)?.min(bytes.len());
+    let mut cursor = 20;
+    while cursor + 4 <= end {
+        let attribute_type = u16::from_be_bytes(bytes[cursor..cursor + 2].try_into().ok()?);
+        let attribute_len =
+            u16::from_be_bytes(bytes[cursor + 2..cursor + 4].try_into().ok()?) as usize;
+        cursor += 4;
+        if cursor + attribute_len > end {
+            return None;
+        }
+        let value = &bytes[cursor..cursor + attribute_len];
+        if matches!(attribute_type, XOR_MAPPED_ADDRESS | MAPPED_ADDRESS) {
+            let xor = attribute_type == XOR_MAPPED_ADDRESS;
+            return parse_stun_ipv4_address(value, xor);
+        }
+        cursor += padded_stun_attribute_len(attribute_len);
+    }
+    None
+}
+
+fn parse_stun_ipv4_address(value: &[u8], xor: bool) -> Option<SocketAddr> {
+    const STUN_MAGIC_COOKIE: u32 = 0x2112_A442;
+    const IPV4_FAMILY: u8 = 0x01;
+    if value.len() < 8 || value[1] != IPV4_FAMILY {
+        return None;
+    }
+    let mut port = u16::from_be_bytes(value[2..4].try_into().ok()?);
+    let mut address = u32::from_be_bytes(value[4..8].try_into().ok()?);
+    if xor {
+        port ^= (STUN_MAGIC_COOKIE >> 16) as u16;
+        address ^= STUN_MAGIC_COOKIE;
+    }
+    Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(address)), port))
+}
+
+const fn padded_stun_attribute_len(attribute_len: usize) -> usize {
+    (attribute_len + 3) & !3
+}
+
+fn stun_binding_request(transaction_id: [u8; 12]) -> [u8; 20] {
+    const STUN_BINDING_REQUEST: u16 = 0x0001;
+    const STUN_MAGIC_COOKIE: u32 = 0x2112_A442;
+    let mut bytes = [0u8; 20];
+    bytes[0..2].copy_from_slice(&STUN_BINDING_REQUEST.to_be_bytes());
+    bytes[2..4].copy_from_slice(&0u16.to_be_bytes());
+    bytes[4..8].copy_from_slice(&STUN_MAGIC_COOKIE.to_be_bytes());
+    bytes[8..20].copy_from_slice(&transaction_id);
+    bytes
+}
+
+fn stun_transaction_id() -> [u8; 12] {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let pid = u128::from(std::process::id());
+    let mixed = now ^ (pid << 64);
+    let mut bytes = [0u8; 12];
+    bytes.copy_from_slice(&mixed.to_be_bytes()[4..16]);
+    bytes
 }
 
 impl Transport for UdpTransport {

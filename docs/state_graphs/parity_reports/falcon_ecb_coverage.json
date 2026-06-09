@@ -1,7 +1,7 @@
 {
   "id": "falcon_ecb_coverage",
   "mapped_action_count": 67,
-  "mapped_motion_state_count": 70,
+  "mapped_motion_state_count": 72,
   "mapped_motion_states": [
     {
       "action_state_id": 2,
@@ -488,23 +488,27 @@
     },
     {
       "action_state_id": 238,
+      "motion_state": "Entry",
+      "sample_frames": 10,
+      "source_action": "PlyCaptain5K_Share_ACTION_Entry_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 238,
       "motion_state": "EntryStart",
+      "sample_frames": 10,
+      "source_action": "PlyCaptain5K_Share_ACTION_Entry_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 238,
+      "motion_state": "EntryEnd",
       "sample_frames": 10,
       "source_action": "PlyCaptain5K_Share_ACTION_Entry_figatree",
       "status": "mapped_exact_action_table"
     }
   ],
   "missing_sampled_mappings": [],
-  "no_action_submotion_motion_states": [
-    {
-      "motion_state": "Entry",
-      "reason": "ftCo_MS_Entry uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map."
-    },
-    {
-      "motion_state": "EntryEnd",
-      "reason": "ftCo_MS_EntryEnd uses ftCo_SM_None in ftmotionstates.c, so there is no Captain action-table ECB sample to map."
-    }
-  ],
   "source": {
     "generated_rust": "crates/mole_core/src/generated/falcon_ecb.rs",
     "samples": "resources/melee/extracted/captain_falcon_action_ecb_samples.json"

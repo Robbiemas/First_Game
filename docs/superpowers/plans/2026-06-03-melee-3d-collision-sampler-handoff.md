@@ -6,6 +6,67 @@
 
 **Architecture:** The compact manifest remains canonical. It stores source action records, decoded subaction procedures, `ftData.x30` hurtbox init data, skeleton/JObj data, and source provenance. The Rust backend samples Melee XYZ pose and capsules on demand, runs capsule-first 3D collision, and treats 2D projection as a view/runtime compatibility layer only.
 
+**Superseded runtime note, 2026-06-04:** Runtime gameplay no longer samples
+FigaTree/JObj data on demand. The dev tool/CLI may evaluate compact source data
+during export and now writes `source_frame_capsules.bin`, a baked action/frame
+capsule plus DownBound hip-pose sidecar. `preload_runtime_source_frame_data` only decodes that sidecar
+into the runtime cache; player startup, gameplay, rendering, and collision must
+not evaluate the embedded compact FigaTree/JObj export. Damage runtime state
+also now follows the
+decomp split: `hitlag_frames` freezes the fighter tick, then source-only
+Damage/DamageFly ids 75-91 advance through rollback-owned
+`damage_hitstun_frames` from `kb_applied * p_ftCommonData->x154`. Runtime also
+carries baked compact-export `source_action_total_frames` into core state so
+Damage/DamageFly exits follow the decomp's
+`!ftAnim_IsFramesRemaining && !x221C_b6` gate. Damage air physics also follows
+the decomp split: locked Damage uses `ft_80084EEC`, then unlocked
+Damage-before-exit uses ordinary `ft_80084DB0` fall/drift.
+Ordinary Damage floor contact now implements the confirmed floor branch of
+`ftCo_Damage_Coll`: for ids 75-86, extracted CommonAttributes `x1E0 = 5.0`
+and `x1E4 = 0.5` gate `|x8c_kb_vel|`, and
+`0.5 <= |x8c_kb_vel| < 5.0` enters basic `Landing`, while high knockback enters
+source-only DownBoundU/D action ids 183/191. Runtime fills the U/D choice from
+baked `FtPart_HipN` matrix components in `source_frame_capsules.bin`, matching
+`ftCo_80097570` for normal-fighter flags. DownBound animation end now enters
+source-only DownWaitU/D action ids 184/192 and seeds `mv.co.downwait.x0` from
+extracted CommonAttributes `x424`; timer expiry now enters source-only
+DownStandU/D action ids 186/194 through baked source action data. Fresh
+source-normalized `HSD_PAD_A | HSD_PAD_B` during DownWait now enters baked
+DownAttackU/D action ids 187/195, and fresh source-normalized `HSD_PAD_LR`
+enters DownStandU/D through the same ftCo_800980BC branch as the decomp.
+DamageFly and DamageFlyRoll floor contact now mirrors the represented decomp
+order: `ftCo_80090184` / `ftCo_DamageFlyRoll_Coll` attempts PassiveStand then
+Passive through `ftCo_800986B0` using rollback-owned `x680`/`x684` digital L/R
+timers and extracted CommonAttributes `x1C`, `x250`, and `x254`; if those checks
+fail, it falls through to `ftCo_80097D40`, entering baked DownBoundU/D through
+the same hip-pose gate. The Hammer-item veto in `ftCo_800C5240`, wall/ceiling
+passive callbacks, exact PassiveStand model-velocity physics, DownWait side
+getup/roll routing, vertical-stick stand-up thresholds, and downed
+damage/passive callbacks remain pending.
+
+**Runtime pacing correction, 2026-06-04:** SDL/WUP runtime loops no longer
+sleep for a full `TICK_NANOS` after doing update/render work. They request
+high-resolution host sleep timing on Windows, then pace against the remaining
+60 Hz frame budget with a coarse sleep plus a short 3 ms spin finish. Keep this
+work-inclusive pacing; restoring full-tick end-of-loop sleeps recreates the
+laggy `work + 16.67ms` frame time. Normal play remains capped for deterministic
+60 Hz simulation, but `--sdl --timing --no-frame-cap` is the uncapped workload
+smoke. The sanity baseline is 240 FPS, equal to four players at 60 Hz; current
+timing output reports `avg_work_ms`, `uncapped_work_fps`, and the 4.167 ms
+budget separately from sleep so capped wall-clock jitter is not confused with
+engine workload.
+
+**Float-state correction, 2026-06-04:** Do not use milli-integers or fixed-point
+as authoritative fighter motion state. The decomp `Fighter_procUpdate` path
+updates `gr_vel`, `self_vel`, `x74_anim_vel`, `xF8_playerNudgeVel`, and
+`cur_pos` as floats, then feeds `cur_pos` into `HSD_JObjSetTranslate`. Rust
+must therefore keep decomp-backed position/velocity/root values in source
+`f32` form through gameplay, collision, diagnostics, and render-root state.
+Current milli `Vec2` fields are compatibility/readout projections only while
+callers are migrated; future work should remove those projections from
+runtime-facing APIs instead of adding new logic that round-trips source floats
+through milli integers.
+
 **Tech Stack:** Rust `mole_core`, `mole_cli`, `mole_runtime`, SDL debug rendering, JSON source artifacts under `resources/melee`, local Melee decomp under `.research/doldecomp-melee`.
 
 ---
@@ -571,7 +632,7 @@ Primary directive:
 Read and execute docs/superpowers/plans/2026-06-03-melee-3d-collision-sampler-handoff.md.
 
 Context:
-We are moving the Melee frame-data pipeline from static per-frame generated capsules into a Rust 3D JObj/FigaTree sampler. The compact source manifest is canonical. It should preserve Melee XYZ floats and sample hit/hurt capsules on demand for the dev tool and runtime. Current 2D projection/flattening is only a view/runtime compatibility layer, not canonical storage.
+We are moving the Melee frame-data pipeline from static per-frame generated capsules into a Rust 3D JObj/FigaTree sampler. The compact source manifest is canonical. It should preserve Melee XYZ floats and let the dev tool/CLI bake hit/hurt capsules into runtime sidecars during export. Player runtime must load baked action/frame capsule data, not sample FigaTree/JObj data on demand. Current 2D projection/flattening is only a view/runtime compatibility layer, not canonical storage.
 
 Strict source-parity requirements:
 - Do not guess mechanics.

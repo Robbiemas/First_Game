@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use mole_core::{step_world, Frame, PlayerInput, World};
+use mole_core::{step_world, Frame, PlayerInput, World, WorldRollbackSnapshot};
 
 #[derive(Debug, Clone)]
 struct Snapshot {
     frame: Frame,
-    world: World,
+    world: WorldRollbackSnapshot,
 }
 
 #[derive(Debug, Clone)]
@@ -25,16 +25,103 @@ impl SnapshotBuffer {
         let index = frame.0 as usize % self.entries.len();
         self.entries[index] = Some(Snapshot {
             frame,
-            world: world.clone(),
+            world: world.rollback_snapshot(),
         });
     }
 
-    pub fn load(&self, frame: Frame) -> Option<World> {
+    pub fn restore(&self, frame: Frame, world: &mut World) -> bool {
         let index = frame.0 as usize % self.entries.len();
-        self.entries[index]
+        let Some(snapshot) = self.entries[index]
             .as_ref()
             .filter(|snapshot| snapshot.frame == frame)
-            .map(|snapshot| snapshot.world.clone())
+        else {
+            return false;
+        };
+        world.restore_rollback_snapshot(&snapshot.world);
+        true
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InputDelayBuffer {
+    delay_frames: u32,
+    inputs: BTreeMap<Frame, PlayerInput>,
+}
+
+impl InputDelayBuffer {
+    pub const fn new(delay_frames: u32) -> Self {
+        Self {
+            delay_frames,
+            inputs: BTreeMap::new(),
+        }
+    }
+
+    pub const fn delay_frames(&self) -> u32 {
+        self.delay_frames
+    }
+
+    pub fn push_and_get_committed(&mut self, frame: Frame, input: PlayerInput) -> PlayerInput {
+        self.inputs.insert(frame, input);
+        let Some(committed_frame) = frame.0.checked_sub(self.delay_frames).map(Frame) else {
+            return PlayerInput::neutral();
+        };
+        let committed = self
+            .inputs
+            .remove(&committed_frame)
+            .unwrap_or(PlayerInput::neutral());
+        self.drop_inputs_before(committed_frame);
+        committed
+    }
+
+    fn drop_inputs_before(&mut self, frame: Frame) {
+        self.inputs = self.inputs.split_off(&frame);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlippiDelayedInput {
+    pub scheduled_frame: Frame,
+    pub scheduled_input: PlayerInput,
+    pub current_frame_input: PlayerInput,
+}
+
+#[derive(Debug, Clone)]
+pub struct SlippiInputDelayBuffer {
+    delay_frames: u32,
+    inputs: BTreeMap<Frame, PlayerInput>,
+}
+
+impl SlippiInputDelayBuffer {
+    pub const fn new(delay_frames: u32) -> Self {
+        Self {
+            delay_frames,
+            inputs: BTreeMap::new(),
+        }
+    }
+
+    pub const fn delay_frames(&self) -> u32 {
+        self.delay_frames
+    }
+
+    pub fn push_physical_input(&mut self, frame: Frame, input: PlayerInput) -> SlippiDelayedInput {
+        let scheduled_frame = Frame(frame.0.saturating_add(self.delay_frames));
+        self.inputs.insert(scheduled_frame, input);
+        let current_frame_input = self.input_for_frame(frame);
+        SlippiDelayedInput {
+            scheduled_frame,
+            scheduled_input: input,
+            current_frame_input,
+        }
+    }
+
+    fn input_for_frame(&mut self, frame: Frame) -> PlayerInput {
+        let input = self.inputs.remove(&frame).unwrap_or(PlayerInput::neutral());
+        self.drop_inputs_before(frame);
+        input
+    }
+
+    fn drop_inputs_before(&mut self, frame: Frame) {
+        self.inputs = self.inputs.split_off(&frame);
     }
 }
 
@@ -96,8 +183,7 @@ impl RollbackSession {
         }
 
         corrected_inputs[player_index] = input;
-        self.correct_and_resimulate(frame, corrected_inputs, current_frame);
-        true
+        self.try_correct_and_resimulate(frame, corrected_inputs, current_frame)
     }
 
     pub fn correct_and_resimulate(
@@ -106,11 +192,22 @@ impl RollbackSession {
         corrected_inputs: [PlayerInput; 2],
         current_frame: Frame,
     ) {
+        assert!(
+            self.try_correct_and_resimulate(corrected_frame, corrected_inputs, current_frame),
+            "cannot resimulate without a saved snapshot for the corrected frame"
+        );
+    }
+
+    pub fn try_correct_and_resimulate(
+        &mut self,
+        corrected_frame: Frame,
+        corrected_inputs: [PlayerInput; 2],
+        current_frame: Frame,
+    ) -> bool {
         self.inputs.insert(corrected_frame, corrected_inputs);
-        self.world = self
-            .snapshots
-            .load(corrected_frame)
-            .expect("cannot resimulate without a saved snapshot for the corrected frame");
+        if !self.snapshots.restore(corrected_frame, &mut self.world) {
+            return false;
+        }
 
         for frame_number in corrected_frame.0..current_frame.0 {
             let frame = Frame(frame_number);
@@ -122,6 +219,7 @@ impl RollbackSession {
             self.snapshots.save(frame, &self.world);
             step_world(&mut self.world, frame, &inputs);
         }
+        true
     }
 
     fn predict_input(&self, frame: Frame, player_index: usize) -> PlayerInput {

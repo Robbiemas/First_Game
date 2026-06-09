@@ -10,14 +10,12 @@ from typing import Any
 try:
     from tools.falcon_ecb_mapping import (
         MOTION_STATE_ACTION_MAP,
-        NO_ACTION_SUBMOTION_MOTION_STATES,
         UNMAPPED_DERIVED_MOTION_STATES,
         sampled_action_ids,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from falcon_ecb_mapping import (  # type: ignore
         MOTION_STATE_ACTION_MAP,
-        NO_ACTION_SUBMOTION_MOTION_STATES,
         UNMAPPED_DERIVED_MOTION_STATES,
         sampled_action_ids,
     )
@@ -70,19 +68,12 @@ def render_generated_rust(samples: dict[str, Any]) -> str:
             lines.append(
                 f"        MotionState::{state} => Some(&FALCON_ECB_ACTION_{action_id}),"
             )
-    lines.append("        _ => None,")
     lines.append("    }")
     lines.append("}")
     lines.append("")
     lines.append("#[allow(dead_code)]")
     lines.append("pub(crate) const FALCON_ECB_UNMAPPED_DERIVED_STATES: &[&str] = &[")
     for state in UNMAPPED_DERIVED_MOTION_STATES:
-        lines.append(f'    "{state}",')
-    lines.append("];")
-    lines.append("")
-    lines.append("#[allow(dead_code)]")
-    lines.append("pub(crate) const FALCON_ECB_NO_ACTION_SUBMOTION_STATES: &[&str] = &[")
-    for state, _reason in NO_ACTION_SUBMOTION_MOTION_STATES:
         lines.append(f'    "{state}",')
     lines.append("];")
     lines.append("")
@@ -124,10 +115,6 @@ def build_coverage_payload(samples: dict[str, Any]) -> dict[str, Any]:
         "mapped_action_count": len({row["action_state_id"] for row in mapped}),
         "missing_sampled_mappings": missing,
         "unmapped_derived_motion_states": list(UNMAPPED_DERIVED_MOTION_STATES),
-        "no_action_submotion_motion_states": [
-            {"motion_state": state, "reason": reason}
-            for state, reason in NO_ACTION_SUBMOTION_MOTION_STATES
-        ],
         "mapped_motion_states": mapped,
     }
 

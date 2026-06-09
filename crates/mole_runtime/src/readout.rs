@@ -9,9 +9,12 @@ use crate::{
 use mole_core::Frame;
 use mole_core::GameCubePadStatus;
 use mole_core::{
-    MeleeInputFacts, MeleeInputSnapshot, MeleeInputThresholds, MeleeJumpInput, PlayerInput,
-    WalkSpeedBucket,
+    MeleeActionStateId, MeleeInputFacts, MeleeInputSnapshot, MeleeInputThresholds, MeleeJumpInput,
+    MotionState, PlayerInput, SourceActionKey, WalkSpeedBucket,
 };
+
+const DEFAULT_INPUT_TRACE_MAX_BYTES: u64 = 16 * 1024 * 1024;
+const DEFAULT_INPUT_TRACE_MAX_FILES: usize = 8;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ButtonReadout {
@@ -57,7 +60,7 @@ impl ButtonReadout {
             jump_primary: pad.buttons.x(),
             jump_secondary: pad.buttons.y(),
             jump: pad.buttons.x() || pad.buttons.y(),
-            shield: input.shield(),
+            shield: input.shield() || pad.left_trigger != 0 || pad.right_trigger != 0,
             grab: pad.buttons.z(),
             start: pad.buttons.start(),
         }
@@ -252,6 +255,8 @@ impl ControllerInputTraceLog {
 pub struct InputTraceWriter {
     path: PathBuf,
     writer: BufWriter<File>,
+    bytes_written: u64,
+    max_bytes: u64,
 }
 
 impl InputTraceWriter {
@@ -260,8 +265,21 @@ impl InputTraceWriter {
     }
 
     pub fn create_in_dir(path: impl AsRef<Path>) -> io::Result<Self> {
+        Self::create_in_dir_with_limits(
+            path,
+            DEFAULT_INPUT_TRACE_MAX_BYTES,
+            DEFAULT_INPUT_TRACE_MAX_FILES,
+        )
+    }
+
+    pub fn create_in_dir_with_limits(
+        path: impl AsRef<Path>,
+        max_bytes: u64,
+        max_files: usize,
+    ) -> io::Result<Self> {
         let dir = path.as_ref();
         fs::create_dir_all(dir)?;
+        prune_controller_input_trace_logs(dir, max_files.max(1).saturating_sub(1))?;
         let timestamp = unix_time_millis();
         for suffix in 0..1000 {
             let filename = if suffix == 0 {
@@ -275,6 +293,8 @@ impl InputTraceWriter {
                     return Ok(Self {
                         path,
                         writer: BufWriter::new(file),
+                        bytes_written: 0,
+                        max_bytes,
                     });
                 }
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
@@ -293,9 +313,37 @@ impl InputTraceWriter {
     }
 
     pub fn write_line(&mut self, log: &ControllerInputTraceLog) -> io::Result<()> {
-        writeln!(self.writer, "{}", log.to_json_line())?;
+        let line = log.to_json_line();
+        let line_bytes = line.len() as u64 + 1;
+        if self.bytes_written.saturating_add(line_bytes) > self.max_bytes {
+            self.writer.flush()?;
+            return Ok(());
+        }
+
+        writeln!(self.writer, "{line}")?;
+        self.bytes_written += line_bytes;
         self.writer.flush()
     }
+}
+
+fn prune_controller_input_trace_logs(dir: &Path, keep_existing: usize) -> io::Result<()> {
+    let mut traces = fs::read_dir(dir)?
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry.file_type().is_ok_and(|file_type| file_type.is_file())
+                && entry.file_name().to_str().is_some_and(|name| {
+                    name.starts_with("controller-input-trace-") && name.ends_with(".jsonl")
+                })
+        })
+        .collect::<Vec<_>>();
+    traces.sort_by_key(|entry| entry.file_name());
+
+    let remove_count = traces.len().saturating_sub(keep_existing);
+    for entry in traces.into_iter().take(remove_count) {
+        fs::remove_file(entry.path())?;
+    }
+
+    Ok(())
 }
 
 fn unix_time_millis() -> u128 {
@@ -426,7 +474,10 @@ fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
         concat!(
             "{{",
             "\"index\":{},",
+            "\"action_state_id\":{},",
+            "\"source_action_key\":{},",
             "\"motion_state\":\"{:?}\",",
+            "\"motion_state_alias\":{},",
             "\"state_frame\":{},",
             "\"animation_frame\":{},",
             "\"facing\":{},",
@@ -434,6 +485,14 @@ fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
             "\"position_y\":{},",
             "\"velocity_x\":{},",
             "\"velocity_y\":{},",
+            "\"damage_percent\":{},",
+            "\"damage_percent_temp\":{},",
+            "\"damage_applied\":{},",
+            "\"damage_knockback\":{},",
+            "\"damage_angle\":{},",
+            "\"damage_element\":{},",
+            "\"hitlag_frames\":{},",
+            "\"damage_hitstun_frames\":{},",
             "\"ground_velocity_x\":{},",
             "\"ground_accel_x\":{},",
             "\"ground_accel_x2\":{},",
@@ -459,7 +518,10 @@ fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
             "}}"
         ),
         index,
+        optional_action_state_id_json(frame.player_action_state_ids[index]),
+        optional_source_action_key_json(frame.player_source_action_keys[index]),
         frame.player_motion_states[index],
+        optional_motion_state_json(frame.player_motion_state_aliases[index]),
         frame.player_state_frames[index],
         frame.player_animation_frames[index],
         frame.player_facings[index],
@@ -467,6 +529,14 @@ fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
         frame.player_positions[index].y,
         frame.player_velocities[index].x,
         frame.player_velocities[index].y,
+        frame.player_damage_percents[index],
+        frame.player_damage_percent_temps[index],
+        frame.player_damage_applied[index],
+        frame.player_damage_knockbacks[index],
+        frame.player_damage_angles[index],
+        frame.player_damage_elements[index],
+        frame.player_hitlag_frames[index],
+        frame.player_damage_hitstun_frames[index],
         frame.player_ground_velocity_x[index],
         frame.player_ground_accel_x[index],
         frame.player_ground_accel_x2[index],
@@ -490,6 +560,24 @@ fn core_player_to_json(frame: &RenderFrame, index: usize) -> String {
         frame.player_motion_anim_rate_milli[index],
         core_facts_to_json(frame.player_debug_input_facts[index])
     )
+}
+
+fn optional_action_state_id_json(value: Option<MeleeActionStateId>) -> String {
+    value
+        .map(|action| action.get().to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn optional_source_action_key_json(value: Option<SourceActionKey>) -> String {
+    value
+        .map(|key| format!("\"{}\"", key.as_str()))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn optional_motion_state_json(value: Option<MotionState>) -> String {
+    value
+        .map(|state| format!("\"{state:?}\""))
+        .unwrap_or_else(|| "null".to_string())
 }
 
 fn core_facts_to_json(facts: MeleeInputFacts) -> String {

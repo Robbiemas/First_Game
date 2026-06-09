@@ -244,6 +244,12 @@
       "offset": 8,
       "raw": 0.8500000238418579,
       "source_name": "walk_max_vel"
+    },
+    "weight": {
+      "kind": "source_f32",
+      "offset": 136,
+      "raw": 104.0,
+      "source_name": "weight"
     }
   },
   "source": {

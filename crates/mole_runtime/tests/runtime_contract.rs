@@ -1,22 +1,218 @@
-use std::path::Path;
+use std::{fs, path::Path, time::Instant};
 
+use mole_core::collision::{
+    source_damage_result_for_victim, SourceDamageResultInput, SourceDamageStage,
+    SourceHitboxAttributes,
+};
 use mole_core::{
-    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeCommonData,
-    MotionState, PlayerInput, StageProfile, Vec2, WalkSpeedBucket, World,
-    UCF_DASHBACK_AMENDMENT_BIT,
+    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
+    MeleeCommonData, MotionState, PlayerInput, SourceActionKey, StageProfile, Vec2,
+    WalkSpeedBucket, World, TICK_NANOS, UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
-    compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
+    apply_source_collisions_for_world, compare_slippi_export_from_match_start_with_core,
+    compare_slippi_export_with_core, frame_pacing_coarse_sleep_nanos, frame_pacing_sleep_nanos,
     legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, parse_wup_report, project_asset_root, slippi_core_report_path,
+    native_replay_path, packaged_asset_root_for_exe, parse_wup_report,
+    preload_runtime_source_frame_data, project_asset_root, runtime_source_frame_data_is_preloaded,
+    slippi_core_report_path, source_collision_frame_from_frame, source_collision_hits_from_frame,
+    source_collision_step_from_frame, source_damage_results_from_frame,
+    source_damage_results_from_stages_for_frame, source_damage_stages_from_frame,
+    source_hit_confirms_from_frame, step_world_with_source_collisions,
     trace_slippi_export_from_match_start_with_core, write_slippi_core_trace_report,
     ControllerInputTraceLog, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog,
     InputReadout, InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue,
-    PhysicalInput, RenderColor, RenderFrame, RenderRect, RenderScene, RenderTransform,
-    ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreTraceConfig, UdpRuntimeConfig,
-    UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    NetplayLogEvent, NetplayLogRole, PhysicalInput, RenderColor, RenderFrame, RenderRect,
+    RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreTraceConfig,
+    UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort,
+    LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
+
+#[test]
+fn bounded_netplay_log_writes_compact_jsonl_and_caps_once() {
+    let mut bytes = Vec::new();
+    let mut logger = mole_runtime::BoundedNetplayLogger::new(&mut bytes, 190);
+
+    assert!(logger
+        .write_event(
+            NetplayLogEvent::new(NetplayLogRole::HeadlessPeer, "session_start")
+                .with_room_code("ABCD12")
+                .with_peer_id("P2PEER")
+                .with_frame(Frame(0))
+        )
+        .unwrap());
+    assert!(!logger
+        .write_event(
+            NetplayLogEvent::new(NetplayLogRole::HeadlessPeer, "frame_summary")
+                .with_message("this deliberately long summary should exceed the remaining cap")
+        )
+        .unwrap());
+    assert!(!logger
+        .write_event(NetplayLogEvent::new(
+            NetplayLogRole::HeadlessPeer,
+            "another_summary"
+        ))
+        .unwrap());
+
+    drop(logger);
+    let text = String::from_utf8(bytes).unwrap();
+    assert_eq!(text.matches("\"event\":\"log_cap_reached\"").count(), 1);
+    assert!(text.contains("\"role\":\"headless_peer\""));
+    assert!(text.contains("\"room_code\":\"ABCD12\""));
+    assert!(text.lines().count() <= 2);
+}
+
+#[test]
+fn netplay_log_event_serializes_structured_rollback_diagnostics() {
+    let mut stats = UdpRuntimeStats::default();
+    let packet =
+        InputPacket::new(Frame(42), 1, PlayerInput::neutral(), 0xFEED).with_timing_probe(42, 40);
+    stats.record_accept_at(Frame(44), PacketAcceptResult::Accepted, packet);
+    stats.record_missing_remote_frame();
+    stats.record_rollback_correction();
+
+    let event = NetplayLogEvent::new(NetplayLogRole::VisibleHost, "frame_summary")
+        .with_frame(Frame(44))
+        .with_netplay_stats(&stats)
+        .with_world_checksum(0xCAFE)
+        .with_packet_bundle_len(8)
+        .with_pacing(1_010_000, true, false);
+
+    let encoded = serde_json::to_value(event).expect("event should serialize");
+
+    assert_eq!(encoded["sent_packets"], serde_json::Value::Null);
+    assert_eq!(encoded["received_packets"], 1);
+    assert_eq!(encoded["missing_remote_frames"], 1);
+    assert_eq!(encoded["rollback_corrections"], 1);
+    assert_eq!(encoded["last_remote_frame"], 42);
+    assert_eq!(encoded["last_remote_checksum"], 0xFEED);
+    assert_eq!(encoded["last_rtt_frames"], 4);
+    assert_eq!(encoded["world_checksum"], 0xCAFE);
+    assert_eq!(encoded["packet_bundle_len"], 8);
+    assert_eq!(encoded["speed_ppm"], 1_010_000);
+    assert_eq!(encoded["advance_online_frame"], true);
+    assert_eq!(encoded["skip_online_frame"], false);
+}
+
+#[test]
+fn runtime_crate_uses_compact_source_export_not_generated_capsule_table() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let cargo_toml = fs::read_to_string(manifest_dir.join("Cargo.toml")).unwrap();
+    let lib_rs = fs::read_to_string(manifest_dir.join("src/lib.rs")).unwrap();
+
+    assert!(
+        cargo_toml.contains("mole_frame_data"),
+        "runtime should use the Rust JObj/FigaTree evaluator over compact exported source data"
+    );
+    assert!(
+        lib_rs.contains("source_frame_data"),
+        "runtime should import the compact source export module"
+    );
+    assert!(
+        lib_rs.contains("preload_runtime_source_frame_data"),
+        "runtime should preload embedded source frame data before gameplay"
+    );
+    assert!(
+        lib_rs.contains("SOURCE_FRAME_CAPSULES_BYTES"),
+        "runtime should load the CLI-baked source action/frame capsule sidecar"
+    );
+    assert!(
+        !lib_rs.contains("RuntimeSourceExportEvaluator::from_export"),
+        "player runtime must not evaluate embedded compact source FigaTree/JObj data during preload"
+    );
+    assert!(
+        !lib_rs.contains("sample_action_keyframes_from_export"),
+        "runtime must not build JSON sampled frame caches from compact source data"
+    );
+    assert!(
+        !lib_rs.contains("serde_json::Value"),
+        "runtime collision sampling must use typed compact evaluator output, not generated JSON views"
+    );
+    assert!(
+        lib_rs.contains("frames: Vec<RuntimeSourceFrameCapsules>"),
+        "runtime preload should bake compact source capsules into an in-memory action/frame cache"
+    );
+    assert!(
+        !lib_rs.contains("frame_data_boxes"),
+        "runtime must not consume generated per-frame capsule primitive tables"
+    );
+    assert!(
+        !lib_rs.contains(".research") && !lib_rs.contains("resources/melee/raw"),
+        "player runtime must not depend on decomp or raw Melee resource paths"
+    );
+}
+
+#[test]
+fn runtime_preloads_embedded_source_frame_data_before_gameplay() {
+    let loaded_actions =
+        preload_runtime_source_frame_data().expect("embedded runtime source data should preload");
+
+    assert!(loaded_actions > 0);
+    assert!(runtime_source_frame_data_is_preloaded());
+}
+
+#[test]
+fn runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lib_rs = fs::read_to_string(manifest_dir.join("src/lib.rs")).unwrap();
+    let generated_rs = fs::read_to_string(manifest_dir.join("src/generated/source_frame_data.rs"))
+        .expect("generated runtime source frame data module should exist");
+    let lookup_start = lib_rs
+        .find("fn runtime_source_frame_capsules")
+        .expect("runtime source capsule lookup should exist");
+    let lookup_end = lib_rs[lookup_start..]
+        .find("fn runtime_source_actions")
+        .map(|offset| lookup_start + offset)
+        .expect("runtime source action cache accessor should follow lookup");
+    let lookup_body = &lib_rs[lookup_start..lookup_end];
+    let load_start = lib_rs
+        .find("fn load_all_runtime_source_actions")
+        .expect("runtime source action preload should exist");
+    let load_end = lib_rs[load_start..]
+        .find("impl RuntimeSourceFrameCapsules")
+        .map(|offset| load_start + offset)
+        .expect("runtime source frame helpers should follow preload");
+    let load_body = &lib_rs[load_start..load_end];
+
+    assert!(
+        !lookup_body.contains(".sample_frame_capsules("),
+        "gameplay/render capsule lookup must use pre-baked compact frame data, not sample source FigaTree data per frame"
+    );
+    assert!(
+        !load_body.contains(".sample_frame_capsules("),
+        "player runtime preload must deserialize CLI-baked source capsules, not sample source FigaTree data"
+    );
+    assert!(
+        !load_body.contains("RuntimeSourceExportEvaluator")
+            && !load_body.contains("action_frame_evaluator"),
+        "player runtime preload must not construct source action-frame evaluators"
+    );
+    assert!(
+        generated_rs.contains("SOURCE_FRAME_CAPSULES_BYTES")
+            && generated_rs.contains("source_frame_capsules.bin"),
+        "CLI runtime export should include a baked source capsule sidecar"
+    );
+}
+
+#[test]
+fn runtime_executable_steps_gameplay_with_source_collision_damage() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let main_rs = fs::read_to_string(manifest_dir.join("src/main.rs")).unwrap();
+
+    assert!(
+        main_rs.contains("preload_runtime_source_frame_data()?"),
+        "play loops must preload source frame data before ticking"
+    );
+    assert!(
+        main_rs.contains("step_world_with_source_collisions"),
+        "play loops must apply source collision and damage as part of world stepping"
+    );
+    assert!(
+        !main_rs.contains("step_world(&mut world"),
+        "runtime executable must not bypass collision/damage with bare core stepping"
+    );
+}
 
 fn source_shield_trigger() -> u8 {
     MeleeCommonData::provisional_mole().z_shield_analog
@@ -46,6 +242,110 @@ fn fixed_step_clock_caps_ticks_to_avoid_spiral_of_death() {
     let mut clock = FixedStepClock::default();
 
     assert_eq!(clock.add_elapsed_nanos(1_000_000_000), 5);
+}
+
+#[test]
+fn frame_pacing_subtracts_work_from_sixty_hz_sleep_budget() {
+    assert_eq!(frame_pacing_sleep_nanos(0), TICK_NANOS);
+    assert_eq!(frame_pacing_sleep_nanos(5_000_000), TICK_NANOS - 5_000_000);
+    assert_eq!(frame_pacing_sleep_nanos(TICK_NANOS), 0);
+    assert_eq!(frame_pacing_sleep_nanos(TICK_NANOS + 1), 0);
+    assert_eq!(frame_pacing_coarse_sleep_nanos(8_000_000), 0);
+    assert_eq!(frame_pacing_coarse_sleep_nanos(6_000_000), 0);
+    assert_eq!(frame_pacing_coarse_sleep_nanos(5_000_000), 0);
+    assert_eq!(frame_pacing_coarse_sleep_nanos(2_000_000), 0);
+    assert_eq!(frame_pacing_coarse_sleep_nanos(1_000_000), 0);
+}
+
+#[test]
+fn runtime_frame_loops_do_not_sleep_a_full_tick_after_work() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let main_rs = fs::read_to_string(manifest_dir.join("src/main.rs")).unwrap();
+
+    assert!(
+        main_rs.contains("wait_until_frame_deadline"),
+        "runtime loops should pace to a rolling 60 Hz frame deadline after frame work"
+    );
+    assert!(
+        main_rs.contains("request_high_resolution_frame_timer"),
+        "runtime loops should request high-resolution host sleep timing before 60 Hz pacing"
+    );
+    assert!(
+        !main_rs.contains("Duration::from_nanos(TICK_NANOS)"),
+        "sleeping a full tick after update/render makes frame time work + 16.67ms"
+    );
+}
+
+#[test]
+fn sdl_timing_reports_uncapped_work_budget_before_sixty_hz_cap() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let main_rs = fs::read_to_string(manifest_dir.join("src/main.rs")).unwrap();
+
+    assert!(
+        main_rs.contains("--no-frame-cap"),
+        "SDL smoke should expose an uncapped perf mode while keeping the normal path capped"
+    );
+    assert!(
+        main_rs.contains("avg_work_ms") && main_rs.contains("uncapped_work_fps"),
+        "SDL timing output should report real work cost separately from 60 Hz sleep"
+    );
+    assert!(
+        main_rs.contains("UNCAPPED_WORK_BUDGET_TARGET_FPS: f64 = 240.0"),
+        "uncapped perf target should encode the four-player 60 Hz sanity budget"
+    );
+    assert!(
+        main_rs.contains("if frame_cap_enabled {")
+            && main_rs.contains("wait_until_frame_deadline(next_frame_deadline);"),
+        "normal SDL runtime should remain capped to a rolling frame deadline while perf smoke can skip the cap"
+    );
+}
+
+#[test]
+fn sdl_runtime_disables_renderer_vsync_for_fixed_step_pacing() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let main_rs = fs::read_to_string(manifest_dir.join("src/main.rs")).unwrap();
+
+    assert!(
+        main_rs.contains("disable_sdl_renderer_vsync"),
+        "SDL present must not own frame pacing when the engine already paces fixed 60 Hz frames"
+    );
+    assert!(
+        main_rs.contains("SDL_SetRenderVSync") && main_rs.contains("SDL_RENDERER_VSYNC_DISABLED"),
+        "SDL renderer vsync must be explicitly disabled so present does not add a second wait"
+    );
+}
+
+#[test]
+fn minimal_runtime_frame_pipeline_stays_inside_sixty_hz_budget() {
+    const FRAMES: u32 = 600;
+    let mut world = World::for_two_players();
+    let inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let mut scene_fingerprint = 0usize;
+    let mut source_confirm_count = 0usize;
+
+    let started = Instant::now();
+    for frame_index in 0..FRAMES {
+        step_world(&mut world, Frame(frame_index), &inputs);
+        let frame = RenderFrame::from_world(&world);
+        source_confirm_count += source_hit_confirms_from_frame(&frame).len();
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+        scene_fingerprint = scene_fingerprint
+            .wrapping_add(scene.players[0].x as usize)
+            .wrapping_add(scene.players[1].x as usize)
+            .wrapping_add(scene.player_hurtbox_pills[0].len())
+            .wrapping_add(scene.player_hurtbox_pills[1].len());
+    }
+    let elapsed_nanos = started.elapsed().as_nanos();
+    let budget_nanos = TICK_NANOS as u128 * FRAMES as u128;
+    let average_nanos = elapsed_nanos / FRAMES as u128;
+
+    assert_eq!(world.frame(), Frame(FRAMES));
+    assert_ne!(scene_fingerprint, 0);
+    assert_eq!(source_confirm_count, 0);
+    assert!(
+        elapsed_nanos <= budget_nanos,
+        "minimal runtime pipeline took {elapsed_nanos}ns for {FRAMES} frames ({average_nanos}ns/frame), exceeding 60 Hz budget {budget_nanos}ns"
+    );
 }
 
 #[test]
@@ -121,6 +421,80 @@ fn slippi_core_comparison_accepts_matching_wait_frame_from_default_world() {
 }
 
 #[test]
+fn slippi_core_comparison_prefers_game_facing_stick_over_raw_replay_noise() {
+    let export = r#"{
+  "schema_version": 1,
+  "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+  "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+  "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 384},
+  "export": {"first_frame": 383, "last_frame": 384, "frame_count": 2},
+  "frames": [
+    {
+      "frame": 383,
+      "players": {
+        "0": {
+          "pre": {
+            "action_state_id": 42,
+            "position": [2.111639, 0.0001],
+            "facing": 1,
+            "main_stick": [0, 0],
+            "c_stick": [0, 0],
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 42,
+            "action_state_counter": 9,
+            "position": [2.111639, 0.0001],
+            "self_induced_speeds": {"ground_x": -0.02557, "air_x": -0.02557, "y": 0}
+          }
+        }
+      }
+    },
+    {
+      "frame": 384,
+      "players": {
+        "0": {
+          "pre": {
+            "action_state_id": 42,
+            "position": [2.111639, 0.0001],
+            "facing": 1,
+            "main_stick": [0, 0],
+            "c_stick": [0, 0],
+            "raw_joystick_x": -20,
+            "raw_joystick_y": 3,
+            "rust_player_input": {
+              "stick_x": -32, "stick_y": 5, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 42,
+            "action_state_counter": 10,
+            "position": [2.111639, 0.0001],
+            "self_induced_speeds": {"ground_x": 0, "air_x": 0, "y": 0}
+          }
+        }
+      }
+    }
+  ]
+}"#;
+
+    let comparison = compare_slippi_export_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.state_mismatch_count, 0);
+}
+
+#[test]
 fn slippi_action_state_182_reports_guard_reflect_not_guard_off() {
     let export = minimal_slippi_export(
         r#"{
@@ -150,7 +524,10 @@ fn slippi_action_state_182_reports_guard_reflect_not_guard_off() {
         .expect("default world should not already be in GuardReflect");
 
     assert_eq!(mismatch.expected_slippi_state_id, 182);
-    assert_eq!(mismatch.expected_motion_state, MotionState::GuardReflect);
+    assert_eq!(
+        mismatch.expected_motion_state,
+        Some(MotionState::GuardReflect)
+    );
     assert!(comparison.report_markdown().contains("GuardReflect (182)"));
 }
 
@@ -185,8 +562,50 @@ fn slippi_action_state_181_is_supported_as_guard_set_off() {
         .first_state_mismatch
         .expect("default world should not already be in GuardSetOff");
     assert_eq!(mismatch.expected_slippi_state_id, 181);
-    assert_eq!(mismatch.expected_motion_state, MotionState::GuardSetOff);
+    assert_eq!(
+        mismatch.expected_motion_state,
+        Some(MotionState::GuardSetOff)
+    );
     assert!(comparison.report_markdown().contains("GuardSetOff (181)"));
+}
+
+#[test]
+fn slippi_source_only_jab_followup_is_supported_by_canonical_action_id() {
+    let export = minimal_slippi_export(
+        r#"{
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 45,
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }"#,
+    );
+
+    let comparison = compare_slippi_export_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.unsupported_state_count, 0);
+    let mismatch = comparison
+        .first_state_mismatch
+        .expect("default world should not already be in canonical Attack12");
+    assert_eq!(mismatch.expected_slippi_state_id, 45);
+    assert_eq!(
+        mismatch.expected_action_state_id,
+        MeleeActionStateId::new(45)
+    );
+    assert_eq!(mismatch.expected_motion_state, None);
+    assert!(comparison.report_markdown().contains("Attack12 (45)"));
 }
 
 #[test]
@@ -310,7 +729,10 @@ fn slippi_fallspecial_directional_states_map_to_exact_motion_states() {
         .expect("default world should not already be in FallSpecialF");
 
     assert_eq!(mismatch.expected_slippi_state_id, 36);
-    assert_eq!(mismatch.expected_motion_state, MotionState::FallSpecialF);
+    assert_eq!(
+        mismatch.expected_motion_state,
+        Some(MotionState::FallSpecialF)
+    );
     assert!(comparison.report_markdown().contains("FallSpecialF (36)"));
 }
 
@@ -346,7 +768,7 @@ fn slippi_core_comparison_reports_first_state_mismatch() {
 
     assert_eq!(mismatch.frame, Frame(0));
     assert_eq!(mismatch.player_index, 0);
-    assert_eq!(mismatch.expected_motion_state, MotionState::Wait);
+    assert_eq!(mismatch.expected_motion_state, Some(MotionState::Wait));
     assert_eq!(mismatch.actual_motion_state, MotionState::Dash);
     assert_eq!(mismatch.expected_position, Vec2 { x: 1_500, y: 2_250 });
     assert_eq!(mismatch.expected_air_velocity_x, 500);
@@ -403,7 +825,7 @@ fn slippi_core_comparison_reports_first_position_drift_without_state_mismatch() 
     assert_eq!(drift.frame, Frame(0));
     assert_eq!(drift.source_frame, 0);
     assert_eq!(drift.player_index, 0);
-    assert_eq!(drift.expected_motion_state, MotionState::Wait);
+    assert_eq!(drift.expected_motion_state, Some(MotionState::Wait));
     assert_eq!(drift.actual_motion_state, MotionState::Wait);
     assert_eq!(drift.expected_position, Vec2 { x: 2_000, y: 0 });
     assert_eq!(drift.actual_position, Vec2 { x: 0, y: 0 });
@@ -411,6 +833,69 @@ fn slippi_core_comparison_reports_first_position_drift_without_state_mismatch() 
     let report = comparison.report_markdown();
     assert!(report.contains("First Significant Position Drift"));
     assert!(report.contains("Position delta: Rust - Melee (-2000, 0)"));
+}
+
+#[test]
+fn slippi_core_comparison_uses_air_velocity_lane_for_airborne_horizontal_diff() {
+    let export = r#"{
+      "schema_version": 1,
+      "source": {"replay_path": "fixture.slp", "parser": "@slippi/slippi-js/node"},
+      "settings": {"stage_id": 31, "players": {"0": {"controller_fix": "UCF"}}},
+      "metadata": {"start_at": "2026-05-31T00:00:00Z", "last_frame": 1},
+      "export": {"first_frame": 0, "last_frame": 1, "frame_count": 2},
+      "frames": [
+        {"frame": 0, "players": {"0": {
+          "pre": {
+            "action_state_id": 14,
+            "position": [0.0, 0.0],
+            "facing": 1.0,
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 14,
+            "action_state_counter": 5.0,
+            "position": [0.0, 0.0],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 1.106, "y": 2.43}
+          }
+        }}},
+        {"frame": 1, "players": {"0": {
+          "pre": {
+            "action_state_id": 25,
+            "position": [0.0, 0.0],
+            "facing": 1.0,
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0
+            }
+          },
+          "post": {
+            "action_state_id": 25,
+            "action_state_counter": 6.0,
+            "position": [1.096, 2.32],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 1.096, "y": 2.32}
+          }
+        }}}
+      ]
+    }"#;
+
+    let comparison = compare_slippi_export_with_core(
+        export,
+        SlippiCoreComparisonConfig {
+            compare_players: [true, false],
+            max_frames: None,
+        },
+    )
+    .expect("fixture should parse");
+
+    assert_eq!(comparison.first_state_mismatch, None);
+    assert_eq!(comparison.first_position_drift, None);
+    assert_eq!(
+        comparison.max_abs_ground_velocity_diff[0], 0,
+        "airborne JumpF should compare Rust horizontal self velocity against Slippi air_x, not the zero ground_x lane"
+    );
 }
 
 #[test]
@@ -764,6 +1249,57 @@ fn render_frame_consumes_core_snapshot_boundary() {
 }
 
 #[test]
+fn render_frame_and_debug_log_expose_rollback_owned_source_damage_fields() {
+    let mut world = World::for_two_players();
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let stages = [SourceDamageStage {
+        attacker_index: 0,
+        victim_index: 1,
+        hitbox_id: 1,
+        hurtbox_id: 10,
+        action_state_id: Some(MeleeActionStateId::new(65)),
+        source_action_key: Some(SourceActionKey::new("AttackAirN")),
+        source_frame: Some(7),
+        damage: 5.0,
+        env_damage: 5,
+        unk_count: 5,
+        hitbox,
+    }];
+    assert_eq!(world.apply_source_damage_stages(&stages), 1);
+
+    let render_frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+    let line = FrameDebugLog::from_frame_and_scene(
+        &render_frame,
+        &scene,
+        [PlayerInput::neutral(), PlayerInput::neutral()],
+    )
+    .to_json_line();
+    let parsed: serde_json::Value = serde_json::from_str(&line).expect("debug log must be json");
+
+    assert_eq!(render_frame.player_damage_percents[1], 0.0);
+    assert_eq!(render_frame.player_damage_percent_temps[1], 5.0);
+    assert_eq!(render_frame.player_damage_applied[1], 5);
+    assert_eq!(render_frame.player_profile_weights[1], 104.0);
+    assert_eq!(parsed["players"][1]["damage_percent"], 0.0);
+    assert_eq!(parsed["players"][1]["damage_percent_temp"], 5.0);
+    assert_eq!(parsed["players"][1]["damage_applied"], 5);
+    assert_eq!(parsed["players"][1]["profile_weight"], 104.0);
+}
+
+#[test]
 fn render_frame_uses_core_source_pose_frame_for_variable_rate_walk() {
     let profile = FighterProfile {
         walk_initial_velocity: 1.0,
@@ -1016,6 +1552,25 @@ fn runtime_asset_root_contains_background_and_sprite_files() {
 }
 
 #[test]
+fn packaged_asset_root_detects_extracted_playtest_assets_next_to_runtime_exe() {
+    let root = std::env::temp_dir().join(format!(
+        "mole-runtime-packaged-asset-root-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos()
+    ));
+    let package = root.join("package");
+    fs::create_dir_all(package.join("DolphinMole").join("standing")).unwrap();
+    fs::write(package.join("background.png"), []).unwrap();
+
+    assert_eq!(
+        packaged_asset_root_for_exe(&package.join("mole_runtime.exe")),
+        Some(package)
+    );
+}
+
+#[test]
 fn render_scene_references_background_and_sprite_asset_paths() {
     let world = World::for_two_players();
     let frame = RenderFrame::from_world(&world);
@@ -1065,6 +1620,8 @@ fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
     frame.player_animation_frames[0] = 6;
     frame.player_facings[0] = 1;
     frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
     frame.player_source_pose_frames[0] = 7;
     frame.player_source_pose_model_facings[0] = 1;
 
@@ -1094,7 +1651,7 @@ fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
     );
     assert_eq!(
         scene.player_hitbox_pills[0][0].source_artifact_kind,
-        "generated_frame_data_boxes"
+        "runtime_source_frame_data"
     );
     assert_eq!(scene.player_hurtbox_pills[0][0].source_space, "melee_xyz");
     assert_eq!(
@@ -1103,7 +1660,7 @@ fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
     );
     assert_eq!(
         scene.player_hurtbox_pills[0][0].source_artifact_kind,
-        "generated_frame_data_boxes"
+        "runtime_source_frame_data"
     );
     assert_ne!(scene.player_hitbox_pills[0][0].source.a.z, 0.0);
     assert_ne!(scene.player_hurtbox_pills[0][0].source.a.z, 0.0);
@@ -1114,12 +1671,769 @@ fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
 }
 
 #[test]
+fn render_scene_samples_source_capsules_by_canonical_action_identity() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_state_frames[0] = 6;
+    frame.player_animation_frames[0] = 6;
+    frame.player_facings[0] = 1;
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(scene.player_hitbox_pills[0].len(), 3);
+    assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
+}
+
+#[test]
+fn runtime_source_collision_uses_canonical_action_identity_not_motion_alias() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+
+    let collisions = source_collision_hits_from_frame(&frame);
+
+    assert!(
+        collisions
+            .iter()
+            .any(|collision| collision.hit.owner_index == 0 && collision.hurt.owner_index == 1),
+        "P1 AttackAirN source hitboxes should hit P2 hurtboxes even when P1's visible MotionState alias is Wait"
+    );
+    assert!(
+        collisions
+            .iter()
+            .all(|collision| collision.hit.owner_index != collision.hurt.owner_index),
+        "source collision must not report self hits"
+    );
+}
+
+#[test]
+fn runtime_source_hit_confirms_carry_decomp_hitbox_attributes() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_grounded[1] = false;
+
+    let confirms = source_hit_confirms_from_frame(&frame);
+
+    let hitbox_one = confirms
+        .iter()
+        .find(|confirm| confirm.attacker_index == 0 && confirm.hitbox_id == 1)
+        .expect("AttackAirN source frame 7 should confirm with hitbox id 1");
+    assert_eq!(hitbox_one.victim_index, 1);
+    assert_eq!(
+        hitbox_one.action_state_id,
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        hitbox_one.source_action_key,
+        Some(SourceActionKey::new("AttackAirN"))
+    );
+    assert_eq!(hitbox_one.source_frame, Some(7));
+    assert_eq!(hitbox_one.hitbox.damage, 5);
+    assert_eq!(hitbox_one.hitbox.angle, 78);
+    assert_eq!(hitbox_one.hitbox.knockback_growth, 100);
+    assert_eq!(hitbox_one.hitbox.weight_set_knockback, 40);
+    assert_eq!(hitbox_one.hitbox.base_knockback, 0);
+    assert_eq!(hitbox_one.hitbox.element, 0);
+    assert_eq!(hitbox_one.hitbox.shield_damage, 0);
+    assert!(hitbox_one.hitbox.hit_grounded);
+    assert!(hitbox_one.hitbox.hit_aerial);
+}
+
+#[test]
+fn runtime_source_damage_stages_carry_decomp_damage_stage_fields() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    assert_eq!(frame.common_data, world.common_data());
+    assert_eq!(frame.player_profile_weights, [104.0, 104.0]);
+
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_grounded[1] = false;
+
+    let stages = source_damage_stages_from_frame(&frame);
+
+    let hitbox_one = stages
+        .iter()
+        .find(|stage| stage.attacker_index == 0 && stage.hitbox_id == 1)
+        .expect("AttackAirN source frame 7 should stage damage for hitbox id 1");
+    assert_eq!(hitbox_one.victim_index, 1);
+    assert_eq!(hitbox_one.damage, 5.0);
+    assert_eq!(hitbox_one.env_damage, 5);
+    assert_eq!(
+        hitbox_one.action_state_id,
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        hitbox_one.source_action_key,
+        Some(SourceActionKey::new("AttackAirN"))
+    );
+    assert_eq!(hitbox_one.source_frame, Some(7));
+}
+
+#[test]
+fn runtime_source_damage_results_use_frame_weight_for_knockback_selection() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_grounded[1] = false;
+
+    let mut light_frame = frame;
+    light_frame.player_profile_weights[1] = 50.0;
+    let mut heavy_frame = frame;
+    heavy_frame.player_profile_weights[1] = 200.0;
+
+    let light_results = source_damage_results_from_frame(&light_frame);
+    let heavy_results = source_damage_results_from_frame(&heavy_frame);
+
+    let light_result = light_results
+        .iter()
+        .find(|result| result.stage.victim_index == 1)
+        .expect("overlapping AttackAirN should emit a selected damage result for player two");
+    let heavy_result = heavy_results
+        .iter()
+        .find(|result| result.stage.victim_index == 1)
+        .expect("overlapping AttackAirN should emit a selected damage result for player two");
+
+    assert_eq!(light_result.stage.attacker_index, 0);
+    assert_eq!(
+        light_result.stage.unk_count,
+        light_result.stage.hitbox.damage as u16
+    );
+    assert_eq!(light_result.angle, light_result.stage.hitbox.angle);
+    assert_eq!(light_result.element, light_result.stage.hitbox.element);
+    assert!(
+        light_result.knockback > heavy_result.knockback,
+        "Melee knockback decay should produce less knockback for the heavier target"
+    );
+}
+
+#[test]
+fn runtime_source_damage_results_from_stages_include_current_frame_percent_temp_like_ftcoll() {
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 10,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let stages = [SourceDamageStage {
+        attacker_index: 0,
+        victim_index: 1,
+        hitbox_id: 1,
+        hurtbox_id: 10,
+        action_state_id: Some(MeleeActionStateId::new(65)),
+        source_action_key: Some(SourceActionKey::new("AttackAirN")),
+        source_frame: Some(7),
+        damage: 10.0,
+        env_damage: 10,
+        unk_count: 10,
+        hitbox,
+    }];
+
+    let result = source_damage_results_from_stages_for_frame(&frame, &stages)
+        .into_iter()
+        .find(|result| result.stage.victim_index == 1)
+        .expect("staged normal-path hit should produce a selected damage result");
+    let with_current_stage = source_damage_result_for_victim(
+        frame.common_data,
+        &stages,
+        SourceDamageResultInput {
+            victim_index: 1,
+            victim_percent: frame.player_damage_percents[1],
+            victim_percent_temp: 10.0,
+            victim_weight: frame.player_profile_weights[1],
+            stage: 1.0,
+            attack: 1.0,
+            defense: 1.0,
+        },
+    )
+    .expect("same stage should produce an accumulated comparison result");
+
+    assert_eq!(
+        result.knockback.to_bits(),
+        with_current_stage.knockback.to_bits()
+    );
+}
+
+#[test]
+fn runtime_source_collision_step_applies_render_frame_collisions_to_core_world() {
+    let mut world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_grounded[1] = false;
+
+    let step = source_collision_step_from_frame(&mut world, &frame);
+
+    assert!(!step.confirms.is_empty());
+    assert!(!step.stages.is_empty());
+    assert!(!step.results.is_empty());
+    assert_eq!(step.applied_stage_count, step.stages.len());
+    assert_eq!(world.players()[1].damage_percent, 0.0);
+    assert!(world.players()[1].damage_percent_temp > 0.0);
+    assert!(world.players()[1].damage_applied > 0);
+}
+
+#[test]
+fn runtime_apply_source_collisions_for_world_makes_active_hitboxes_affect_game_state() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::AttackAirN);
+    attacker.motion_frame = 6;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let step = apply_source_collisions_for_world(&mut world);
+
+    assert!(!step.confirms.is_empty());
+    assert!(!step.stages.is_empty());
+    assert!(!step.results.is_empty());
+    assert!(world.players()[1].damage_percent_temp > 0.0);
+    assert!(world.players()[1].damage_applied > 0);
+}
+
+#[test]
+fn runtime_source_collision_does_not_reapply_same_active_hitbox_to_same_victim() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::AttackAirN);
+    attacker.motion_frame = 6;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let first = apply_source_collisions_for_world(&mut world);
+    let after_first_damage = world.players()[1].damage_percent_temp;
+    let second = apply_source_collisions_for_world(&mut world);
+
+    assert_eq!(first.applied_stage_count, 1);
+    assert_eq!(after_first_damage, 5.0);
+    assert!(second.confirms.is_empty());
+    assert!(second.stages.is_empty());
+    assert_eq!(second.applied_stage_count, 0);
+    assert_eq!(world.players()[1].damage_percent_temp, after_first_damage);
+}
+
+#[test]
+fn runtime_source_collision_allows_rehit_after_source_hitbox_clear_and_respawn() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::AttackAirN);
+    attacker.motion_frame = 6;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let first_window = apply_source_collisions_for_world(&mut world);
+    let mut attacker = world.players()[0];
+    attacker.motion_frame = 12;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let clear_frame = apply_source_collisions_for_world(&mut world);
+    let mut attacker = world.players()[0];
+    attacker.motion_frame = 19;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let second_window = apply_source_collisions_for_world(&mut world);
+
+    assert_eq!(first_window.applied_stage_count, 1);
+    assert_eq!(clear_frame.applied_stage_count, 0);
+    assert_eq!(second_window.applied_stage_count, 1);
+    assert_eq!(first_window.stages[0].damage, 5.0);
+    assert_eq!(second_window.stages[0].damage, 7.0);
+    assert_eq!(world.players()[1].damage_percent_temp, 12.0);
+}
+
+#[test]
+fn runtime_step_with_source_collisions_commits_staged_damage_like_fighter_process_hit() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::AttackAirN);
+    attacker.motion_frame = 6;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    assert_eq!(world.players()[1].damage_percent, 5.0);
+    assert_eq!(world.players()[1].damage_percent_temp, 0.0);
+    assert_eq!(world.players()[1].damage_applied, 0);
+}
+
+#[test]
+fn runtime_source_damage_high_knockback_uses_baked_hip_pose_to_enter_down_bound() {
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = None;
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 20;
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: mole_core::source_units_to_milli(20.0),
+        y: mole_core::source_units_to_milli(-20.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let bounded = world.players()[1];
+    assert_eq!(
+        bounded.melee_action_state_id,
+        Some(MeleeActionStateId::new(183))
+    );
+    assert_eq!(
+        bounded.source_action_key,
+        Some(SourceActionKey::new("DownBoundU"))
+    );
+    assert_eq!(bounded.motion_state_alias, None);
+    assert!(bounded.source_down_bound_pose.is_some());
+}
+
+#[test]
+fn runtime_source_damage_fly_roll_floor_contact_uses_baked_pose_to_enter_down_bound() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(91));
+    victim.source_action_key = None;
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 30;
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: mole_core::source_units_to_milli(1.0),
+        y: mole_core::source_units_to_milli(-1.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let bounded = world.players()[1];
+    assert!(matches!(
+        bounded.melee_action_state_id,
+        Some(id) if matches!(id.get(), 183 | 191)
+    ));
+    assert!(matches!(
+        bounded.source_action_key,
+        Some(key) if matches!(key.as_str(), "DownBoundU" | "DownBoundD")
+    ));
+    assert_eq!(bounded.motion_state_alias, None);
+    assert!(bounded.source_down_bound_pose.is_some());
+}
+
+#[test]
+fn runtime_source_damage_fly_recent_lr_uses_baked_passive_binding() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(91));
+    victim.source_action_key = None;
+    victim.motion_frame = 0;
+    victim.motion_anim_frame_milli = 0;
+    victim.damage_hitstun_frames = 10;
+    victim.source_action_total_frames = 30;
+    victim.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: 0,
+    };
+    victim.velocity = Vec2 {
+        x: mole_core::source_units_to_milli(1.0),
+        y: mole_core::source_units_to_milli(-1.0),
+    };
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let source_bottom_offset_y =
+        world.snapshot().players[1].active_ecb.bottom.y - world.players()[1].position.y;
+    let mut victim = world.players()[1];
+    victim.position.y = floor.y - source_bottom_offset_y + 1_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_trigger_digital(true),
+        ],
+    );
+
+    let passive = world.players()[1];
+    assert_eq!(
+        passive.melee_action_state_id,
+        Some(MeleeActionStateId::new(199))
+    );
+    assert_eq!(
+        passive.source_action_key,
+        Some(SourceActionKey::new("Passive"))
+    );
+    assert_eq!(passive.motion_state_alias, None);
+    assert_eq!(passive.source_action_total_frames, 26);
+}
+
+#[test]
+fn runtime_real_air_attack_input_reaches_source_collision_and_commits_visible_damage() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 10_000 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 10_000 };
+    victim.grounded = false;
+    victim.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let attack = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    step_world_with_source_collisions(&mut world, Frame(0), &attack);
+    assert_eq!(world.players()[0].motion_state, MotionState::AttackAirN);
+
+    for frame in 1..8 {
+        step_world_with_source_collisions(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+    }
+
+    let render_frame = RenderFrame::from_world(&world);
+    assert_eq!(render_frame.player_damage_percents[1], 5.0);
+    assert_eq!(render_frame.player_damage_percent_temps[1], 0.0);
+    assert!(render_frame.player_damage_knockbacks[1] > 0.0);
+    assert!(render_frame.player_hitlag_frames[1] > 0);
+    assert_ne!(render_frame.player_velocities[1], Vec2 { x: 0, y: 0 });
+    assert!(
+        render_frame.player_action_state_ids[1]
+            .is_some_and(|action| (75..=91).contains(&action.get())),
+        "victim should enter a canonical Melee damage action state"
+    );
+    assert_eq!(
+        render_frame.player_source_pose_action_state_ids[1],
+        render_frame.player_action_state_ids[1],
+        "canonical damage state must drive the source render pose instead of falling back to the legacy motion alias"
+    );
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+    assert!(
+        !scene.player_hurtbox_pills[1].is_empty(),
+        "canonical damage state must resolve to baked source hurtbox capsules"
+    );
+    let collision_frame = source_collision_frame_from_frame(&render_frame);
+    let damage_hurt = collision_frame
+        .hurts
+        .iter()
+        .find(|capsule| capsule.owner_index == 1)
+        .expect("victim damage pose should emit source hurt capsules");
+    assert_eq!(
+        damage_hurt.action_state_id,
+        render_frame.player_action_state_ids[1]
+    );
+    assert!(
+        damage_hurt
+            .source_action_key
+            .is_some_and(|key| key.as_str().starts_with("Damage")),
+        "victim damage pose should resolve through a Damage* source action key"
+    );
+}
+
+#[test]
+fn runtime_source_hitlag_freezes_damage_action_pose_and_position_until_timer_expires() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 10_000 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 10_000 };
+    victim.grounded = false;
+    victim.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let attack = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    step_world_with_source_collisions(&mut world, Frame(0), &attack);
+    for frame in 1..8 {
+        step_world_with_source_collisions(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+    }
+
+    let hit_frame = RenderFrame::from_world(&world);
+    let hitlag_frames = hit_frame.player_hitlag_frames[1];
+    assert!(hitlag_frames > 1);
+    assert_eq!(hit_frame.player_motion_state_aliases[1], None);
+    assert!(
+        hit_frame.player_action_state_ids[1]
+            .is_some_and(|action| (75..=91).contains(&action.get())),
+        "victim should be in a canonical source-only damage state"
+    );
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(8),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let frozen_frame = RenderFrame::from_world(&world);
+    assert_eq!(frozen_frame.player_hitlag_frames[1], hitlag_frames - 1);
+    assert_eq!(
+        frozen_frame.player_action_state_ids[1],
+        hit_frame.player_action_state_ids[1]
+    );
+    assert_eq!(
+        frozen_frame.player_source_pose_action_state_ids[1],
+        hit_frame.player_source_pose_action_state_ids[1]
+    );
+    assert_eq!(
+        frozen_frame.player_source_pose_frames[1], hit_frame.player_source_pose_frames[1],
+        "Melee hitlag freezes cur_anim_frame/source pose advancement"
+    );
+    assert_eq!(
+        frozen_frame.player_state_frames[1], hit_frame.player_state_frames[1],
+        "Melee hitlag skips the fighter action-state tick"
+    );
+    assert_eq!(
+        frozen_frame.player_positions[1], hit_frame.player_positions[1],
+        "Melee hitlag skips fighter physics/position advancement"
+    );
+    assert_eq!(
+        frozen_frame.player_velocities[1], hit_frame.player_velocities[1],
+        "hitlag stores knockback velocity without consuming it through physics"
+    );
+}
+
+#[test]
+fn runtime_source_damage_lockout_keeps_damage_action_authoritative_after_hitlag() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 10_000 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 10_000 };
+    victim.grounded = false;
+    victim.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    for frame in 1..8 {
+        step_world_with_source_collisions(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+    }
+
+    let hit_frame = RenderFrame::from_world(&world);
+    let damage_action = hit_frame.player_action_state_ids[1]
+        .expect("victim should enter a canonical damage action");
+    assert!((75..=91).contains(&damage_action.get()));
+    assert!(hit_frame.player_hitlag_frames[1] > 0);
+    assert!(world.players()[1].damage_hitstun_frames > hit_frame.player_hitlag_frames[1] as u16);
+
+    let mut frame = 8;
+    while world.players()[1].hitlag_frames > 0 {
+        step_world_with_source_collisions(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+        frame += 1;
+    }
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(frame),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_attack(true),
+        ],
+    );
+
+    let damage_frame = RenderFrame::from_world(&world);
+    assert_eq!(damage_frame.player_hitlag_frames[1], 0);
+    assert_eq!(damage_frame.player_motion_state_aliases[1], None);
+    assert_eq!(damage_frame.player_action_state_ids[1], Some(damage_action));
+    assert_eq!(
+        damage_frame.player_source_pose_action_state_ids[1],
+        Some(damage_action)
+    );
+    assert!(
+        damage_frame.player_source_action_keys[1]
+            .is_none_or(|key| key.as_str().starts_with("Damage")),
+        "source-only damage action must not be replaced by an aerial attack binding"
+    );
+    assert!(world.players()[1].damage_hitstun_frames > 0);
+}
+
+#[test]
+fn runtime_source_damage_carries_baked_action_total_frames_into_core() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 10_000 };
+    attacker.grounded = false;
+    attacker.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 10_000 };
+    victim.grounded = false;
+    victim.set_motion_state_alias(MotionState::Fall);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    for frame in 1..8 {
+        step_world_with_source_collisions(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+        );
+    }
+
+    let damage_player = world.players()[1];
+    assert_eq!(damage_player.motion_state_alias, None);
+    assert!(damage_player
+        .melee_action_state_id
+        .is_some_and(|action| (75..=91).contains(&action.get())));
+    assert!(
+        damage_player.source_action_total_frames > 0,
+        "runtime source damage must carry baked action length into rollback-owned core state"
+    );
+}
+
+#[test]
 fn render_scene_uses_attack_air_n_source_clear_frames_for_hitbox_pills() {
     let world = World::for_two_players();
     let mut frame = RenderFrame::from_world(&world);
     frame.player_motion_states[0] = MotionState::AttackAirN;
     frame.player_facings[0] = 1;
     frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
     frame.player_source_pose_model_facings[0] = 1;
 
     frame.player_state_frames[0] = 12;
@@ -1150,6 +2464,8 @@ fn render_scene_samples_source_capsules_from_animation_pose_frame() {
     frame.player_motion_states[0] = MotionState::AttackAirN;
     frame.player_facings[0] = 1;
     frame.player_source_pose_motion_states[0] = MotionState::AttackAirN;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
     frame.player_source_pose_model_facings[0] = 1;
 
     // Melee advances collision endpoints from the current JObj pose
@@ -1164,6 +2480,319 @@ fn render_scene_samples_source_capsules_from_animation_pose_frame() {
 
     assert_eq!(scene.player_hitbox_pills[0].len(), 3);
     assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
+}
+
+#[test]
+fn runtime_source_down_bound_actions_resolve_from_canonical_action_ids() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    for (action_state_id, source_action_key) in [
+        (
+            MeleeActionStateId::new(183),
+            SourceActionKey::new("DownBoundU"),
+        ),
+        (
+            MeleeActionStateId::new(184),
+            SourceActionKey::new("DownWaitU"),
+        ),
+        (
+            MeleeActionStateId::new(186),
+            SourceActionKey::new("DownStandU"),
+        ),
+        (
+            MeleeActionStateId::new(187),
+            SourceActionKey::new("DownAttackU"),
+        ),
+        (
+            MeleeActionStateId::new(191),
+            SourceActionKey::new("DownBoundD"),
+        ),
+        (
+            MeleeActionStateId::new(192),
+            SourceActionKey::new("DownWaitD"),
+        ),
+        (
+            MeleeActionStateId::new(194),
+            SourceActionKey::new("DownStandD"),
+        ),
+        (
+            MeleeActionStateId::new(195),
+            SourceActionKey::new("DownAttackD"),
+        ),
+    ] {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_source_pose_action_state_ids[0] = Some(action_state_id);
+        frame.player_action_state_ids[0] = Some(action_state_id);
+        frame.player_source_pose_frames[0] = 1;
+        frame.player_source_action_keys[0] = None;
+        frame.player_source_pose_action_keys[0] = None;
+
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+        assert!(
+            !scene.player_hurtbox_pills[0].is_empty(),
+            "canonical DownBound action {action_state_id:?} must resolve to baked source hurt capsules"
+        );
+
+        let collision_frame = source_collision_frame_from_frame(&frame);
+        let hurt = collision_frame
+            .hurts
+            .iter()
+            .find(|capsule| capsule.owner_index == 0)
+            .expect("DownBound source pose should emit hurt capsules");
+        assert_eq!(hurt.action_state_id, Some(action_state_id));
+        assert_eq!(hurt.source_action_key, Some(source_action_key));
+    }
+}
+
+#[test]
+fn runtime_source_passive_actions_resolve_from_canonical_action_ids() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    for (action_state_id, source_action_key) in [
+        (
+            MeleeActionStateId::new(199),
+            SourceActionKey::new("Passive"),
+        ),
+        (
+            MeleeActionStateId::new(200),
+            SourceActionKey::new("PassiveStandF"),
+        ),
+        (
+            MeleeActionStateId::new(201),
+            SourceActionKey::new("PassiveStandB"),
+        ),
+    ] {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_source_pose_action_state_ids[0] = Some(action_state_id);
+        frame.player_action_state_ids[0] = Some(action_state_id);
+        frame.player_source_pose_frames[0] = 1;
+        frame.player_source_action_keys[0] = None;
+        frame.player_source_pose_action_keys[0] = None;
+
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+        assert!(
+            !scene.player_hurtbox_pills[0].is_empty(),
+            "canonical Passive action {action_state_id:?} must resolve to baked source hurt capsules"
+        );
+
+        let collision_frame = source_collision_frame_from_frame(&frame);
+        let hurt = collision_frame
+            .hurts
+            .iter()
+            .find(|capsule| capsule.owner_index == 0)
+            .expect("Passive source pose should emit hurt capsules");
+        assert_eq!(hurt.action_state_id, Some(action_state_id));
+        assert_eq!(hurt.source_action_key, Some(source_action_key));
+    }
+}
+
+#[test]
+fn runtime_source_entry_aliases_resolve_from_canonical_action_ids() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    for (motion_state, action_state_id) in [
+        (MotionState::Entry, MeleeActionStateId::new(322)),
+        (MotionState::EntryStart, MeleeActionStateId::new(323)),
+        (MotionState::EntryEnd, MeleeActionStateId::new(324)),
+    ] {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_motion_states[0] = motion_state;
+        frame.player_source_pose_motion_states[0] = motion_state;
+        frame.player_source_pose_action_state_ids[0] = Some(action_state_id);
+        frame.player_action_state_ids[0] = Some(action_state_id);
+        frame.player_source_pose_frames[0] = 1;
+        frame.player_source_action_keys[0] = None;
+        frame.player_source_pose_action_keys[0] = None;
+
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+        assert!(
+            !scene.player_hurtbox_pills[0].is_empty(),
+            "{motion_state:?} action {action_state_id:?} must resolve to baked Entry source hurt capsules"
+        );
+
+        let collision_frame = source_collision_frame_from_frame(&frame);
+        let hurt = collision_frame
+            .hurts
+            .iter()
+            .find(|capsule| capsule.owner_index == 0)
+            .expect("Entry source pose should emit hurt capsules");
+        assert_eq!(hurt.action_state_id, Some(action_state_id));
+        assert_eq!(hurt.source_action_key, Some(SourceActionKey::new("Entry")));
+    }
+}
+
+#[test]
+fn runtime_source_jab_followup_actions_resolve_from_canonical_action_ids() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    for (action_state_id, source_action_key) in [
+        (
+            MeleeActionStateId::new(45),
+            SourceActionKey::new("Attack12"),
+        ),
+        (
+            MeleeActionStateId::new(46),
+            SourceActionKey::new("Attack13"),
+        ),
+    ] {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_source_pose_action_state_ids[0] = Some(action_state_id);
+        frame.player_action_state_ids[0] = Some(action_state_id);
+        frame.player_source_pose_frames[0] = 1;
+        frame.player_source_action_keys[0] = None;
+        frame.player_source_pose_action_keys[0] = None;
+
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+        assert!(
+            !scene.player_hurtbox_pills[0].is_empty(),
+            "canonical jab follow-up action {action_state_id:?} must resolve to baked source hurt capsules"
+        );
+
+        let collision_frame = source_collision_frame_from_frame(&frame);
+        let hurt = collision_frame
+            .hurts
+            .iter()
+            .find(|capsule| capsule.owner_index == 0)
+            .expect("jab follow-up source pose should emit hurt capsules");
+        assert_eq!(hurt.action_state_id, Some(action_state_id));
+        assert_eq!(hurt.source_action_key, Some(source_action_key));
+    }
+}
+
+#[test]
+fn runtime_source_down_bound_animation_end_uses_baked_down_wait_binding() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut player = world.players()[1];
+    player.grounded = true;
+    player.motion_state_alias = None;
+    player.motion_state = MotionState::Fall;
+    player.melee_action_state_id = Some(MeleeActionStateId::new(183));
+    player.source_action_key = Some(SourceActionKey::new("DownBoundU"));
+    player.source_action_total_frames = 26;
+    player.motion_frame = 25;
+    player.motion_anim_frame_milli = 25_000;
+    player.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: floor.y,
+    };
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let waiting = world.players()[1];
+    assert_eq!(
+        waiting.melee_action_state_id,
+        Some(MeleeActionStateId::new(184))
+    );
+    assert_eq!(
+        waiting.source_action_key,
+        Some(SourceActionKey::new("DownWaitU"))
+    );
+    assert_eq!(waiting.source_action_total_frames, 70);
+    assert_eq!(
+        waiting.source_down_wait_timer.to_bits(),
+        world.common_data().down_wait_timer.to_bits()
+    );
+}
+
+#[test]
+fn runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut player = world.players()[1];
+    player.grounded = true;
+    player.motion_state_alias = None;
+    player.motion_state = MotionState::Fall;
+    player.melee_action_state_id = Some(MeleeActionStateId::new(192));
+    player.source_action_key = Some(SourceActionKey::new("DownWaitD"));
+    player.source_action_total_frames = 70;
+    player.source_down_wait_timer = 1.0;
+    player.motion_frame = 12;
+    player.motion_anim_frame_milli = 12_000;
+    player.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: floor.y,
+    };
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let standing = world.players()[1];
+    assert_eq!(
+        standing.melee_action_state_id,
+        Some(MeleeActionStateId::new(194))
+    );
+    assert_eq!(
+        standing.source_action_key,
+        Some(SourceActionKey::new("DownStandD"))
+    );
+    assert_eq!(standing.motion_state_alias, None);
+    assert_eq!(standing.motion_frame, 0);
+    assert_eq!(standing.source_action_total_frames, 30);
+    assert_eq!(standing.source_down_wait_timer.to_bits(), 0.0_f32.to_bits());
+}
+
+#[test]
+fn runtime_source_down_wait_fresh_attack_uses_baked_down_attack_binding() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let floor = world.stage().main_floor;
+    let mut player = world.players()[1];
+    player.grounded = true;
+    player.motion_state_alias = None;
+    player.motion_state = MotionState::Fall;
+    player.melee_action_state_id = Some(MeleeActionStateId::new(192));
+    player.source_action_key = Some(SourceActionKey::new("DownWaitD"));
+    player.source_action_total_frames = 70;
+    player.source_down_wait_timer = 10.0;
+    player.motion_frame = 12;
+    player.motion_anim_frame_milli = 12_000;
+    player.position = Vec2 {
+        x: floor.left_x + 10_000,
+        y: floor.y,
+    };
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_attack(true),
+        ],
+    );
+
+    let attacking = world.players()[1];
+    assert_eq!(
+        attacking.melee_action_state_id,
+        Some(MeleeActionStateId::new(195))
+    );
+    assert_eq!(
+        attacking.source_action_key,
+        Some(SourceActionKey::new("DownAttackD"))
+    );
+    assert_eq!(attacking.motion_state_alias, None);
+    assert_eq!(attacking.motion_frame, 0);
+    assert_eq!(attacking.source_action_total_frames, 50);
+    assert_eq!(
+        attacking.source_down_wait_timer.to_bits(),
+        9.0_f32.to_bits()
+    );
 }
 
 #[test]
@@ -1198,6 +2827,14 @@ fn runtime_airborne_a_press_reaches_attack_air_n_scene_pills() {
     let scene = RenderScene::from_frame(&frame, 960, 540);
 
     assert_eq!(frame.player_motion_states[0], MotionState::AttackAirN);
+    assert_eq!(
+        frame.player_action_state_ids[0],
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        frame.player_source_action_keys[0],
+        Some(SourceActionKey::new("AttackAirN"))
+    );
     assert_eq!(frame.player_state_frames[0], 6);
     assert_eq!(scene.player_hitbox_pills[0].len(), 3);
     assert_eq!(scene.player_hurtbox_pills[0].len(), 11);
@@ -1362,7 +2999,7 @@ fn render_scene_draws_core_owned_active_ecb() {
 }
 
 #[test]
-fn sdl_runtime_launcher_uses_native_play_mode() {
+fn sdl_runtime_launcher_uses_local_sdl_play_mode() {
     let launcher = project_asset_root()
         .join("execs")
         .join("Run SDL3 Runtime.cmd");
@@ -1372,6 +3009,8 @@ fn sdl_runtime_launcher_uses_native_play_mode() {
     assert!(text.contains(".local\\SDL3"));
     assert!(text.contains("--features \"sdl wup\""));
     assert!(text.contains("-- --sdl --play --input-trace"));
+    assert!(!text.contains("--friend-connect"));
+    assert!(!text.contains("--netplay-delay"));
     assert!(!text.contains("--no-ucf"));
     assert!(!text.contains("--frames 600"));
 }
@@ -1387,6 +3026,8 @@ fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
     assert!(text.contains(".local\\SDL3"));
     assert!(text.contains("--features \"sdl wup\""));
     assert!(text.contains("-- --sdl --play --input-trace --no-ucf"));
+    assert!(!text.contains("--friend-connect"));
+    assert!(!text.contains("--netplay-delay"));
     assert!(text.contains("Open State Graphs.cmd"));
 }
 
@@ -1498,6 +3139,23 @@ fn legacy_sprite_cue_uses_state_frame_and_facing_deterministically() {
 }
 
 #[test]
+fn render_scene_uses_source_animation_frame_for_legacy_sprite_cue() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_state_frames[0] = 0;
+    frame.player_animation_frames[0] = 1;
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(
+        scene.player_sprites[0].animation,
+        LegacyAnimationKey::Standing
+    );
+    assert_eq!(scene.player_sprites[0].frame, "Standing2.png");
+}
+
+#[test]
 fn debug_overlay_reports_core_frame_and_checksum() {
     let world = World::for_two_players();
     let render_frame = RenderFrame::from_world(&world);
@@ -1527,7 +3185,10 @@ fn debug_overlay_reports_each_player_motion_state_for_play_window() {
 
     assert_eq!(
         overlay.player_state_lines,
-        ["P1 WALKSLOW F0".to_string(), "P2 DASH F0".to_string(),]
+        [
+            "P1 A15 WALKSLOW F0 D0 K0.0 H0 S0".to_string(),
+            "P2 A20 DASH F0 D0 K0.0 H0 S0".to_string(),
+        ]
     );
 }
 
@@ -1570,6 +3231,77 @@ fn frame_debug_log_reports_match_intro_and_entry_platform_cues() {
 }
 
 #[test]
+fn frame_debug_log_reports_canonical_source_hit_confirms() {
+    let world = World::for_two_players();
+    let inputs = [PlayerInput::neutral(), PlayerInput::neutral()];
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_positions[1] = frame.player_positions[0];
+    frame.player_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_motion_states[0] = MotionState::Wait;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(65));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("AttackAirN"));
+    frame.player_source_pose_frames[0] = 7;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_grounded[1] = false;
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    let line = FrameDebugLog::from_frame_and_scene(&frame, &scene, inputs).to_json_line();
+    let parsed: serde_json::Value = serde_json::from_str(&line).expect("debug log must be json");
+    let confirms = parsed["source_hit_confirms"]
+        .as_array()
+        .expect("debug log should expose source hit confirms");
+    let hitbox_one = confirms
+        .iter()
+        .find(|confirm| confirm["attacker_index"] == 0 && confirm["hitbox_id"] == 1)
+        .expect("AttackAirN source frame 7 should log hitbox id 1 confirm");
+
+    assert_eq!(hitbox_one["victim_index"], 1);
+    assert_eq!(hitbox_one["action_state_id"], 65);
+    assert_eq!(hitbox_one["source_action_key"], "AttackAirN");
+    assert_eq!(hitbox_one["source_frame"], 7);
+    assert_eq!(hitbox_one["hitbox"]["damage"], 5);
+    assert_eq!(hitbox_one["hitbox"]["angle"], 78);
+    assert_eq!(hitbox_one["hitbox"]["knockback_growth"], 100);
+    assert_eq!(hitbox_one["hitbox"]["weight_set_knockback"], 40);
+    assert_eq!(hitbox_one["hitbox"]["base_knockback"], 0);
+    assert_eq!(hitbox_one["hitbox"]["element"], 0);
+    assert_eq!(hitbox_one["hitbox"]["shield_damage"], 0);
+    assert_eq!(hitbox_one["hitbox"]["hit_grounded"], true);
+    assert_eq!(hitbox_one["hitbox"]["hit_aerial"], true);
+
+    let damage_stages = parsed["source_damage_stages"]
+        .as_array()
+        .expect("debug log should expose source damage stages");
+    let damage_stage = damage_stages
+        .iter()
+        .find(|stage| stage["attacker_index"] == 0 && stage["hitbox_id"] == 1)
+        .expect("AttackAirN source frame 7 should log hitbox id 1 damage stage");
+    assert_eq!(damage_stage["victim_index"], 1);
+    assert_eq!(damage_stage["damage"], 5.0);
+    assert_eq!(damage_stage["env_damage"], 5);
+    assert_eq!(damage_stage["unk_count"], 5);
+    assert_eq!(damage_stage["source_action_key"], "AttackAirN");
+
+    let damage_results = parsed["source_damage_results"]
+        .as_array()
+        .expect("debug log should expose selected source damage results");
+    let damage_result = damage_results
+        .iter()
+        .find(|result| result["victim_index"] == 1)
+        .expect("AttackAirN source frame 7 should log selected player two damage result");
+    assert_eq!(damage_result["attacker_index"], 0);
+    assert_eq!(damage_result["source_action_key"], "AttackAirN");
+    assert_eq!(damage_result["angle"], damage_result["hitbox"]["angle"]);
+    assert_eq!(damage_result["element"], damage_result["hitbox"]["element"]);
+    assert!(
+        damage_result["knockback"]
+            .as_f64()
+            .expect("damage result knockback should be numeric")
+            > 0.0
+    );
+}
+
+#[test]
 fn debug_overlay_reports_udp_packet_stats_when_available() {
     let world = World::for_two_players();
     let render_frame = RenderFrame::from_world(&world);
@@ -1584,7 +3316,7 @@ fn debug_overlay_reports_udp_packet_stats_when_available() {
 
     assert!(overlay
         .lines
-        .contains(&"UDP TX 1 RX 1 DUP 1 MISS 1".to_string()));
+        .contains(&"UDP TX 1 RX 1 DUP 1 MISS 1 RB 0".to_string()));
     assert!(overlay
         .lines
         .contains(&"REMOTE FRAME 7 CHECKSUM 4660".to_string()));
@@ -1689,6 +3421,22 @@ fn udp_runtime_stats_estimate_rtt_from_acknowledged_timing_probe() {
     assert_eq!(stats.last_remote_sequence, Some(21));
     assert_eq!(stats.last_acked_sequence, Some(6));
     assert_eq!(stats.last_rtt_frames, Some(8));
+}
+
+#[test]
+fn udp_runtime_stats_do_not_move_ack_or_remote_sequence_backwards() {
+    let mut stats = UdpRuntimeStats::default();
+    let newest =
+        InputPacket::new(Frame(12), 1, PlayerInput::neutral(), 12).with_timing_probe(12, 8);
+    let older = InputPacket::new(Frame(9), 1, PlayerInput::neutral(), 9).with_timing_probe(9, 5);
+
+    stats.record_accept_at(Frame(13), PacketAcceptResult::Accepted, newest);
+    stats.record_accept_at(Frame(13), PacketAcceptResult::Accepted, older);
+
+    assert_eq!(stats.last_remote_frame, Some(Frame(12)));
+    assert_eq!(stats.last_remote_sequence, Some(12));
+    assert_eq!(stats.last_acked_sequence, Some(8));
+    assert_eq!(stats.last_rtt_frames, Some(5));
 }
 
 #[test]
@@ -2885,6 +4633,85 @@ fn input_trace_writer_creates_jsonl_file_in_requested_directory() {
         .starts_with("controller-input-trace-"));
     assert!(text.ends_with('\n'));
     assert!(text.contains("\"input_backend\":\"wup\""));
+}
+
+#[test]
+fn input_trace_writer_stops_before_configured_size_cap() {
+    let dir = std::env::temp_dir().join(format!(
+        "mole-runtime-input-trace-cap-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos()
+    ));
+    let mut mapper = WupInputMapper::default();
+    let trace = mapper.map_ports_to_input_trace([
+        WupPort {
+            connected: true,
+            pad: GameCubePadStatus::neutral(),
+        },
+        WupPort::default(),
+        WupPort::default(),
+        WupPort::default(),
+    ]);
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let log = ControllerInputTraceLog::from_wup_trace(Frame(0), &trace, &frame, &frame);
+    let first_line_bytes = log.to_json_line().len() as u64 + 1;
+    let mut writer = InputTraceWriter::create_in_dir_with_limits(&dir, first_line_bytes, 8)
+        .expect("input trace writer should open a capped JSONL file");
+
+    writer
+        .write_line(&log)
+        .expect("first trace line should fit exactly at the cap");
+    writer
+        .write_line(&log)
+        .expect("extra trace lines past the cap should be skipped without crashing gameplay");
+
+    let text = std::fs::read_to_string(writer.path()).expect("trace file should be readable");
+    assert_eq!(text.lines().count(), 1);
+    assert!(std::fs::metadata(writer.path()).unwrap().len() <= first_line_bytes);
+}
+
+#[test]
+fn input_trace_writer_prunes_old_trace_files_before_creating_new_one() {
+    let dir = std::env::temp_dir().join(format!(
+        "mole-runtime-input-trace-prune-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).expect("trace dir should be creatable");
+    for index in 0..5 {
+        std::fs::write(
+            dir.join(format!("controller-input-trace-{index}.jsonl")),
+            "{}\n",
+        )
+        .expect("seed trace should be writable");
+    }
+    std::fs::write(dir.join("input-debug-old.jsonl"), "{}\n")
+        .expect("non-controller debug logs are owned by older tooling");
+
+    let writer = InputTraceWriter::create_in_dir_with_limits(&dir, 1024, 3)
+        .expect("input trace writer should prune and open a JSONL file");
+    drop(writer);
+
+    let mut controller_traces = std::fs::read_dir(&dir)
+        .expect("trace dir should be readable")
+        .map(|entry| entry.expect("dir entry should be readable").path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("controller-input-trace-"))
+        })
+        .collect::<Vec<_>>();
+    controller_traces.sort();
+
+    assert_eq!(controller_traces.len(), 3);
+    assert!(!dir.join("controller-input-trace-0.jsonl").exists());
+    assert!(!dir.join("controller-input-trace-1.jsonl").exists());
+    assert!(dir.join("input-debug-old.jsonl").exists());
 }
 
 #[test]

@@ -1135,7 +1135,20 @@ def format_ecb_coverage(coverage: dict[str, Any]) -> str:
     mapped = coverage.get("mapped_motion_states", [])
     missing = coverage.get("missing_sampled_mappings", [])
     unmapped = coverage.get("unmapped_derived_motion_states", [])
-    no_submotion = coverage.get("no_action_submotion_motion_states", [])
+    action_groups: dict[Any, list[str]] = {}
+    for row in mapped:
+        if not isinstance(row, dict):
+            continue
+        action_id = row.get("action_state_id")
+        motion_state = row.get("motion_state")
+        if action_id is None or motion_state is None:
+            continue
+        action_groups.setdefault(action_id, []).append(str(motion_state))
+    shared_aliases = [
+        (action_id, motion_states)
+        for action_id, motion_states in action_groups.items()
+        if len(motion_states) > 1
+    ]
     lines = [
         str(coverage.get("title", "ECB Coverage")),
         "",
@@ -1151,19 +1164,18 @@ def format_ecb_coverage(coverage: dict[str, Any]) -> str:
         lines.extend(f"- {state}" for state in unmapped)
     else:
         lines.append("- none")
-    lines.extend(["", "No action-submotion ECB states:"])
-    if no_submotion:
+    lines.extend(["", "Shared source-action aliases:"])
+    if shared_aliases:
         lines.extend(
-            "- {motion_state}: {reason}".format(**row)
-            for row in no_submotion
-            if isinstance(row, dict)
+            f"- action {action_id}: {', '.join(motion_states)}"
+            for action_id, motion_states in shared_aliases
         )
     else:
         lines.append("- none")
     lines.extend(
         [
             "",
-            "Do not alias these states to nearby animation records. Split real derived states, and justify source states whose motion-state table uses ftCo_SM_None.",
+            "Shared aliases must point at the exact Melee source action data they use at runtime.",
             "",
             "Mapped states:",
         ]
