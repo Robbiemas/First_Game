@@ -439,3 +439,13 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Verification for this slice:
   - `cargo fmt --check`
   - `cargo test -p mole_devtool`
+
+## 2026-06-11 state graph interaction canvas
+
+- Added a small Rust-owned state graph interaction model for per-graph canvas view state, zoom clamping, pan offsets, node hit-testing, edge hit-testing, and selection detail formatting.
+- The State Graphs tab now preserves a view for each graph pane, exposes zoom/reset controls, supports middle/right-drag panning, and lets the user click nodes or edges to inspect their parity metadata.
+- Selected nodes and edges are highlighted directly on the canvas while the detail pane below the graph panes shows source/status/value metadata from the same graph document model.
+- Node dragging, layout save, edge label visibility, and edge label pinning remain separate open plan items.
+- Verification for this slice:
+  - `cargo fmt --check`
+  - `cargo test -p mole_devtool`

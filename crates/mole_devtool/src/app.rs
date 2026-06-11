@@ -5,11 +5,14 @@ use crate::move_keyframes::{
 };
 use crate::parity_ledger::ParityLedgerSurface;
 use crate::slippi_replay::{SlippiReplayLoadOptions, SlippiReplaySurface};
-use crate::state_graphs::{StateGraphCanvasPair, StateGraphsSurface};
+use crate::state_graphs::{
+    StateGraphCanvasPair, StateGraphCanvasView, StateGraphSelection, StateGraphsSurface,
+};
 use crate::ui;
 use crate::ParityLedgerViewModel;
 use eframe::egui;
 use mole_ledger::LedgerMap;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +36,8 @@ pub struct ParityLedgerApp {
     pub(crate) view_model: ParityLedgerViewModel,
     pub(crate) state_graphs: StateGraphsSurface,
     pub(crate) state_graph_canvas: StateGraphCanvasPair,
+    pub(crate) state_graph_canvas_views: BTreeMap<String, StateGraphCanvasView>,
+    pub(crate) state_graph_selection: Option<StateGraphSelection>,
     pub(crate) parity_ledger: ParityLedgerSurface,
     pub(crate) ecb_coverage: EcbCoverageSurface,
     pub(crate) input_trace: InputTraceSurface,
@@ -112,10 +117,13 @@ impl ParityLedgerApp {
         let slippi_replay_max_frames = slippi_replay.rows.len().max(1);
         let state_graph_canvas = StateGraphCanvasPair::load(&workspace_root)
             .unwrap_or_else(|_| StateGraphCanvasPair::empty());
+        let state_graph_canvas_views = state_graph_canvas_views_from_pair(&state_graph_canvas);
         Self {
             view_model,
             state_graphs,
             state_graph_canvas,
+            state_graph_canvas_views,
+            state_graph_selection: None,
             parity_ledger,
             ecb_coverage,
             input_trace,
@@ -237,6 +245,12 @@ impl ParityLedgerApp {
         self.state_graphs.nodes.len() + self.state_graphs.edges.len()
     }
 
+    pub fn state_graph_selection_detail(&self, selection: &StateGraphSelection) -> Option<String> {
+        self.state_graph_canvas
+            .graph(selection.graph_id())
+            .and_then(|graph| selection.detail(graph))
+    }
+
     pub fn ecb_coverage_motion_state_count(&self) -> usize {
         self.ecb_coverage.mapped_motion_states.len()
     }
@@ -337,7 +351,9 @@ impl ParityLedgerApp {
     }
 
     fn with_state_graph_canvas(mut self, state_graph_canvas: StateGraphCanvasPair) -> Self {
+        self.state_graph_canvas_views = state_graph_canvas_views_from_pair(&state_graph_canvas);
         self.state_graph_canvas = state_graph_canvas;
+        self.state_graph_selection = None;
         self
     }
 }
@@ -355,6 +371,20 @@ fn workspace_root() -> Result<PathBuf, String> {
         .and_then(Path::parent)
         .map(|path| path.to_path_buf())
         .ok_or_else(|| "failed to resolve workspace root from CARGO_MANIFEST_DIR".to_string())
+}
+
+fn state_graph_canvas_views_from_pair(
+    pair: &StateGraphCanvasPair,
+) -> BTreeMap<String, StateGraphCanvasView> {
+    pair.graphs
+        .iter()
+        .map(|graph| {
+            (
+                graph.id.clone(),
+                StateGraphCanvasView::from_graph_zoom(graph.zoom),
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -395,6 +425,13 @@ mod tests {
         assert_eq!(app.state_graph_canvas.graphs.len(), 2);
         assert!(app.state_graph_canvas.graph("melee_reference").is_some());
         assert!(app.state_graph_canvas.graph("mole_current").is_some());
+        assert_eq!(app.state_graph_canvas_views.len(), 2);
+        assert_eq!(
+            app.state_graph_canvas_views
+                .get("melee_reference")
+                .map(|view| view.zoom),
+            Some(0.712)
+        );
         assert_eq!(app.ledger_tab_count(), 5);
         assert_eq!(app.ecb_coverage_motion_state_count(), 72);
         assert_eq!(app.input_trace_row_count(), 9);
@@ -413,6 +450,20 @@ mod tests {
                 .map(|tree| tree.root.as_str()),
             Some("PlyCaptain5K_Share_joint")
         );
+    }
+
+    #[test]
+    fn app_state_graph_selection_exposes_detail_text() {
+        let app = ParityLedgerApp::load(workspace_root().unwrap()).unwrap();
+        let selection = crate::state_graphs::StateGraphSelection::Node {
+            graph_id: "mole_current".to_string(),
+            id: "Wait".to_string(),
+        };
+
+        assert!(app
+            .state_graph_selection_detail(&selection)
+            .expect("selection detail")
+            .contains("node: Wait"));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    state_graphs::StateGraphDocument,
+    state_graphs::{StateGraphCanvasView, StateGraphDocument, StateGraphSelection},
     template::render_spreadsheet_table,
     theme::{devtool_theme, status_palette},
     AppSection, LedgerTabTemplate, ParityLedgerApp, ThemeMode,
@@ -159,6 +159,7 @@ fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     ui.label(format!("Layout: {}", app.state_graph_canvas.layout_path));
     ui.separator();
     render_state_graph_canvas_pair(ui, app);
+    render_state_graph_selection_detail(ui, app);
     ui.separator();
 
     let template = LedgerTabTemplate::from(&app.state_graphs);
@@ -179,7 +180,7 @@ fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     app.selected_state_graph_row = selected_row;
 }
 
-fn render_state_graph_canvas_pair(ui: &mut egui::Ui, app: &ParityLedgerApp) {
+fn render_state_graph_canvas_pair(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     if app.state_graph_canvas.graphs.is_empty() {
         ui.label("No state graph canvas data available.");
         return;
@@ -193,34 +194,78 @@ fn render_state_graph_canvas_pair(ui: &mut egui::Ui, app: &ParityLedgerApp) {
         available_width.max(320.0)
     };
     let pane_height = 390.0;
+    let graphs = app.state_graph_canvas.graphs.clone();
     ui.horizontal_top(|ui| {
-        for graph in &app.state_graph_canvas.graphs {
+        for graph in &graphs {
             ui.allocate_ui_with_layout(
                 egui::vec2(pane_width, pane_height),
                 egui::Layout::top_down(egui::Align::Min),
-                |ui| render_state_graph_canvas(ui, app.theme(), graph),
+                |ui| render_state_graph_canvas(ui, app, graph),
             );
         }
     });
 }
 
-fn render_state_graph_canvas(ui: &mut egui::Ui, theme: ThemeMode, graph: &StateGraphDocument) {
+fn render_state_graph_canvas(
+    ui: &mut egui::Ui,
+    app: &mut ParityLedgerApp,
+    graph: &StateGraphDocument,
+) {
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.vertical(|ui| {
+            let theme = app.theme();
             ui.horizontal(|ui| {
                 ui.heading(&graph.title);
+                let view = app
+                    .state_graph_canvas_views
+                    .entry(graph.id.clone())
+                    .or_insert_with(|| StateGraphCanvasView::from_graph_zoom(graph.zoom));
                 ui.label(format!(
                     "{} nodes | {} edges | zoom {:.2}x",
                     graph.nodes.len(),
                     graph.edges.len(),
-                    graph.zoom
+                    view.zoom
                 ));
+                if ui.small_button("-").clicked() {
+                    view.zoom_by(0.85);
+                }
+                if ui.small_button("+").clicked() {
+                    view.zoom_by(1.15);
+                }
+                if ui.small_button("Reset").clicked() {
+                    *view = StateGraphCanvasView::from_graph_zoom(graph.zoom);
+                }
             });
             if !graph.description.is_empty() {
                 ui.label(&graph.description);
             }
             let desired_size = egui::vec2(ui.available_width().max(280.0), 300.0);
-            let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+            let (rect, response) =
+                ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
+            let canvas_rect = rect.shrink(16.0);
+            let canvas_size = [canvas_rect.width() as f64, canvas_rect.height() as f64];
+            if response.dragged_by(egui::PointerButton::Secondary)
+                || response.dragged_by(egui::PointerButton::Middle)
+            {
+                if let Some(view) = app.state_graph_canvas_views.get_mut(&graph.id) {
+                    let delta = ui.input(|input| input.pointer.delta());
+                    view.pan_by([delta.x as f64, delta.y as f64]);
+                }
+            }
+            let view = *app
+                .state_graph_canvas_views
+                .entry(graph.id.clone())
+                .or_insert_with(|| StateGraphCanvasView::from_graph_zoom(graph.zoom));
+            if response.clicked() {
+                if let Some(pointer) = response.interact_pointer_pos() {
+                    let point = [
+                        (pointer.x - canvas_rect.left()) as f64,
+                        (pointer.y - canvas_rect.top()) as f64,
+                    ];
+                    app.state_graph_selection =
+                        graph.selection_at_canvas_point(&view, canvas_size, point);
+                }
+            }
             let painter = ui.painter_at(rect);
             let theme_palette = devtool_theme(theme);
             painter.rect_filled(rect, 4.0, theme_palette.workbench_fill);
@@ -230,8 +275,43 @@ fn render_state_graph_canvas(ui: &mut egui::Ui, theme: ThemeMode, graph: &StateG
                 egui::Stroke::new(1.0, theme_palette.panel_border),
                 egui::StrokeKind::Inside,
             );
-            draw_state_graph_document(&painter, rect.shrink(16.0), theme, graph);
+            draw_state_graph_document(
+                &painter,
+                canvas_rect,
+                theme,
+                graph,
+                &view,
+                app.state_graph_selection.as_ref(),
+            );
         });
+    });
+}
+
+fn render_state_graph_selection_detail(ui: &mut egui::Ui, app: &ParityLedgerApp) {
+    let Some(selection) = app.state_graph_selection.as_ref() else {
+        ui.label("Select a graph node or edge to inspect its source, status, and parity metadata.");
+        return;
+    };
+    ui.separator();
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.heading("Selection");
+        match selection {
+            StateGraphSelection::Node { graph_id, id } => {
+                ui.label(format!("Node: {id} ({graph_id})"));
+            }
+            StateGraphSelection::Edge { graph_id, index } => {
+                ui.label(format!("Edge #{index} ({graph_id})"));
+            }
+        }
+        if let Some(detail) = app.state_graph_selection_detail(selection) {
+            let mut detail_text = detail;
+            ui.add(
+                egui::TextEdit::multiline(&mut detail_text)
+                    .font(egui::TextStyle::Monospace)
+                    .desired_rows(8)
+                    .interactive(false),
+            );
+        }
     });
 }
 
@@ -240,8 +320,10 @@ fn draw_state_graph_document(
     rect: egui::Rect,
     theme: ThemeMode,
     graph: &StateGraphDocument,
+    view: &StateGraphCanvasView,
+    selected: Option<&StateGraphSelection>,
 ) {
-    let Some(bounds) = graph.bounds() else {
+    if graph.bounds().is_none() {
         painter.text(
             rect.center(),
             egui::Align2::CENTER_CENTER,
@@ -250,20 +332,20 @@ fn draw_state_graph_document(
             devtool_theme(theme).muted_text,
         );
         return;
-    };
+    }
     let positions = graph
         .nodes
         .iter()
         .map(|node| {
             (
                 node.id.as_str(),
-                graph_node_screen_pos(rect, bounds, node.pos),
+                graph_node_screen_pos(rect, graph, view, node.pos),
             )
         })
         .collect::<BTreeMap<_, _>>();
     let node_size = egui::vec2(94.0, 42.0);
 
-    for edge in &graph.edges {
+    for (edge_index, edge) in graph.edges.iter().enumerate() {
         let (Some(from), Some(to)) = (
             positions.get(edge.from.as_str()),
             positions.get(edge.to.as_str()),
@@ -271,9 +353,19 @@ fn draw_state_graph_document(
             continue;
         };
         let palette = status_palette(theme, Some(&edge.status), false);
+        let is_selected = matches!(
+            selected,
+            Some(StateGraphSelection::Edge { graph_id, index })
+                if graph_id == &graph.id && *index == edge_index
+        );
         painter.line_segment(
             [*from, *to],
-            egui::Stroke::new(1.5, palette.border.gamma_multiply(0.85)),
+            egui::Stroke::new(
+                if is_selected { 3.0 } else { 1.5 },
+                palette
+                    .border
+                    .gamma_multiply(if is_selected { 1.0 } else { 0.85 }),
+            ),
         );
         let midpoint = egui::pos2((from.x + to.x) * 0.5, (from.y + to.y) * 0.5);
         painter.circle_filled(midpoint, 3.0, palette.border);
@@ -284,12 +376,17 @@ fn draw_state_graph_document(
             continue;
         };
         let palette = status_palette(theme, Some(&node.status), false);
+        let is_selected = matches!(
+            selected,
+            Some(StateGraphSelection::Node { graph_id, id })
+                if graph_id == &graph.id && id == &node.id
+        );
         let node_rect = egui::Rect::from_center_size(center, node_size);
         painter.rect_filled(node_rect, 4.0, palette.fill);
         painter.rect_stroke(
             node_rect,
             4.0,
-            egui::Stroke::new(1.5, palette.border),
+            egui::Stroke::new(if is_selected { 3.0 } else { 1.5 }, palette.border),
             egui::StrokeKind::Inside,
         );
         painter.text(
@@ -315,17 +412,14 @@ fn draw_state_graph_document(
 
 fn graph_node_screen_pos(
     rect: egui::Rect,
-    bounds: crate::state_graphs::StateGraphBounds,
+    graph: &StateGraphDocument,
+    view: &StateGraphCanvasView,
     pos: [f64; 2],
 ) -> egui::Pos2 {
-    let width = (bounds.max_x - bounds.min_x).max(1.0);
-    let height = (bounds.max_y - bounds.min_y).max(1.0);
-    let x = ((pos[0] - bounds.min_x) / width) as f32;
-    let y = ((pos[1] - bounds.min_y) / height) as f32;
-    egui::pos2(
-        rect.left() + x * rect.width(),
-        rect.top() + y * rect.height(),
-    )
+    let local = graph
+        .graph_position_to_canvas(view, [rect.width() as f64, rect.height() as f64], pos)
+        .unwrap_or([0.0, 0.0]);
+    egui::pos2(rect.left() + local[0] as f32, rect.top() + local[1] as f32)
 }
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {

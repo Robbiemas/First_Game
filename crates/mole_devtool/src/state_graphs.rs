@@ -37,6 +37,18 @@ pub struct StateGraphBounds {
     pub max_y: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StateGraphCanvasView {
+    pub zoom: f64,
+    pub pan: [f64; 2],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StateGraphSelection {
+    Node { graph_id: String, id: String },
+    Edge { graph_id: String, index: usize },
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StateGraphDocument {
     pub id: String,
@@ -276,6 +288,144 @@ impl StateGraphDocument {
         }
         Some(bounds)
     }
+
+    pub fn node_canvas_position(
+        &self,
+        view: &StateGraphCanvasView,
+        canvas_size: [f64; 2],
+        id: &str,
+    ) -> Option<[f64; 2]> {
+        let position = self.node_position(id)?;
+        self.graph_position_to_canvas(view, canvas_size, position)
+    }
+
+    pub fn edge_canvas_midpoint(
+        &self,
+        view: &StateGraphCanvasView,
+        canvas_size: [f64; 2],
+        index: usize,
+    ) -> Option<[f64; 2]> {
+        let edge = self.edges.get(index)?;
+        let from = self.node_canvas_position(view, canvas_size, &edge.from)?;
+        let to = self.node_canvas_position(view, canvas_size, &edge.to)?;
+        Some([(from[0] + to[0]) * 0.5, (from[1] + to[1]) * 0.5])
+    }
+
+    pub fn selection_at_canvas_point(
+        &self,
+        view: &StateGraphCanvasView,
+        canvas_size: [f64; 2],
+        point: [f64; 2],
+    ) -> Option<StateGraphSelection> {
+        for node in self.nodes.iter().rev() {
+            let Some(center) = self.graph_position_to_canvas(view, canvas_size, node.pos) else {
+                continue;
+            };
+            if (point[0] - center[0]).abs() <= STATE_GRAPH_NODE_WIDTH * 0.5
+                && (point[1] - center[1]).abs() <= STATE_GRAPH_NODE_HEIGHT * 0.5
+            {
+                return Some(StateGraphSelection::Node {
+                    graph_id: self.id.clone(),
+                    id: node.id.clone(),
+                });
+            }
+        }
+
+        for (index, edge) in self.edges.iter().enumerate() {
+            let Some(from) = self.node_canvas_position(view, canvas_size, &edge.from) else {
+                continue;
+            };
+            let Some(to) = self.node_canvas_position(view, canvas_size, &edge.to) else {
+                continue;
+            };
+            if point_to_segment_distance(point, from, to) <= STATE_GRAPH_EDGE_HIT_RADIUS {
+                return Some(StateGraphSelection::Edge {
+                    graph_id: self.id.clone(),
+                    index,
+                });
+            }
+        }
+
+        None
+    }
+
+    pub fn graph_position_to_canvas(
+        &self,
+        view: &StateGraphCanvasView,
+        canvas_size: [f64; 2],
+        pos: [f64; 2],
+    ) -> Option<[f64; 2]> {
+        let bounds = self.bounds()?;
+        let width = (bounds.max_x - bounds.min_x).max(1.0);
+        let height = (bounds.max_y - bounds.min_y).max(1.0);
+        let base_x = ((pos[0] - bounds.min_x) / width) * canvas_size[0];
+        let base_y = ((pos[1] - bounds.min_y) / height) * canvas_size[1];
+        let center = [canvas_size[0] * 0.5, canvas_size[1] * 0.5];
+        Some([
+            center[0] + (base_x - center[0]) * view.zoom + view.pan[0],
+            center[1] + (base_y - center[1]) * view.zoom + view.pan[1],
+        ])
+    }
+}
+
+impl StateGraphCanvasView {
+    pub fn from_graph_zoom(zoom: f64) -> Self {
+        Self {
+            zoom: clamp_graph_zoom(zoom),
+            pan: [0.0, 0.0],
+        }
+    }
+
+    pub fn zoom_by(&mut self, factor: f64) {
+        self.zoom = clamp_graph_zoom(self.zoom * factor);
+    }
+
+    pub fn pan_by(&mut self, delta: [f64; 2]) {
+        self.pan[0] += delta[0];
+        self.pan[1] += delta[1];
+    }
+}
+
+impl StateGraphSelection {
+    pub fn graph_id(&self) -> &str {
+        match self {
+            StateGraphSelection::Node { graph_id, .. }
+            | StateGraphSelection::Edge { graph_id, .. } => graph_id,
+        }
+    }
+
+    pub fn detail(&self, graph: &StateGraphDocument) -> Option<String> {
+        if self.graph_id() != graph.id {
+            return None;
+        }
+        match self {
+            StateGraphSelection::Node { id, .. } => {
+                let node = graph.nodes.iter().find(|node| node.id == *id)?;
+                Some(format!(
+                    "node: {}\nlabel: {}\nstatus: {}\nposition: {:.3}, {:.3}\n{}",
+                    node.id,
+                    non_empty_or_dash(&node.label),
+                    non_empty_or_dash(&node.status),
+                    node.pos[0],
+                    node.pos[1],
+                    metadata_detail(&node.metadata)
+                ))
+            }
+            StateGraphSelection::Edge { index, .. } => {
+                let edge = graph.edges.get(*index)?;
+                Some(format!(
+                    "edge: {} -> {}\nlabel: {}\ninput: {}\nframes: {}\nstatus: {}\n{}",
+                    edge.from,
+                    edge.to,
+                    edge.label.as_deref().unwrap_or("-"),
+                    non_empty_or_dash(&edge.input),
+                    non_empty_or_dash(&edge.frames),
+                    non_empty_or_dash(&edge.status),
+                    metadata_detail(&edge.metadata)
+                ))
+            }
+        }
+    }
 }
 
 impl From<&StateGraphsSurface> for LedgerTabTemplate {
@@ -395,6 +545,42 @@ fn compact_json(value: Option<&serde_json::Value>) -> String {
         .unwrap_or_else(|| "-".to_string())
 }
 
+const STATE_GRAPH_NODE_WIDTH: f64 = 94.0;
+const STATE_GRAPH_NODE_HEIGHT: f64 = 42.0;
+const STATE_GRAPH_EDGE_HIT_RADIUS: f64 = 8.0;
+
+fn point_to_segment_distance(point: [f64; 2], from: [f64; 2], to: [f64; 2]) -> f64 {
+    let segment = [to[0] - from[0], to[1] - from[1]];
+    let length_squared = segment[0] * segment[0] + segment[1] * segment[1];
+    if length_squared <= f64::EPSILON {
+        return ((point[0] - from[0]).powi(2) + (point[1] - from[1]).powi(2)).sqrt();
+    }
+    let t = (((point[0] - from[0]) * segment[0] + (point[1] - from[1]) * segment[1])
+        / length_squared)
+        .clamp(0.0, 1.0);
+    let projection = [from[0] + segment[0] * t, from[1] + segment[1] * t];
+    ((point[0] - projection[0]).powi(2) + (point[1] - projection[1]).powi(2)).sqrt()
+}
+
+fn metadata_detail(metadata: &BTreeMap<String, Value>) -> String {
+    if metadata.is_empty() {
+        return "metadata: -".to_string();
+    }
+    metadata
+        .iter()
+        .map(|(key, value)| format!("{key}: {}", compact_json(Some(value))))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn non_empty_or_dash(value: &str) -> &str {
+    if value.is_empty() {
+        "-"
+    } else {
+        value
+    }
+}
+
 fn load_state_graph_document(path: &Path) -> Result<StateGraphDocument, String> {
     let text = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
@@ -472,5 +658,130 @@ mod tests {
         let bounds = mole.bounds().expect("bounds");
         assert!(bounds.max_x > bounds.min_x);
         assert!(bounds.max_y > bounds.min_y);
+    }
+
+    #[test]
+    fn state_graph_canvas_view_clamps_zoom_and_tracks_pan() {
+        let mut view = StateGraphCanvasView::from_graph_zoom(1.0);
+
+        view.zoom_by(10.0);
+        assert_eq!(view.zoom, 2.75);
+
+        view.zoom_by(0.01);
+        assert_eq!(view.zoom, 0.35);
+
+        view.pan_by([12.0, -8.0]);
+        assert_eq!(view.pan, [12.0, -8.0]);
+    }
+
+    #[test]
+    fn state_graph_canvas_hit_testing_selects_nodes_and_edges() {
+        let graph = StateGraphDocument {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            root: "Wait".to_string(),
+            description: String::new(),
+            zoom: 1.0,
+            nodes: vec![
+                StateGraphNode {
+                    id: "Wait".to_string(),
+                    label: "Wait".to_string(),
+                    pos: [0.0, 0.0],
+                    status: "complete".to_string(),
+                    metadata: BTreeMap::new(),
+                },
+                StateGraphNode {
+                    id: "Dash".to_string(),
+                    label: "Dash".to_string(),
+                    pos: [10.0, 0.0],
+                    status: "missing".to_string(),
+                    metadata: BTreeMap::new(),
+                },
+            ],
+            edges: vec![StateGraphEdge {
+                from: "Wait".to_string(),
+                to: "Dash".to_string(),
+                input: "stick_x".to_string(),
+                frames: "1".to_string(),
+                label: Some("Dash input".to_string()),
+                status: "partial".to_string(),
+                metadata: BTreeMap::new(),
+            }],
+        };
+        let view = StateGraphCanvasView::from_graph_zoom(graph.zoom);
+        let canvas_size = [320.0, 180.0];
+        let wait = graph
+            .node_canvas_position(&view, canvas_size, "Wait")
+            .expect("wait position");
+        let edge_midpoint = graph
+            .edge_canvas_midpoint(&view, canvas_size, 0)
+            .expect("edge midpoint");
+
+        assert_eq!(
+            graph.selection_at_canvas_point(&view, canvas_size, wait),
+            Some(StateGraphSelection::Node {
+                graph_id: "test".to_string(),
+                id: "Wait".to_string()
+            })
+        );
+        assert_eq!(
+            graph.selection_at_canvas_point(&view, canvas_size, edge_midpoint),
+            Some(StateGraphSelection::Edge {
+                graph_id: "test".to_string(),
+                index: 0
+            })
+        );
+    }
+
+    #[test]
+    fn state_graph_selection_details_expose_node_and_edge_values() {
+        let mut metadata = BTreeMap::new();
+        metadata.insert(
+            "notes".to_string(),
+            Value::String("grounded idle".to_string()),
+        );
+        let graph = StateGraphDocument {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            root: "Wait".to_string(),
+            description: String::new(),
+            zoom: 1.0,
+            nodes: vec![StateGraphNode {
+                id: "Wait".to_string(),
+                label: "Wait".to_string(),
+                pos: [0.0, 0.0],
+                status: "complete".to_string(),
+                metadata: metadata.clone(),
+            }],
+            edges: vec![StateGraphEdge {
+                from: "Wait".to_string(),
+                to: "Wait".to_string(),
+                input: "none".to_string(),
+                frames: "1".to_string(),
+                label: Some("loop".to_string()),
+                status: "complete".to_string(),
+                metadata,
+            }],
+        };
+
+        let node_detail = StateGraphSelection::Node {
+            graph_id: "test".to_string(),
+            id: "Wait".to_string(),
+        }
+        .detail(&graph)
+        .expect("node detail");
+        assert!(node_detail.contains("node: Wait"));
+        assert!(node_detail.contains("status: complete"));
+        assert!(node_detail.contains("notes: grounded idle"));
+
+        let edge_detail = StateGraphSelection::Edge {
+            graph_id: "test".to_string(),
+            index: 0,
+        }
+        .detail(&graph)
+        .expect("edge detail");
+        assert!(edge_detail.contains("edge: Wait -> Wait"));
+        assert!(edge_detail.contains("input: none"));
+        assert!(edge_detail.contains("label: loop"));
     }
 }

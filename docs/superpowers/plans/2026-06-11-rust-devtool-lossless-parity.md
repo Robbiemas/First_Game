@@ -39,7 +39,7 @@
 
 - [x] Add a Rust view model that loads both Melee reference and Mole current graphs.
 - [x] Render two side-by-side egui graph canvases with status colors matching the Python palette.
-- [ ] Add pan/zoom, node selection, edge selection, and detail panes.
+- [x] Add pan/zoom, node selection, edge selection, and detail panes.
 - [ ] Add node dragging and save-layout support.
 - [ ] Add edge label visibility and pinning with linked equivalent edge behavior.
 - [x] Add CLI parity for graph layout inspection if missing.
