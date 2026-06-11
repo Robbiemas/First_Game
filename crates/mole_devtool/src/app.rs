@@ -656,7 +656,7 @@ mod tests {
     }
 
     #[test]
-    fn app_move_keyframe_selectors_load_manifest_only_states_without_edit_path() {
+    fn app_move_keyframe_selectors_load_manifest_states_as_sampled_read_only_views() {
         let root = workspace_root().unwrap();
         let mut app = ParityLedgerApp::load(&root).unwrap();
 
@@ -665,8 +665,20 @@ mod tests {
         assert_eq!(app.selected_move_keyframe_character_id, "dolphin_mole");
         assert_eq!(app.selected_move_keyframe_state, "AttackLw3");
         assert_eq!(app.selected_move_keyframe_state_label(), "AttackLw3");
-        assert!(app.move_keyframes.keyframes.is_empty());
-        assert!(app.move_keyframes.summary.total_frames > 0);
+        assert_eq!(
+            app.move_keyframes.keyframes.len(),
+            app.move_keyframes.summary.total_frames
+        );
+        assert!(app
+            .move_keyframes
+            .keyframes
+            .iter()
+            .any(|frame| !frame.hurtboxes.is_empty()));
+        assert!(app
+            .move_keyframes
+            .keyframes
+            .iter()
+            .any(|frame| !frame.hitboxes.is_empty()));
         assert!(app.move_keyframes_editor.artifact_path().is_none());
     }
 }

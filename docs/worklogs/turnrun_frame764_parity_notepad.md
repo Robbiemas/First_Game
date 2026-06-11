@@ -489,3 +489,14 @@ Purpose: a short working note for the current parity investigation so I can resu
   - `cargo test -p mole_devtool`
   - `cargo test -p mole_ledger -p mole_devtool -p mole_cli`
   - `cargo run -p mole_cli -- generated write-ledger-map --write --json`
+
+## 2026-06-11 move keyframes manifest sampling fix
+
+- Fixed the blank-state path when selecting compact manifest states such as `AttackLw3`.
+- `MoveKeyframesSurface::load_for_character_state` now falls back from missing materialized artifacts to `mole_frame_data::sample_action_keyframes`, the same Rust sampler family used by CLI frame-data sampling.
+- Manifest-backed views now populate sampled frame rows, active hitbox/hurtbox windows, and provenance while keeping `artifact_path` empty so they remain read-only browser views until typed edit/export primitives exist.
+- The runtime preview binding now follows the selected surface's runtime motion state and source binding instead of hardcoding `AttackAirN`, so changing states advances the real runtime scene for the chosen state.
+- Reduced duplicate state-name plumbing by promoting runtime `MotionState` lookup, source-action aliases, and the variant list into `mole_core`; the CLI and GUI now share the same primitive.
+- Regression coverage:
+  - `cargo test -p mole_devtool move_keyframes_loads_manifest_state_as_sampled_read_only_browser_view`
+  - `cargo test -p mole_devtool app_move_keyframe_selectors_load_manifest_states_as_sampled_read_only_views`

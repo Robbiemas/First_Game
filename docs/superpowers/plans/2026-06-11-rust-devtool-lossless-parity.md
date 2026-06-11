@@ -81,7 +81,7 @@
 - Modify runtime export/import modules as needed.
 
 - [x] Populate character and state selectors from artifact discovery instead of single current values.
-- [ ] Preserve live sampling from compact source manifests.
+- [x] Preserve live sampling from compact source manifests.
 - [x] Make the selected-frame viewport render the Rust runtime scene on a basic single-floor stage rather than a standalone diagram.
 - [x] Add frame-step controls so clicking keyframes or stepping arrows moves the runtime pose and volumes forward and backward one frame at a time.
 - [ ] Edit every hitbox, hurtbox, body volume, and pose joint, not just the first item.

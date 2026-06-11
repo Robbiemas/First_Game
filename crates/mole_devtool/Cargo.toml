@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 eframe = { version = "0.34.3", default-features = true }
 mole_core = { path = "../mole_core" }
+mole_frame_data = { path = "../mole_frame_data" }
 mole_ledger = { path = "../mole_ledger" }
 mole_runtime = { path = "../mole_runtime" }
 serde = { version = "1", features = ["derive"] }

@@ -1,8 +1,10 @@
 use crate::{LedgerTabTemplate, LedgerTabTemplateRow};
 use mole_core::{
-    melee_units_f32, EcbDiamond, MeleeActionStateId, MotionState, SourceActionKey, StageBlastZones,
-    StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, World,
+    melee_action_state_id_for_motion_state, melee_units_f32, motion_state_for_runtime_variant,
+    source_binding_for_motion_state, EcbDiamond, MeleeActionStateId, MotionState, SourceActionKey,
+    StageBlastZones, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, World,
 };
+use mole_frame_data::FrameDataSampleOptions;
 use mole_runtime::{RenderFrame, RenderScene};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -275,10 +277,13 @@ impl MoveKeyframesSurface {
         if let Some(value) = manifest.get("schema_version").cloned() {
             extra.insert("schema_version".to_string(), value);
         }
-        extra.insert(
-            "artifact_kind".to_string(),
-            Value::String("source_manifest_action_view".to_string()),
-        );
+        let source_character = manifest
+            .get("source_character")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        if let Some(value) = source_character.clone() {
+            extra.insert("source_character".to_string(), Value::String(value));
+        }
         if let Some(value) = manifest.get("source_character").cloned() {
             extra.insert("source_character".to_string(), value);
         }
@@ -288,27 +293,96 @@ impl MoveKeyframesSurface {
         if let Some(value) = manifest.get("projection").cloned() {
             extra.insert("projection".to_string(), value);
         }
+        if let Some(value) = action.get("runtime_motion_state").cloned() {
+            extra.insert("runtime_motion_state".to_string(), value);
+        }
+        if let Some(value) = action.get("source_action_key").cloned() {
+            extra.insert("source_action_key".to_string(), value);
+        }
         if let Some(value) = action.get("decoded_action_script").cloned() {
             extra.insert("decoded_action_script".to_string(), value);
         }
         extra.insert("manifest_action".to_string(), action.clone());
 
-        Ok(Self {
-            gaps: vec![serde_json::json!({
+        let sample_options = FrameDataSampleOptions {
+            character: character_id.to_string(),
+            source_character,
+            state: state.to_string(),
+            frame: 1,
+        };
+        let sample_result = mole_frame_data::sample_action_keyframes(root, &sample_options);
+        let (keyframes, sample_error) = match sample_result {
+            Ok(samples) => (
+                samples
+                    .iter()
+                    .filter_map(move_keyframe_from_source_sample)
+                    .collect::<Vec<_>>(),
+                None,
+            ),
+            Err(error) => (Vec::new(), Some(error)),
+        };
+        let active_body_volume_windows = contiguous_active_windows(
+            &keyframes,
+            |frame| !frame.body_volumes.is_empty(),
+            "source_manifest_sample",
+        );
+        let active_hitbox_windows = contiguous_active_windows(
+            &keyframes,
+            |frame| !frame.hitboxes.is_empty(),
+            "source_manifest_sample",
+        );
+        let active_hurtbox_windows = contiguous_active_windows(
+            &keyframes,
+            |frame| !frame.hurtboxes.is_empty(),
+            "source_manifest_sample",
+        );
+        let summary_total_frames = total_frames.max(
+            keyframes
+                .iter()
+                .map(|keyframe| keyframe.frame)
+                .max()
+                .unwrap_or_default(),
+        );
+
+        if !keyframes.is_empty() {
+            extra.insert(
+                "artifact_kind".to_string(),
+                Value::String("source_manifest_sampled_view".to_string()),
+            );
+            extra.insert(
+                "sampled_keyframe_count".to_string(),
+                Value::from(keyframes.len()),
+            );
+        } else {
+            extra.insert(
+                "artifact_kind".to_string(),
+                Value::String("source_manifest_action_view".to_string()),
+            );
+        }
+        let mut gaps = vec![serde_json::json!({
+            "field": "artifact_path",
+            "reason": "state is sampled from source_manifest.json; no editable keyframe artifact has been materialized yet"
+        })];
+        if let Some(error) = sample_error {
+            gaps.push(serde_json::json!({
                 "field": "keyframes",
-                "reason": "state is available in source_manifest.json but has not been materialized into an editable keyframe artifact"
-            })],
-            keyframes: Vec::new(),
+                "reason": format!("failed to sample source manifest action: {error}")
+            }));
+        }
+
+        Ok(Self {
+            gaps,
+            keyframes,
             label: Some(label),
             sources,
             state: state.to_string(),
             summary: MoveKeyframesSummary {
-                active_body_volume_windows: Vec::new(),
-                active_hitbox_windows: Vec::new(),
-                active_hurtbox_windows: Vec::new(),
+                active_body_volume_windows,
+                active_hitbox_windows,
+                active_hurtbox_windows,
                 iasa_frame: "unknown".to_string(),
                 landing_lag_frames: "unknown".to_string(),
-                total_frames,
+                total_frames: summary_total_frames,
             },
             target_character,
             target_character_label,
@@ -344,6 +418,87 @@ impl MoveKeyframesSurface {
                 .map(PathBuf::from)
         })
     }
+}
+
+fn move_keyframe_from_source_sample(sample: &Value) -> Option<MoveKeyframe> {
+    let frame = sample
+        .get("frame")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())?;
+    Some(MoveKeyframe {
+        body_volumes: sample_json_array(sample, "body_volumes"),
+        frame,
+        hitboxes: sample_json_array(sample, "hit_capsules"),
+        hurtboxes: sample_json_array(sample, "hurt_capsules"),
+        interpolates_from_previous: frame > 1,
+        pose: serde_json::json!({
+            "source": "mole_frame_data::sample_action_keyframes",
+            "artifact_kind": sample.get("artifact_kind").cloned().unwrap_or(Value::Null),
+            "source_action_key": sample.get("source_action_key").cloned().unwrap_or(Value::Null),
+            "source_action_name": sample.get("source_action_name").cloned().unwrap_or(Value::Null),
+            "action_state_id": sample.get("action_state_id").cloned().unwrap_or(Value::Null),
+            "pose_joint_count": sample.get("pose_joint_count").cloned().unwrap_or(Value::Null),
+            "projection": sample.get("projection").cloned().unwrap_or(Value::Null),
+            "source_root_motion": sample.get("source_root_motion").cloned().unwrap_or(Value::Null),
+            "source_space": sample.get("source_space").cloned().unwrap_or(Value::Null),
+        }),
+    })
+}
+
+fn sample_json_array(sample: &Value, field: &str) -> Vec<Value> {
+    sample
+        .get(field)
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn contiguous_active_windows<F>(
+    keyframes: &[MoveKeyframe],
+    is_active: F,
+    source: &str,
+) -> Vec<Value>
+where
+    F: Fn(&MoveKeyframe) -> bool,
+{
+    let mut windows = Vec::new();
+    let mut start: Option<usize> = None;
+    let mut end = 0;
+
+    for frame in keyframes
+        .iter()
+        .filter(|keyframe| is_active(keyframe))
+        .map(|keyframe| keyframe.frame)
+    {
+        match start {
+            Some(_) if frame <= end + 1 => {
+                end = end.max(frame);
+            }
+            Some(start_frame) => {
+                windows.push(serde_json::json!({
+                    "start": start_frame,
+                    "end": end,
+                    "source": source
+                }));
+                start = Some(frame);
+                end = frame;
+            }
+            None => {
+                start = Some(frame);
+                end = frame;
+            }
+        }
+    }
+
+    if let Some(start_frame) = start {
+        windows.push(serde_json::json!({
+            "start": start_frame,
+            "end": end,
+            "source": source
+        }));
+    }
+
+    windows
 }
 
 pub fn move_keyframes_artifact_path(root: &Path, character_id: &str, state: &str) -> PathBuf {
@@ -871,19 +1026,20 @@ impl MoveKeyframesEditorSurface {
             EcbDiamond::from_bottom_center_and_size(Vec2 { x: 10_000, y: 0 }, 36, 72);
         runtime_frame.player_grounded = [true, true];
         runtime_frame.player_facings = [1, -1];
-        runtime_frame.player_motion_states = [MotionState::AttackAirN, MotionState::Wait];
+        let preview_binding = move_keyframes_preview_binding(&self.surface);
+        runtime_frame.player_motion_states = [preview_binding.motion_state, MotionState::Wait];
         runtime_frame.player_source_pose_motion_states =
-            [MotionState::AttackAirN, MotionState::Wait];
+            [preview_binding.motion_state, MotionState::Wait];
         runtime_frame.player_source_pose_action_state_ids = [
-            Some(MeleeActionStateId::new(65)),
+            preview_binding.action_state_id,
             Some(MeleeActionStateId::new(14)),
         ];
         runtime_frame.player_source_action_keys = [
-            Some(SourceActionKey::new("AttackAirN")),
+            preview_binding.source_action_key,
             Some(SourceActionKey::new("Wait1")),
         ];
         runtime_frame.player_source_pose_action_keys = [
-            Some(SourceActionKey::new("AttackAirN")),
+            preview_binding.source_action_key,
             Some(SourceActionKey::new("Wait1")),
         ];
         runtime_frame.player_source_pose_frames = [source_frame, 1];
@@ -891,7 +1047,7 @@ impl MoveKeyframesEditorSurface {
         runtime_frame.player_state_frames = [source_frame, 1];
         runtime_frame.player_animation_frames = [source_frame, 1];
         runtime_frame.player_action_state_ids = [
-            Some(MeleeActionStateId::new(65)),
+            preview_binding.action_state_id,
             Some(MeleeActionStateId::new(14)),
         ];
         runtime_frame.player_profile_weights = [104.0, 104.0];
@@ -1238,6 +1394,76 @@ fn move_keyframe_point3(value: &Value, key: &str) -> Option<[f64; 3]> {
     Some([x, y, z])
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MoveKeyframesPreviewBinding {
+    motion_state: MotionState,
+    action_state_id: Option<MeleeActionStateId>,
+    source_action_key: Option<SourceActionKey>,
+}
+
+fn move_keyframes_preview_binding(surface: &MoveKeyframesSurface) -> MoveKeyframesPreviewBinding {
+    let parsed_motion_state = move_keyframes_runtime_motion_state(surface);
+    let motion_state = parsed_motion_state.unwrap_or(MotionState::Wait);
+    let source_binding = parsed_motion_state.and_then(source_binding_for_motion_state);
+    let action_state_id = source_binding
+        .map(|binding| binding.action_state_id)
+        .or_else(|| move_keyframes_source_action_state_id(surface))
+        .or_else(|| parsed_motion_state.map(melee_action_state_id_for_motion_state));
+    let source_action_key = source_binding.map(|binding| binding.source_action_key);
+
+    MoveKeyframesPreviewBinding {
+        motion_state,
+        action_state_id,
+        source_action_key,
+    }
+}
+
+fn move_keyframes_runtime_motion_state(surface: &MoveKeyframesSurface) -> Option<MotionState> {
+    surface
+        .extra
+        .get("runtime_motion_state")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            surface
+                .extra
+                .get("manifest_action")
+                .and_then(|action| action.get("runtime_motion_state"))
+                .and_then(Value::as_str)
+        })
+        .or(Some(surface.state.as_str()))
+        .and_then(motion_state_for_runtime_variant)
+}
+
+fn move_keyframes_source_action_state_id(
+    surface: &MoveKeyframesSurface,
+) -> Option<MeleeActionStateId> {
+    surface
+        .extra
+        .get("manifest_action")
+        .and_then(|action| action.get("action_state_id"))
+        .and_then(value_as_u16)
+        .or_else(|| surface.extra.get("action_state_id").and_then(value_as_u16))
+        .or_else(|| {
+            surface.sources.iter().find_map(|source| {
+                let is_source_action_table =
+                    source.get("kind").and_then(Value::as_str) == Some("source_action_table");
+                if is_source_action_table {
+                    source.get("action_state_id").and_then(value_as_u16)
+                } else {
+                    None
+                }
+            })
+        })
+        .map(MeleeActionStateId::new)
+}
+
+fn value_as_u16(value: &Value) -> Option<u16> {
+    value
+        .as_u64()
+        .and_then(|number| u16::try_from(number).ok())
+        .or_else(|| value.as_str().and_then(|text| text.parse::<u16>().ok()))
+}
+
 fn selected_frame_ecb(frame: &MoveKeyframe) -> Option<EcbDiamond> {
     let body_volume = frame.body_volumes.first()?;
     let top = move_keyframe_point2(body_volume, "top")?;
@@ -1345,26 +1571,52 @@ mod tests {
     }
 
     #[test]
-    fn move_keyframes_loads_manifest_only_state_as_read_only_browser_view() {
+    fn move_keyframes_loads_manifest_state_as_sampled_read_only_browser_view() {
         let root = workspace_root();
 
         let surface =
             MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "AttackLw3")
-                .expect("manifest-only state view");
-        let editor =
+                .expect("manifest-backed state view");
+        let mut editor =
             MoveKeyframesEditorSurface::from_surface_with_workspace(surface.clone(), &root)
                 .expect("editor wrapper");
+        let active_hitbox_index = surface
+            .keyframes
+            .iter()
+            .position(|frame| !frame.hitboxes.is_empty())
+            .expect("sampled down tilt should expose active hitbox frames");
+        editor.set_selected_frame_index(active_hitbox_index);
+        let preview = editor.runtime_preview(960, 540).expect("runtime preview");
 
         assert_eq!(surface.target_character_label, "Dolphin Mole");
         assert_eq!(surface.state, "AttackLw3");
         assert_eq!(surface.display_label(), "AttackLw3");
-        assert!(surface.keyframes.is_empty());
-        assert!(surface.summary.total_frames > 0);
+        assert_eq!(surface.keyframes.len(), surface.summary.total_frames);
+        assert_eq!(surface.summary.total_frames, 36);
+        assert!(surface
+            .keyframes
+            .iter()
+            .any(|frame| !frame.hurtboxes.is_empty()));
+        assert!(surface.summary.active_hitbox_windows.iter().any(|window| {
+            window.get("source").and_then(Value::as_str) == Some("source_manifest_sample")
+        }));
         assert_eq!(
             surface.extra.get("artifact_kind").and_then(Value::as_str),
-            Some("source_manifest_action_view")
+            Some("source_manifest_sampled_view")
         );
         assert!(editor.artifact_path().is_none());
+        assert_eq!(
+            preview.frame.player_source_pose_motion_states[0],
+            MotionState::AttackLw3
+        );
+        assert_eq!(
+            preview.frame.player_source_pose_action_state_ids[0],
+            Some(MeleeActionStateId::new(57))
+        );
+        assert!(
+            !preview.scene.player_hitbox_pills[0].is_empty(),
+            "runtime preview should render selected state's source hitboxes"
+        );
     }
 
     #[test]

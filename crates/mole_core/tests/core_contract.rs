@@ -5,8 +5,9 @@ use mole_core::collision::{
 use mole_core::{
     fighter_stick_axis_to_f32, input_common_data_field_sources,
     landing_contact_for_bottom_with_floor_skip, melee_units, melee_units_f32,
-    milli_to_source_units, source_units_to_milli, step_world, step_world_with_source_runtime_data,
-    CommonDataExtractError, CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
+    milli_to_source_units, motion_state_for_runtime_variant, runtime_motion_state_for_source_key,
+    source_units_to_milli, step_world, step_world_with_source_runtime_data, CommonDataExtractError,
+    CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
     FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
     MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
@@ -14593,4 +14594,21 @@ fn world_common_data_drives_fast_fall_gate() {
         world.players()[0].velocity.y,
         -source_units_to_milli(profile.fast_fall_velocity)
     );
+}
+
+#[test]
+fn runtime_motion_state_lookup_handles_source_action_aliases() {
+    assert_eq!(
+        motion_state_for_runtime_variant("AttackLw3"),
+        Some(MotionState::AttackLw3)
+    );
+    assert_eq!(
+        runtime_motion_state_for_source_key("AttackS3S"),
+        Some("AttackS3")
+    );
+    assert_eq!(
+        runtime_motion_state_for_source_key("Attack11"),
+        Some("Attack1")
+    );
+    assert_eq!(motion_state_for_runtime_variant("AttackS3S"), None);
 }

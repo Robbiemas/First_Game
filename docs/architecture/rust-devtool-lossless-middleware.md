@@ -75,6 +75,10 @@ target character -> target state -> frame/keyframe view -> details/provenance
 
 It should match the old Python frontend shape where useful: compact top selectors, primary preview/timeline on the left, and state/frame details on the right. The Rust GUI should list both materialized state artifacts like `resources/melee/frame_data/dolphin_mole/AttackAirN.json` and compact manifest-only actions from `resources/melee/frame_data/<target>/source_manifest.json`.
 
+Manifest-backed states must not appear as blank just because no editable artifact exists. The GUI loads them through the same Rust sampler path used by CLI frame-data sampling, currently `mole_frame_data::sample_action_keyframes`, and projects the sampled hit capsules, hurt capsules, frame counts, active windows, and provenance into the normal `MoveKeyframesSurface`. These sampled views remain read-only and keep `artifact_path` empty until an explicit materialized artifact or typed override workflow exists.
+
+Runtime state-name mapping is a core primitive. Use `mole_core::motion_state_for_runtime_variant`, `mole_core::runtime_motion_state_for_source_key`, and `mole_core::RUST_MOTION_STATE_VARIANTS` from both CLI and GUI code rather than adding tab-local or command-local variant tables.
+
 Import and replacement workflows should wrap the existing Mole CLI frame-data commands rather than creating a GUI-only path. Examples:
 
 - `mole frame-data extract --character dolphin_mole --source-character marth --state AttackLw3 --source-state AttackLw3 --write --json`
