@@ -1586,6 +1586,34 @@ mod tests {
     }
 
     #[test]
+    fn move_keyframes_runtime_preview_is_the_engine_render_scene() {
+        let root = workspace_root();
+        let surface =
+            MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "AttackLw3")
+                .expect("manifest-backed state view");
+        let mut editor =
+            MoveKeyframesEditorSurface::from_surface_with_workspace(surface.clone(), &root)
+                .expect("editor wrapper");
+        let active_hitbox_index = surface
+            .keyframes
+            .iter()
+            .position(|frame| !frame.hitboxes.is_empty())
+            .expect("sampled down tilt should expose active hitbox frames");
+        editor.set_selected_frame_index(active_hitbox_index);
+
+        let preview = editor.runtime_preview(960, 540).expect("runtime preview");
+        let mut expected_scene = RenderScene::from_frame_on_stage(
+            &preview.frame,
+            &StageProfile::dev_flat_test(),
+            960,
+            540,
+        );
+        expected_scene.entry_platforms = [None, None];
+
+        assert_eq!(preview.scene, expected_scene);
+    }
+
+    #[test]
     fn move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding() {
         let root = workspace_root();
 

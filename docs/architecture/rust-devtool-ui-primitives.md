@@ -95,6 +95,8 @@ typed selection -> RenderFrame -> RenderScene on an explicit StageProfile -> GUI
 
 The GUI draw adapter may cache textures and decide how to fit the viewport rectangle, but it must not invent gameplay geometry. Sprites are visual assets, hit/hurt capsules and ECB polygons are runtime scene primitives, and body rectangles are fallback image targets only. Collision primitives should be drawn as wireframes in editor viewports so the user can inspect the engine-owned geometry without filled circles, blobs, or fake body blocks. Use `StageProfile::dev_flat_test()` for compact editor previews unless the workflow explicitly selects another stage.
 
+When engine work lands in another branch, devtool tabs should update by consuming the changed `mole_core` and `mole_runtime` contracts. A new visual/editor feature should therefore start as a shared runtime or CLI primitive, then get a GUI adapter. Avoid tab-local replicas of engine state, camera math, collision geometry, animation stepping, or stage setup; those replicas will drift and break lossless parity.
+
 ## Tests
 
 Shared primitives own their own tests. When a tab exposes a new reusable behavior:

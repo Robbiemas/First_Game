@@ -526,3 +526,9 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Regression coverage:
   - `cargo test -p mole_devtool move_keyframes_catalog_exposes_every_manifest_state_once`
   - `cargo test -p mole_devtool move_keyframe_capsules_are_projected_as_wireframe_sides_not_filled_pills`
+
+## 2026-06-11 engine/devtool viewport coupling guard
+
+- User clarified that another agent may be changing the game engine in parallel. The devtool must reflect those engine changes through shared `mole_core` and `mole_runtime` types, because the devtool viewport is only an adapter over the runtime engine scene.
+- Added a regression proving the move/state editor preview scene is exactly the engine-built `RenderScene::from_frame_on_stage(&preview.frame, StageProfile::dev_flat_test(), ...)`, with only editor-specific entry platform suppression applied afterward.
+- Architecture rule: no tab-local replicas of engine state, camera math, collision geometry, animation stepping, or stage setup. Add shared runtime/CLI primitives first, then adapt them in the GUI.
