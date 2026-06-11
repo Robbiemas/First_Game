@@ -516,3 +516,13 @@ Purpose: a short working note for the current parity investigation so I can resu
   - `cargo test -p mole_devtool move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding`
   - `cargo test -p mole_devtool move_keyframe_preview_uses_sprite_asset_instead_of_player_rect_when_available`
   - `cargo test -p mole_runtime render_scene_can_use_dev_flat_stage_without_battlefield_surfaces`
+
+## 2026-06-11 laptop merge and wireframe viewport follow-up
+
+- Fast-forwarded the current branch to `origin/laptop/test`, bringing in the laptop agent's `feat: align source down wait stand input` work before continuing local devtool work.
+- Re-ran the Captain Falcon all-states import/export after the merge. The Dolphin Mole compact manifest still reports `mapped_state_count=275`, `runtime_mapped_state_count=65`, and the runtime export reports `state_count=105`, `figatree_chunk_count=99`, `hitbox_count=1000`, `hurtbox_count=39644`.
+- Added a GUI catalog regression proving `list_move_keyframe_states("dolphin_mole")` exposes every unique state in `source_manifest.json` exactly once. Current state count is `275`.
+- Changed the move/state editor viewport adapter to render runtime capsules as wireframes instead of filled pills: side strokes, endpoint rings, and small endpoint markers. The ECB polygon is now stroked without a filled body block.
+- Regression coverage:
+  - `cargo test -p mole_devtool move_keyframes_catalog_exposes_every_manifest_state_once`
+  - `cargo test -p mole_devtool move_keyframe_capsules_are_projected_as_wireframe_sides_not_filled_pills`

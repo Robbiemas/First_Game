@@ -1309,9 +1309,48 @@ fn draw_render_capsule(
     let a = fit.apply(egui::pos2(capsule.a.x as f32, capsule.a.y as f32));
     let b = fit.apply(egui::pos2(capsule.b.x as f32, capsule.b.y as f32));
     let radius = (capsule.radius.max(1) as f32 * fit.scale).max(1.0);
-    painter.line_segment([a, b], egui::Stroke::new(radius, color));
-    painter.circle_filled(a, radius.max(1.5), color.gamma_multiply(0.55));
-    painter.circle_filled(b, radius.max(1.5), color.gamma_multiply(0.55));
+    let wireframe = move_keyframe_capsule_wireframe(a, b, radius);
+    let stroke = egui::Stroke::new(1.25, color);
+    if let Some((left, right)) = wireframe.sides {
+        painter.line_segment(left, stroke);
+        painter.line_segment(right, stroke);
+        painter.line_segment([a, b], egui::Stroke::new(1.0, color.gamma_multiply(0.55)));
+    }
+    painter.circle_stroke(a, wireframe.radius, stroke);
+    if b != a {
+        painter.circle_stroke(b, wireframe.radius, stroke);
+    }
+    painter.circle_filled(a, 1.5, color);
+    if b != a {
+        painter.circle_filled(b, 1.5, color);
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct MoveKeyframeCapsuleWireframe {
+    radius: f32,
+    sides: Option<([egui::Pos2; 2], [egui::Pos2; 2])>,
+}
+
+fn move_keyframe_capsule_wireframe(
+    a: egui::Pos2,
+    b: egui::Pos2,
+    radius: f32,
+) -> MoveKeyframeCapsuleWireframe {
+    let radius = radius.max(1.0);
+    let delta = b - a;
+    let length = delta.length();
+    if length <= f32::EPSILON {
+        return MoveKeyframeCapsuleWireframe {
+            radius,
+            sides: None,
+        };
+    }
+    let normal = egui::vec2(-delta.y / length, delta.x / length) * radius;
+    MoveKeyframeCapsuleWireframe {
+        radius,
+        sides: Some(([a + normal, b + normal], [a - normal, b - normal])),
+    }
 }
 
 fn draw_render_polygon(
@@ -1327,7 +1366,7 @@ fn draw_render_polygon(
         .collect::<Vec<_>>();
     painter.add(egui::Shape::convex_polygon(
         points,
-        color.gamma_multiply(0.22),
+        egui::Color32::TRANSPARENT,
         egui::Stroke::new(1.0, color),
     ));
 }
@@ -1482,5 +1521,21 @@ mod tests {
 
         assert!(asset_path.ends_with(Path::new("DolphinMole/turning/Standing1.png")));
         assert!(!move_keyframe_draws_player_rect(&scene, true));
+    }
+
+    #[test]
+    fn move_keyframe_capsules_are_projected_as_wireframe_sides_not_filled_pills() {
+        let wireframe =
+            move_keyframe_capsule_wireframe(egui::pos2(10.0, 20.0), egui::pos2(30.0, 20.0), 4.0);
+
+        let (top, bottom) = wireframe.sides.expect("non-zero capsule has sides");
+        assert_eq!(wireframe.radius, 4.0);
+        assert_eq!(top, [egui::pos2(10.0, 24.0), egui::pos2(30.0, 24.0)]);
+        assert_eq!(bottom, [egui::pos2(10.0, 16.0), egui::pos2(30.0, 16.0)]);
+
+        let circle =
+            move_keyframe_capsule_wireframe(egui::pos2(5.0, 5.0), egui::pos2(5.0, 5.0), 3.0);
+        assert_eq!(circle.radius, 3.0);
+        assert!(circle.sides.is_none());
     }
 }

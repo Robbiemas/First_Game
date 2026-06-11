@@ -93,7 +93,7 @@ Engine-owned visuals should enter the GUI as runtime viewports. The reusable sha
 typed selection -> RenderFrame -> RenderScene on an explicit StageProfile -> GUI draw adapter
 ```
 
-The GUI draw adapter may cache textures and decide how to fit the viewport rectangle, but it must not invent gameplay geometry. Sprites are visual assets, hit/hurt capsules and ECB polygons are runtime scene primitives, and body rectangles are fallback image targets only. Use `StageProfile::dev_flat_test()` for compact editor previews unless the workflow explicitly selects another stage.
+The GUI draw adapter may cache textures and decide how to fit the viewport rectangle, but it must not invent gameplay geometry. Sprites are visual assets, hit/hurt capsules and ECB polygons are runtime scene primitives, and body rectangles are fallback image targets only. Collision primitives should be drawn as wireframes in editor viewports so the user can inspect the engine-owned geometry without filled circles, blobs, or fake body blocks. Use `StageProfile::dev_flat_test()` for compact editor previews unless the workflow explicitly selects another stage.
 
 ## Tests
 

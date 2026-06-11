@@ -1515,6 +1515,28 @@ mod tests {
     }
 
     #[test]
+    fn move_keyframes_catalog_exposes_every_manifest_state_once() {
+        let root = workspace_root();
+        let manifest = load_move_keyframes_manifest(&root, "dolphin_mole").expect("manifest");
+        let manifest_states = manifest
+            .get("actions")
+            .and_then(Value::as_array)
+            .expect("actions")
+            .iter()
+            .filter_map(|action| action.get("state").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+
+        let catalog_states = list_move_keyframe_states(&root, "dolphin_mole")
+            .into_iter()
+            .map(|record| record.state)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(manifest_states.len(), 275);
+        assert_eq!(catalog_states, manifest_states);
+    }
+
+    #[test]
     fn move_keyframes_loads_manifest_state_as_sampled_read_only_browser_view() {
         let root = workspace_root();
 
