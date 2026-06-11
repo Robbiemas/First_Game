@@ -33,7 +33,9 @@ Decomp/reference files
 
 `mole_ledger` records which subsystem tabs exist and whether CLI/GUI surfaces are active or planned. `mole_cli` provides agent-facing access. Runtime import/export lives in `mole_runtime`, `mole_frame_data`, and `mole_core`. `mole_devtool` should be a thin, faithful GUI frontend over those backend contracts, not a parallel data model.
 
-The Rust GUI should be built from small primitives that are easy to reuse for new tabs: tab registration, spreadsheet/table views, detail panes, refreshable artifact selectors, runtime preview panes, and edit/save affordances. These primitives should stay minimal and data-driven. A new tab should usually provide a typed backend surface plus a small adapter into existing UI primitives, not a new bespoke renderer.
+The Rust GUI should be built from small primitives that are easy to reuse for new tabs: tab registration, responsive split panes, spreadsheet/table views, detail panes, refreshable artifact selectors, runtime preview panes, and edit/save affordances. These primitives should stay minimal and data-driven. A new tab should usually provide a typed backend surface plus a small adapter into existing UI primitives, not a new bespoke renderer.
+
+Reusable GUI rules are recorded in `docs/architecture/rust-devtool-ui-primitives.md`. When a layout or formatting fix is useful beyond one tab, promote it into `layout.rs`, `template.rs`, `theme.rs`, or another focused primitive before copying it. The current Move Keyframes browser is a consumer of that workbench pattern, not the owner of a special one-off layout.
 
 The theme is a shared primitive, not per-tab styling. Status colors and workbench identity colors live in `crates/mole_devtool/src/theme.rs`, with table/status rendering consuming that palette. If a tab needs a new semantic color, add it to the shared palette with a test that names the Python reference or Rust runtime source it preserves.
 

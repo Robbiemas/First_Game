@@ -229,6 +229,9 @@ The project is moving toward a source-shaped Melee data pipeline:
 
 - Start with `docs/architecture/rust-devtool-lossless-middleware.md` before changing
   decomp extraction, Mole CLI, the Rust dev tool GUI, or engine import paths.
+- Use `docs/architecture/rust-devtool-ui-primitives.md` before adding or copying
+  dev-tool layout behavior. Shared panel, table, height, status, and theme fixes
+  belong in reusable Rust primitives, not one tab.
 - Compact manifests are canonical.
 - Melee XYZ floats are preserved in source-space data.
 - Runtime/dev-tool views may flatten into the current 2D presentation layer.

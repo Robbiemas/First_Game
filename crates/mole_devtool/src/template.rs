@@ -75,8 +75,10 @@ pub fn render_spreadsheet_table(
         .auto_shrink([false, false])
         .max_height(bounded_child_height(ui.available_height(), 160.0, 420.0))
         .show(ui, |ui| {
+            let display_headers = template.display_headers();
+            let column_widths = responsive_column_widths(&display_headers, ui.available_width());
             let separate_status_column = template.renders_separate_status_column();
-            render_table_headers(ui, theme, &template.display_headers());
+            render_table_headers(ui, theme, &display_headers, &column_widths);
             for (index, row) in template.rows.iter().enumerate() {
                 render_colored_row(
                     ui,
@@ -85,6 +87,7 @@ pub fn render_spreadsheet_table(
                     row_index == index,
                     row,
                     separate_status_column,
+                    &column_widths,
                     |clicked_row| {
                         *selected_row = clicked_row;
                         on_select(clicked_row);
@@ -104,11 +107,20 @@ pub fn render_spreadsheet_table(
     }
 }
 
-fn render_table_headers(ui: &mut egui::Ui, theme: ThemeMode, headers: &[String]) {
+fn render_table_headers(
+    ui: &mut egui::Ui,
+    theme: ThemeMode,
+    headers: &[String],
+    column_widths: &[f32],
+) {
     let (fill, border, text) = header_palette(theme);
     ui.horizontal(|ui| {
-        for header in headers {
-            header_cell(ui, header, fill, border, text);
+        for (index, header) in headers.iter().enumerate() {
+            let width = column_widths
+                .get(index)
+                .copied()
+                .unwrap_or_else(|| base_cell_width(index));
+            header_cell(ui, header, width, fill, border, text);
         }
     });
     ui.separator();
@@ -121,6 +133,7 @@ fn render_colored_row(
     selected: bool,
     row: &LedgerTabTemplateRow,
     separate_status_column: bool,
+    column_widths: &[f32],
     mut on_select: impl FnMut(usize),
 ) {
     let palette = status_palette(theme, row.status.as_deref(), selected);
@@ -137,10 +150,13 @@ fn render_colored_row(
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 for (cell_index, cell) in row.cells.iter().enumerate() {
-                    let width = cell_width(cell_index);
+                    let width = column_widths
+                        .get(cell_index)
+                        .copied()
+                        .unwrap_or_else(|| base_cell_width(cell_index));
                     cell_frame(ui, width, palette.fill, palette.border, |ui| {
                         let response = ui.add_sized(
-                            [width - 8.0, 18.0],
+                            [inner_cell_width(width), 18.0],
                             egui::Button::new(egui::RichText::new(cell).color(palette.text))
                                 .selected(selected && cell_index == 0),
                         );
@@ -151,10 +167,10 @@ fn render_colored_row(
                 }
                 if separate_status_column {
                     let status = row.status.as_deref().unwrap_or("");
-                    let status_width = 92.0;
+                    let status_width = column_widths.get(row.cells.len()).copied().unwrap_or(92.0);
                     cell_frame(ui, status_width, palette.fill, palette.border, |ui| {
                         ui.add_sized(
-                            [status_width - 8.0, 18.0],
+                            [inner_cell_width(status_width), 18.0],
                             egui::Label::new(
                                 egui::RichText::new(status)
                                     .strong()
@@ -171,18 +187,14 @@ fn render_colored_row(
 fn header_cell(
     ui: &mut egui::Ui,
     text: &str,
+    width: f32,
     fill: egui::Color32,
     border: egui::Color32,
     text_color: egui::Color32,
 ) {
-    let width = if text == "Status" {
-        92.0
-    } else {
-        cell_width_by_text(text)
-    };
     cell_frame(ui, width, fill, border, |ui| {
         ui.add_sized(
-            [width - 8.0, 18.0],
+            [inner_cell_width(width), 18.0],
             egui::Label::new(egui::RichText::new(text).strong().color(text_color)),
         );
     });
@@ -205,7 +217,55 @@ fn cell_frame(
         });
 }
 
-fn cell_width(column_index: usize) -> f32 {
+fn responsive_column_widths(headers: &[String], available_width: f32) -> Vec<f32> {
+    if headers.is_empty() {
+        return Vec::new();
+    }
+    let gap_budget = 4.0 * headers.len().saturating_sub(1) as f32;
+    let available = (available_width - gap_budget).max(1.0);
+    let base = headers
+        .iter()
+        .enumerate()
+        .map(|(index, header)| {
+            if header == "Status" {
+                92.0
+            } else {
+                base_cell_width(index).max(cell_width_by_text(header))
+            }
+        })
+        .collect::<Vec<_>>();
+    let base_total = base.iter().sum::<f32>();
+    if base_total <= available {
+        return base;
+    }
+    let minimums = headers
+        .iter()
+        .enumerate()
+        .map(|(index, _)| min_cell_width(index))
+        .collect::<Vec<_>>();
+    let minimum_total = minimums.iter().sum::<f32>();
+    if minimum_total >= available {
+        let scale = (available / minimum_total).clamp(0.0, 1.0);
+        return minimums.iter().map(|width| width * scale).collect();
+    }
+    let remaining = available - minimum_total;
+    let flexible_total = base
+        .iter()
+        .zip(minimums.iter())
+        .map(|(base, minimum)| (base - minimum).max(0.0))
+        .sum::<f32>()
+        .max(1.0);
+    base.iter()
+        .zip(minimums.iter())
+        .enumerate()
+        .map(|(_, (base, minimum))| {
+            let flexible_width = (base - minimum).max(0.0);
+            minimum + flexible_width * (remaining / flexible_total)
+        })
+        .collect()
+}
+
+fn base_cell_width(column_index: usize) -> f32 {
     match column_index {
         0 => 140.0,
         1 => 220.0,
@@ -217,6 +277,19 @@ fn cell_width(column_index: usize) -> f32 {
         7 => 92.0,
         _ => 120.0,
     }
+}
+
+fn min_cell_width(column_index: usize) -> f32 {
+    match column_index {
+        0 => 64.0,
+        1 => 76.0,
+        2 => 68.0,
+        _ => 56.0,
+    }
+}
+
+fn inner_cell_width(width: f32) -> f32 {
+    (width - 8.0).max(1.0)
 }
 
 fn cell_width_by_text(text: &str) -> f32 {
@@ -299,5 +372,55 @@ mod tests {
             template.display_headers(),
             vec!["Kind", "Primary", "Status"]
         );
+    }
+
+    #[test]
+    fn responsive_columns_fit_inside_narrow_available_width() {
+        let headers = vec![
+            "Frame".to_string(),
+            "Pose".to_string(),
+            "Hitboxes".to_string(),
+            "Status".to_string(),
+        ];
+
+        let widths = responsive_column_widths(&headers, 280.0);
+
+        assert_eq!(widths.len(), headers.len());
+        assert!(
+            widths.iter().sum::<f32>() <= 280.0,
+            "responsive sheet columns should not request more width than the panel offers"
+        );
+    }
+
+    #[test]
+    fn responsive_columns_scale_below_minimums_when_the_panel_is_tiny() {
+        let headers = vec![
+            "Frame".to_string(),
+            "Pose".to_string(),
+            "Hitboxes".to_string(),
+            "Status".to_string(),
+        ];
+
+        let widths = responsive_column_widths(&headers, 96.0);
+
+        assert_eq!(widths.len(), headers.len());
+        assert!(
+            widths.iter().sum::<f32>() <= 96.0,
+            "extremely narrow panels still bound the shared table primitive"
+        );
+        assert!(widths.iter().all(|width| inner_cell_width(*width) >= 1.0));
+    }
+
+    #[test]
+    fn responsive_columns_keep_base_widths_when_space_is_available() {
+        let headers = vec![
+            "Frame".to_string(),
+            "Pose".to_string(),
+            "Hitboxes".to_string(),
+        ];
+
+        let widths = responsive_column_widths(&headers, 900.0);
+
+        assert_eq!(widths, vec![140.0, 220.0, 180.0]);
     }
 }

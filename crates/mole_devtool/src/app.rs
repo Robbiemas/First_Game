@@ -1,7 +1,9 @@
 use crate::ecb_coverage::EcbCoverageSurface;
 use crate::input_trace::{InputTraceLoadOptions, InputTraceSurface};
 use crate::move_keyframes::{
-    MoveKeyframeHandleKind, MoveKeyframesEditorSurface, MoveKeyframesSurface,
+    list_move_keyframe_characters, list_move_keyframe_states, MoveKeyframeHandleKind,
+    MoveKeyframesCharacterRecord, MoveKeyframesEditorSurface, MoveKeyframesStateRecord,
+    MoveKeyframesSurface,
 };
 use crate::parity_ledger::ParityLedgerSurface;
 use crate::slippi_replay::{SlippiReplayLoadOptions, SlippiReplaySurface};
@@ -41,7 +43,7 @@ pub enum StateGraphsPanel {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveKeyframesPanel {
     Preview,
-    Inspector,
+    Details,
     Data,
 }
 
@@ -72,6 +74,11 @@ pub struct ParityLedgerApp {
     pub(crate) slippi_replay_status: Option<String>,
     pub(crate) move_keyframes: MoveKeyframesSurface,
     pub(crate) move_keyframes_editor: MoveKeyframesEditorSurface,
+    pub(crate) move_keyframe_characters: Vec<MoveKeyframesCharacterRecord>,
+    pub(crate) move_keyframe_states: Vec<MoveKeyframesStateRecord>,
+    pub(crate) selected_move_keyframe_character_id: String,
+    pub(crate) selected_move_keyframe_state: String,
+    pub(crate) move_keyframes_status: Option<String>,
     pub(crate) move_keyframes_active_handle: Option<MoveKeyframeHandleKind>,
     pub(crate) move_keyframes_active_drag_delta: egui::Vec2,
     pub(crate) selected_section: AppSection,
@@ -135,6 +142,11 @@ impl ParityLedgerApp {
         let slippi_replay_start = slippi_replay.focus_start;
         let slippi_replay_end = slippi_replay.focus_end;
         let slippi_replay_max_frames = slippi_replay.rows.len().max(1);
+        let move_keyframe_characters = list_move_keyframe_characters(&workspace_root);
+        let selected_move_keyframe_character_id = move_keyframes.target_character.clone();
+        let move_keyframe_states =
+            list_move_keyframe_states(&workspace_root, &selected_move_keyframe_character_id);
+        let selected_move_keyframe_state = move_keyframes.state.clone();
         let state_graph_canvas = StateGraphCanvasPair::load(&workspace_root)
             .unwrap_or_else(|_| StateGraphCanvasPair::empty());
         let state_graph_canvas_views = state_graph_canvas_views_from_pair(&state_graph_canvas);
@@ -164,6 +176,11 @@ impl ParityLedgerApp {
             slippi_replay_status: None,
             move_keyframes,
             move_keyframes_editor,
+            move_keyframe_characters,
+            move_keyframe_states,
+            selected_move_keyframe_character_id,
+            selected_move_keyframe_state,
+            move_keyframes_status: None,
             move_keyframes_active_handle: None,
             move_keyframes_active_drag_delta: egui::Vec2::ZERO,
             selected_section: AppSection::ParityLedger,
@@ -342,6 +359,77 @@ impl ParityLedgerApp {
         self.move_keyframes.keyframes.len()
     }
 
+    pub fn selected_move_keyframe_character_label(&self) -> String {
+        self.move_keyframe_characters
+            .iter()
+            .find(|character| character.id == self.selected_move_keyframe_character_id)
+            .map(|character| character.label.clone())
+            .unwrap_or_else(|| self.move_keyframes.target_character_label.clone())
+    }
+
+    pub fn selected_move_keyframe_state_label(&self) -> String {
+        self.move_keyframe_states
+            .iter()
+            .find(|state| state.state == self.selected_move_keyframe_state)
+            .map(|state| state.label.clone())
+            .unwrap_or_else(|| self.move_keyframes.display_label().to_string())
+    }
+
+    pub fn select_move_keyframe_character(&mut self, character_id: &str) -> Result<(), String> {
+        if self.selected_move_keyframe_character_id == character_id {
+            return Ok(());
+        }
+        self.selected_move_keyframe_character_id = character_id.to_string();
+        self.move_keyframe_states = list_move_keyframe_states(&self.workspace_root, character_id);
+        let Some(first_state) = self
+            .move_keyframe_states
+            .first()
+            .map(|state| state.state.clone())
+        else {
+            let character_label = self.selected_move_keyframe_character_label();
+            let surface = MoveKeyframesSurface::empty_for_character(character_id, &character_label);
+            self.move_keyframes_editor = MoveKeyframesEditorSurface::from_surface(surface.clone());
+            self.move_keyframes = surface;
+            self.selected_move_keyframe_state.clear();
+            self.selected_move_keyframe_row = 0;
+            self.move_keyframes_status = Some(format!(
+                "No move frame data is populated for {character_label}."
+            ));
+            return Ok(());
+        };
+        self.select_move_keyframe_state(&first_state)
+    }
+
+    pub fn select_move_keyframe_state(&mut self, state: &str) -> Result<(), String> {
+        if self.selected_move_keyframe_state == state
+            && self.move_keyframes.state == state
+            && self.move_keyframes.target_character == self.selected_move_keyframe_character_id
+        {
+            return Ok(());
+        }
+        let surface = MoveKeyframesSurface::load_for_character_state(
+            &self.workspace_root,
+            &self.selected_move_keyframe_character_id,
+            state,
+        )?;
+        let editor = MoveKeyframesEditorSurface::from_surface_with_workspace(
+            surface.clone(),
+            &self.workspace_root,
+        )?;
+        self.move_keyframes = surface;
+        self.move_keyframes_editor = editor;
+        self.selected_move_keyframe_state = state.to_string();
+        self.selected_move_keyframe_row = 0;
+        self.move_keyframes_active_handle = None;
+        self.move_keyframes_active_drag_delta = egui::Vec2::ZERO;
+        self.move_keyframes_status = Some(format!(
+            "Loaded {} / {}.",
+            self.selected_move_keyframe_character_label(),
+            self.selected_move_keyframe_state_label()
+        ));
+        Ok(())
+    }
+
     pub fn ledger_tab_titles(&self) -> Vec<&str> {
         self.parity_ledger
             .tabs
@@ -496,6 +584,11 @@ mod tests {
         assert_eq!(app.input_trace_row_count(), 9);
         assert_eq!(app.slippi_replay_row_count(), 9);
         assert_eq!(app.move_keyframe_count(), 45);
+        assert_eq!(app.selected_move_keyframe_character_label(), "Dolphin Mole");
+        assert!(app
+            .move_keyframe_states
+            .iter()
+            .any(|state| state.state == "AttackLw3"));
         assert_eq!(app.selected_ledger_tab_id(), Some("global_values"));
         assert_eq!(app.selected_ledger_tab_label(), Some("Global Values"));
         assert!(app
@@ -560,5 +653,20 @@ mod tests {
         app.reload_slippi_replay().unwrap();
         assert_eq!(app.slippi_replay.focus_player_number, 1);
         assert_eq!(app.slippi_replay.rows.len(), 3);
+    }
+
+    #[test]
+    fn app_move_keyframe_selectors_load_manifest_only_states_without_edit_path() {
+        let root = workspace_root().unwrap();
+        let mut app = ParityLedgerApp::load(&root).unwrap();
+
+        app.select_move_keyframe_state("AttackLw3").unwrap();
+
+        assert_eq!(app.selected_move_keyframe_character_id, "dolphin_mole");
+        assert_eq!(app.selected_move_keyframe_state, "AttackLw3");
+        assert_eq!(app.selected_move_keyframe_state_label(), "AttackLw3");
+        assert!(app.move_keyframes.keyframes.is_empty());
+        assert!(app.move_keyframes.summary.total_frames > 0);
+        assert!(app.move_keyframes_editor.artifact_path().is_none());
     }
 }

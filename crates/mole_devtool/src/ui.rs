@@ -1,5 +1,6 @@
 use crate::{
     layout::{bounded_child_height, responsive_split_layout},
+    move_keyframes::MoveKeyframesStateSource,
     state_graphs::{StateGraphCanvasView, StateGraphDocument, StateGraphSelection},
     template::render_spreadsheet_table,
     theme::{devtool_theme, status_palette},
@@ -7,7 +8,6 @@ use crate::{
     ThemeMode,
 };
 use eframe::egui;
-use mole_core::Vec2 as CoreVec2;
 use mole_runtime::{RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene};
 use std::collections::BTreeMap;
 
@@ -573,32 +573,7 @@ fn graph_node_screen_pos(
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     ui.heading("Move Keyframes");
-    ui.label(app.move_keyframes.summary());
-    if let Some(pose_tree) = app.move_keyframes_editor.pose_tree() {
-        ui.label(format!(
-            "Figatree root: {} | Joints: {} | 3D transforms preserved: true",
-            pose_tree.root,
-            pose_tree.joints.len()
-        ));
-    }
-    if let Some(path) = app
-        .move_keyframes_editor
-        .artifact_path()
-        .map(|path| path.display().to_string())
-    {
-        ui.horizontal(|ui| {
-            ui.label(format!("Artifact: {}", path));
-            let save_clicked = ui
-                .add_enabled(
-                    app.move_keyframes_editor.is_dirty(),
-                    egui::Button::new("Save"),
-                )
-                .clicked();
-            if save_clicked {
-                let _ = app.move_keyframes_editor.save_to_source();
-            }
-        });
-    }
+    render_move_keyframes_browser_controls(ui, app);
     ui.separator();
 
     let mut selected_row = app
@@ -622,19 +597,19 @@ fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         match app.selected_move_keyframes_panel {
             MoveKeyframesPanel::Preview => {
                 render_move_keyframes_viewport_panel(ui, app, &mut selected_row);
-            }
-            MoveKeyframesPanel::Inspector => {
-                render_move_keyframes_choice_panel(ui, app, selected_row);
                 ui.add_space(6.0);
-                render_move_keyframes_inspector_panel(ui, app);
-            }
-            MoveKeyframesPanel::Data => {
                 render_move_keyframes_strip_panel(
                     ui,
                     app.theme(),
                     &app.move_keyframes,
                     &mut selected_row,
                 );
+            }
+            MoveKeyframesPanel::Details => {
+                render_move_keyframes_details_panel(ui, app, selected_row);
+            }
+            MoveKeyframesPanel::Data => {
+                render_move_keyframes_data_panel(ui, app, &mut selected_row);
             }
         }
     } else {
@@ -660,9 +635,7 @@ fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
                 egui::vec2(layout.right_width, layout.body_height),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
-                    render_move_keyframes_choice_panel(ui, app, selected_row);
-                    ui.add_space(6.0);
-                    render_move_keyframes_inspector_panel(ui, app);
+                    render_move_keyframes_details_panel(ui, app, selected_row);
                 },
             );
         });
@@ -677,8 +650,8 @@ fn render_move_keyframes_mobile_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerAp
     ui.horizontal_wrapped(|ui| {
         for (panel, label) in [
             (MoveKeyframesPanel::Preview, "Preview"),
-            (MoveKeyframesPanel::Inspector, "Inspector"),
-            (MoveKeyframesPanel::Data, "Frames"),
+            (MoveKeyframesPanel::Details, "Details"),
+            (MoveKeyframesPanel::Data, "Table"),
         ] {
             if ui
                 .selectable_label(app.selected_move_keyframes_panel == panel, label)
@@ -690,135 +663,140 @@ fn render_move_keyframes_mobile_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerAp
     });
 }
 
-fn render_move_keyframes_choice_panel(
+fn render_move_keyframes_browser_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Character");
+                let selected_character = app.selected_move_keyframe_character_label();
+                let characters = app.move_keyframe_characters.clone();
+                let mut pending_character: Option<String> = None;
+                egui::ComboBox::from_id_salt("move_keyframes_character")
+                    .selected_text(selected_character)
+                    .show_ui(ui, |ui| {
+                        for character in characters {
+                            let enabled_label = if character.populated {
+                                character.label.clone()
+                            } else {
+                                format!("{} (empty)", character.label)
+                            };
+                            if ui
+                                .selectable_label(
+                                    app.selected_move_keyframe_character_id == character.id,
+                                    enabled_label,
+                                )
+                                .clicked()
+                            {
+                                pending_character = Some(character.id);
+                            }
+                        }
+                    });
+                ui.label("State");
+                let selected_state = app.selected_move_keyframe_state_label();
+                let states = app.move_keyframe_states.clone();
+                let mut pending_state: Option<String> = None;
+                egui::ComboBox::from_id_salt("move_keyframes_state")
+                    .selected_text(selected_state)
+                    .show_ui(ui, |ui| {
+                        for state in states {
+                            let marker = match state.source {
+                                MoveKeyframesStateSource::MaterializedArtifact => "",
+                                MoveKeyframesStateSource::SourceManifest => " (manifest)",
+                            };
+                            if ui
+                                .selectable_label(
+                                    app.selected_move_keyframe_state == state.state,
+                                    format!("{}{}", state.label, marker),
+                                )
+                                .clicked()
+                            {
+                                pending_state = Some(state.state);
+                            }
+                        }
+                    });
+                if let Some(character_id) = pending_character {
+                    if let Err(error) = app.select_move_keyframe_character(&character_id) {
+                        app.move_keyframes_status = Some(error);
+                    }
+                } else if let Some(state) = pending_state {
+                    if let Err(error) = app.select_move_keyframe_state(&state) {
+                        app.move_keyframes_status = Some(error);
+                    }
+                }
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label(app.move_keyframes.summary());
+                if let Some(path) = app.move_keyframes_editor.artifact_path() {
+                    ui.separator();
+                    ui.label(format!("Artifact: {}", path.display()));
+                }
+            });
+            if let Some(status) = &app.move_keyframes_status {
+                ui.label(status);
+            }
+        });
+    });
+}
+
+fn render_move_keyframes_details_panel(
     ui: &mut egui::Ui,
     app: &mut ParityLedgerApp,
     selected_row: usize,
 ) {
-    let current_character = app.move_keyframes.target_character_label.clone();
-    let current_state = app.move_keyframes.state.clone();
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.vertical(|ui| {
-            ui.heading("Selection");
-            ui.horizontal(|ui| {
-                ui.label("Character");
-                egui::ComboBox::from_id_salt("move_keyframes_character")
-                    .selected_text(current_character.clone())
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut app.move_keyframes.target_character_label, current_character.clone(), current_character.clone());
-                    });
-            });
-            ui.horizontal(|ui| {
-                ui.label("State");
-                egui::ComboBox::from_id_salt("move_keyframes_state")
-                    .selected_text(current_state.clone())
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut app.move_keyframes.state, current_state.clone(), current_state.clone());
-                    });
-            });
+            ui.heading("State Details");
             ui.label(format!(
-                "Frame {} of {}",
-                selected_row.saturating_add(1),
-                app.move_keyframes.keyframes.len()
+                "{} / {}",
+                app.selected_move_keyframe_character_label(),
+                app.selected_move_keyframe_state_label()
             ));
-            ui.label("The Rust editor is currently backed by the materialized frame-data artifact for this state.");
-        });
-    });
-}
-
-fn render_move_keyframes_selected_handle_panel(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
-    ui.heading("Selected Handle");
-    let Some(selection) = app.move_keyframes_editor.selected_handle_detail() else {
-        ui.label("Click a handle in the preview.");
-        return;
-    };
-
-    ui.label(selection.label);
-    ui.label(format!("{:?}", selection.kind));
-    let mut x = selection.position[0];
-    let mut y = selection.position[1];
-    ui.horizontal(|ui| {
-        ui.label("x");
-        let x_changed = ui.add(egui::DragValue::new(&mut x).speed(0.1)).changed();
-        ui.label("y");
-        let y_changed = ui.add(egui::DragValue::new(&mut y).speed(0.1)).changed();
-        ui.label(format!("z {:.2}", selection.position[2]));
-        if x_changed || y_changed {
-            let _ = app
-                .move_keyframes_editor
-                .drag_selected_handle([x - selection.position[0], y - selection.position[1]]);
-        }
-    });
-}
-
-fn render_move_keyframes_inspector_panel(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
-    egui::Frame::group(ui.style()).show(ui, |ui| {
-        ui.vertical(|ui| {
-            ui.heading("Selected Frame Inspector");
-
-            let mut dirty = false;
-            if let Some(frame) = app.move_keyframes_editor.selected_frame_mut() {
-                ui.horizontal(|ui| {
-                    ui.label("Frame #");
-                    let mut frame_number = frame.frame as i64;
-                    if ui
-                        .add(
-                            egui::DragValue::new(&mut frame_number)
-                                .speed(1.0)
-                                .range(0..=i64::MAX),
-                        )
-                        .changed()
-                    {
-                        frame.frame = frame_number.max(0) as usize;
-                        dirty = true;
-                    }
-                    let mut interpolates_from_previous = frame.interpolates_from_previous;
-                    if ui
-                        .checkbox(
-                            &mut interpolates_from_previous,
-                            "Interpolates from previous",
-                        )
-                        .changed()
-                    {
-                        frame.interpolates_from_previous = interpolates_from_previous;
-                        dirty = true;
-                    }
-                });
-            } else {
-                ui.label("No keyframe selected.");
-            }
-
-            if dirty {
-                app.move_keyframes_editor.mark_dirty();
-            }
-
             ui.separator();
-
-            if let Some(frame) = app.move_keyframes_editor.selected_frame() {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(format!(
-                        "Pose keys: {}",
-                        frame.pose.as_object().map_or(0, |o| o.len())
-                    ));
-                    ui.separator();
-                    ui.label(format!("Hitboxes: {}", frame.hitboxes.len()));
-                    ui.separator();
-                    ui.label(format!("Hurtboxes: {}", frame.hurtboxes.len()));
-                    ui.separator();
-                    ui.label(format!("Body volumes: {}", frame.body_volumes.len()));
-                });
-                if let Some(pose_tree) = app.move_keyframes_editor.pose_tree() {
-                    ui.label(format!(
-                        "Figatree root: {} | joints: {}",
-                        pose_tree.root,
-                        pose_tree.joints.len()
-                    ));
-                }
+            ui.label(format!("State id: {}", app.move_keyframes.state));
+            ui.label(format!("Total frames: {}", app.move_keyframes.summary.total_frames));
+            ui.label(format!("Materialized keyframes: {}", app.move_keyframes.keyframes.len()));
+            ui.label(format!("Sources: {}", app.move_keyframes.sources.len()));
+            ui.label(format!("Gaps: {}", app.move_keyframes.gaps.len()));
+            if let Some(pose_tree) = app.move_keyframes_editor.pose_tree() {
+                ui.label(format!(
+                    "Figatree root: {} | joints: {}",
+                    pose_tree.root,
+                    pose_tree.joints.len()
+                ));
+            }
+            if app.move_keyframes.keyframes.is_empty() {
                 ui.separator();
-                render_move_keyframes_selected_handle_panel(ui, app);
+                ui.label("This state is listed in the compact source manifest but has not been expanded into editable keyframes yet.");
+                return;
+            }
+            ui.separator();
+            if let Some(frame) = app.move_keyframes.keyframes.get(selected_row) {
+                ui.label(format!("Selected frame: {}", frame.frame));
+                ui.label(format!("Hitboxes: {}", frame.hitboxes.len()));
+                ui.label(format!("Hurtboxes: {}", frame.hurtboxes.len()));
+                ui.label(format!("Body volumes: {}", frame.body_volumes.len()));
+                ui.label(format!(
+                    "Interpolates from previous: {}",
+                    frame.interpolates_from_previous
+                ));
             }
         });
     });
+}
+
+fn render_move_keyframes_data_panel(
+    ui: &mut egui::Ui,
+    app: &mut ParityLedgerApp,
+    selected_row: &mut usize,
+) {
+    let template = LedgerTabTemplate::from(&app.move_keyframes);
+    let mut pending_selection = *selected_row;
+    render_sheet_tab(ui, app.theme(), &template, selected_row, |clicked_row| {
+        pending_selection = clicked_row;
+    });
+    if pending_selection != *selected_row {
+        *selected_row = pending_selection;
+    }
 }
 
 fn render_input_trace(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
@@ -978,41 +956,71 @@ fn render_move_keyframes_strip_panel(
             });
             ui.separator();
             let palette = move_keyframe_preview_palette(theme);
-            let frame_count = surface.keyframes.len().max(1);
+            let total_frames = surface
+                .summary
+                .total_frames
+                .max(surface.keyframes.len())
+                .max(1);
             let available_width = ui.available_width().max(1.0);
-            let gap = ui.spacing().item_spacing.x.max(2.0);
-            let tile_width = ((available_width - gap * (frame_count.saturating_sub(1) as f32))
-                / frame_count as f32)
-                .clamp(4.0, 44.0);
-            let tile_height = 28.0;
-
-            ui.horizontal(|ui| {
-                for (index, frame) in surface.keyframes.iter().enumerate() {
-                    let selected = *selected_row == index;
-                    let attack = !frame.hitboxes.is_empty();
-                    let fill = move_keyframe_timeline_fill(theme, selected, attack);
-                    let stroke = if selected {
-                        egui::Stroke::new(1.5, palette.hitbox)
-                    } else {
-                        egui::Stroke::new(1.0, palette.border)
-                    };
-                    let label = if tile_width >= 14.0 {
-                        format!("{}", frame.frame)
-                    } else {
-                        String::new()
-                    };
-                    let response = ui.add_sized(
-                        egui::vec2(tile_width, tile_height),
-                        egui::Button::new(label).fill(fill).stroke(stroke),
+            let tile_height = 22.0;
+            let (rect, response) = ui.allocate_exact_size(
+                egui::vec2(available_width, tile_height),
+                egui::Sense::click(),
+            );
+            let painter = ui.painter_at(rect);
+            painter.rect_filled(rect, 3.0, palette.background);
+            painter.rect_stroke(
+                rect,
+                3.0,
+                egui::Stroke::new(1.0, palette.border),
+                egui::StrokeKind::Inside,
+            );
+            let selected_frame_number = surface
+                .keyframes
+                .get(*selected_row)
+                .map(|frame| frame.frame)
+                .unwrap_or(1);
+            let cell_width = rect.width() / total_frames as f32;
+            for frame_number in 1..=total_frames {
+                let x0 = rect.left() + (frame_number - 1) as f32 * cell_width;
+                let x1 = rect.left() + frame_number as f32 * cell_width;
+                let cell_rect = egui::Rect::from_min_max(
+                    egui::pos2(x0, rect.top()),
+                    egui::pos2((x1 - 1.0).max(x0), rect.bottom()),
+                );
+                let keyed = surface
+                    .keyframes
+                    .iter()
+                    .any(|frame| frame.frame == frame_number);
+                let attack = move_keyframe_frame_has_active_hitbox(surface, frame_number);
+                let selected = frame_number == selected_frame_number;
+                let fill = move_keyframe_timeline_fill(theme, selected, attack, keyed);
+                painter.rect_filled(cell_rect, 1.0, fill);
+                if selected {
+                    painter.rect_stroke(
+                        cell_rect,
+                        1.0,
+                        egui::Stroke::new(1.5, palette.hitbox),
+                        egui::StrokeKind::Inside,
                     );
-                    if response.clicked() {
+                } else if keyed && cell_width >= 5.0 {
+                    painter.rect_stroke(
+                        cell_rect,
+                        1.0,
+                        egui::Stroke::new(1.0, palette.border),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+            }
+            if response.clicked() {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let frame_number = (((pos.x - rect.left()) / cell_width).floor() as usize + 1)
+                        .clamp(1, total_frames);
+                    if let Some(index) = nearest_move_keyframe_index(surface, frame_number) {
                         *selected_row = index;
                     }
-                    if index + 1 < frame_count {
-                        ui.add_space(gap);
-                    }
                 }
-            });
+            }
         });
     });
 }
@@ -1073,17 +1081,6 @@ fn render_move_keyframes_viewport_panel(
                     &palette,
                     fit,
                 );
-                let handles = app.move_keyframes_editor.handles_for_selected_frame();
-                draw_move_keyframe_runtime_handles(
-                    ui,
-                    &painter,
-                    rect,
-                    &preview.scene,
-                    fit,
-                    app,
-                    &handles,
-                    &palette,
-                );
             } else {
                 painter.rect_filled(rect, 6.0, palette.background);
                 painter.rect_stroke(
@@ -1104,18 +1101,68 @@ fn render_move_keyframes_viewport_panel(
     });
 }
 
-fn move_keyframe_timeline_fill(theme: ThemeMode, selected: bool, attack: bool) -> egui::Color32 {
+fn move_keyframe_timeline_fill(
+    theme: ThemeMode,
+    selected: bool,
+    attack: bool,
+    keyed: bool,
+) -> egui::Color32 {
     let palette = move_keyframe_preview_palette(theme);
-    match (selected, attack, theme) {
-        (true, _, ThemeMode::Dark) => egui::Color32::from_rgb(16, 117, 177),
-        (true, _, ThemeMode::Light) => egui::Color32::from_rgb(191, 219, 254),
-        (false, true, ThemeMode::Dark) => egui::Color32::from_rgba_premultiplied(92, 32, 32, 220),
-        (false, true, ThemeMode::Light) => {
+    match (selected, attack, keyed, theme) {
+        (true, _, _, ThemeMode::Dark) => egui::Color32::from_rgb(16, 117, 177),
+        (true, _, _, ThemeMode::Light) => egui::Color32::from_rgb(191, 219, 254),
+        (false, true, _, ThemeMode::Dark) => {
+            egui::Color32::from_rgba_premultiplied(92, 32, 32, 220)
+        }
+        (false, true, _, ThemeMode::Light) => {
             egui::Color32::from_rgba_premultiplied(248, 215, 215, 255)
         }
-        (false, false, ThemeMode::Dark) => palette.border.gamma_multiply(0.55),
-        (false, false, ThemeMode::Light) => palette.border.gamma_multiply(0.35),
+        (false, false, true, ThemeMode::Dark) => egui::Color32::from_rgb(30, 64, 175),
+        (false, false, true, ThemeMode::Light) => egui::Color32::from_rgb(219, 234, 254),
+        (false, false, false, ThemeMode::Dark) => palette.border.gamma_multiply(0.35),
+        (false, false, false, ThemeMode::Light) => palette.border.gamma_multiply(0.22),
     }
+}
+
+fn nearest_move_keyframe_index(
+    surface: &crate::move_keyframes::MoveKeyframesSurface,
+    frame_number: usize,
+) -> Option<usize> {
+    surface
+        .keyframes
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, frame)| frame.frame.abs_diff(frame_number))
+        .map(|(index, _)| index)
+}
+
+fn move_keyframe_frame_has_active_hitbox(
+    surface: &crate::move_keyframes::MoveKeyframesSurface,
+    frame_number: usize,
+) -> bool {
+    surface
+        .summary
+        .active_hitbox_windows
+        .iter()
+        .any(|window| move_keyframe_window_contains(window, frame_number))
+        || surface
+            .keyframes
+            .iter()
+            .any(|frame| frame.frame == frame_number && !frame.hitboxes.is_empty())
+}
+
+fn move_keyframe_window_contains(window: &serde_json::Value, frame_number: usize) -> bool {
+    let start = window
+        .get("start")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(usize::MAX);
+    let end = window
+        .get("end")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or_default();
+    start <= frame_number && frame_number <= end
 }
 
 fn draw_move_keyframe_runtime_scene(
@@ -1146,73 +1193,6 @@ fn draw_move_keyframe_runtime_scene(
         }
     }
     draw_render_polygon(painter, scene.player_ecbs[0], fit);
-}
-
-fn draw_move_keyframe_runtime_handles(
-    ui: &mut egui::Ui,
-    painter: &egui::Painter,
-    _rect: egui::Rect,
-    scene: &RenderScene,
-    fit: MoveKeyframePreviewFit,
-    app: &mut ParityLedgerApp,
-    handles: &[crate::move_keyframes::MoveKeyframeHandle],
-    palette: &MoveKeyframePreviewPalette,
-) {
-    let pixels_per_core_unit_milli = scene.transform.pixels_per_core_unit_milli.max(1) as f64;
-    let world_delta_scale = 1_000_000.0 / (pixels_per_core_unit_milli * fit.scale as f64).max(1.0);
-
-    for (index, handle) in handles.iter().enumerate() {
-        let point = move_keyframe_handle_flattened_point(handle.position);
-        let screen = scene.transform.world_to_screen(CoreVec2 {
-            x: point.x,
-            y: point.y,
-        });
-        let screen = fit.apply(egui::pos2(screen.x as f32, screen.y as f32));
-        let handle_rect = egui::Rect::from_center_size(screen, egui::vec2(14.0, 14.0));
-        let id = ui.id().with(("move_keyframe_handle", index, &handle.label));
-        let response = ui.interact(handle_rect, id, egui::Sense::click_and_drag());
-        let selected = app.move_keyframes_editor.selected_handle() == Some(&handle.kind);
-        let color = if selected || app.move_keyframes_active_handle.as_ref() == Some(&handle.kind) {
-            palette.hitbox
-        } else if response.hovered() {
-            palette.hurtbox
-        } else {
-            palette.border
-        };
-        painter.circle_filled(screen, 4.5, color);
-        painter.circle_stroke(screen, 4.5, egui::Stroke::new(1.0, palette.background));
-
-        if response.clicked() || response.drag_started() {
-            let _ = app.move_keyframes_editor.select_handle(handle.kind.clone());
-        }
-
-        if response.drag_started() {
-            app.move_keyframes_active_handle = Some(handle.kind.clone());
-            app.move_keyframes_active_drag_delta = egui::Vec2::ZERO;
-        }
-
-        if app.move_keyframes_active_handle.as_ref() == Some(&handle.kind) && response.dragged() {
-            let drag_delta = response.drag_delta();
-            let incremental = drag_delta - app.move_keyframes_active_drag_delta;
-            if incremental != egui::Vec2::ZERO {
-                let world_delta = [
-                    incremental.x as f64 * world_delta_scale,
-                    -(incremental.y as f64) * world_delta_scale,
-                ];
-                let _ = app
-                    .move_keyframes_editor
-                    .drag_handle(handle.kind.clone(), world_delta);
-                app.move_keyframes_active_drag_delta = drag_delta;
-            }
-        }
-
-        if response.drag_stopped()
-            && app.move_keyframes_active_handle.as_ref() == Some(&handle.kind)
-        {
-            app.move_keyframes_active_handle = None;
-            app.move_keyframes_active_drag_delta = egui::Vec2::ZERO;
-        }
-    }
 }
 
 fn draw_render_rect(
@@ -1289,13 +1269,6 @@ impl MoveKeyframePreviewFit {
     }
 }
 
-fn move_keyframe_handle_flattened_point(position: [f64; 3]) -> CoreVec2 {
-    CoreVec2 {
-        x: position[0].round() as i32,
-        y: position[1].round() as i32,
-    }
-}
-
 fn move_keyframe_preview_fit(rect: egui::Rect, scene: &RenderScene) -> MoveKeyframePreviewFit {
     let mut bounds: Option<(f32, f32, f32, f32)> = None;
     let mut include = |x: f32, y: f32| {
@@ -1366,7 +1339,6 @@ fn render_color(color: RenderColor) -> egui::Color32 {
 struct MoveKeyframePreviewPalette {
     background: egui::Color32,
     border: egui::Color32,
-    hurtbox: egui::Color32,
     hitbox: egui::Color32,
 }
 
@@ -1375,13 +1347,11 @@ fn move_keyframe_preview_palette(theme: ThemeMode) -> MoveKeyframePreviewPalette
         ThemeMode::Dark => MoveKeyframePreviewPalette {
             background: egui::Color32::from_rgb(10, 14, 24),
             border: egui::Color32::from_rgb(51, 65, 85),
-            hurtbox: egui::Color32::from_rgb(74, 222, 128),
             hitbox: egui::Color32::from_rgb(248, 113, 113),
         },
         ThemeMode::Light => MoveKeyframePreviewPalette {
             background: egui::Color32::from_rgb(247, 250, 255),
             border: egui::Color32::from_rgb(191, 219, 254),
-            hurtbox: egui::Color32::from_rgb(22, 163, 74),
             hitbox: egui::Color32::from_rgb(220, 38, 38),
         },
     }

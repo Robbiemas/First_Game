@@ -7,19 +7,31 @@ use mole_runtime::{RenderFrame, RenderScene};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
+
+const FRAME_DATA_DIR: &str = "resources/melee/frame_data";
+const SOURCE_MANIFEST_FILENAME: &str = "source_manifest.json";
+const MOVE_KEYFRAME_CHARACTER_LABELS: &[(&str, &str)] = &[
+    ("dolphin_mole", "Dolphin Mole"),
+    ("test_character_2", "Test Character 2"),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MoveKeyframesSurface {
     pub gaps: Vec<serde_json::Value>,
     pub keyframes: Vec<MoveKeyframe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     pub sources: Vec<serde_json::Value>,
     pub state: String,
     pub summary: MoveKeyframesSummary,
     pub target_character: String,
     pub target_character_label: String,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +111,32 @@ pub struct MoveKeyframeJobjTree {
     pub source: MoveKeyframeJobjSource,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MoveKeyframesCharacterRecord {
+    pub id: String,
+    pub label: String,
+    pub populated: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveKeyframesStateSource {
+    MaterializedArtifact,
+    SourceManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MoveKeyframesStateRecord {
+    pub state: String,
+    pub label: String,
+    pub source: MoveKeyframesStateSource,
+}
+
+impl MoveKeyframesStateRecord {
+    pub fn materialized(&self) -> bool {
+        self.source == MoveKeyframesStateSource::MaterializedArtifact
+    }
+}
+
 impl From<MoveKeyframeJobjTreeFile> for MoveKeyframeJobjTree {
     fn from(tree: MoveKeyframeJobjTreeFile) -> Self {
         Self {
@@ -143,10 +181,7 @@ pub fn move_keyframe_pose_joint_positions(frame: &MoveKeyframe) -> Vec<[f64; 3]>
 
 impl MoveKeyframesSurface {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
-        let path = root
-            .as_ref()
-            .join("resources/melee/frame_data/dolphin_mole/AttackAirN.json");
-        Self::load_from(&path)
+        Self::load_for_character_state(root, "dolphin_mole", "AttackAirN")
     }
 
     pub fn load_from(path: impl AsRef<Path>) -> Result<Self, String> {
@@ -157,11 +192,139 @@ impl MoveKeyframesSurface {
             .map_err(|error| format!("failed to parse move keyframes artifact: {error}"))
     }
 
+    pub fn load_for_character_state(
+        root: impl AsRef<Path>,
+        character_id: &str,
+        state: &str,
+    ) -> Result<Self, String> {
+        let root = root.as_ref();
+        let path = move_keyframes_artifact_path(root, character_id, state);
+        if path.exists() {
+            return Self::load_from(path);
+        }
+        Self::load_manifest_action_view(root, character_id, state)
+    }
+
+    pub fn empty_for_character(character_id: &str, character_label: &str) -> Self {
+        Self {
+            gaps: vec![serde_json::json!({
+                "field": "frame_data",
+                "reason": "no move frame data is populated for this character"
+            })],
+            keyframes: Vec::new(),
+            label: None,
+            sources: Vec::new(),
+            state: String::new(),
+            summary: MoveKeyframesSummary {
+                active_body_volume_windows: Vec::new(),
+                active_hitbox_windows: Vec::new(),
+                active_hurtbox_windows: Vec::new(),
+                iasa_frame: "unknown".to_string(),
+                landing_lag_frames: "unknown".to_string(),
+                total_frames: 0,
+            },
+            target_character: character_id.to_string(),
+            target_character_label: character_label.to_string(),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    fn load_manifest_action_view(
+        root: &Path,
+        character_id: &str,
+        state: &str,
+    ) -> Result<Self, String> {
+        let manifest = load_move_keyframes_manifest(root, character_id)?;
+        let actions = manifest
+            .get("actions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("source manifest for `{character_id}` has no actions array"))?;
+        let action = actions
+            .iter()
+            .find(|action| action.get("state").and_then(Value::as_str) == Some(state))
+            .ok_or_else(|| {
+                format!("source manifest for `{character_id}` has no state `{state}`")
+            })?;
+        let label = action
+            .get("source_action_key")
+            .and_then(Value::as_str)
+            .unwrap_or(state)
+            .to_string();
+        let total_frames = action
+            .get("total_frames")
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            .unwrap_or_default();
+        let target_character = manifest
+            .get("target_character")
+            .and_then(Value::as_str)
+            .unwrap_or(character_id)
+            .to_string();
+        let target_character_label = manifest
+            .get("target_character_label")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| move_keyframes_character_label(character_id));
+        let sources = manifest
+            .get("sources")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+
+        let mut extra = BTreeMap::new();
+        if let Some(value) = manifest.get("schema_version").cloned() {
+            extra.insert("schema_version".to_string(), value);
+        }
+        extra.insert(
+            "artifact_kind".to_string(),
+            Value::String("source_manifest_action_view".to_string()),
+        );
+        if let Some(value) = manifest.get("source_character").cloned() {
+            extra.insert("source_character".to_string(), value);
+        }
+        if let Some(value) = manifest.get("source_character_label").cloned() {
+            extra.insert("source_character_label".to_string(), value);
+        }
+        if let Some(value) = manifest.get("projection").cloned() {
+            extra.insert("projection".to_string(), value);
+        }
+        if let Some(value) = action.get("decoded_action_script").cloned() {
+            extra.insert("decoded_action_script".to_string(), value);
+        }
+        extra.insert("manifest_action".to_string(), action.clone());
+
+        Ok(Self {
+            gaps: vec![serde_json::json!({
+                "field": "keyframes",
+                "reason": "state is available in source_manifest.json but has not been materialized into an editable keyframe artifact"
+            })],
+            keyframes: Vec::new(),
+            label: Some(label),
+            sources,
+            state: state.to_string(),
+            summary: MoveKeyframesSummary {
+                active_body_volume_windows: Vec::new(),
+                active_hitbox_windows: Vec::new(),
+                active_hurtbox_windows: Vec::new(),
+                iasa_frame: "unknown".to_string(),
+                landing_lag_frames: "unknown".to_string(),
+                total_frames,
+            },
+            target_character,
+            target_character_label,
+            extra,
+        })
+    }
+
+    pub fn display_label(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.state)
+    }
+
     pub fn summary(&self) -> String {
         format!(
             "Target: {} | State: {} | Total frames: {} | Keyframes: {} | Gaps: {} | Sources: {}",
             self.target_character_label,
-            self.state,
+            self.display_label(),
             self.summary.total_frames,
             self.keyframes.len(),
             self.gaps.len(),
@@ -183,10 +346,188 @@ impl MoveKeyframesSurface {
     }
 }
 
+pub fn move_keyframes_artifact_path(root: &Path, character_id: &str, state: &str) -> PathBuf {
+    root.join(FRAME_DATA_DIR)
+        .join(character_id)
+        .join(format!("{state}.json"))
+}
+
+pub fn list_move_keyframe_characters(root: impl AsRef<Path>) -> Vec<MoveKeyframesCharacterRecord> {
+    let root = root.as_ref();
+    let mut seen = BTreeSet::new();
+    let mut records = Vec::new();
+
+    for (id, label) in MOVE_KEYFRAME_CHARACTER_LABELS {
+        seen.insert((*id).to_string());
+        records.push(move_keyframes_character_record(root, id, Some(label)));
+    }
+
+    let frame_data_dir = root.join(FRAME_DATA_DIR);
+    if let Ok(entries) = fs::read_dir(frame_data_dir) {
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_dir() {
+                continue;
+            }
+            let id = entry.file_name().to_string_lossy().to_string();
+            if seen.insert(id.clone()) {
+                records.push(move_keyframes_character_record(root, &id, None));
+            }
+        }
+    }
+
+    records
+}
+
+pub fn list_move_keyframe_states(
+    root: impl AsRef<Path>,
+    character_id: &str,
+) -> Vec<MoveKeyframesStateRecord> {
+    let root = root.as_ref();
+    let character_dir = root.join(FRAME_DATA_DIR).join(character_id);
+    if !character_dir.is_dir() {
+        return Vec::new();
+    }
+
+    let mut records = Vec::new();
+    let mut expanded_states = BTreeSet::new();
+    if let Ok(entries) = fs::read_dir(&character_dir) {
+        let mut paths = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+            .filter(|path| {
+                path.file_name().and_then(|name| name.to_str()) != Some(SOURCE_MANIFEST_FILENAME)
+            })
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            if let Some(record) = load_materialized_state_record(&path) {
+                expanded_states.insert(record.state.clone());
+                records.push(record);
+            }
+        }
+    }
+
+    if let Ok(manifest) = load_move_keyframes_manifest(root, character_id) {
+        if let Some(actions) = manifest.get("actions").and_then(Value::as_array) {
+            for action in actions {
+                let Some(state) = action.get("state").and_then(Value::as_str) else {
+                    continue;
+                };
+                if state.is_empty() || expanded_states.contains(state) {
+                    continue;
+                }
+                let label = action
+                    .get("source_action_key")
+                    .and_then(Value::as_str)
+                    .unwrap_or(state)
+                    .to_string();
+                records.push(MoveKeyframesStateRecord {
+                    state: state.to_string(),
+                    label,
+                    source: MoveKeyframesStateSource::SourceManifest,
+                });
+            }
+        }
+    }
+
+    records
+}
+
+fn move_keyframes_character_record(
+    root: &Path,
+    character_id: &str,
+    fallback_label: Option<&str>,
+) -> MoveKeyframesCharacterRecord {
+    let states = list_move_keyframe_states(root, character_id);
+    let label = fallback_label
+        .map(str::to_string)
+        .unwrap_or_else(|| move_keyframes_character_label(character_id));
+    MoveKeyframesCharacterRecord {
+        id: character_id.to_string(),
+        label,
+        populated: !states.is_empty(),
+    }
+}
+
+fn move_keyframes_character_label(character_id: &str) -> String {
+    MOVE_KEYFRAME_CHARACTER_LABELS
+        .iter()
+        .find(|(id, _)| *id == character_id)
+        .map(|(_, label)| (*label).to_string())
+        .unwrap_or_else(|| {
+            character_id
+                .split('_')
+                .filter(|part| !part.is_empty())
+                .map(|part| {
+                    let mut chars = part.chars();
+                    match chars.next() {
+                        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                        None => String::new(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+}
+
+fn load_materialized_state_record(path: &Path) -> Option<MoveKeyframesStateRecord> {
+    let text = fs::read_to_string(path).ok()?;
+    let data: Value = serde_json::from_str(&text).ok()?;
+    if data.get("artifact_kind").and_then(Value::as_str)
+        == Some("source_character_frame_data_manifest")
+        || !data.get("keyframes").is_some_and(Value::is_array)
+    {
+        return None;
+    }
+    let state = data
+        .get("state")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| path.file_stem()?.to_str().map(str::to_string))?;
+    let label = data
+        .get("label")
+        .and_then(Value::as_str)
+        .unwrap_or(&state)
+        .to_string();
+    Some(MoveKeyframesStateRecord {
+        state,
+        label,
+        source: MoveKeyframesStateSource::MaterializedArtifact,
+    })
+}
+
+fn load_move_keyframes_manifest(root: &Path, character_id: &str) -> Result<Value, String> {
+    let path = root
+        .join(FRAME_DATA_DIR)
+        .join(character_id)
+        .join(SOURCE_MANIFEST_FILENAME);
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let data = serde_json::from_str::<Value>(&text)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+    if data.get("artifact_kind").and_then(Value::as_str)
+        != Some("source_character_frame_data_manifest")
+    {
+        return Err(format!(
+            "{} is not a source character frame-data manifest",
+            path.display()
+        ));
+    }
+    Ok(data)
+}
+
 impl From<&MoveKeyframesSurface> for LedgerTabTemplate {
     fn from(surface: &MoveKeyframesSurface) -> Self {
         Self {
-            title: format!("{} Move Keyframes", surface.target_character_label),
+            title: format!(
+                "{} {} Move Keyframes",
+                surface.target_character_label,
+                surface.display_label()
+            ),
             summary: surface.summary(),
             headers: vec![
                 "Frame".to_string(),
@@ -311,14 +652,14 @@ impl MoveKeyframesEditorSurface {
         surface: MoveKeyframesSurface,
         root: impl AsRef<Path>,
     ) -> Result<Self, String> {
-        let pose_tree = load_move_keyframe_pose_tree(root.as_ref(), &surface)?;
+        let root = root.as_ref();
+        let pose_tree = load_move_keyframe_pose_tree(root, &surface).ok();
+        let artifact_path =
+            move_keyframes_artifact_path(root, &surface.target_character, &surface.state);
         Ok(Self {
             surface,
-            pose_tree: Some(pose_tree),
-            artifact_path: Some(
-                root.as_ref()
-                    .join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"),
-            ),
+            pose_tree,
+            artifact_path: artifact_path.exists().then_some(artifact_path),
             selected_frame_index: 0,
             selected_handle: None,
             dirty: false,
@@ -956,13 +1297,74 @@ mod tests {
 
         assert_eq!(surface.target_character_label, "Dolphin Mole");
         assert_eq!(surface.state, "AttackAirN");
-        assert_eq!(template.title, "Dolphin Mole Move Keyframes");
+        assert_eq!(template.title, "Dolphin Mole Neutral Air Move Keyframes");
         assert_eq!(template.headers.len(), 6);
         assert_eq!(template.rows.len(), surface.keyframes.len());
         assert_eq!(
             template.rows.first().unwrap().status.as_deref(),
             Some("match")
         );
+    }
+
+    #[test]
+    fn move_keyframes_catalog_lists_materialized_and_manifest_states() {
+        let root = workspace_root();
+
+        let characters = list_move_keyframe_characters(&root);
+        let dolphin = characters
+            .iter()
+            .find(|character| character.id == "dolphin_mole")
+            .expect("dolphin mole record");
+        let test_character = characters
+            .iter()
+            .find(|character| character.id == "test_character_2")
+            .expect("test character record");
+
+        assert_eq!(dolphin.label, "Dolphin Mole");
+        assert!(dolphin.populated);
+        assert_eq!(test_character.label, "Test Character 2");
+        assert!(!test_character.populated);
+
+        let states = list_move_keyframe_states(&root, "dolphin_mole");
+        let attack_air_n = states
+            .iter()
+            .find(|state| state.state == "AttackAirN")
+            .expect("materialized nair state");
+        let attack_lw3 = states
+            .iter()
+            .find(|state| state.state == "AttackLw3")
+            .expect("manifest down tilt state");
+
+        assert_eq!(
+            attack_air_n.source,
+            MoveKeyframesStateSource::MaterializedArtifact
+        );
+        assert_eq!(attack_air_n.label, "Neutral Air");
+        assert_eq!(attack_lw3.source, MoveKeyframesStateSource::SourceManifest);
+        assert_eq!(attack_lw3.label, "AttackLw3");
+    }
+
+    #[test]
+    fn move_keyframes_loads_manifest_only_state_as_read_only_browser_view() {
+        let root = workspace_root();
+
+        let surface =
+            MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "AttackLw3")
+                .expect("manifest-only state view");
+        let editor =
+            MoveKeyframesEditorSurface::from_surface_with_workspace(surface.clone(), &root)
+                .expect("editor wrapper");
+
+        assert_eq!(surface.target_character_label, "Dolphin Mole");
+        assert_eq!(surface.state, "AttackLw3");
+        assert_eq!(surface.display_label(), "AttackLw3");
+        assert!(surface.keyframes.is_empty());
+        assert!(surface.summary.total_frames > 0);
+        assert_eq!(
+            surface.extra.get("artifact_kind").and_then(Value::as_str),
+            Some("source_manifest_action_view")
+        );
+        assert!(editor.artifact_path().is_none());
     }
 
     #[test]

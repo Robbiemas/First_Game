@@ -384,7 +384,7 @@ Purpose: a short working note for the current parity investigation so I can resu
 
 - The `Move Keyframes` tab is now organized as a modular stack: runtime viewport first, then a horizontal keyframe strip, then a collapsible full data sheet.
 - Frame tiles in the strip are color-coded for attack frames and selection state, so future edit and export work can keep the timeline readable at a glance.
-- The lower collapsible sheet stays as the exposed value surface for the full frame data, which keeps hitbox and hurtbox fields available for future direct editing without forcing the preview layout to carry every detail inline.
+- The lower collapsible sheet stayed as the exposed value surface for the full frame data at this checkpoint; later browser/catalog work moved durable editing behind typed runtime primitives and CLI-backed validation.
 
 ## 2026-06-10 move keyframes debug stage and inspector
 
@@ -399,7 +399,7 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Superseded on 2026-06-11: the right-facing raw joint overlay was removed because it was not the same primitive the engine renders.
 - Runtime-aligned handle dragging remains for collision geometry visible in the `RenderScene` viewport.
 - The frame strip compresses horizontally to fit the window instead of turning into a scroll wheel.
-- The right-hand panel now exposes direct editable fields for the first hitbox, hurtbox, and body volume instead of a JSON dump.
+- Superseded on 2026-06-11: the right-hand direct-edit panel was replaced by a state/frame details panel until typed runtime edit primitives and CLI-backed validation exist.
 - The Rust devtool continues to repurpose existing editor/runtime code rather than rewriting the wheel.
 - The viewport height is now tighter so the selection/inspector region can stay visible in the same window without clipping.
 
@@ -465,9 +465,27 @@ Purpose: a short working note for the current parity investigation so I can resu
 
 - Added shared Rust layout primitives for bounded split panes and bounded child heights, with tests proving narrow panes stack and no child requests more height than the window offers.
 - Moved the State Graphs tab toward the old Python frontend structure: header controls stay at the top, graph canvases remain the primary split-pane body, and selection/missing-entry surfaces are accessed through sub-tabs instead of being stacked below the canvases.
-- Move Keyframes now uses the same responsive split primitive: desktop keeps preview/timeline on the left and editor details on the right, while narrow/mobile widths switch between Preview, Inspector, and Frames sub-tabs.
+- Move Keyframes now uses the same responsive split primitive: desktop keeps preview/timeline on the left and state details on the right, while narrow/mobile widths switch between Preview, Details, and Table sub-tabs.
 - Reusable sheets and raw text panes now use bounded heights instead of fixed values, preserving internal scrolling only for data-heavy surfaces where virtualization/scrolling is the performance-friendly option.
 - Architecture rule going forward: new Rust devtool tabs should reuse `layout.rs` primitives and prefer sub-tabs over overflowing panels; virtualized/bounded data panes are preferred over rendering off-screen widgets.
 - Verification for this slice:
   - `cargo fmt --check`
   - `cargo test -p mole_devtool`
+
+## 2026-06-11 move keyframes browser/catalog parity
+
+- Recentered the `Move Keyframes` tab on the current intended workflow: choose a target character, choose a state from that character's frame-data pool, inspect the frame/keyframe data, and defer editing until the runtime/CLI have typed edit primitives.
+- Added a Rust frame-data catalog for the GUI that lists known target characters and both materialized state artifacts plus manifest-only actions from `source_manifest.json`.
+- The Rust GUI now follows the old Python frontend structure more closely: top selectors, runtime preview plus dense timeline on the left, and state/frame details on the right. Narrow widths use Preview, Details, and Table sub-tabs instead of stacked panels that can run off-screen.
+- The keyframe strip is now a painted, full-width timeline. It compresses to the panel width, colors active hitbox/keyed/selected frames, and selects the nearest materialized keyframe on click.
+- The shared sheet primitive now computes responsive column widths instead of fixed totals, so table-based tabs have a common bounded-width rule.
+- Added `docs/architecture/rust-devtool-ui-primitives.md` to make this a reusable workbench pattern instead of a Move-Keyframes-only fix. Future tabs should reuse the layout, sheet, theme, and bounded sizing primitives before adding bespoke panel code.
+- Visible fake rig/joint editing remains removed. The browser can load manifest-only states like `AttackLw3` without pretending they are editable artifacts.
+- Confirmed the existing CLI import/extract path already supports target/source mappings such as Marth down tilt into Dolphin Mole down tilt through `frame-data extract --character <target> --source-character <source> --state <target-state> --source-state <source-state> --write`.
+- Recorded next useful CLI surfaces in `docs/architecture/rust-devtool-lossless-middleware.md`: frame-data catalog, source catalog, import-plan dry run, and typed value import-plan.
+- Corrected the Move Keyframes ledger summary so the generated dual-surface registry describes browsing, compact-manifest inspection, runtime preview, and export readiness rather than visible direct editing.
+- Verification for this slice:
+  - `cargo fmt --check`
+  - `cargo test -p mole_devtool`
+  - `cargo test -p mole_ledger -p mole_devtool -p mole_cli`
+  - `cargo run -p mole_cli -- generated write-ledger-map --write --json`

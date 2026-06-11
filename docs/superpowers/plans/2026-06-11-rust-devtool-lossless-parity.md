@@ -55,6 +55,7 @@
 - [x] Treat row status as a semantic attribute; do not duplicate a visible Status column when the source table already has one.
 - [x] Extract repeated panel patterns only when at least two current tabs use them.
 - [x] Prefer small primitives for tab bars, summary strips, table/detail panes, artifact selectors, and runtime previews.
+- [x] Document the reusable workbench primitive rules in `docs/architecture/rust-devtool-ui-primitives.md` so tab fixes are not copied as one-off patches.
 - [ ] Avoid broad GUI frameworks inside the crate; keep egui wrappers thin and obvious.
 
 ### Task 4: Make Trace And Replay Surfaces Selectable
@@ -79,7 +80,7 @@
 - Modify: `D:/Mole Game/First_Game/crates/mole_cli/src/frame_data.rs`
 - Modify runtime export/import modules as needed.
 
-- [ ] Populate character and state selectors from artifact discovery instead of single current values.
+- [x] Populate character and state selectors from artifact discovery instead of single current values.
 - [ ] Preserve live sampling from compact source manifests.
 - [x] Make the selected-frame viewport render the Rust runtime scene on a basic single-floor stage rather than a standalone diagram.
 - [x] Add frame-step controls so clicking keyframes or stepping arrows moves the runtime pose and volumes forward and backward one frame at a time.

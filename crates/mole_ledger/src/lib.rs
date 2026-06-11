@@ -371,7 +371,7 @@ fn devtool_surfaces() -> Vec<DevtoolSurfaceSpec> {
                 cli: LedgerSurfaceState::Active,
                 gui: LedgerSurfaceState::Active,
             },
-            summary: "Frame-data keyframe inspection, runtime preview, direct edit, and round-trip save path.",
+            summary: "Frame-data character/state browsing, compact manifest inspection, runtime preview, and export readiness.",
             cli_commands: &["frame-data show", "frame-data sample", "frame-data export-runtime"],
             gui_section: "MoveKeyframes",
             source_artifacts: &[

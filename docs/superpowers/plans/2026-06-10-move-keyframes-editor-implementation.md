@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the Rust `Move Keyframes` tab into a draggable keyframe editor that can edit runtime-aligned capsules and ECB/body volumes, save the edited JSON, and keep the renderer modular enough for future animation-set export.
+**Current status:** Superseded by the 2026-06-11 browser/catalog parity slice. Do not execute this plan as the active visible-GUI target.
 
-**2026-06-11 update:** The original implementation sketch included raw `Joint` handles. That path is superseded. Imported figatree/JObj skeleton data is preserved for provenance, but active joint dragging must wait until `mole_runtime` exposes typed pose/joint primitives and the Mole CLI can validate those same edits.
+**Current goal:** Keep the visible Rust `Move Keyframes` tab as a character/state browser and runtime preview until editing has typed runtime primitives plus Mole CLI inspect/apply/validate/export commands.
 
-**Architecture:** Keep one editor core in `crates/mole_devtool/src/move_keyframes.rs` and let `ui.rs` be a thin shell that renders it. The editor should load the existing `AttackAirN.json` artifact, normalize runtime-aligned editable geometry into shared handles, and apply direct edits back to the selected frame. Save/export should stay on the same JSON artifact shape for now so the UI remains simple and the eventual compiler step can be added later without redesigning the editor.
+**2026-06-11 update:** The original implementation sketch included raw `Joint` handles and visible direct editing. That path is superseded. Imported figatree/JObj skeleton data is preserved for provenance, but active editing controls must wait until `mole_runtime` exposes typed primitives and the Mole CLI can validate those same edits.
+
+**Historical architecture note:** Keep one future editor core in `crates/mole_devtool/src/move_keyframes.rs` and let `ui.rs` be a thin shell that renders it. Existing model-level handle tests can guide future work, but visible controls should apply explicit artifact/override edits only after the CLI-backed edit contract exists.
 
 **Tech Stack:** Rust, `eframe`/`egui`, `serde_json`, existing `mole_devtool` module layout, existing `resources/melee/frame_data/dolphin_mole/AttackAirN.json`.
 

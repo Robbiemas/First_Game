@@ -129,7 +129,7 @@
         "resources/melee/extracted/captain_falcon_costume_skeleton.json"
       ],
       "status": "Active",
-      "summary": "Frame-data keyframe inspection, runtime preview, direct edit, and round-trip save path."
+      "summary": "Frame-data character/state browsing, compact manifest inspection, runtime preview, and export readiness."
     }
   ],
   "registry": {

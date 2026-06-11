@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this design task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the Rust `Move Keyframes` tab into a simple, exportable keyframe editor that can select, drag, save, and later compile geometry edits without adding a second editor model.
+**Current status:** Superseded by the 2026-06-11 browser/catalog parity slice. This document is historical design context for future editing work, not the active visible-GUI target.
 
-**Architecture:** The editor stays centered on the existing `resources/melee/frame_data/dolphin_mole/AttackAirN.json` artifact and one reusable geometry primitive. The canvas renders the selected keyframe through the Rust runtime scene path, while a shared handle/selection layer edits only runtime-aligned capsule endpoints and ECB/body-volume points through the same interaction path. Export remains a direct write-back to the current JSON shape first, which keeps the tool modular and leaves room for a later animation-set compiler without rewriting the UI.
+**Current goal:** Keep `Move Keyframes` as a character/state browser and runtime preview over materialized artifacts plus compact source manifests. Visible editing resumes only after the runtime exposes typed edit primitives and the Mole CLI can inspect, apply, validate, and export the same edits.
 
-**2026-06-11 update:** The original sketch allowed raw joint dragging. That is now superseded. Imported figatree/JObj skeleton data is preserved as provenance and inspection data, but joint handles should not be durable GUI controls until `mole_runtime` exposes typed pose/joint primitives and the Mole CLI can validate the same edit surface.
+**Historical architecture note:** The original editor sketch centered on `resources/melee/frame_data/dolphin_mole/AttackAirN.json` and one reusable geometry primitive. That model-level handle code remains useful as test coverage and future reference, but it should not be exposed as durable visible GUI editing until the CLI-backed edit contract exists.
+
+**2026-06-11 update:** The original sketch allowed raw joint dragging and visible direct geometry editing. That is now superseded. Imported figatree/JObj skeleton data is preserved as provenance and inspection data, but joint handles and other durable edit controls should not be visible until `mole_runtime` exposes typed pose/joint primitives and the Mole CLI can validate the same edit surface.
 
 **Tech Stack:** Rust, `eframe`/`egui`, `serde_json`, existing `mole_devtool` data loaders, existing frame-data JSON artifact.
 
@@ -14,7 +16,7 @@
 
 ## Problem Statement
 
-The current Rust `Move Keyframes` tab can show frame data and a preview, but it does not yet behave like an editor. The long-term goal is a lightweight keyframe editor that lets a human manipulate runtime-aligned collision pills and ECB/body-volume geometry directly in the same interface that later exports editable animation data. Pose/joint editing remains a later typed-runtime primitive, not a raw JSON overlay.
+The current Rust `Move Keyframes` tab should first behave like a browser/import foundation: select a target character, select a state, inspect the materialized or manifest-backed frame data, and preview materialized frames through the runtime scene. The long-term goal is still a lightweight keyframe editor, but that goal waits for CLI-backed typed edit primitives. Pose/joint editing remains a later typed-runtime primitive, not a raw JSON overlay.
 
 We want the editor to:
 - stay Rust-first,
@@ -27,9 +29,9 @@ We want the editor to:
 
 - One editor core for all editable geometry.
 - One artifact shape first, not a new parallel animation format.
-- One canvas, one handle system, one save/export path.
+- One canvas, one future handle system, one future CLI-backed save/export path.
 - Keep the visual language close to the current Python viewer, but do not reintroduce Python as the authority.
-- Prefer direct mutation of the selected frame data over layered hidden models.
+- Prefer explicit override/apply records over hidden model mutation once editing returns.
 
 ## Editor Model
 
@@ -125,11 +127,11 @@ The tests should prove that:
 
 Those can come later, but the editor should not depend on them.
 
-## Acceptance Criteria
+## Superseded Acceptance Criteria
 
-- The `Move Keyframes` tab behaves like an editor, not just a viewer.
-- Capsule endpoints and ECB/body-volume controls can be selected and dragged.
+- Current visible GUI acceptance is browser parity: character selector, state selector, runtime preview for materialized frames, compact timeline, right-side state details, and bounded responsive panels.
+- Capsule endpoints and ECB/body-volume controls remain future editing work until exposed through typed runtime primitives and CLI validation/apply commands.
 - Joint controls are absent unless backed by typed runtime pose primitives and matching CLI validation.
-- Edits are saved back through the existing JSON artifact path.
-- The editor stays small and modular, with one shared geometry-editing core.
+- Edits are not considered durable unless saved through an explicit artifact/override path that the CLI can replay.
+- Future editor work must stay small and modular, with one shared geometry-editing core.
 - The Rust devtool remains the primary path; Python is not expanded.

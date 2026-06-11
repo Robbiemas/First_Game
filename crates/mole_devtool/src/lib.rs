@@ -14,9 +14,11 @@ pub use app::{AppSection, MoveKeyframesPanel, ParityLedgerApp, StateGraphsPanel,
 pub use ecb_coverage::EcbCoverageSurface;
 pub use input_trace::InputTraceSurface;
 pub use move_keyframes::{
-    MoveKeyframe, MoveKeyframeBodyPoint, MoveKeyframeEndpoint, MoveKeyframeHandle,
-    MoveKeyframeHandleKind, MoveKeyframeJobjJoint, MoveKeyframeJobjSource, MoveKeyframeJobjTree,
-    MoveKeyframeVec3, MoveKeyframesEditorSurface, MoveKeyframesSurface,
+    list_move_keyframe_characters, list_move_keyframe_states, MoveKeyframe, MoveKeyframeBodyPoint,
+    MoveKeyframeEndpoint, MoveKeyframeHandle, MoveKeyframeHandleKind, MoveKeyframeJobjJoint,
+    MoveKeyframeJobjSource, MoveKeyframeJobjTree, MoveKeyframeVec3, MoveKeyframesCharacterRecord,
+    MoveKeyframesEditorSurface, MoveKeyframesStateRecord, MoveKeyframesStateSource,
+    MoveKeyframesSurface,
 };
 pub use parity_ledger::{ParityLedgerSurface, ParityLedgerSurfaceRow, ParityLedgerSurfaceTab};
 pub use slippi_replay::SlippiReplaySurface;

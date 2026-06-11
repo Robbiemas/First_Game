@@ -47,6 +47,8 @@ The Rust backend/data pipeline built to support the original Python-facing tool 
 
 Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability.
 
+For GUI layout, sizing, color, selection, and panel behavior, follow `docs/architecture/rust-devtool-ui-primitives.md`. Move tab fixes into shared primitives when they are reusable; do not let a one-tab patch become the copied pattern for the next surface.
+
 ## Lossless Artifact Requirements
 
 Every middleware artifact that can feed the engine should carry:
@@ -63,11 +65,37 @@ Every middleware artifact that can feed the engine should carry:
 
 If a GUI edit cannot be represented in the artifact and replayed through the CLI, do not treat it as durable.
 
+## Move Keyframes And Source Imports
+
+The current `Move Keyframes` GUI workflow is a browser first:
+
+```text
+target character -> target state -> frame/keyframe view -> details/provenance
+```
+
+It should match the old Python frontend shape where useful: compact top selectors, primary preview/timeline on the left, and state/frame details on the right. The Rust GUI should list both materialized state artifacts like `resources/melee/frame_data/dolphin_mole/AttackAirN.json` and compact manifest-only actions from `resources/melee/frame_data/<target>/source_manifest.json`.
+
+Import and replacement workflows should wrap the existing Mole CLI frame-data commands rather than creating a GUI-only path. Examples:
+
+- `mole frame-data extract --character dolphin_mole --source-character marth --state AttackLw3 --source-state AttackLw3 --write --json`
+- `mole frame-data extract --character dolphin_mole --source-character peach --state AttackLw4 --source-state AttackLw4 --write --json`
+- `mole frame-data extract --all-states --character dolphin_mole --source-character marth --write --json`
+- `mole frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/source_frame_data.rs --write --json`
+
+If a future GUI dropdown needs to show source characters, source actions, import plans, or profile-value replacement candidates such as Luigi friction values, add a CLI inspection/dry-run surface first or in the same slice. Useful future agent-facing commands include:
+
+- `frame-data catalog`: list target characters and their materialized/manifest states.
+- `frame-data source catalog`: list extractable source characters and source actions from extracted decomp resources.
+- `frame-data import-plan`: dry-run target/source character and state mappings before writing artifacts.
+- `value import-plan` or equivalent: dry-run typed profile/global/stage value imports while preserving int/float ownership and provenance.
+
+Do not add visible GUI import controls until they call the same Rust-owned command/view-model path that the CLI exposes.
+
 ## Runtime-Backed GUI Editing
 
 For visual editors, the rendered scene is owned by the Rust engine/runtime. GUI overlays may annotate that scene, but they must not become a second renderer or a second source of geometry truth.
 
-Move-keyframe editing currently uses `RenderFrame -> RenderScene` for the viewport. Editable GUI handles are limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
+Move-keyframe preview currently uses `RenderFrame -> RenderScene` for the viewport. The visible GUI should remain browser/read-only until editing can be represented by typed runtime primitives and replayed through the CLI. Existing editor-model handle code is limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
 
 ## Feature Acceptance Checklist
 
@@ -93,7 +121,7 @@ Rust already owns important backend pieces:
 - The parity ledger registry and generated map.
 - Active value sheets for global, character, physics, combat, and stage values.
 - Native Rust GUI shell in `mole_devtool`.
-- Move keyframe runtime preview and editable handles.
+- Move keyframe runtime preview, character/state browser, compact source-manifest awareness, and model-level collision handle editing tests.
 - Decomp search/show/symbol CLI commands.
 - Frame data extract/sample/export-runtime CLI commands.
 - Slippi replay/core trace diagnostics.
