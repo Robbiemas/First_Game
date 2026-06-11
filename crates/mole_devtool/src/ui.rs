@@ -669,6 +669,23 @@ fn render_move_keyframes_mobile_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerAp
 }
 
 fn render_move_keyframes_browser_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    ui.horizontal_wrapped(|ui| {
+        let column_width = ((ui.available_width() - ui.spacing().item_spacing.x) * 0.5)
+            .clamp(320.0, ui.available_width());
+        ui.allocate_ui_with_layout(
+            egui::vec2(column_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| render_move_keyframes_target_controls(ui, app),
+        );
+        ui.allocate_ui_with_layout(
+            egui::vec2(column_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| render_move_keyframes_import_controls(ui, app),
+        );
+    });
+}
+
+fn render_move_keyframes_target_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
@@ -739,6 +756,48 @@ fn render_move_keyframes_browser_controls(ui: &mut egui::Ui, app: &mut ParityLed
             if let Some(status) = &app.move_keyframes_status {
                 ui.label(status);
             }
+        });
+    });
+}
+
+fn render_move_keyframes_import_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Import From");
+                let sources = app.move_keyframe_import_sources();
+                let selected_source = app.selected_move_keyframe_import_source_label();
+                let mut pending_source: Option<&'static str> = None;
+                egui::ComboBox::from_id_salt("move_keyframes_import_source")
+                    .selected_text(selected_source)
+                    .show_ui(ui, |ui| {
+                        for (id, label) in sources {
+                            if ui
+                                .selectable_label(
+                                    app.selected_move_keyframe_import_source_id == id,
+                                    label,
+                                )
+                                .clicked()
+                            {
+                                pending_source = Some(id);
+                            }
+                        }
+                    });
+                if let Some(source_id) = pending_source {
+                    app.select_move_keyframe_import_source(source_id);
+                }
+                if ui.button("Import All States").clicked() {
+                    match app.run_move_keyframe_import_pipeline() {
+                        Ok(()) => {}
+                        Err(error) => app.move_keyframes_status = Some(error),
+                    }
+                }
+            });
+            ui.label(format!(
+                "Target: {} | Source: {} | Method: Mole CLI all-states import",
+                app.selected_move_keyframe_character_label(),
+                app.selected_move_keyframe_import_source_label()
+            ));
         });
     });
 }
@@ -1364,11 +1423,24 @@ fn draw_render_polygon(
         .into_iter()
         .map(|point| fit.apply(egui::pos2(point.x as f32, point.y as f32)))
         .collect::<Vec<_>>();
-    painter.add(egui::Shape::convex_polygon(
-        points,
-        egui::Color32::TRANSPARENT,
-        egui::Stroke::new(1.0, color),
-    ));
+    let Ok(points): Result<[egui::Pos2; 4], _> = points.try_into() else {
+        return;
+    };
+    let stroke = egui::Stroke::new(1.0, color);
+    for line in move_keyframe_ecb_wireframe_lines(points) {
+        painter.line_segment(line, stroke);
+    }
+}
+
+fn move_keyframe_ecb_wireframe_lines(points: [egui::Pos2; 4]) -> Vec<[egui::Pos2; 2]> {
+    vec![
+        [points[0], points[1]],
+        [points[1], points[2]],
+        [points[2], points[3]],
+        [points[3], points[0]],
+        [points[0], points[2]],
+        [points[3], points[1]],
+    ]
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1537,5 +1609,23 @@ mod tests {
             move_keyframe_capsule_wireframe(egui::pos2(5.0, 5.0), egui::pos2(5.0, 5.0), 3.0);
         assert_eq!(circle.radius, 3.0);
         assert!(circle.sides.is_none());
+    }
+
+    #[test]
+    fn move_keyframe_ecb_wireframe_uses_decomp_top_right_bottom_left_axes() {
+        let points = [
+            egui::pos2(10.0, 0.0),
+            egui::pos2(20.0, 10.0),
+            egui::pos2(10.0, 20.0),
+            egui::pos2(0.0, 10.0),
+        ];
+
+        let lines = move_keyframe_ecb_wireframe_lines(points);
+
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines[0], [points[0], points[1]]);
+        assert_eq!(lines[3], [points[3], points[0]]);
+        assert_eq!(lines[4], [points[0], points[2]]);
+        assert_eq!(lines[5], [points[3], points[1]]);
     }
 }

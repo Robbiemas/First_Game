@@ -532,3 +532,16 @@ Purpose: a short working note for the current parity investigation so I can resu
 - User clarified that another agent may be changing the game engine in parallel. The devtool must reflect those engine changes through shared `mole_core` and `mole_runtime` types, because the devtool viewport is only an adapter over the runtime engine scene.
 - Added a regression proving the move/state editor preview scene is exactly the engine-built `RenderScene::from_frame_on_stage(&preview.frame, StageProfile::dev_flat_test(), ...)`, with only editor-specific entry platform suppression applied afterward.
 - Architecture rule: no tab-local replicas of engine state, camera math, collision geometry, animation stepping, or stage setup. Add shared runtime/CLI primitives first, then adapt them in the GUI.
+
+## Future Note: State Animation Batching After Parity
+
+- User wants full lossless parity first: every source state should remain importable and inspectable while combat, game flow, and the runtime loop are still being translated from the decompilation.
+- After parity is proven, revisit small duplicated state animations such as repeated item/swing variants. If multiple states are byte-for-byte or semantically equivalent under the typed runtime model, they can be batched/deduplicated behind a canonical source mapping.
+- Do not collapse or alias these states now. The future batching pass must preserve source action IDs, provenance, CLI import/export behavior, GUI selection, and round-trip losslessness.
+
+## 2026-06-11 compact import reset and GUI import panel
+
+- Cleared the old Dolphin Mole per-state frame-data cache and refilled it through the Rust CLI all-states Captain Falcon import/export pipeline. Dolphin Mole now keeps `resources/melee/frame_data/dolphin_mole/source_manifest.json` as the compact authority; the stale expanded `AttackAirN.json` cache is intentionally removed.
+- Added a Move/State editor import panel beside the target selector. It defaults to importing all Captain Falcon states into Dolphin Mole by running the same Mole CLI commands agents use: `frame-data extract --all-states` followed by `frame-data export-runtime --all-states`.
+- Updated devtool and CLI tests to treat manifest-backed states as the normal full-import browser path. The manifest-backed surface now exposes the embedded Captain Falcon skeleton path so rig metadata remains available after removing expanded per-state JSON.
+- Updated the egui viewport adapter to draw runtime ECB polygons as the decomp-shaped top/right/bottom/left diamond with top-bottom and left-right axes. The ECB data still comes from `mole_runtime::RenderScene`, not a GUI-local body box.
