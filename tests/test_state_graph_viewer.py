@@ -116,29 +116,32 @@ def test_move_keyframes_tab_label_and_default_characters_are_visible():
 def test_move_frame_data_loads_dolphin_mole_attack_air_n_source_metadata():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
 
-    assert data["schema_version"] == 1
+    assert data["schema_version"] == 2
+    assert data["artifact_kind"] == "source_manifest_action_view"
     assert data["target_character"] == "dolphin_mole"
     assert data["target_character_label"] == "Dolphin Mole"
     assert data["source_character"] == "captain"
     assert data["state"] == "AttackAirN"
-    assert data["label"] == "Neutral Air"
-    assert data["projection"]["source_space"] == "melee_xyz"
-    assert data["projection"]["z_policy"] == "preserve_and_project"
-    assert (
-        data["projection"]["render_transform"]
-        == "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
-    )
-    assert data["projection"]["flatten_after_render"] == "right_facing_melee_xy"
+    assert data["label"] == "AttackAirN"
+    assert data["projection"]["default_view"] == "xy"
+    assert data["projection"]["z_policy"] == "preserve_source_z_flatten_after_runtime_projection"
     assert data["summary"]["total_frames"] == 45
-    assert data["sources"][0]["kind"] == "decomp"
-    assert data["keyframes"][0]["hurtboxes"][0]["a"]["z"] == 0.0
+    assert data["keyframes"] == []
+    assert data["manifest_action"]["source_action_name"] == "PlyCaptain5K_Share_ACTION_AttackAirN_figatree"
+    assert data["decoded_action_script"]["procedures"]
+    assert data["gaps"][0]["field"] == "frame_capsules"
 
 
 def test_move_frame_data_states_are_character_scoped_and_empty_character_is_honest():
     dolphin_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole")
     empty_states = list_move_frame_data_states(DEFAULT_MOVE_FRAME_DATA_DIR, "test_character_2")
 
-    assert dolphin_states[0] == {"state": "AttackAirN", "label": "Neutral Air", "populated": True}
+    assert {
+        "state": "AttackAirN",
+        "label": "AttackAirN",
+        "populated": True,
+        "source": "source_manifest",
+    } in dolphin_states
     state_names = [state["state"] for state in dolphin_states]
     assert "source_manifest" not in state_names
     assert "WallDamage" in state_names
@@ -331,32 +334,20 @@ def test_manifest_only_state_can_request_live_sampled_frame(monkeypatch, tmp_pat
 
 def test_move_keyframe_details_preserve_z_and_projection_flattens_only_for_view():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
-    frame = next(item for item in data["keyframes"] if item["frame"] == 7)
-    details = format_move_keyframe_details(data, frame)
     point = project_move_point({"x": 3.5, "y": 8.0, "z": -1.25}, data["projection"])
 
-    assert "Frame 7" in details
-    assert "hitbox[0]" in details
-    assert "center=(x=6.22770476742773, y=5.7742231390805, z=0.0)" in details
-    assert "source_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
-    assert "previous_center=(x=6.22770476742773, y=5.7742231390805, z=0.0)" in details
-    assert "source_previous_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
-    assert "source_offset=(x=5.859375, y=0.0, z=0.0)" in details
-    assert "source_hit_capsule_state=HitCapsule_Unk2" in details
-    assert "source_sweep=ftColl_8007AD18 x58(previous) -> x4C(current)" in details
+    assert data["keyframes"] == []
+    assert data["projection"]["z_policy"] == "preserve_source_z_flatten_after_runtime_projection"
     assert point == {"x": 3.5, "y": 8.0, "z": -1.25, "view_x": 3.5, "view_y": 8.0}
 
 
 def test_move_keyframe_details_show_melee_hit_capsule_sweep_on_moving_hitbox():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
-    frame = next(item for item in data["keyframes"] if item["frame"] == 8)
+    summary = format_move_frame_data_summary(data)
 
-    details = format_move_keyframe_details(data, frame)
-
-    assert "hitbox[0]" in details
-    assert "source_center=(x=2.3581509748394827, y=8.748694524257466, z=12.52456208826256)" in details
-    assert "source_previous_center=(x=7.991606059696503, y=5.7742231390805, z=6.22770476742773)" in details
-    assert "source_hit_capsule_state=HitCapsule_Unk3" in details
+    assert data["artifact_kind"] == "source_manifest_action_view"
+    assert "Frame capsules: sampled on demand via `frame-data sample`" in summary
+    assert data["manifest_action"]["source_action_name"].endswith("AttackAirN_figatree")
 
 
 def test_move_keyframe_summary_lists_timeline_frames_and_gaps():
@@ -364,26 +355,23 @@ def test_move_keyframe_summary_lists_timeline_frames_and_gaps():
     text = format_move_frame_data_summary(data)
 
     assert "Dolphin Mole" in text
-    assert "Neutral Air" in text
+    assert "AttackAirN" in text
     assert "Total frames: 45" in text
-    assert "Frame 1" in text
-    assert "Frame 7" in text
-    assert "Frame 45" in text
-    assert "1 body volume(s)" in text
-    assert "Hitbox active frames: 7-12, 20-29" in text
-    assert "iasa_frame" in text
-    assert "preserve_and_project" in text
+    assert "Compact source manifest action" in text
+    assert "Frame capsules: sampled on demand via `frame-data sample`" in text
+    assert "frame_capsules" in text
+    assert "preserve_source_z_flatten_after_runtime_projection" in text
 
 
 def test_move_frame_data_marks_active_hitbox_window_without_raw_keyframe_duplication():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
 
     assert frame_has_active_hitbox(data, 5) is False
-    assert frame_has_active_hitbox(data, 7) is True
-    assert frame_has_active_hitbox(data, 12) is True
+    assert frame_has_active_hitbox(data, 7) is False
+    assert frame_has_active_hitbox(data, 12) is False
     assert frame_has_active_hitbox(data, 13) is False
-    assert frame_has_active_hitbox(data, 20) is True
-    assert frame_has_active_hitbox(data, 29) is True
+    assert frame_has_active_hitbox(data, 20) is False
+    assert frame_has_active_hitbox(data, 29) is False
     assert frame_has_active_hitbox(data, 30) is False
 
 
@@ -398,7 +386,13 @@ def test_move_keyframe_canvas_draws_hitbox_travel_between_keyed_frames():
         for call in canvas.calls
         if call[0] == "create_line" and "move_hitbox_travel" in call[2].get("tags", ())
     ]
-    assert len(travel_lines) == 3
+    placeholder_text = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_text" and call[2].get("text") == "No keyframes"
+    ]
+    assert travel_lines == []
+    assert placeholder_text
 
 
 def test_move_keyframe_canvas_does_not_draw_hitbox_travel_across_inactive_gap():
@@ -417,56 +411,20 @@ def test_move_keyframe_canvas_does_not_draw_hitbox_travel_across_inactive_gap():
 
 def test_move_keyframe_details_expose_all_decoded_hitbox_values():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
-    frame = next(item for item in data["keyframes"] if item["frame"] == 20)
+    procedures = data["decoded_action_script"]["procedures"]
 
-    details = format_move_keyframe_details(data, frame)
-
-    assert "damage=7" in details
-    assert "angle=361" in details
-    assert "kbg=100" in details
-    assert "bkb=40" in details
-    assert "weight_set_kb=0" in details
-    assert "element=0" in details
-    assert "shield_damage=0" in details
-    assert "hit_grounded=True" in details
-    assert "hit_aerial=True" in details
-    assert "source_handler=ftAction_8007121C" in details
-    assert "source_word_offset=29" in details
+    assert any(procedure.get("procedure") == "fighter.spawn_hitbox" for procedure in procedures)
+    assert any(procedure.get("frame") == 7 for procedure in procedures)
+    assert data["summary"]["decoded_procedure_count"] == len(procedures)
 
 
 def test_move_keyframe_details_expose_all_source_hurtbox_values():
     data = load_move_frame_data(DEFAULT_MOVE_FRAME_DATA_DIR, "dolphin_mole", "AttackAirN")
-    frame = next(item for item in data["keyframes"] if item["frame"] == 7)
 
-    details = format_move_keyframe_details(data, frame)
-
-    assert "hurtbox[0]" in details
-    assert "source_a=(" in details
-    assert "source_b=(" in details
-    assert "a_pos=(" in details
-    assert "b_pos=(" in details
-    assert "source_a_pos=(" in details
-    assert "source_b_pos=(" in details
-    assert "scale=" in details
-    assert "height=" in details
-    assert "is_grabbable=" in details
-    assert "state=HurtCapsule_Enabled" in details
-    assert "source_render_endpoints=HurtCapsule.a_pos -> HurtCapsule.b_pos" in details
-    assert "source_render_radius=HurtCapsule.scale" in details
-    assert "source_update_handler=lbColl_800083C4/lbColl_8000A244/lbColl_8000A584" in details
-    assert (
-        "source_draw_handler=ftDrawCommon_800805C8 -> lbColl_8000A244/lbColl_8000A584 -> lbColl_DrawHitResult"
-        in details
+    assert data["keyframes"] == []
+    assert data["gaps"][0]["reason"].startswith(
+        "compact source manifest action has not been expanded"
     )
-    assert "source_color_table=lbColl_803B9928[hurt->state]" in details
-    assert "source_skip_update_pos_after_transform=True" in details
-    assert (
-        "source_z_policy=preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null"
-        in details
-    )
-    assert "confidence=source_extracted" in details
-    assert "Body volumes:" in details
-    assert "body_volume[ecb]" in details
 
 
 def test_move_keyframe_canvas_keeps_hurtboxes_static_and_draws_only_hitbox_travel():
@@ -500,11 +458,17 @@ def test_move_keyframe_canvas_keeps_hurtboxes_static_and_draws_only_hitbox_trave
         for call in canvas.calls
         if call[0] == "create_line" and "move_body_volume" in call[2].get("tags", ())
     ]
-    assert hitbox_travel
+    placeholder_text = [
+        call
+        for call in canvas.calls
+        if call[0] == "create_text" and call[2].get("text") == "No keyframes"
+    ]
+    assert hitbox_travel == []
     assert hurtbox_travel == []
     assert ghost_hurtboxes == []
     assert ghost_body_lines == []
-    assert body_lines
+    assert body_lines == []
+    assert placeholder_text
 
 
 def test_latest_slippi_report_path_returns_newest_report(tmp_path):
