@@ -1,8 +1,10 @@
 use crate::{
+    layout::{bounded_child_height, responsive_split_layout},
     state_graphs::{StateGraphCanvasView, StateGraphDocument, StateGraphSelection},
     template::render_spreadsheet_table,
     theme::{devtool_theme, status_palette},
-    AppSection, LedgerTabTemplate, ParityLedgerApp, ThemeMode,
+    AppSection, LedgerTabTemplate, MoveKeyframesPanel, ParityLedgerApp, StateGraphsPanel,
+    ThemeMode,
 };
 use eframe::egui;
 use mole_core::Vec2 as CoreVec2;
@@ -171,10 +173,33 @@ fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         }
     });
     ui.separator();
-    render_state_graph_canvas_pair(ui, app);
-    render_state_graph_selection_detail(ui, app);
+    render_state_graph_subtabs(ui, app);
     ui.separator();
+    match app.selected_state_graph_panel {
+        StateGraphsPanel::Graphs => render_state_graph_canvas_pair(ui, app),
+        StateGraphsPanel::Selection => render_state_graph_selection_detail(ui, app),
+        StateGraphsPanel::Missing => render_state_graph_missing_sheet(ui, app),
+    }
+}
 
+fn render_state_graph_subtabs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    ui.horizontal_wrapped(|ui| {
+        for (panel, label) in [
+            (StateGraphsPanel::Graphs, "Graphs"),
+            (StateGraphsPanel::Selection, "Selection"),
+            (StateGraphsPanel::Missing, "Missing"),
+        ] {
+            if ui
+                .selectable_label(app.selected_state_graph_panel == panel, label)
+                .clicked()
+            {
+                app.selected_state_graph_panel = panel;
+            }
+        }
+    });
+}
+
+fn render_state_graph_missing_sheet(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     let template = LedgerTabTemplate::from(&app.state_graphs);
     let mut selected_row = app.selected_state_graph_row;
     let mut pending_selection = selected_row;
@@ -200,23 +225,53 @@ fn render_state_graph_canvas_pair(ui: &mut egui::Ui, app: &mut ParityLedgerApp) 
     }
 
     let available_width = ui.available_width();
+    let available_height = ui.available_height();
     let pane_gap = ui.spacing().item_spacing.x;
-    let pane_width = if app.state_graph_canvas.graphs.len() > 1 {
-        ((available_width - pane_gap) / 2.0).max(320.0)
-    } else {
-        available_width.max(320.0)
-    };
-    let pane_height = 390.0;
+    let layout = responsive_split_layout(
+        available_width,
+        available_height,
+        app.state_graph_canvas.graphs.len(),
+        pane_gap,
+    );
     let graphs = app.state_graph_canvas.graphs.clone();
-    ui.horizontal_top(|ui| {
-        for graph in &graphs {
+    if layout.stacked {
+        let selected = app
+            .selected_state_graph_pane
+            .min(graphs.len().saturating_sub(1));
+        app.selected_state_graph_pane = selected;
+        ui.horizontal_wrapped(|ui| {
+            for (index, graph) in graphs.iter().enumerate() {
+                if ui
+                    .selectable_label(index == selected, graph.title.as_str())
+                    .clicked()
+                {
+                    app.selected_state_graph_pane = index;
+                }
+            }
+        });
+        if let Some(graph) = graphs.get(app.selected_state_graph_pane) {
             ui.allocate_ui_with_layout(
-                egui::vec2(pane_width, pane_height),
+                egui::vec2(layout.left_width, layout.body_height),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| render_state_graph_canvas(ui, app, graph),
             );
         }
-    });
+    } else {
+        ui.horizontal_top(|ui| {
+            for (index, graph) in graphs.iter().enumerate() {
+                let width = if index == 0 {
+                    layout.left_width
+                } else {
+                    layout.right_width
+                };
+                ui.allocate_ui_with_layout(
+                    egui::vec2(width, layout.body_height),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| render_state_graph_canvas(ui, app, graph),
+                );
+            }
+        });
+    }
 }
 
 fn render_state_graph_canvas(
@@ -252,7 +307,8 @@ fn render_state_graph_canvas(
             if !graph.description.is_empty() {
                 ui.label(&graph.description);
             }
-            let desired_size = egui::vec2(ui.available_width().max(280.0), 300.0);
+            let canvas_height = bounded_child_height(ui.available_height(), 220.0, 300.0);
+            let desired_size = egui::vec2(ui.available_width().max(1.0), canvas_height);
             let (rect, response) =
                 ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
             let canvas_rect = rect.shrink(16.0);
@@ -334,6 +390,9 @@ fn render_state_graph_canvas(
                     ];
                     app.state_graph_selection =
                         graph.selection_at_canvas_point(&view, canvas_size, point);
+                    if app.state_graph_selection.is_some() {
+                        app.selected_state_graph_panel = StateGraphsPanel::Selection;
+                    }
                 }
             }
             let painter = ui.painter_at(rect);
@@ -530,40 +589,38 @@ fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
 
     let available_width = ui.available_width();
     let available_height = ui.available_height();
-    let right_width = (available_width * 0.33).clamp(300.0, 420.0);
-    let left_width = (available_width - right_width - ui.spacing().item_spacing.x).max(320.0);
+    let layout = responsive_split_layout(
+        available_width,
+        available_height,
+        2,
+        ui.spacing().item_spacing.x,
+    );
 
-    if available_width < 980.0 {
-        ui.vertical(|ui| {
-            ui.allocate_ui_with_layout(
-                egui::vec2(ui.available_width(), (available_height * 0.58).max(360.0)),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    render_move_keyframes_viewport_panel(ui, app, &mut selected_row);
-                    ui.add_space(6.0);
-                    render_move_keyframes_strip_panel(
-                        ui,
-                        app.theme(),
-                        &app.move_keyframes,
-                        &mut selected_row,
-                    );
-                },
-            );
-            ui.add_space(6.0);
-            ui.allocate_ui_with_layout(
-                egui::vec2(ui.available_width(), ui.available_height()),
-                egui::Layout::top_down(egui::Align::Min),
-                |ui| {
-                    render_move_keyframes_choice_panel(ui, app, selected_row);
-                    ui.add_space(6.0);
-                    render_move_keyframes_inspector_panel(ui, app);
-                },
-            );
-        });
+    if layout.stacked {
+        render_move_keyframes_mobile_tabs(ui, app);
+        ui.separator();
+        match app.selected_move_keyframes_panel {
+            MoveKeyframesPanel::Preview => {
+                render_move_keyframes_viewport_panel(ui, app, &mut selected_row);
+            }
+            MoveKeyframesPanel::Inspector => {
+                render_move_keyframes_choice_panel(ui, app, selected_row);
+                ui.add_space(6.0);
+                render_move_keyframes_inspector_panel(ui, app);
+            }
+            MoveKeyframesPanel::Data => {
+                render_move_keyframes_strip_panel(
+                    ui,
+                    app.theme(),
+                    &app.move_keyframes,
+                    &mut selected_row,
+                );
+            }
+        }
     } else {
         ui.horizontal_top(|ui| {
             ui.allocate_ui_with_layout(
-                egui::vec2(left_width, available_height),
+                egui::vec2(layout.left_width, layout.body_height),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
                     render_move_keyframes_viewport_panel(ui, app, &mut selected_row);
@@ -580,7 +637,7 @@ fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
             ui.separator();
 
             ui.allocate_ui_with_layout(
-                egui::vec2(right_width, available_height),
+                egui::vec2(layout.right_width, layout.body_height),
                 egui::Layout::top_down(egui::Align::Min),
                 |ui| {
                     render_move_keyframes_choice_panel(ui, app, selected_row);
@@ -594,6 +651,23 @@ fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     app.move_keyframes_editor
         .set_selected_frame_index(selected_row);
     app.selected_move_keyframe_row = selected_row;
+}
+
+fn render_move_keyframes_mobile_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    ui.horizontal_wrapped(|ui| {
+        for (panel, label) in [
+            (MoveKeyframesPanel::Preview, "Preview"),
+            (MoveKeyframesPanel::Inspector, "Inspector"),
+            (MoveKeyframesPanel::Data, "Frames"),
+        ] {
+            if ui
+                .selectable_label(app.selected_move_keyframes_panel == panel, label)
+                .clicked()
+            {
+                app.selected_move_keyframes_panel = panel;
+            }
+        }
+    });
 }
 
 fn render_move_keyframes_choice_panel(
@@ -785,7 +859,7 @@ fn render_input_trace(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         .default_open(false)
         .show(ui, |ui| {
             egui::ScrollArea::vertical()
-                .max_height(260.0)
+                .max_height(bounded_child_height(ui.available_height(), 120.0, 260.0))
                 .show(ui, |ui| {
                     ui.monospace(&app.input_trace.raw_export_text);
                 });
@@ -863,7 +937,7 @@ fn render_slippi_replay(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         .default_open(false)
         .show(ui, |ui| {
             egui::ScrollArea::vertical()
-                .max_height(260.0)
+                .max_height(bounded_child_height(ui.available_height(), 120.0, 260.0))
                 .show(ui, |ui| {
                     ui.monospace(&app.slippi_replay.trace_report_text);
                 });
@@ -957,8 +1031,8 @@ fn render_move_keyframes_viewport_panel(
             });
             ui.separator();
 
-            let preview_height = (ui.available_height() * 0.44).clamp(210.0, 320.0);
-            let desired_size = egui::vec2(ui.available_width().max(320.0), preview_height);
+            let preview_height = bounded_child_height(ui.available_height(), 210.0, 320.0);
+            let desired_size = egui::vec2(ui.available_width().max(1.0), preview_height);
             let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
             let painter = ui.painter_at(rect);
             let palette = move_keyframe_preview_palette(theme);

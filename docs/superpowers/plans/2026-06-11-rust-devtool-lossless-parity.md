@@ -53,8 +53,8 @@
 
 - [x] Keep table rendering data-driven and reusable across tabs.
 - [x] Treat row status as a semantic attribute; do not duplicate a visible Status column when the source table already has one.
-- [ ] Extract repeated panel patterns only when at least two current tabs use them.
-- [ ] Prefer small primitives for tab bars, summary strips, table/detail panes, artifact selectors, and runtime previews.
+- [x] Extract repeated panel patterns only when at least two current tabs use them.
+- [x] Prefer small primitives for tab bars, summary strips, table/detail panes, artifact selectors, and runtime previews.
 - [ ] Avoid broad GUI frameworks inside the crate; keep egui wrappers thin and obvious.
 
 ### Task 4: Make Trace And Replay Surfaces Selectable

@@ -462,3 +462,14 @@ Purpose: a short working note for the current parity investigation so I can resu
   - `cargo test -p mole_devtool`
   - `cargo test -p mole_cli`
   - `cargo run -p mole_cli -- generated write-ledger-map --write --json`
+
+## 2026-06-11 responsive Rust devtool layout foundation
+
+- Added shared Rust layout primitives for bounded split panes and bounded child heights, with tests proving narrow panes stack and no child requests more height than the window offers.
+- Moved the State Graphs tab toward the old Python frontend structure: header controls stay at the top, graph canvases remain the primary split-pane body, and selection/missing-entry surfaces are accessed through sub-tabs instead of being stacked below the canvases.
+- Move Keyframes now uses the same responsive split primitive: desktop keeps preview/timeline on the left and editor details on the right, while narrow/mobile widths switch between Preview, Inspector, and Frames sub-tabs.
+- Reusable sheets and raw text panes now use bounded heights instead of fixed values, preserving internal scrolling only for data-heavy surfaces where virtualization/scrolling is the performance-friendly option.
+- Architecture rule going forward: new Rust devtool tabs should reuse `layout.rs` primitives and prefer sub-tabs over overflowing panels; virtualized/bounded data panes are preferred over rendering off-screen widgets.
+- Verification for this slice:
+  - `cargo fmt --check`
+  - `cargo test -p mole_devtool`

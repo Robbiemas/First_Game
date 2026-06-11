@@ -1,6 +1,7 @@
 pub mod app;
 pub mod ecb_coverage;
 pub mod input_trace;
+pub mod layout;
 pub mod move_keyframes;
 pub mod parity_ledger;
 pub mod slippi_replay;
@@ -9,7 +10,7 @@ pub mod template;
 pub mod theme;
 pub mod ui;
 
-pub use app::{AppSection, ParityLedgerApp, ThemeMode};
+pub use app::{AppSection, MoveKeyframesPanel, ParityLedgerApp, StateGraphsPanel, ThemeMode};
 pub use ecb_coverage::EcbCoverageSurface;
 pub use input_trace::InputTraceSurface;
 pub use move_keyframes::{

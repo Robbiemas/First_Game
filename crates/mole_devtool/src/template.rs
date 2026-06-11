@@ -1,4 +1,5 @@
 use crate::{
+    layout::bounded_child_height,
     theme::{header_palette, status_palette},
     ParityLedgerSurfaceRow, ParityLedgerSurfaceTab, ThemeMode,
 };
@@ -72,7 +73,7 @@ pub fn render_spreadsheet_table(
 
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
-        .max_height(420.0)
+        .max_height(bounded_child_height(ui.available_height(), 160.0, 420.0))
         .show(ui, |ui| {
             let separate_status_column = template.renders_separate_status_column();
             render_table_headers(ui, theme, &template.display_headers());

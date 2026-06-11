@@ -31,6 +31,20 @@ pub enum ThemeMode {
     Light,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateGraphsPanel {
+    Graphs,
+    Selection,
+    Missing,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveKeyframesPanel {
+    Preview,
+    Inspector,
+    Data,
+}
+
 #[derive(Debug, Clone)]
 pub struct ParityLedgerApp {
     pub(crate) view_model: ParityLedgerViewModel,
@@ -62,12 +76,15 @@ pub struct ParityLedgerApp {
     pub(crate) move_keyframes_active_drag_delta: egui::Vec2,
     pub(crate) selected_section: AppSection,
     pub(crate) selected_state_graph_row: usize,
+    pub(crate) selected_state_graph_panel: StateGraphsPanel,
+    pub(crate) selected_state_graph_pane: usize,
     pub(crate) selected_ledger_tab: usize,
     pub(crate) selected_ledger_row: usize,
     pub(crate) selected_ecb_row: usize,
     pub(crate) selected_input_trace_row: usize,
     pub(crate) selected_slippi_replay_row: usize,
     pub(crate) selected_move_keyframe_row: usize,
+    pub(crate) selected_move_keyframes_panel: MoveKeyframesPanel,
     pub(crate) theme: ThemeMode,
     workspace_root: PathBuf,
 }
@@ -151,12 +168,15 @@ impl ParityLedgerApp {
             move_keyframes_active_drag_delta: egui::Vec2::ZERO,
             selected_section: AppSection::ParityLedger,
             selected_state_graph_row: 0,
+            selected_state_graph_panel: StateGraphsPanel::Graphs,
+            selected_state_graph_pane: 0,
             selected_ledger_tab: 0,
             selected_ledger_row: 0,
             selected_ecb_row: 0,
             selected_input_trace_row: 0,
             selected_slippi_replay_row: 0,
             selected_move_keyframe_row: 0,
+            selected_move_keyframes_panel: MoveKeyframesPanel::Preview,
             theme: ThemeMode::Light,
             workspace_root,
         }
