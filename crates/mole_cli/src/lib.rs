@@ -53,6 +53,7 @@ enum CliCommand {
     Generated(GeneratedCommand),
     Devtool(DevtoolCommand),
     Finish(FinishCommand),
+    Stage(StageCommand),
     Replay(ReplayCommand),
     Decomp(DecompCommand),
     FrameData(FrameDataCommand),
@@ -101,6 +102,31 @@ pub(crate) enum GeneratedCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum FinishCommand {
     Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum StageCommand {
+    Inspect { stage: String },
+    Extract(StageExtractOptions),
+    ExtractIso(StageExtractIsoOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StageExtractOptions {
+    pub stage: String,
+    pub stage_name: Option<String>,
+    pub dat: Option<String>,
+    pub write: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StageExtractIsoOptions {
+    pub iso: String,
+    pub stages: Vec<String>,
+    pub stage_name: Option<String>,
+    pub competitive: bool,
+    pub all_registered: bool,
+    pub write: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -412,6 +438,7 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "generated" => parse_generated_command(&positional[1..]).map(CliCommand::Generated),
         "devtool" => parse_devtool_command(&positional[1..]).map(CliCommand::Devtool),
         "finish" => parse_finish_command(&positional[1..]).map(CliCommand::Finish),
+        "stage" => parse_stage_command(&positional[1..]).map(CliCommand::Stage),
         "replay" => parse_replay_command(&positional[1..]).map(CliCommand::Replay),
         "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
         "frame-data" => parse_frame_data_command(&positional[1..]).map(CliCommand::FrameData),
@@ -900,6 +927,99 @@ fn parse_finish_command(args: &[String]) -> Result<FinishCommand, String> {
     }
 }
 
+fn parse_stage_command(args: &[String]) -> Result<StageCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("inspect");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "inspect" => {
+            let mut stage = None;
+            let mut index = 0;
+            while index < rest.len() {
+                match rest[index].as_str() {
+                    "--stage" => {
+                        stage = Some(take_flag_value(rest, &mut index, "--stage")?);
+                    }
+                    other => return Err(format!("unexpected argument for stage inspect: {other}")),
+                }
+                index += 1;
+            }
+            Ok(StageCommand::Inspect {
+                stage: stage.unwrap_or_else(|| "battlefield".to_string()),
+            })
+        }
+        "extract" => parse_stage_extract(rest).map(StageCommand::Extract),
+        "extract-iso" => parse_stage_extract_iso(rest).map(StageCommand::ExtractIso),
+        other => Err(format!("unknown mole stage command: {other}")),
+    }
+}
+
+fn parse_stage_extract(args: &[String]) -> Result<StageExtractOptions, String> {
+    let mut stage = None;
+    let mut stage_name = None;
+    let mut dat = None;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--stage" => stage = Some(take_flag_value(args, &mut index, "--stage")?),
+            "--stage-name" => stage_name = Some(take_flag_value(args, &mut index, "--stage-name")?),
+            "--dat" => dat = Some(take_flag_value(args, &mut index, "--dat")?),
+            "--write" => write = true,
+            other => return Err(format!("unexpected argument for stage extract: {other}")),
+        }
+        index += 1;
+    }
+    Ok(StageExtractOptions {
+        stage: stage.ok_or_else(|| "stage extract requires --stage <id>".to_string())?,
+        stage_name,
+        dat,
+        write,
+    })
+}
+
+fn parse_stage_extract_iso(args: &[String]) -> Result<StageExtractIsoOptions, String> {
+    let mut iso = None;
+    let mut stages = Vec::new();
+    let mut stage_name = None;
+    let mut competitive = false;
+    let mut all_registered = false;
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--iso" => iso = Some(take_flag_value(args, &mut index, "--iso")?),
+            "--stage" => stages.push(take_flag_value(args, &mut index, "--stage")?),
+            "--stage-name" => stage_name = Some(take_flag_value(args, &mut index, "--stage-name")?),
+            "--competitive" => competitive = true,
+            "--all-registered" => all_registered = true,
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for stage extract-iso: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    if stage_name.is_some() && stages.len() != 1 {
+        return Err("stage extract-iso --stage-name requires exactly one --stage".to_string());
+    }
+    if !competitive && !all_registered && stages.is_empty() {
+        return Err(
+            "stage extract-iso requires --stage <id>, --competitive, or --all-registered"
+                .to_string(),
+        );
+    }
+    Ok(StageExtractIsoOptions {
+        iso: iso.ok_or_else(|| "stage extract-iso requires --iso <path>".to_string())?,
+        stages,
+        stage_name,
+        competitive,
+        all_registered,
+        write,
+    })
+}
+
 fn parse_devtool_command(args: &[String]) -> Result<DevtoolCommand, String> {
     let subcommand = args.first().map(String::as_str).unwrap_or("ledger");
     let rest = subcommand_args(args);
@@ -1167,6 +1287,7 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Generated(command) => generated::generated_report(&options.root, command),
         CliCommand::Devtool(command) => devtool_report(&options.root, command),
         CliCommand::Finish(command) => finish_report(&options.root, command),
+        CliCommand::Stage(command) => stage_assets::stage_report(&options.root, command),
         CliCommand::Replay(command) => replay::replay_report(&options.root, command),
         CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
         CliCommand::FrameData(command) => frame_data::frame_data_report(&options.root, command),
@@ -2182,7 +2303,7 @@ fn help_report() -> Value {
         ],
         "ai_contract": {
             "read_only_by_default": true,
-            "mutating_commands": ["frame-data extract", "frame-data export-runtime", "package friend-playtest", "package local-internet-playtest", "replay check", "request add", "request done"],
+            "mutating_commands": ["generated write-stage-asset", "generated write-value-sheets", "frame-data extract", "frame-data export-runtime", "package friend-playtest", "package local-internet-playtest", "replay check", "request add", "request done", "stage extract", "stage extract-iso"],
             "no_interactive_prompts": true,
             "stable_json_schema_version": SCHEMA_VERSION,
             "nonzero_exit_on_cli_usage_error": true
@@ -2382,14 +2503,60 @@ fn command_help_catalog() -> Value {
         {
             "name": "generated write-stage-asset",
             "usage": "mole generated write-stage-asset --stage battlefield [--write] [--json]",
-            "purpose": "Write a portable extracted stage asset for the named stage, starting with Battlefield as the template stage.",
+            "purpose": "Write the portable extracted stage asset and, for Battlefield, the generated Rust engine stage blob.",
             "mutates_workspace": true,
-            "writes": ["resources/melee/extracted/stages/battlefield_stage.json"],
+            "writes": [
+                "resources/melee/extracted/stages/battlefield_stage.json",
+                "crates/mole_core/src/generated/stages.rs"
+            ],
             "output_modes": ["json", "text", "markdown"],
             "required_flags": ["--stage"],
             "optional_flags": ["--write", "--root", "--json", "--text", "--format"],
             "aliases": ["generated"],
-            "agent_notes": "Use this to keep stage extraction structured so later stages can reuse the same pipeline and file shape."
+            "agent_notes": "Legacy/generated alias; prefer `stage extract --stage battlefield --write` so extraction and engine implementation stay one step."
+        },
+        {
+            "name": "stage inspect",
+            "usage": "mole stage inspect --stage battlefield [--json|--format markdown]",
+            "purpose": "Report whether a stage asset is decomp-sourced and whether the generated engine blob exists before replay platform/collision parity work.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--stage", "--root", "--json", "--text", "--format"],
+            "aliases": ["stage"],
+            "agent_notes": "Use this before changing stage collision, platform, blast-zone, or spawn behavior so fixes stay anchored to decomp data."
+        },
+        {
+            "name": "stage extract",
+            "usage": "mole stage extract --stage <id> [--dat resources/melee/raw/Gr*.dat] [--stage-name NAME] [--write] [--json|--format markdown]",
+            "purpose": "Extract a Melee stage DAT into the shared Rust stage blob schema, including MapCollData collision wireframes and derived gameplay surfaces; Battlefield extraction also writes the compiled Rust engine blob.",
+            "mutates_workspace": true,
+            "writes": [
+                "resources/melee/extracted/stages/<stage>_stage.json",
+                "crates/mole_core/src/generated/stages.rs for battlefield"
+            ],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--stage"],
+            "optional_flags": ["--dat", "--stage-name", "--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["stage"],
+            "agent_notes": "Use this as the source-of-truth stage import path; the runtime must rely on committed generated Rust blobs, not the ISO/decomp at play time."
+        },
+        {
+            "name": "stage extract-iso",
+            "usage": "mole stage extract-iso --iso <path> [--stage <id> ...|--competitive|--all-registered] [--write] [--json|--format markdown]",
+            "purpose": "Read Melee stage DAT files directly from a local GameCube ISO, mirror raw DATs into ignored local raw inputs, and extract game-owned stage assets through the same stage extract path.",
+            "mutates_workspace": true,
+            "writes": [
+                "resources/melee/raw/<stage>.dat",
+                "resources/melee/extracted/stages/<stage>_stage.json",
+                "crates/mole_core/src/generated/stages.rs for battlefield"
+            ],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--iso"],
+            "optional_flags": ["--stage", "--stage-name", "--competitive", "--all-registered", "--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["stage"],
+            "agent_notes": "Use this when the local ISO is available; the ISO/decomp are extraction inputs only and must not be required by a fresh checkout after generated engine blobs are committed."
         },
         {
             "name": "generated write-ledger-map",

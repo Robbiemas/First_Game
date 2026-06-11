@@ -2460,6 +2460,7 @@ fn help_command_exposes_full_agent_command_catalog() {
         "graph inspect",
         "verify changed",
         "generated check",
+        "stage inspect",
         "finish check",
         "replay check",
         "frame-data extract",
@@ -2998,6 +2999,253 @@ fn generated_write_stage_asset_emits_battlefield_stage_blob() {
     assert!(stage_asset.contains("\"required_raw_dat\": \"resources/melee/raw/GrNBa.dat\""));
     assert!(stage_asset.contains(".research/doldecomp-melee/src/melee/gr/grbattle.c"));
     assert!(stage_asset.contains(".research/doldecomp-melee/src/melee/mp/types.h"));
+}
+
+#[test]
+fn generated_write_stage_asset_prefers_raw_dat_extraction_when_available() {
+    let root = temp_project_root("generated_write_stage_asset_from_raw");
+    let raw_dir = root.join("resources/melee/raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    fs::write(raw_dir.join("GrNBa.dat"), make_stage_dat_fixture(0.5)).unwrap();
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "write-stage-asset".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let stage_asset_path = root.join("resources/melee/extracted/stages/battlefield_stage.json");
+    let stage_asset: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&stage_asset_path).unwrap()).unwrap();
+
+    assert_eq!(parsed["command"], "generated write-stage-asset");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["mutated"], true);
+    assert_eq!(stage_asset["source"]["kind"], "melee_stage_dat");
+    assert_eq!(stage_asset["collision"]["scale"], 0.5);
+    assert_eq!(stage_asset["collision"]["line_count"], 2);
+}
+
+#[test]
+fn stage_inspect_reports_battlefield_decomp_source_gap() {
+    let root = temp_project_root("stage_inspect_battlefield");
+    run_cli(&[
+        "generated".to_string(),
+        "write-stage-asset".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+
+    let output = run_cli(&[
+        "stage".to_string(),
+        "inspect".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "stage inspect");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["stage_id"], "battlefield");
+    assert_eq!(parsed["decomp_parity_ready"], false);
+    assert_eq!(parsed["status"], "raw_stage_dat_missing");
+    assert_eq!(parsed["raw_dat"]["present"], false);
+    assert_eq!(
+        parsed["asset"]["source_kind"],
+        "rust_baked_stage_asset_pending_grnba_dat_extract"
+    );
+    assert_eq!(parsed["current_surfaces"]["surface_count"], 4);
+    assert!(parsed["blocking_notes"][0]
+        .as_str()
+        .unwrap()
+        .contains("GrNBa.dat"));
+    assert!(parsed["recommended_next"][0]
+        .as_str()
+        .unwrap()
+        .contains("mole stage extract --stage battlefield --write"));
+}
+
+#[test]
+fn stage_extract_emits_map_coll_data_stage_blob_from_registered_raw_dat() {
+    let root = temp_project_root("stage_extract_registered");
+    let raw_dir = root.join("resources/melee/raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    fs::write(raw_dir.join("GrNBa.dat"), make_stage_dat_fixture(0.5)).unwrap();
+
+    let output = run_cli(&[
+        "stage".to_string(),
+        "extract".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let asset_path = root.join("resources/melee/extracted/stages/battlefield_stage.json");
+    let asset: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(asset_path).unwrap()).unwrap();
+    let engine_stage_path = root.join("crates/mole_core/src/generated/stages.rs");
+    let engine_stage_blob = fs::read_to_string(&engine_stage_path).unwrap();
+
+    assert_eq!(parsed["command"], "stage extract");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["mutated"], true);
+    assert_eq!(parsed["stage_id"], "battlefield");
+    assert_eq!(parsed["raw_dat"]["path"], "resources/melee/raw/GrNBa.dat");
+    assert!(parsed["written_paths"].as_array().unwrap().contains(&json!(
+        "resources/melee/extracted/stages/battlefield_stage.json"
+    )));
+    assert!(parsed["written_paths"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("crates/mole_core/src/generated/stages.rs")));
+    assert_eq!(
+        parsed["engine_blob"]["path"],
+        "crates/mole_core/src/generated/stages.rs"
+    );
+
+    assert_eq!(asset["source"]["kind"], "melee_stage_dat");
+    assert_eq!(asset["source"]["raw_dat"], "resources/melee/raw/GrNBa.dat");
+    assert_eq!(asset["collision"]["scale"], 0.5);
+    assert_eq!(asset["collision"]["vertex_count"], 4);
+    assert_eq!(asset["collision"]["line_count"], 2);
+    assert_eq!(asset["collision"]["joint_count"], 1);
+    assert_eq!(asset["collision"]["vertices"][0]["source_x"], -10.0);
+    assert_eq!(asset["collision"]["vertices"][0]["x"], -5000);
+    assert_eq!(asset["collision"]["lines"][1]["kind"], "soft_floor");
+    assert_eq!(asset["main_floor"]["left_x"], -5000);
+    assert_eq!(asset["main_floor"]["right_x"], 5000);
+    assert_eq!(asset["soft_platforms"][0]["left_x"], -2500);
+    assert_eq!(asset["soft_platforms"][0]["right_x"], 2500);
+    assert_eq!(asset["soft_platforms"][0]["y"], 10000);
+    assert!(engine_stage_blob.contains("@generated by mole_cli stage extract"));
+    assert!(engine_stage_blob.contains("BATTLEFIELD_COLLISION_SCALE: f32 = 0.5_f32;"));
+    assert!(engine_stage_blob.contains("BATTLEFIELD_COLLISION_VERTICES: [StageCollisionVertex; 4]"));
+    assert!(engine_stage_blob.contains("StageCollisionLineKind::SoftFloor"));
+    assert!(!engine_stage_blob.contains("serde_json"));
+}
+
+#[test]
+fn stage_extract_accepts_arbitrary_dat_override_for_unregistered_stage() {
+    let root = temp_project_root("stage_extract_custom");
+    let raw_dir = root.join("resources/melee/raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    fs::write(raw_dir.join("CustomStage.dat"), make_stage_dat_fixture(1.0)).unwrap();
+
+    let output = run_cli(&[
+        "stage".to_string(),
+        "extract".to_string(),
+        "--stage".to_string(),
+        "custom-dev-stage".to_string(),
+        "--stage-name".to_string(),
+        "Custom Dev Stage".to_string(),
+        "--dat".to_string(),
+        "resources/melee/raw/CustomStage.dat".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let asset_path = root.join("resources/melee/extracted/stages/custom-dev-stage_stage.json");
+    let asset: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(asset_path).unwrap()).unwrap();
+
+    assert_eq!(parsed["command"], "stage extract");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["stage_id"], "custom-dev-stage");
+    assert_eq!(asset["stage_name"], "Custom Dev Stage");
+    assert_eq!(
+        asset["source"]["raw_dat"],
+        "resources/melee/raw/CustomStage.dat"
+    );
+    assert_eq!(asset["collision"]["vertices"][1]["x"], 10000);
+}
+
+#[test]
+fn stage_extract_iso_competitive_writes_game_stage_assets_not_research_outputs() {
+    let root = temp_project_root("stage_extract_iso_competitive");
+    let iso_path = root.join("melee_fixture.iso");
+    fs::write(
+        &iso_path,
+        make_gcm_iso_fixture(&[
+            ("GrNBa.dat", make_stage_dat_fixture(0.5)),
+            ("GrNLa.dat", make_stage_dat_fixture(1.0)),
+            ("GrSt.dat", make_stage_dat_fixture(1.0)),
+            ("GrIz.dat", make_stage_dat_fixture(1.0)),
+            ("GrOp.dat", make_stage_dat_fixture(1.0)),
+            ("GrPs.dat", make_stage_dat_fixture(1.0)),
+            ("GrPs1.dat", make_stage_dat_fixture(1.0)),
+            ("GrPs2.dat", make_stage_dat_fixture(1.0)),
+            ("GrPs3.dat", make_stage_dat_fixture(1.0)),
+            ("GrPs4.dat", make_stage_dat_fixture(1.0)),
+        ]),
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "stage".to_string(),
+        "extract-iso".to_string(),
+        "--iso".to_string(),
+        iso_path.display().to_string(),
+        "--competitive".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let battlefield_asset: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("resources/melee/extracted/stages/battlefield_stage.json"))
+            .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(parsed["command"], "stage extract-iso");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["mutated"], true);
+    assert_eq!(parsed["selected_stage_count"], 6);
+    assert_eq!(parsed["stages"][0]["stage_id"], "battlefield");
+    assert_eq!(parsed["stages"][5]["stage_id"], "pokemon-stadium");
+    assert_eq!(
+        parsed["stages"][5]["related_raw_dats"][3]["dat_file"],
+        "GrPs4.dat"
+    );
+    assert!(root.join("resources/melee/raw/GrIz.dat").exists());
+    assert!(!root.join(".research/comp-melee/extracted/stages").exists());
+    assert!(root
+        .join("resources/melee/extracted/stages/pokemon-stadium_stage.json")
+        .exists());
+    assert!(root
+        .join("crates/mole_core/src/generated/stages.rs")
+        .exists());
+    assert!(parsed["written_paths"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("crates/mole_core/src/generated/stages.rs")));
+    assert!(parsed["written_paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .all(|path| !path.starts_with(".research/")));
+    assert!(parsed.get("research_manifest").is_none());
+    assert_eq!(battlefield_asset["source"]["kind"], "melee_stage_dat");
+    assert_eq!(battlefield_asset["collision"]["scale"], 0.5);
 }
 
 #[test]
@@ -4307,6 +4555,163 @@ fn write_json(path: &Path, value: &serde_json::Value) {
 fn write_message_board(root: &Path, text: &str) {
     fs::create_dir_all(root).unwrap();
     fs::write(root.join("MOLE_CLI_AGENT_MESSAGES.md"), text).unwrap();
+}
+
+fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
+    let mut data_block = vec![0_u8; 0x140];
+    let coll_offset = 0x00;
+    let vertices_offset = 0x40;
+    let lines_offset = 0x60;
+    let joints_offset = 0x90;
+    let ground_param_offset = 0xC0;
+
+    put_u32_be(&mut data_block, coll_offset, vertices_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x04, 4);
+    put_u32_be(&mut data_block, coll_offset + 0x08, lines_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x0C, 2);
+    put_i16_be(&mut data_block, coll_offset + 0x10, 0);
+    put_i16_be(&mut data_block, coll_offset + 0x12, 2);
+    put_u32_be(&mut data_block, coll_offset + 0x24, joints_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x28, 1);
+
+    put_vec2_be(&mut data_block, vertices_offset, -10.0, 0.0);
+    put_vec2_be(&mut data_block, vertices_offset + 0x08, 10.0, 0.0);
+    put_vec2_be(&mut data_block, vertices_offset + 0x10, -5.0, 20.0);
+    put_vec2_be(&mut data_block, vertices_offset + 0x18, 5.0, 20.0);
+
+    put_map_line_be(&mut data_block, lines_offset, 0, 1, 1, 0);
+    put_map_line_be(&mut data_block, lines_offset + 0x10, 2, 3, 1, 0x100);
+
+    put_i16_be(&mut data_block, joints_offset, 0);
+    put_i16_be(&mut data_block, joints_offset + 0x02, 2);
+    put_f32_be(&mut data_block, joints_offset + 0x14, -10.0);
+    put_f32_be(&mut data_block, joints_offset + 0x18, 0.0);
+    put_f32_be(&mut data_block, joints_offset + 0x1C, 10.0);
+    put_f32_be(&mut data_block, joints_offset + 0x20, 20.0);
+    put_i16_be(&mut data_block, joints_offset + 0x24, 0);
+    put_i16_be(&mut data_block, joints_offset + 0x26, 4);
+
+    put_f32_be(&mut data_block, ground_param_offset, scale);
+
+    make_stage_dat_with_roots(
+        &[
+            ("coll_data", coll_offset as u32),
+            ("grGroundParam", ground_param_offset as u32),
+        ],
+        data_block,
+    )
+}
+
+fn make_stage_dat_with_roots(roots: &[(&str, u32)], data_block: Vec<u8>) -> Vec<u8> {
+    let mut dat = vec![0_u8; 0x20];
+    put_u32_be(&mut dat, 0x04, data_block.len() as u32);
+    put_u32_be(&mut dat, 0x0C, roots.len() as u32);
+    dat.extend_from_slice(&data_block);
+
+    let root_table_offset = dat.len();
+    let mut string_table = Vec::new();
+    for (name, offset) in roots {
+        put_u32_be_at_end(&mut dat, *offset);
+        put_u32_be_at_end(&mut dat, string_table.len() as u32);
+        string_table.extend_from_slice(name.as_bytes());
+        string_table.push(0);
+    }
+    debug_assert_eq!(root_table_offset, 0x20 + data_block.len());
+    dat.extend_from_slice(&string_table);
+    dat
+}
+
+fn make_gcm_iso_fixture(files: &[(&str, Vec<u8>)]) -> Vec<u8> {
+    let fst_offset = 0x500_usize;
+    let entry_count = files.len() + 1;
+    let entry_bytes = entry_count * 12;
+    let mut name_offsets = Vec::with_capacity(files.len());
+    let mut string_table = Vec::new();
+    for (name, _) in files {
+        name_offsets.push(string_table.len());
+        string_table.extend_from_slice(name.as_bytes());
+        string_table.push(0);
+    }
+    let fst_size = entry_bytes + string_table.len();
+    let mut entries = vec![0_u8; entry_bytes];
+    put_u32_be(&mut entries, 0, 0x0100_0000);
+    put_u32_be(&mut entries, 0x04, 0);
+    put_u32_be(&mut entries, 0x08, entry_count as u32);
+
+    let mut data_offset = align_up(fst_offset + fst_size, 0x20);
+    let mut payload_offsets = Vec::with_capacity(files.len());
+    for (_, payload) in files {
+        payload_offsets.push(data_offset);
+        data_offset = align_up(data_offset + payload.len(), 0x20);
+    }
+
+    for (index, ((_, payload), name_offset)) in files.iter().zip(name_offsets.iter()).enumerate() {
+        let entry_offset = (index + 1) * 12;
+        put_u32_be(&mut entries, entry_offset, *name_offset as u32);
+        put_u32_be(
+            &mut entries,
+            entry_offset + 0x04,
+            payload_offsets[index] as u32,
+        );
+        put_u32_be(&mut entries, entry_offset + 0x08, payload.len() as u32);
+    }
+
+    let mut iso = vec![0_u8; data_offset];
+    put_u32_be(&mut iso, 0x424, fst_offset as u32);
+    put_u32_be(&mut iso, 0x428, fst_size as u32);
+    iso[fst_offset..fst_offset + entry_bytes].copy_from_slice(&entries);
+    iso[fst_offset + entry_bytes..fst_offset + fst_size].copy_from_slice(&string_table);
+    for ((_, payload), offset) in files.iter().zip(payload_offsets.iter()) {
+        iso[*offset..*offset + payload.len()].copy_from_slice(payload);
+    }
+    iso
+}
+
+fn align_up(value: usize, align: usize) -> usize {
+    ((value + align - 1) / align) * align
+}
+
+fn put_map_line_be(
+    data: &mut [u8],
+    offset: usize,
+    v0_idx: u16,
+    v1_idx: u16,
+    hi_flags: u16,
+    lo_flags: u16,
+) {
+    put_u16_be(data, offset, v0_idx);
+    put_u16_be(data, offset + 0x02, v1_idx);
+    put_i16_be(data, offset + 0x04, -1);
+    put_i16_be(data, offset + 0x06, -1);
+    put_i16_be(data, offset + 0x08, -1);
+    put_i16_be(data, offset + 0x0A, -1);
+    put_u16_be(data, offset + 0x0C, hi_flags);
+    put_u16_be(data, offset + 0x0E, lo_flags);
+}
+
+fn put_vec2_be(data: &mut [u8], offset: usize, x: f32, y: f32) {
+    put_f32_be(data, offset, x);
+    put_f32_be(data, offset + 0x04, y);
+}
+
+fn put_u16_be(data: &mut [u8], offset: usize, value: u16) {
+    data[offset..offset + 2].copy_from_slice(&value.to_be_bytes());
+}
+
+fn put_i16_be(data: &mut [u8], offset: usize, value: i16) {
+    data[offset..offset + 2].copy_from_slice(&value.to_be_bytes());
+}
+
+fn put_u32_be(data: &mut [u8], offset: usize, value: u32) {
+    data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+}
+
+fn put_u32_be_at_end(data: &mut Vec<u8>, value: u32) {
+    data.extend_from_slice(&value.to_be_bytes());
+}
+
+fn put_f32_be(data: &mut [u8], offset: usize, value: f32) {
+    data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }
 
 fn run_git_test_command(root: &Path, args: &[&str]) {

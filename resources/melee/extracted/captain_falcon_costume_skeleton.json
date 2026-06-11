@@ -2460,9 +2460,10 @@
   ],
   "source": {
     "file": "resources/melee/raw/PlCaNr.dat",
-    "format": "HSD_Joint preorder tree from Captain Falcon neutral costume DAT",
+    "format": "HSD_Joint preorder tree from captain neutral costume DAT",
     "joint_count": 63,
     "root": "PlyCaptain5K_Share_joint",
-    "root_offset": 128488
+    "root_offset": 128488,
+    "source_character": "captain"
   }
 }

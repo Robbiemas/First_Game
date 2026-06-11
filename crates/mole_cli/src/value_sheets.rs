@@ -432,12 +432,27 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "passive_window_max",
         ],
     ),
+    (
+        "shield_and_defense",
+        &[
+            "shield_start_health",
+            "shield_release_lockout_frames",
+            "shield_hold_drain",
+            "shield_regen",
+            "shield_break_reset_health",
+            "shield_hit_drain_damage_scale",
+            "shield_hit_drain_base",
+            "shield_hit_lightshield_min",
+            "shield_hit_lightshield_max",
+            "shield_hold_lightshield_min",
+            "shield_hold_lightshield_max",
+        ],
+    ),
     ("damage_response", &["damage_duration_scale"]),
 ];
 
 const FALCON_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[("combat_attributes", &["weight"])];
-const BATTLEFIELD_STAGE_PENDING_PROVENANCE: &str =
-    "rust_baked_stage_asset_pending_grnba_dat_extract";
+const BATTLEFIELD_STAGE_PROVENANCE: &str = "melee_stage_dat_core_projection";
 
 #[derive(Serialize)]
 struct ValueSheet {
@@ -757,7 +772,7 @@ fn build_mixed_sheet(
 }
 
 fn build_battlefield_stage_sheet() -> ValueSheet {
-    let stage = StageProfile::battlefield_test();
+    let stage = StageProfile::battlefield();
     let mut surface_fields = Vec::new();
     for surface in stage.collision_surfaces() {
         surface_fields.push(stage_int_row(
@@ -765,35 +780,35 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             &format!("{}.left_x", surface.name),
             "stage_coord_milli",
             surface.left_x,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         surface_fields.push(stage_int_row(
             &format!("{}.right_x", surface.name),
             &format!("{}.right_x", surface.name),
             "stage_coord_milli",
             surface.right_x,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         surface_fields.push(stage_int_row(
             &format!("{}.y", surface.name),
             &format!("{}.y", surface.name),
             "stage_coord_milli",
             surface.y,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         surface_fields.push(stage_enum_row(
             &format!("{}.kind", surface.name),
             &format!("{}.kind", surface.name),
             "stage_surface_kind",
             surface_kind_label(surface.kind),
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         surface_fields.push(stage_float_row(
             &format!("{}.friction_multiplier", surface.name),
             &format!("{}.friction_multiplier", surface.name),
             "source_f32",
             surface.friction_multiplier,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
     }
 
@@ -803,28 +818,28 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             "blast_zones.left_x",
             "stage_coord_milli",
             stage.blast_zones.left_x,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.right_x",
             "blast_zones.right_x",
             "stage_coord_milli",
             stage.blast_zones.right_x,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.top_y",
             "blast_zones.top_y",
             "stage_coord_milli",
             stage.blast_zones.top_y,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.bottom_y",
             "blast_zones.bottom_y",
             "stage_coord_milli",
             stage.blast_zones.bottom_y,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ),
     ];
 
@@ -836,21 +851,21 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             &format!("{label}.x"),
             "stage_coord_milli",
             spawn_point.x,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         spawn_point_fields.push(stage_int_row(
             &format!("{label}.y"),
             &format!("{label}.y"),
             "stage_coord_milli",
             spawn_point.y,
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
         spawn_point_fields.push(stage_int_row(
             &format!("{label}.facing"),
             &format!("{label}.facing"),
             "stage_facing",
             i32::from(spawn_point.facing),
-            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            BATTLEFIELD_STAGE_PROVENANCE,
         ));
     }
 
@@ -862,7 +877,7 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
         source: json!({
             "stage_profile_name": stage.name,
             "reference_stage": "Battlefield",
-            "provenance": BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            "provenance": BATTLEFIELD_STAGE_PROVENANCE,
             "required_raw_dat": "resources/melee/raw/GrNBa.dat",
             "decomp_refs": [
                 ".research/doldecomp-melee/src/melee/gr/grbattle.c",
@@ -875,7 +890,7 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
                 "coll_data",
                 "grGroundParam"
             ],
-            "notes": "Current values are the Rust baked Battlefield profile. True stage parity requires extracting /GrNBa.dat coll_data into the MapCollData shape used by mpLibLoad."
+            "notes": "Current values are the Rust compatibility surface projection from the extracted Battlefield MapCollData path. The full lossless collision wireframe lives in resources/melee/extracted/stages/battlefield_stage.json and mole_core::MeleeStageProfile::battlefield()."
         }),
         character_id: None,
         stage_id: Some("battlefield".to_string()),

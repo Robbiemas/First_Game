@@ -372614,11 +372614,14 @@
   ],
   "source": {
     "action_count": 318,
+    "action_file": "resources/melee/raw/PlCaAJ.dat",
     "action_table_offset": 31384,
+    "fighter_file": "resources/melee/raw/PlCa.dat",
     "format": "PlCa.dat Fighter_WaitAnimData records pointing into PlCaAJ.dat HSD figatree chunks",
     "ft_data_offset": 39428,
     "plca_file": "resources/melee/raw/PlCa.dat",
     "plcaaj_file": "resources/melee/raw/PlCaAJ.dat",
+    "source_character": "captain",
     "symbol": "ftDataCaptain"
   }
 }

@@ -1,0 +1,577 @@
+{
+  "blast_zones": null,
+  "collision": {
+    "coll_data_offset": 75776,
+    "joint_count": 4,
+    "joints": [
+      {
+        "bounds": {
+          "bottom": 22142,
+          "left": -69393,
+          "right": -23725,
+          "top": 38142
+        },
+        "ceiling_count": 0,
+        "ceiling_start": 0,
+        "dynamic_count": 0,
+        "dynamic_start": 0,
+        "floor_count": 1,
+        "floor_start": 0,
+        "index": 0,
+        "left_wall_count": 0,
+        "left_wall_start": 0,
+        "right_wall_count": 0,
+        "right_wall_start": 0,
+        "source_bounds": {
+          "bottom": 22.142099380493164,
+          "left": -69.39289855957031,
+          "right": -23.725400924682617,
+          "top": 38.14209747314453
+        },
+        "vtx_count": 2,
+        "vtx_start": 0
+      },
+      {
+        "bounds": {
+          "bottom": 22243,
+          "left": 23704,
+          "right": 71075,
+          "top": 38243
+        },
+        "ceiling_count": 0,
+        "ceiling_start": 0,
+        "dynamic_count": 0,
+        "dynamic_start": 0,
+        "floor_count": 1,
+        "floor_start": 1,
+        "index": 1,
+        "left_wall_count": 0,
+        "left_wall_start": 0,
+        "right_wall_count": 0,
+        "right_wall_start": 0,
+        "source_bounds": {
+          "bottom": 22.24250030517578,
+          "left": 23.70359992980957,
+          "right": 71.07450103759766,
+          "top": 38.24250030517578
+        },
+        "vtx_count": 2,
+        "vtx_start": 2
+      },
+      {
+        "bounds": {
+          "bottom": 43425,
+          "left": -27018,
+          "right": 27017,
+          "top": 59425
+        },
+        "ceiling_count": 0,
+        "ceiling_start": 0,
+        "dynamic_count": 0,
+        "dynamic_start": 0,
+        "floor_count": 1,
+        "floor_start": 2,
+        "index": 2,
+        "left_wall_count": 0,
+        "left_wall_start": 0,
+        "right_wall_count": 0,
+        "right_wall_start": 0,
+        "source_bounds": {
+          "bottom": 43.42530059814453,
+          "left": -27.01810073852539,
+          "right": 27.017099380493164,
+          "top": 59.42530059814453
+        },
+        "vtx_count": 2,
+        "vtx_start": 4
+      },
+      {
+        "bounds": {
+          "bottom": -43756,
+          "left": -85271,
+          "right": 85271,
+          "top": 8009
+        },
+        "ceiling_count": 1,
+        "ceiling_start": 6,
+        "dynamic_count": 0,
+        "dynamic_start": 0,
+        "floor_count": 3,
+        "floor_start": 3,
+        "index": 3,
+        "left_wall_count": 2,
+        "left_wall_start": 9,
+        "right_wall_count": 2,
+        "right_wall_start": 7,
+        "source_bounds": {
+          "bottom": -43.75619888305664,
+          "left": -85.27130126953125,
+          "right": 85.27130126953125,
+          "top": 8.00879955291748
+        },
+        "vtx_count": 8,
+        "vtx_start": 6
+      }
+    ],
+    "line_count": 11,
+    "line_ranges": {
+      "ceiling": {
+        "count": 1,
+        "start": 6
+      },
+      "dynamic": {
+        "count": 0,
+        "start": 0
+      },
+      "floor": {
+        "count": 6,
+        "start": 0
+      },
+      "left_wall": {
+        "count": 2,
+        "start": 9
+      },
+      "right_wall": {
+        "count": 2,
+        "start": 7
+      }
+    },
+    "lines": [
+      {
+        "hi_flags": 1,
+        "index": 0,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 0,
+        "v1_idx": 1,
+        "x0": -61393,
+        "x1": -31725,
+        "y0": 30142,
+        "y1": 30142
+      },
+      {
+        "hi_flags": 1,
+        "index": 1,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 2,
+        "v1_idx": 3,
+        "x0": 31704,
+        "x1": 63075,
+        "y0": 30243,
+        "y1": 30243
+      },
+      {
+        "hi_flags": 1,
+        "index": 2,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 4,
+        "v1_idx": 5,
+        "x0": -19018,
+        "x1": 19017,
+        "y0": 51425,
+        "y1": 51425
+      },
+      {
+        "hi_flags": 1,
+        "index": 3,
+        "kind": "floor",
+        "lo_flags": 512,
+        "next_id0": 4,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 9,
+        "prev_id1": -1,
+        "v0_idx": 11,
+        "v1_idx": 12,
+        "x0": -77271,
+        "x1": -67612,
+        "y0": 9,
+        "y1": 9
+      },
+      {
+        "hi_flags": 1,
+        "index": 4,
+        "kind": "floor",
+        "lo_flags": 0,
+        "next_id0": 5,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 3,
+        "prev_id1": -1,
+        "v0_idx": 12,
+        "v1_idx": 13,
+        "x0": -67612,
+        "x1": 67612,
+        "y0": 9,
+        "y1": 9
+      },
+      {
+        "hi_flags": 1,
+        "index": 5,
+        "kind": "floor",
+        "lo_flags": 512,
+        "next_id0": 8,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 4,
+        "prev_id1": -1,
+        "v0_idx": 13,
+        "v1_idx": 10,
+        "x0": 67612,
+        "x1": 77271,
+        "y0": 9,
+        "y1": 9
+      },
+      {
+        "hi_flags": 2,
+        "index": 6,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 10,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 7,
+        "prev_id1": -1,
+        "v0_idx": 9,
+        "v1_idx": 6,
+        "x0": 65763,
+        "x1": -65763,
+        "y0": -35756,
+        "y1": -35756
+      },
+      {
+        "hi_flags": 4,
+        "index": 7,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 6,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 8,
+        "prev_id1": -1,
+        "v0_idx": 8,
+        "v1_idx": 9,
+        "x0": 76339,
+        "x1": 65763,
+        "y0": -11042,
+        "y1": -35756
+      },
+      {
+        "hi_flags": 4,
+        "index": 8,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 7,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 5,
+        "prev_id1": -1,
+        "v0_idx": 10,
+        "v1_idx": 8,
+        "x0": 77271,
+        "x1": 76339,
+        "y0": 9,
+        "y1": -11042
+      },
+      {
+        "hi_flags": 8,
+        "index": 9,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 3,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 10,
+        "prev_id1": -1,
+        "v0_idx": 7,
+        "v1_idx": 11,
+        "x0": -76339,
+        "x1": -77271,
+        "y0": -11042,
+        "y1": 9
+      },
+      {
+        "hi_flags": 8,
+        "index": 10,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 9,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 6,
+        "prev_id1": -1,
+        "v0_idx": 6,
+        "v1_idx": 7,
+        "x0": -65763,
+        "x1": -76339,
+        "y0": -35756,
+        "y1": -11042
+      }
+    ],
+    "scale": 1.0,
+    "source_root": "coll_data",
+    "vertex_count": 14,
+    "vertices": [
+      {
+        "index": 0,
+        "source_x": -61.39289855957031,
+        "source_y": 30.142099380493164,
+        "x": -61393,
+        "y": 30142
+      },
+      {
+        "index": 1,
+        "source_x": -31.725400924682617,
+        "source_y": 30.142099380493164,
+        "x": -31725,
+        "y": 30142
+      },
+      {
+        "index": 2,
+        "source_x": 31.70359992980957,
+        "source_y": 30.24250030517578,
+        "x": 31704,
+        "y": 30243
+      },
+      {
+        "index": 3,
+        "source_x": 63.074501037597656,
+        "source_y": 30.24250030517578,
+        "x": 63075,
+        "y": 30243
+      },
+      {
+        "index": 4,
+        "source_x": -19.01810073852539,
+        "source_y": 51.42530059814453,
+        "x": -19018,
+        "y": 51425
+      },
+      {
+        "index": 5,
+        "source_x": 19.017099380493164,
+        "source_y": 51.42530059814453,
+        "x": 19017,
+        "y": 51425
+      },
+      {
+        "index": 6,
+        "source_x": -65.76260375976562,
+        "source_y": -35.75619888305664,
+        "x": -65763,
+        "y": -35756
+      },
+      {
+        "index": 7,
+        "source_x": -76.33889770507812,
+        "source_y": -11.04170036315918,
+        "x": -76339,
+        "y": -11042
+      },
+      {
+        "index": 8,
+        "source_x": 76.33889770507812,
+        "source_y": -11.04170036315918,
+        "x": 76339,
+        "y": -11042
+      },
+      {
+        "index": 9,
+        "source_x": 65.76260375976562,
+        "source_y": -35.75619888305664,
+        "x": 65763,
+        "y": -35756
+      },
+      {
+        "index": 10,
+        "source_x": 77.27130126953125,
+        "source_y": 0.008799999952316284,
+        "x": 77271,
+        "y": 9
+      },
+      {
+        "index": 11,
+        "source_x": -77.27130126953125,
+        "source_y": 0.008799999952316284,
+        "x": -77271,
+        "y": 9
+      },
+      {
+        "index": 12,
+        "source_x": -67.61239624023438,
+        "source_y": 0.008799999952316284,
+        "x": -67612,
+        "y": 9
+      },
+      {
+        "index": 13,
+        "source_x": 67.61239624023438,
+        "source_y": 0.008799999952316284,
+        "x": 67612,
+        "y": 9
+      }
+    ],
+    "x2c": 0
+  },
+  "engine_boundary": "rust_core_authority",
+  "main_floor": {
+    "friction_multiplier": 1.0,
+    "kind": "solid",
+    "left_x": -77271,
+    "name": "main_floor",
+    "right_x": 77271,
+    "y": 9
+  },
+  "pending_stage_layers": [
+    "map_head_object_tree",
+    "map_plit_spawn_points",
+    "itemdata",
+    "camera_bounds",
+    "blast_zones"
+  ],
+  "schema_version": 1,
+  "soft_platforms": [
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": -61393,
+      "name": "soft_platform_0",
+      "right_x": -31725,
+      "y": 30142
+    },
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": 31704,
+      "name": "soft_platform_1",
+      "right_x": 63075,
+      "y": 30243
+    },
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": -19018,
+      "name": "soft_platform_2",
+      "right_x": 19017,
+      "y": 51425
+    }
+  ],
+  "source": {
+    "competitive_kind": "starter",
+    "dat_file": "GrOp.dat",
+    "data_block_size": 643872,
+    "decomp_refs": [
+      ".research/doldecomp-melee/src/melee/gr/groldpupupu.c",
+      ".research/doldecomp-melee/src/melee/gr/grdatfiles.c",
+      ".research/doldecomp-melee/src/melee/gr/ground.c",
+      ".research/doldecomp-melee/src/melee/mp/types.h",
+      ".research/doldecomp-melee/src/melee/mp/mplib.c"
+    ],
+    "external_count": 0,
+    "kind": "melee_stage_dat",
+    "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498.",
+    "public_roots": [
+      "ALDYakuAll",
+      "GrdOldpupupuBgn1_RGBA8_image",
+      "GrdOldpupupuBront1_RGB5A3_image",
+      "GrdOldpupupuBront2_RGB5A3_image",
+      "GrdOldpupupuBront3_RGB5A3_image",
+      "GrdOldpupupuBuilding3_C4_image",
+      "GrdOldpupupuBuilding3_tlut",
+      "GrdOldpupupuBuilding3_tlut_desc",
+      "GrdOldpupupuBuilding5_RGB5A3_image",
+      "GrdOldpupupuBuildingnew1_C4_image",
+      "GrdOldpupupuBuildingnew1_tlut",
+      "GrdOldpupupuBuildingnew1_tlut_desc",
+      "GrdOldpupupuDedede_C4_image",
+      "GrdOldpupupuDedede_tlut",
+      "GrdOldpupupuDedede_tlut_desc",
+      "GrdOldpupupuScaffold3_C4_image",
+      "GrdOldpupupuScaffold3_tlut",
+      "GrdOldpupupuScaffold3_tlut_desc",
+      "GrdOldpupupuScaffold4_C4_image",
+      "GrdOldpupupuScaffold4_tlut",
+      "GrdOldpupupuScaffold4_tlut_desc",
+      "GrdOldpupupuWcheek1_RGB5A3_image",
+      "GrdOldpupupuWeye1_RGB5A3_image",
+      "GrdOldpupupuWeye2_RGB5A3_image",
+      "GrdOldpupupuWfoliage1_RGB5A3_image",
+      "GrdOldpupupuWfoliage1b_C4_image",
+      "GrdOldpupupuWfoliage1b_tlut",
+      "GrdOldpupupuWfoliage1b_tlut_desc",
+      "GrdOldpupupuWfoliageshadow1_C4_image",
+      "GrdOldpupupuWfoliageshadow1_tlut",
+      "GrdOldpupupuWfoliageshadow1_tlut_desc",
+      "GrdOldpupupuWgrass4_RGB5A3_image",
+      "GrdOldpupupuWload1_C4_image",
+      "GrdOldpupupuWload1_tlut",
+      "GrdOldpupupuWload1_tlut_desc",
+      "GrdOldpupupuWmouth1_RGB5A3_image",
+      "GrdOldpupupuWmouth3_RGB5A3_image",
+      "GrdOldpupupuWnose1_RGB5A3_image",
+      "GrdOldpupupuWpond1_CMPR_image",
+      "GrdOldpupupuWpond2_CMPR_image",
+      "GrdOldpupupuWpond3_CMPR_image",
+      "GrdOldpupupuWwall2_C4_image",
+      "GrdOldpupupuWwall2_tlut",
+      "GrdOldpupupuWwall2_tlut_desc",
+      "GrdOldpupupuWwall2n_C4_image",
+      "GrdOldpupupuWwall2n_tlut",
+      "GrdOldpupupuWwall2n_tlut_desc",
+      "GrdOldpupupuWwall3_C4_image",
+      "GrdOldpupupuWwall3_tlut",
+      "GrdOldpupupuWwall3_tlut_desc",
+      "GrdOldpupupuWwall4_C4_image",
+      "GrdOldpupupuWwall4_tlut",
+      "GrdOldpupupuWwall4_tlut_desc",
+      "GrdOldpupupuWwood2_C4_image",
+      "GrdOldpupupuWwood2_tlut",
+      "GrdOldpupupuWwood2_tlut_desc",
+      "GrdOldpupupuWwood3_C4_image",
+      "GrdOldpupupuWwood3_tlut",
+      "GrdOldpupupuWwood3_tlut_desc",
+      "GrdOldpupupuWwoodball1_RGB5A3_image",
+      "GrdOldpupupuWwoodball2_RGB5A3_image",
+      "GrdOldpupupuWwoodball3_RGB5A3_image",
+      "StgKirbywgrassfloor1_CMPR_image",
+      "coll_data",
+      "grGroundParam",
+      "itemdata",
+      "map_head",
+      "map_plit",
+      "map_ptcl",
+      "map_texg",
+      "quake_model_set",
+      "yakumono_param"
+    ],
+    "raw_dat": "resources/melee/raw/GrOp.dat",
+    "related_dat_files": [],
+    "relocation_count": 2590,
+    "struct_refs": [
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapCollData",
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapLine",
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapJoint",
+      ".research/doldecomp-melee/src/melee/mp/mplib.c::mpLibLoad"
+    ]
+  },
+  "spawn_points": null,
+  "stage_id": "dream-land-64",
+  "stage_name": "Dream Land 64"
+}

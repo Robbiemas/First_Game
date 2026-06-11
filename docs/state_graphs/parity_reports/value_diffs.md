@@ -16,7 +16,7 @@ No non-matching rows.
 
 ## Global Combat Values
 
-Total: 30 | Match: 30 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
+Total: 41 | Match: 41 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
 
 No non-matching rows.
 

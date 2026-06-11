@@ -316,6 +316,7 @@
     "ft_data_offset": 39428,
     "ftdata_hurtbox_table_offset": 10752,
     "hurtbox_inits_offset": 30432,
+    "source_character": "captain",
     "symbol": "ftDataCaptain"
   }
 }

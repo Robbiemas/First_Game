@@ -851,7 +851,7 @@ pub struct RenderTransform {
 
 impl RenderTransform {
     pub fn battlefield_camera(viewport_width: u32, viewport_height: u32) -> Self {
-        let stage = StageProfile::battlefield_test();
+        let stage = StageProfile::battlefield();
         Self::stage_camera(&stage, viewport_width, viewport_height)
     }
 
@@ -1068,7 +1068,7 @@ impl RenderScene {
     pub fn from_frame(frame: &RenderFrame, viewport_width: u32, viewport_height: u32) -> Self {
         Self::from_frame_on_stage(
             frame,
-            &StageProfile::battlefield_test(),
+            &StageProfile::battlefield(),
             viewport_width,
             viewport_height,
         )

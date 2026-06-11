@@ -78,6 +78,7 @@ COMMON_FIELDS = (
     Field("trigger_deadzone", "x10", 0x10, "trigger"),
     Field("z_shield_analog", "x14", 0x14, "trigger"),
     Field("trigger_timer_threshold", "x18", 0x18, "trigger"),
+    Field("passive_input_age_threshold", "x1C", 0x1C, "i32_ticks"),
     Field("aerial_vertical_angle_tan_milli", "x20_radians", 0x20, "radian_tangent_milli"),
     Field("walk_x", "x24", 0x24, "stick"),
     Field("walk_middle_velocity_ratio", "x28", 0x28, "source_f32"),
@@ -133,7 +134,21 @@ COMMON_FIELDS = (
     Field("hitlag_crouch_multiplier", "x1A0", 0x1A0, "source_f32"),
     Field("damage_landing_down_bound_knockback_threshold", "x1E0", 0x1E0, "source_f32"),
     Field("damage_landing_basic_knockback_threshold", "x1E4", 0x1E4, "source_f32"),
+    Field("down_stand_stick_y", "x244", 0x244, "stick"),
+    Field("passive_window_max", "x250", 0x250, "source_f32"),
+    Field("passive_stand_stick_x", "x254", 0x254, "source_f32"),
     Field("fallspecial_platform_landing_y", "x25C", 0x25C, "stick"),
+    Field("shield_start_health", "x260_startShieldHealth", 0x260, "source_f32"),
+    Field("shield_release_lockout_frames", "x268", 0x268, "f32_ticks"),
+    Field("shield_hold_drain", "x278", 0x278, "source_f32"),
+    Field("shield_regen", "x27C", 0x27C, "source_f32"),
+    Field("shield_break_reset_health", "x280_unkShieldHealth", 0x280, "source_f32"),
+    Field("shield_hit_drain_damage_scale", "x284", 0x284, "source_f32"),
+    Field("shield_hit_drain_base", "x288", 0x288, "source_f32"),
+    Field("shield_hit_lightshield_min", "x2DC", 0x2DC, "source_f32"),
+    Field("shield_hit_lightshield_max", "x2E0", 0x2E0, "source_f32"),
+    Field("shield_hold_lightshield_min", "x2EC", 0x2EC, "source_f32"),
+    Field("shield_hold_lightshield_max", "x2F0", 0x2F0, "source_f32"),
     Field("guard_reflect_input_window", "x2A0", 0x2A0, "i32_ticks"),
     Field("escape_y", "x314", 0x314, "stick"),
     Field("escape_y_tap_window", "x318", 0x318, "i32_ticks"),
@@ -145,6 +160,7 @@ COMMON_FIELDS = (
     Field("escapeair_force", "escapeair_force", 0x338, "source_f32"),
     Field("escapeair_decay", "escapeair_decay", 0x33C, "source_f32"),
     Field("escapeair_landing_lag_ticks", "x344", 0x344, "f32_ticks"),
+    Field("down_wait_timer", "x424", 0x424, "source_f32"),
     Field("run_brake_animation_pause_velocity", "x42C", 0x42C, "source_f32"),
     Field("run_turn_run_no_interrupt_frames", "x430", 0x430, "f32_ticks"),
     Field("animation_velocity_scale", "x440", 0x440, "source_f32"),
@@ -451,7 +467,7 @@ def find_root(dat: bytes, predicate: Callable[[str], bool], description: str) ->
 
 
 def field_value(block: bytes, field: Field) -> dict[str, object]:
-    raw = read_f32(block, field.offset) if field.kind != "i32_ticks" else read_i32(block, field.offset)
+    raw = read_i32(block, field.offset) if field.kind == "i32_ticks" else read_f32(block, field.offset)
     result: dict[str, object] = {
         "source_name": field.source_name,
         "offset": field.offset,

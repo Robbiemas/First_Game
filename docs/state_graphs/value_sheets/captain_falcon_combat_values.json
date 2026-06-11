@@ -9,6 +9,7 @@
     "ft_data_offset": 39428,
     "ftco_dat_attrs_len": 388,
     "ftco_dat_attrs_offset": 14164,
+    "source_character": "captain",
     "symbol": "ftDataCaptain"
   },
   "character_id": "captain_falcon",

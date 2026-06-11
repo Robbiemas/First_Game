@@ -7,12 +7,12 @@ use mole_core::{
     landing_contact_for_bottom_with_floor_skip, melee_units, melee_units_f32,
     milli_to_source_units, motion_state_for_runtime_variant, runtime_motion_state_for_source_key,
     source_units_to_milli, step_world, step_world_with_source_runtime_data, CommonDataExtractError,
-    CommonDataProvenance, EcbDiamond, FighterActionFrames, FighterProfile,
+    CommonDataProvenance, EcbDiamond, EngineFeatureToggles, FighterActionFrames, FighterProfile,
     FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
     MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
-    SourceActionKey, SourceDownBoundPose, StageProfile, StageSpawnPoint, StageSurface,
-    StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
+    SourceActionKey, SourceDownBoundPose, StageCollisionLineKind, StageProfile, StageSpawnPoint,
+    StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
 };
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
@@ -21,6 +21,12 @@ fn squared_magnitude(velocity: Vec2) -> i32 {
 
 fn close_to(left: i32, right: i32, tolerance: i32) -> bool {
     (left - right).abs() <= tolerance
+}
+
+fn enable_custom_shield_turn(world: &mut World) {
+    world.set_engine_features(
+        EngineFeatureToggles::parity().with_shield_turnaround_during_guard(true),
+    );
 }
 
 #[test]
@@ -543,9 +549,9 @@ fn melee_units_use_milli_units_for_public_falcon_values() {
 
 #[test]
 fn default_stage_is_battlefield_sized_in_core_units() {
-    let stage = StageProfile::battlefield_test();
+    let stage = StageProfile::battlefield();
 
-    assert_eq!(stage.name, "battlefield_test");
+    assert_eq!(stage.name, "battlefield");
     assert_eq!(stage.main_floor.left_x, melee_units_f32(-68.4));
     assert_eq!(stage.main_floor.right_x, melee_units_f32(68.4));
     assert_eq!(stage.soft_platforms.len(), 3);
@@ -556,8 +562,87 @@ fn default_stage_is_battlefield_sized_in_core_units() {
 }
 
 #[test]
+fn extracted_battlefield_stage_preserves_decomp_map_collision_data() {
+    let stage = mole_core::MeleeStageProfile::battlefield();
+
+    assert_eq!(stage.id, "battlefield");
+    assert_eq!(stage.name, "Battlefield");
+    assert_eq!(stage.source.dat_file, "GrNBa.dat");
+    assert_eq!(
+        stage.collision.scale.to_bits(),
+        0.800000011920929_f32.to_bits()
+    );
+    assert_eq!(stage.collision.vertices.len(), 26);
+    assert_eq!(stage.collision.lines.len(), 23);
+    assert_eq!(stage.collision.joints.len(), 1);
+
+    let main_floor_left = stage.collision.lines[0];
+    assert_eq!(main_floor_left.kind, StageCollisionLineKind::Floor);
+    assert_eq!(main_floor_left.v0_idx, 6);
+    assert_eq!(main_floor_left.v1_idx, 25);
+    assert_eq!(main_floor_left.hi_flags, 0x1);
+    assert_eq!(main_floor_left.lo_flags, 0x200);
+    let main_floor_left_scaled = stage.collision.scaled_line(0).unwrap();
+    assert_eq!(
+        main_floor_left_scaled.x0.to_bits(),
+        (-85.5_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(
+        main_floor_left_scaled.x1.to_bits(),
+        (-75.0_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(main_floor_left_scaled.y0.to_bits(), 0.0_f32.to_bits());
+    assert_eq!(main_floor_left_scaled.x0_milli, -68400);
+    assert_eq!(main_floor_left_scaled.x1_milli, -60000);
+
+    let left_platform = stage.collision.lines[2];
+    assert_eq!(left_platform.kind, StageCollisionLineKind::SoftFloor);
+    assert!(left_platform.passable);
+    let left_platform_scaled = stage.collision.scaled_line(2).unwrap();
+    assert_eq!(
+        left_platform_scaled.x0.to_bits(),
+        (-72.0_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(
+        left_platform_scaled.x1.to_bits(),
+        (-25.0_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(
+        left_platform_scaled.y0.to_bits(),
+        (34.0_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(left_platform_scaled.x0_milli, -57600);
+    assert_eq!(left_platform_scaled.x1_milli, -20000);
+    assert_eq!(left_platform_scaled.y0_milli, 27200);
+
+    let left_ledge_wall = stage.collision.lines[17];
+    assert_eq!(left_ledge_wall.kind, StageCollisionLineKind::LeftWall);
+    let left_ledge_wall_scaled = stage.collision.scaled_line(17).unwrap();
+    assert_eq!(
+        left_ledge_wall_scaled.x0.to_bits(),
+        (-81.2249984741211_f32 * stage.collision.scale).to_bits()
+    );
+    assert_eq!(left_ledge_wall_scaled.x0_milli, -64980);
+    assert_eq!(left_ledge_wall_scaled.x1_milli, -68400);
+    assert_eq!(left_ledge_wall_scaled.y0_milli, -6000);
+    assert_eq!(left_ledge_wall_scaled.y1_milli, 0);
+}
+
+#[test]
+fn battlefield_compat_stage_profile_is_projected_from_extracted_collision() {
+    let extracted = mole_core::MeleeStageProfile::battlefield();
+    let projected = extracted.compat_stage_profile();
+
+    assert_eq!(projected, StageProfile::battlefield());
+    assert_eq!(projected.main_floor, extracted.main_floor);
+    assert_eq!(projected.soft_platforms, extracted.soft_platforms);
+    assert_eq!(projected.blast_zones, extracted.blast_zones);
+    assert_eq!(projected.spawn_points, extracted.spawn_points);
+}
+
+#[test]
 fn battlefield_stage_exposes_ordered_collision_surfaces() {
-    let stage = StageProfile::battlefield_test();
+    let stage = StageProfile::battlefield();
     let surfaces = stage.collision_surfaces();
 
     assert_eq!(surfaces.len(), 4);
@@ -627,7 +712,7 @@ fn world_owns_battlefield_stage_for_deterministic_contact() {
     let world = World::for_two_players();
     let stage = world.stage();
 
-    assert_eq!(stage.name, "battlefield_test");
+    assert_eq!(stage.name, "battlefield");
     assert_eq!(stage.main_floor.name, "main_floor");
     assert_eq!(stage.soft_platforms.len(), 3);
 }
@@ -1362,9 +1447,14 @@ fn input_threshold_defaults_match_extracted_plco_common_data() {
     assert_eq!(common.entry_collision_landing_lag_ticks, 120);
     assert_eq!(common.guard_on_catch_dash_window, 3);
     assert_eq!(common.run_turn_run_no_interrupt_frames, 10);
-    assert_eq!(common.passive_input_age_threshold, 0);
-    assert_eq!(common.passive_window_max.to_bits(), 9.6_f32.to_bits());
-    assert_eq!(common.passive_stand_stick_x.to_bits(), 1.5_f32.to_bits());
+    assert_eq!(common.passive_input_age_threshold, 40);
+    assert_eq!(common.passive_window_max.to_bits(), 20.0_f32.to_bits());
+    assert_eq!(
+        common.passive_stand_stick_x.to_bits(),
+        0.20000000298023224_f32.to_bits()
+    );
+    assert_eq!(common.down_stand_stick_y, 25);
+    assert_eq!(common.down_wait_timer.to_bits(), 220.0_f32.to_bits());
     assert_eq!(
         common.player_nudge_x.to_bits(),
         0.30000001192092896_f32.to_bits()
@@ -1384,6 +1474,28 @@ fn input_threshold_defaults_match_extracted_plco_common_data() {
     assert_eq!(
         common.transformed_player_nudge_z_clamp.to_bits(),
         3.799999952316284_f32.to_bits()
+    );
+    assert_eq!(common.shield_start_health.to_bits(), 60.0_f32.to_bits());
+    assert_eq!(common.shield_release_lockout_frames, 8);
+    assert_eq!(
+        common.shield_hold_drain.to_bits(),
+        0.14000000059604645_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_regen.to_bits(),
+        0.07000000029802322_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_break_reset_health.to_bits(),
+        30.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hold_lightshield_min.to_bits(),
+        0.10000000149011612_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hold_lightshield_max.to_bits(),
+        2.0_f32.to_bits()
     );
 }
 
@@ -1452,8 +1564,11 @@ fn grounded_common_scalars_remain_source_f32_not_milli_aliases() {
         common.entry_initial_scale_y.to_bits(),
         0.009999999776482582_f32.to_bits()
     );
-    assert_eq!(common.passive_window_max.to_bits(), 9.6_f32.to_bits());
-    assert_eq!(common.passive_stand_stick_x.to_bits(), 1.5_f32.to_bits());
+    assert_eq!(common.passive_window_max.to_bits(), 20.0_f32.to_bits());
+    assert_eq!(
+        common.passive_stand_stick_x.to_bits(),
+        0.20000000298023224_f32.to_bits()
+    );
 }
 
 #[test]
@@ -1566,6 +1681,28 @@ fn input_common_data_sources_track_melee_field_offsets() {
         .expect("z_shield_analog common-data source should be recorded");
     assert_eq!(z_shield_analog.source_name, "x14");
     assert_eq!(z_shield_analog.offset, 0x14);
+
+    for (rust_name, source_name, offset) in [
+        ("shield_start_health", "x260_startShieldHealth", 0x260),
+        ("shield_release_lockout_frames", "x268", 0x268),
+        ("shield_hold_drain", "x278", 0x278),
+        ("shield_regen", "x27C", 0x27c),
+        ("shield_break_reset_health", "x280_unkShieldHealth", 0x280),
+        ("shield_hit_drain_damage_scale", "x284", 0x284),
+        ("shield_hit_drain_base", "x288", 0x288),
+        ("shield_hit_lightshield_min", "x2DC", 0x2dc),
+        ("shield_hit_lightshield_max", "x2E0", 0x2e0),
+        ("shield_hold_lightshield_min", "x2EC", 0x2ec),
+        ("shield_hold_lightshield_max", "x2F0", 0x2f0),
+    ] {
+        let source = sources
+            .iter()
+            .find(|source| source.rust_name == rust_name)
+            .expect("shield common-data source should be recorded");
+        assert_eq!(source.source_name, source_name);
+        assert_eq!(source.offset, offset);
+        assert_eq!(source.provenance, CommonDataProvenance::ExtractedPlCo);
+    }
 
     let trigger_timer_threshold = sources
         .iter()
@@ -1959,10 +2096,21 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x1a0, 0.75);
     put_f32_be(&mut bytes, 0x1e0, 4.5);
     put_f32_be(&mut bytes, 0x1e4, 8.0);
-    put_i32_be(&mut bytes, 0x244, 72);
+    put_f32_be(&mut bytes, 0x244, 72.0 / 127.0);
     put_f32_be(&mut bytes, 0x250, 9.5);
     put_f32_be(&mut bytes, 0x254, 1.25);
     put_f32_be(&mut bytes, 0x25c, -0.62);
+    put_f32_be(&mut bytes, 0x260, 61.0);
+    put_f32_be(&mut bytes, 0x268, 9.0);
+    put_f32_be(&mut bytes, 0x278, 0.2);
+    put_f32_be(&mut bytes, 0x27c, 0.08);
+    put_f32_be(&mut bytes, 0x280, 31.0);
+    put_f32_be(&mut bytes, 0x284, 1.2);
+    put_f32_be(&mut bytes, 0x288, 0.3);
+    put_f32_be(&mut bytes, 0x2dc, 0.11);
+    put_f32_be(&mut bytes, 0x2e0, 0.33);
+    put_f32_be(&mut bytes, 0x2ec, 0.12);
+    put_f32_be(&mut bytes, 0x2f0, 2.2);
     put_f32_be(&mut bytes, 0x314, 0.84);
     put_i32_be(&mut bytes, 0x318, 3);
     put_f32_be(&mut bytes, 0x31c, 0.85);
@@ -2184,6 +2332,35 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
         common.transformed_player_nudge_z_clamp.to_bits(),
         2.7_f32.to_bits()
     );
+    assert_eq!(common.shield_start_health.to_bits(), 61.0_f32.to_bits());
+    assert_eq!(common.shield_release_lockout_frames, 9);
+    assert_eq!(common.shield_hold_drain.to_bits(), 0.2_f32.to_bits());
+    assert_eq!(common.shield_regen.to_bits(), 0.08_f32.to_bits());
+    assert_eq!(
+        common.shield_break_reset_health.to_bits(),
+        31.0_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hit_drain_damage_scale.to_bits(),
+        1.2_f32.to_bits()
+    );
+    assert_eq!(common.shield_hit_drain_base.to_bits(), 0.3_f32.to_bits());
+    assert_eq!(
+        common.shield_hit_lightshield_min.to_bits(),
+        0.11_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hit_lightshield_max.to_bits(),
+        0.33_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hold_lightshield_min.to_bits(),
+        0.12_f32.to_bits()
+    );
+    assert_eq!(
+        common.shield_hold_lightshield_max.to_bits(),
+        2.2_f32.to_bits()
+    );
 }
 
 #[test]
@@ -2277,6 +2454,17 @@ fn synthetic_plco_common_data_bytes() -> Vec<u8> {
     put_i32_be(&mut bytes, 0xe4, 7);
     put_f32_be(&mut bytes, 0xe8, 2.0);
     put_f32_be(&mut bytes, 0x25c, -0.62);
+    put_f32_be(&mut bytes, 0x260, 61.0);
+    put_f32_be(&mut bytes, 0x268, 9.0);
+    put_f32_be(&mut bytes, 0x278, 0.2);
+    put_f32_be(&mut bytes, 0x27c, 0.08);
+    put_f32_be(&mut bytes, 0x280, 31.0);
+    put_f32_be(&mut bytes, 0x284, 1.2);
+    put_f32_be(&mut bytes, 0x288, 0.3);
+    put_f32_be(&mut bytes, 0x2dc, 0.11);
+    put_f32_be(&mut bytes, 0x2e0, 0.33);
+    put_f32_be(&mut bytes, 0x2ec, 0.12);
+    put_f32_be(&mut bytes, 0x2f0, 2.2);
     put_f32_be(&mut bytes, 0x314, 0.84);
     put_i32_be(&mut bytes, 0x318, 3);
     put_f32_be(&mut bytes, 0x31c, 0.85);
@@ -6109,6 +6297,55 @@ fn shield_held_enters_guard_and_jump_uses_jumpsquat() {
 }
 
 #[test]
+fn held_shield_drains_health_with_source_lightshield_scale() {
+    let mut world = World::for_two_players();
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &shield);
+    assert_eq!(
+        world.players()[0].shield_health.to_bits(),
+        world.common_data().shield_start_health.to_bits()
+    );
+
+    step_world(&mut world, Frame(1), &shield);
+
+    let common = world.common_data();
+    let expected =
+        common.shield_start_health - common.shield_hold_drain * common.shield_hold_lightshield_max;
+    assert_eq!(
+        world.players()[0].shield_health.to_bits(),
+        expected.to_bits()
+    );
+    assert_eq!(
+        world.players()[0].lightshield_amount.to_bits(),
+        1.0_f32.to_bits()
+    );
+}
+
+#[test]
+fn inactive_shield_regenerates_toward_source_max_health() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.shield_health = world.common_data().shield_start_health - 1.0;
+    world.set_player_state_for_diagnostic(0, player);
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let expected = world.common_data().shield_start_health - 1.0 + world.common_data().shield_regen;
+    assert_eq!(
+        world.players()[0].shield_health.to_bits(),
+        expected.to_bits()
+    );
+}
+
+#[test]
 fn shield_jump_height_is_selected_by_normal_jumpsquat_release_timing() {
     let mut full_hop = World::for_two_players();
     let mut short_hop = World::for_two_players();
@@ -6345,8 +6582,38 @@ fn shield_horizontal_tap_enters_facing_aware_roll() {
 }
 
 #[test]
+fn parity_mode_does_not_turn_around_mid_shield() {
+    let mut world = World::for_two_players();
+    let shield = [
+        PlayerInput::neutral().with_left_trigger_analog(80),
+        PlayerInput::neutral(),
+    ];
+    let shield_left = [
+        PlayerInput::neutral()
+            .with_left_trigger_analog(80)
+            .with_left_stick(-40, 0),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &shield);
+
+    for frame in 1..=8 {
+        step_world(&mut world, Frame(frame), &shield_left);
+        assert!(matches!(
+            world.players()[0].motion_state,
+            MotionState::GuardOn | MotionState::Guard
+        ));
+        assert_eq!(world.players()[0].facing, 1);
+    }
+
+    assert!(!world.engine_features().shield_turnaround_during_guard);
+    assert_eq!(world.players()[0].motion_state, MotionState::Guard);
+}
+
+#[test]
 fn shield_opposite_soft_hold_turns_facing_without_leaving_guard() {
     let mut world = World::for_two_players();
+    enable_custom_shield_turn(&mut world);
     let shield = [
         PlayerInput::neutral().with_left_trigger_analog(80),
         PlayerInput::neutral(),
@@ -6387,6 +6654,7 @@ fn shield_opposite_soft_hold_turns_facing_without_leaving_guard() {
 #[test]
 fn shield_turn_updates_facing_for_next_roll_direction() {
     let mut world = World::for_two_players();
+    enable_custom_shield_turn(&mut world);
     let shield = [
         PlayerInput::neutral().with_left_trigger_analog(80),
         PlayerInput::neutral(),
@@ -6419,6 +6687,7 @@ fn shield_turn_updates_facing_for_next_roll_direction() {
 #[test]
 fn shield_turn_can_be_interrupted_by_normal_jump_squat() {
     let mut world = World::for_two_players();
+    enable_custom_shield_turn(&mut world);
     let shield = [
         PlayerInput::neutral().with_left_trigger_analog(80),
         PlayerInput::neutral(),
@@ -10274,6 +10543,45 @@ fn airborne_z_without_item_or_tether_enters_aerial_attack_not_generic_catch() {
 }
 
 #[test]
+fn aerial_attack_iasa_runs_attack_air_phys_on_entry_tick() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::JumpF;
+    player.motion_state_alias = Some(MotionState::JumpF);
+    player.motion_frame = 3;
+    player.grounded = false;
+    player.position = Vec2 {
+        x: melee_units_f32(19.49),
+        y: melee_units_f32(6.82),
+    };
+    player.source_position.x = milli_to_source_units(player.position.x);
+    player.source_position.y = milli_to_source_units(player.position.y);
+    player.velocity.x = source_units_to_milli(1.5);
+    player.velocity.y = source_units_to_milli(1.51);
+    player.source_self_velocity_x = 1.5;
+    player.source_self_velocity_y = 1.51;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let attack = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(4), &attack);
+
+    let expected_velocity_x = source_air_drift_velocity(1_500, 0, world.players()[0].profile);
+    assert_eq!(world.players()[0].motion_state, MotionState::AttackAirN);
+    assert_eq!(
+        world.players()[0].velocity.x,
+        expected_velocity_x,
+        "ftCo_AttackAir_Phys runs after JumpF IASA installs AttackAir callbacks"
+    );
+    assert_eq!(
+        world.players()[0].position.x,
+        melee_units_f32(19.49) + expected_velocity_x
+    );
+}
+
+#[test]
 fn fresh_forward_dash_tap_from_wait_enters_dash_and_consumes_x_tap() {
     let mut world = World::for_two_players();
     let dash_right = [
@@ -13176,7 +13484,7 @@ fn turn_run_completion_uses_previous_frame_run_gate_before_current_input() {
 }
 
 #[test]
-fn turn_run_completion_into_run_uses_source_run_phys_handoff_tick() {
+fn turn_run_completion_into_run_uses_source_run_iasa_and_phys_handoff_tick() {
     let mut world = World::for_two_players();
     let mut player = world.players()[0];
     player.motion_state = MotionState::TurnRun;
@@ -13219,13 +13527,51 @@ fn turn_run_completion_into_run_uses_source_run_phys_handoff_tick() {
     assert_eq!(
         world.players()[0].motion_state,
         MotionState::Run,
-        "ftCo_TurnRun_Anim may enter Run, but the frame's IASA callback already ran as TurnRun_IASA"
+        "ftCo_TurnRun_Anim enters Run before the same frame's Run_IASA/Run_Phys callbacks"
     );
     assert_eq!(
         world.players()[0].velocity.x,
         source_units_to_milli(2.1475),
         "the TurnRun->Run completion tick first applies Fighter_ChangeMotionState's source action-flag ground velocity clamp, then runs Run_Phys"
     );
+}
+
+#[test]
+fn turn_run_completion_run_iasa_jump_wins_on_handoff_tick() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::TurnRun;
+    player.motion_state_alias = Some(MotionState::TurnRun);
+    player.source_action_key = Some(SourceActionKey::new("TurnRun"));
+    player.melee_action_state_id = Some(MeleeActionStateId::new(19));
+    player.grounded = true;
+    player.facing = 1;
+    player.turn_facing_after = 1;
+    player.turn_has_turned = true;
+    player.turn_run_accel_mul = -1;
+    player.turn_run_completion_pending = true;
+    player.turn_run_completion_enters_run = true;
+    player.ground_velocity_x = 2.58375;
+    player.source_self_velocity_x = 2.58375;
+    player.velocity.x = source_units_to_milli(2.58375);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let jump = [
+        PlayerInput::neutral()
+            .with_left_stick(125, -11)
+            .with_jump_secondary(true),
+        PlayerInput::neutral(),
+    ];
+
+    step_world(&mut world, Frame(0), &jump);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::KneeBend,
+        "TurnRun_Anim installs Run, then the same frame's Run_IASA sees fresh Y"
+    );
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert_eq!(world.players()[0].velocity.x, source_units_to_milli(2.14));
 }
 
 #[test]

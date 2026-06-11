@@ -5,6 +5,643 @@
     "right_x": 224000,
     "top_y": 200000
   },
+  "collision": {
+    "coll_data_offset": 205020,
+    "joint_count": 1,
+    "joints": [
+      {
+        "bounds": {
+          "bottom": -46400,
+          "left": -74800,
+          "right": 74800,
+          "top": 60800
+        },
+        "ceiling_count": 5,
+        "ceiling_start": 6,
+        "dynamic_count": 0,
+        "dynamic_start": 0,
+        "floor_count": 6,
+        "floor_start": 0,
+        "index": 0,
+        "left_wall_count": 6,
+        "left_wall_start": 17,
+        "right_wall_count": 6,
+        "right_wall_start": 11,
+        "source_bounds": {
+          "bottom": -58.0,
+          "left": -93.5,
+          "right": 93.5,
+          "top": 76.0
+        },
+        "vtx_count": 26,
+        "vtx_start": 0
+      }
+    ],
+    "line_count": 23,
+    "line_ranges": {
+      "ceiling": {
+        "count": 5,
+        "start": 6
+      },
+      "dynamic": {
+        "count": 0,
+        "start": 0
+      },
+      "floor": {
+        "count": 6,
+        "start": 0
+      },
+      "left_wall": {
+        "count": 6,
+        "start": 17
+      },
+      "right_wall": {
+        "count": 6,
+        "start": 11
+      }
+    },
+    "lines": [
+      {
+        "hi_flags": 1,
+        "index": 0,
+        "kind": "floor",
+        "lo_flags": 512,
+        "next_id0": 1,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 17,
+        "prev_id1": -1,
+        "v0_idx": 6,
+        "v1_idx": 25,
+        "x0": -68400,
+        "x1": -60000,
+        "y0": 0,
+        "y1": 0
+      },
+      {
+        "hi_flags": 1,
+        "index": 1,
+        "kind": "floor",
+        "lo_flags": 0,
+        "next_id0": 5,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 0,
+        "prev_id1": -1,
+        "v0_idx": 25,
+        "v1_idx": 8,
+        "x0": -60000,
+        "x1": 60000,
+        "y0": 0,
+        "y1": 0
+      },
+      {
+        "hi_flags": 1,
+        "index": 2,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 23,
+        "v1_idx": 24,
+        "x0": -57600,
+        "x1": -20000,
+        "y0": 27200,
+        "y1": 27200
+      },
+      {
+        "hi_flags": 1,
+        "index": 3,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 0,
+        "v1_idx": 1,
+        "x0": -18800,
+        "x1": 18800,
+        "y0": 54400,
+        "y1": 54400
+      },
+      {
+        "hi_flags": 1,
+        "index": 4,
+        "kind": "soft_floor",
+        "lo_flags": 256,
+        "next_id0": -1,
+        "next_id1": -1,
+        "passable": true,
+        "prev_id0": -1,
+        "prev_id1": -1,
+        "v0_idx": 21,
+        "v1_idx": 22,
+        "x0": 20000,
+        "x1": 57600,
+        "y0": 27200,
+        "y1": 27200
+      },
+      {
+        "hi_flags": 1,
+        "index": 5,
+        "kind": "floor",
+        "lo_flags": 512,
+        "next_id0": 16,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 1,
+        "prev_id1": -1,
+        "v0_idx": 8,
+        "v1_idx": 7,
+        "x0": 60000,
+        "x1": 68400,
+        "y0": 0,
+        "y1": 0
+      },
+      {
+        "hi_flags": 2,
+        "index": 6,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 17,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 18,
+        "prev_id1": -1,
+        "v0_idx": 2,
+        "v1_idx": 3,
+        "x0": -35600,
+        "x1": -64980,
+        "y0": -18000,
+        "y1": -6000
+      },
+      {
+        "hi_flags": 2,
+        "index": 7,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 21,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 11,
+        "prev_id1": -1,
+        "v0_idx": 12,
+        "v1_idx": 18,
+        "x0": -10400,
+        "x1": -29200,
+        "y0": -40000,
+        "y1": -34800
+      },
+      {
+        "hi_flags": 2,
+        "index": 8,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 11,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 22,
+        "prev_id1": -1,
+        "v0_idx": 13,
+        "v1_idx": 11,
+        "x0": 10315,
+        "x1": -10315,
+        "y0": -31257,
+        "y1": -31257
+      },
+      {
+        "hi_flags": 2,
+        "index": 9,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 22,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 12,
+        "prev_id1": -1,
+        "v0_idx": 17,
+        "v1_idx": 20,
+        "x0": 29200,
+        "x1": 10400,
+        "y0": -34800,
+        "y1": -40000
+      },
+      {
+        "hi_flags": 2,
+        "index": 10,
+        "kind": "ceiling",
+        "lo_flags": 0,
+        "next_id0": 14,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 16,
+        "prev_id1": -1,
+        "v0_idx": 4,
+        "v1_idx": 5,
+        "x0": 64980,
+        "x1": 35600,
+        "y0": -6000,
+        "y1": -18000
+      },
+      {
+        "hi_flags": 4,
+        "index": 11,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 7,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 8,
+        "prev_id1": -1,
+        "v0_idx": 11,
+        "v1_idx": 12,
+        "x0": -10315,
+        "x1": -10400,
+        "y0": -31257,
+        "y1": -40000
+      },
+      {
+        "hi_flags": 4,
+        "index": 12,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 9,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 13,
+        "prev_id1": -1,
+        "v0_idx": 16,
+        "v1_idx": 17,
+        "x0": 30400,
+        "x1": 29200,
+        "y0": -28800,
+        "y1": -34800
+      },
+      {
+        "hi_flags": 4,
+        "index": 13,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 12,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 15,
+        "prev_id1": -1,
+        "v0_idx": 15,
+        "v1_idx": 16,
+        "x0": 32800,
+        "x1": 30400,
+        "y0": -24800,
+        "y1": -28800
+      },
+      {
+        "hi_flags": 4,
+        "index": 14,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 15,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 10,
+        "prev_id1": -1,
+        "v0_idx": 5,
+        "v1_idx": 9,
+        "x0": 35600,
+        "x1": 38000,
+        "y0": -18000,
+        "y1": -21200
+      },
+      {
+        "hi_flags": 4,
+        "index": 15,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 13,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 14,
+        "prev_id1": -1,
+        "v0_idx": 9,
+        "v1_idx": 15,
+        "x0": 38000,
+        "x1": 32800,
+        "y0": -21200,
+        "y1": -24800
+      },
+      {
+        "hi_flags": 4,
+        "index": 16,
+        "kind": "right_wall",
+        "lo_flags": 0,
+        "next_id0": 10,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 5,
+        "prev_id1": -1,
+        "v0_idx": 7,
+        "v1_idx": 4,
+        "x0": 68400,
+        "x1": 64980,
+        "y0": 0,
+        "y1": -6000
+      },
+      {
+        "hi_flags": 8,
+        "index": 17,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 0,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 6,
+        "prev_id1": -1,
+        "v0_idx": 3,
+        "v1_idx": 6,
+        "x0": -64980,
+        "x1": -68400,
+        "y0": -6000,
+        "y1": 0
+      },
+      {
+        "hi_flags": 8,
+        "index": 18,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 6,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 19,
+        "prev_id1": -1,
+        "v0_idx": 10,
+        "v1_idx": 2,
+        "x0": -38000,
+        "x1": -35600,
+        "y0": -21200,
+        "y1": -18000
+      },
+      {
+        "hi_flags": 8,
+        "index": 19,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 18,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 20,
+        "prev_id1": -1,
+        "v0_idx": 14,
+        "v1_idx": 10,
+        "x0": -32800,
+        "x1": -38000,
+        "y0": -24800,
+        "y1": -21200
+      },
+      {
+        "hi_flags": 8,
+        "index": 20,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 19,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 21,
+        "prev_id1": -1,
+        "v0_idx": 19,
+        "v1_idx": 14,
+        "x0": -30400,
+        "x1": -32800,
+        "y0": -28800,
+        "y1": -24800
+      },
+      {
+        "hi_flags": 8,
+        "index": 21,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 20,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 7,
+        "prev_id1": -1,
+        "v0_idx": 18,
+        "v1_idx": 19,
+        "x0": -29200,
+        "x1": -30400,
+        "y0": -34800,
+        "y1": -28800
+      },
+      {
+        "hi_flags": 8,
+        "index": 22,
+        "kind": "left_wall",
+        "lo_flags": 0,
+        "next_id0": 8,
+        "next_id1": -1,
+        "passable": false,
+        "prev_id0": 9,
+        "prev_id1": -1,
+        "v0_idx": 20,
+        "v1_idx": 13,
+        "x0": 10400,
+        "x1": 10315,
+        "y0": -40000,
+        "y1": -31257
+      }
+    ],
+    "scale": 0.800000011920929,
+    "source_root": "coll_data",
+    "vertex_count": 26,
+    "vertices": [
+      {
+        "index": 0,
+        "source_x": -23.5,
+        "source_y": 68.0,
+        "x": -18800,
+        "y": 54400
+      },
+      {
+        "index": 1,
+        "source_x": 23.5,
+        "source_y": 68.0,
+        "x": 18800,
+        "y": 54400
+      },
+      {
+        "index": 2,
+        "source_x": -44.5,
+        "source_y": -22.5,
+        "x": -35600,
+        "y": -18000
+      },
+      {
+        "index": 3,
+        "source_x": -81.2249984741211,
+        "source_y": -7.5,
+        "x": -64980,
+        "y": -6000
+      },
+      {
+        "index": 4,
+        "source_x": 81.2249984741211,
+        "source_y": -7.5,
+        "x": 64980,
+        "y": -6000
+      },
+      {
+        "index": 5,
+        "source_x": 44.5,
+        "source_y": -22.5,
+        "x": 35600,
+        "y": -18000
+      },
+      {
+        "index": 6,
+        "source_x": -85.5,
+        "source_y": 0.0,
+        "x": -68400,
+        "y": 0
+      },
+      {
+        "index": 7,
+        "source_x": 85.5,
+        "source_y": 0.0,
+        "x": 68400,
+        "y": 0
+      },
+      {
+        "index": 8,
+        "source_x": 75.0,
+        "source_y": 0.0,
+        "x": 60000,
+        "y": 0
+      },
+      {
+        "index": 9,
+        "source_x": 47.5,
+        "source_y": -26.5,
+        "x": 38000,
+        "y": -21200
+      },
+      {
+        "index": 10,
+        "source_x": -47.5,
+        "source_y": -26.5,
+        "x": -38000,
+        "y": -21200
+      },
+      {
+        "index": 11,
+        "source_x": -12.893799781799316,
+        "source_y": -39.07170104980469,
+        "x": -10315,
+        "y": -31257
+      },
+      {
+        "index": 12,
+        "source_x": -13.0,
+        "source_y": -50.0,
+        "x": -10400,
+        "y": -40000
+      },
+      {
+        "index": 13,
+        "source_x": 12.893799781799316,
+        "source_y": -39.07170104980469,
+        "x": 10315,
+        "y": -31257
+      },
+      {
+        "index": 14,
+        "source_x": -41.0,
+        "source_y": -31.0,
+        "x": -32800,
+        "y": -24800
+      },
+      {
+        "index": 15,
+        "source_x": 41.0,
+        "source_y": -31.0,
+        "x": 32800,
+        "y": -24800
+      },
+      {
+        "index": 16,
+        "source_x": 38.0,
+        "source_y": -36.0,
+        "x": 30400,
+        "y": -28800
+      },
+      {
+        "index": 17,
+        "source_x": 36.5,
+        "source_y": -43.5,
+        "x": 29200,
+        "y": -34800
+      },
+      {
+        "index": 18,
+        "source_x": -36.5,
+        "source_y": -43.5,
+        "x": -29200,
+        "y": -34800
+      },
+      {
+        "index": 19,
+        "source_x": -38.0,
+        "source_y": -36.0,
+        "x": -30400,
+        "y": -28800
+      },
+      {
+        "index": 20,
+        "source_x": 13.0,
+        "source_y": -50.0,
+        "x": 10400,
+        "y": -40000
+      },
+      {
+        "index": 21,
+        "source_x": 25.0,
+        "source_y": 34.0,
+        "x": 20000,
+        "y": 27200
+      },
+      {
+        "index": 22,
+        "source_x": 72.0,
+        "source_y": 34.0,
+        "x": 57600,
+        "y": 27200
+      },
+      {
+        "index": 23,
+        "source_x": -72.0,
+        "source_y": 34.0,
+        "x": -57600,
+        "y": 27200
+      },
+      {
+        "index": 24,
+        "source_x": -25.0,
+        "source_y": 34.0,
+        "x": -20000,
+        "y": 27200
+      },
+      {
+        "index": 25,
+        "source_x": -75.0,
+        "source_y": 0.0,
+        "x": -60000,
+        "y": 0
+      }
+    ],
+    "x2c": 0
+  },
   "engine_boundary": "rust_core_authority",
   "main_floor": {
     "friction_multiplier": 1.0,
@@ -14,6 +651,13 @@
     "right_x": 68400,
     "y": 0
   },
+  "pending_stage_layers": [
+    "map_head_object_tree",
+    "map_plit_spawn_points",
+    "itemdata",
+    "camera_bounds",
+    "blast_zones"
+  ],
   "schema_version": 1,
   "soft_platforms": [
     {
@@ -42,22 +686,67 @@
     }
   ],
   "source": {
+    "competitive_kind": "starter",
+    "dat_file": "GrNBa.dat",
+    "data_block_size": 445920,
     "decomp_refs": [
       ".research/doldecomp-melee/src/melee/gr/grbattle.c",
       ".research/doldecomp-melee/src/melee/gr/grdatfiles.c",
       ".research/doldecomp-melee/src/melee/gr/ground.c",
-      ".research/doldecomp-melee/src/melee/mp/types.h"
+      ".research/doldecomp-melee/src/melee/mp/types.h",
+      ".research/doldecomp-melee/src/melee/mp/mplib.c"
     ],
-    "kind": "rust_baked_stage_asset_pending_grnba_dat_extract",
-    "notes": "Current numeric values are the Rust baked Battlefield profile. True stage parity requires extracting /GrNBa.dat coll_data into the MapCollData shape used by mpLibLoad.",
-    "profile_name": "battlefield_test",
-    "reference_stage": "Battlefield",
-    "required_public_symbols": [
-      "map_head",
+    "external_count": 0,
+    "kind": "melee_stage_dat",
+    "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498.",
+    "public_roots": [
+      "ALDYakuAll",
+      "GrdBattle2Color_RGB565_image",
+      "GrdBattle2Linex_I4_image",
+      "GrdBattle2texblack_RGB565_image",
+      "GrdBattle2texgreen_RGB565_image",
+      "GrdBattle2texsky2_RGB565_image",
+      "GrdBattleBGGrad2_I8_image",
+      "GrdBattleBGWater_RGB5A3_image",
+      "GrdBattleBit_I4_image",
+      "GrdBattleClaw_CMPR_image",
+      "GrdBattleCord_CMPR_image",
+      "GrdBattleCore0_CMPR_image",
+      "GrdBattleCore1_CMPR_image",
+      "GrdBattleGrad2_CMPR_image",
+      "GrdBattleGrad_CMPR_image",
+      "GrdBattleGround_CMPR_image",
+      "GrdBattleWall0_C8_image",
+      "GrdBattleWall0_tlut",
+      "GrdBattleWall0_tlut_desc",
+      "GrdBattleWall1_C8_image",
+      "GrdBattleWall1_tlut",
+      "GrdBattleWall1_tlut_desc",
+      "GrdBattleWall2_CMPR_image",
+      "GrdBattleWall4_CMPR_image",
+      "GrdBattleWall5_CMPR_image",
+      "GrdBattleWall7_CMPR_image",
+      "GrdBattleYuka2_I4_image",
+      "GrdBattleYuka_I4_image",
       "coll_data",
-      "grGroundParam"
+      "grGroundParam",
+      "itemdata",
+      "map_head",
+      "map_plit",
+      "map_ptcl",
+      "map_texg",
+      "quake_model_set",
+      "yakumono_param"
     ],
-    "required_raw_dat": "resources/melee/raw/GrNBa.dat"
+    "raw_dat": "resources/melee/raw/GrNBa.dat",
+    "related_dat_files": [],
+    "relocation_count": 1279,
+    "struct_refs": [
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapCollData",
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapLine",
+      ".research/doldecomp-melee/src/melee/mp/types.h::MapJoint",
+      ".research/doldecomp-melee/src/melee/mp/mplib.c::mpLibLoad"
+    ]
   },
   "spawn_points": [
     {

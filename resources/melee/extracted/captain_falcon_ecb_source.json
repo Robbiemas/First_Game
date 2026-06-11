@@ -1,7 +1,7 @@
 {
   "animation_dependency": {
     "file": "resources/melee/raw/PlCaAJ.dat",
-    "reason": "PlCa.dat points at action figatrees, but per-frame JObj ECB requires the Captain Falcon action animation resource.",
+    "reason": "PlCa.dat points at action figatrees, but per-frame JObj ECB requires the captain action animation resource.",
     "status": "available_for_per_frame_ecb"
   },
   "ecb_source": {
@@ -27,6 +27,7 @@
     "format": "HSD DAT, big-endian ftData_x44_t",
     "ft_data_offset": 39428,
     "ftdata_ecb_source_offset": 30992,
+    "source_character": "captain",
     "symbol": "ftDataCaptain"
   }
 }

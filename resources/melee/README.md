@@ -14,8 +14,53 @@ Put locally extracted files here:
   animation/JObj ECB data
 - `resources/melee/raw/PlCaNr.dat` when extracting Captain Falcon neutral
   costume skeleton/JObj data
+- `resources/melee/raw/Gr*.dat` when extracting stages through the Rust CLI
 
 Raw DAT/ISO files are ignored by git and should not be committed.
+
+## Stage Extraction
+
+Stage DAT acquisition is Rust-owned. With a local user-owned Melee 1.02 ISO,
+run:
+
+```powershell
+cargo run -p mole_cli -- stage extract-iso --iso "C:\path\to\Super Smash Bros. Melee.iso" --competitive --write --json
+```
+
+That command reads the GameCube ISO file table directly, copies the competitive
+baseline stage DATs into ignored local raw inputs, writes compact stage blobs to
+`resources/melee/extracted/stages/`, and writes the generated Battlefield engine
+blob to `crates/mole_core/src/generated/stages.rs`.
+
+The ISO, decomp, and raw DATs are extraction inputs only. After a stage has been
+translated into committed project assets, the game must continue to build and
+run from the Rust engine blobs without the ISO/decomp present.
+
+Current competitive baseline IDs:
+
+- `battlefield`
+- `final-destination`
+- `yoshi-story`
+- `fountain-of-dreams`
+- `dream-land-64`
+- `pokemon-stadium`
+
+For an individual registered stage, use:
+
+```powershell
+cargo run -p mole_cli -- stage extract --stage battlefield --write --json
+```
+
+For Battlefield, this command updates both
+`resources/melee/extracted/stages/battlefield_stage.json` and
+`crates/mole_core/src/generated/stages.rs`. The JSON blob is the reviewable
+middleware artifact; the generated Rust blob is the engine-owned runtime source.
+
+For a custom DAT already placed in `resources/melee/raw`, use `--dat`:
+
+```powershell
+cargo run -p mole_cli -- stage extract --stage custom-dev-stage --stage-name "Custom Dev Stage" --dat resources/melee/raw/CustomStage.dat --write --json
+```
 
 ## Generated Files
 

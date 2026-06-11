@@ -39,8 +39,8 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
         "actionable": 0,
     }
     assert global_combat_values["summary"] == {
-        "total": 30,
-        "match": 30,
+        "total": 41,
+        "match": 41,
         "diff": 0,
         "derived": 0,
         "missing": 0,
@@ -59,6 +59,12 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
     assert character_values["derived_rows"] == []
     assert global_combat_values["actionable_rows"] == []
     assert falcon_combat_values["actionable_rows"] == []
+    shield_start_health = next(
+        row for row in global_combat_values["rows"] if row["field"] == "shield_start_health"
+    )
+    assert shield_start_health["decomp_value"] == 60.0
+    assert shield_start_health["rust_value"] == 60.0
+    assert shield_start_health["status"] == "match"
     max_jumps = next(row for row in character_values["rows"] if row["field"] == "max_jumps")
     assert max_jumps["decomp_value"] == 2
     assert max_jumps["rust_value"] == 2

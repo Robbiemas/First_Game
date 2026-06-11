@@ -575,7 +575,7 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     assert "global_common_values: 7 categories, 72 fields" in text
     assert "captain_falcon_values: 5 categories, 40 fields" in text
     assert "physics_engine_values: 3 categories, 36 fields" in text
-    assert "global_combat_values: 6 categories, 30 fields" in text
+    assert "global_combat_values: 7 categories, 41 fields" in text
     assert "captain_falcon_combat_values: 1 categories, 1 fields" in text
     assert "battlefield_stage_values: 3 categories, 36 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text

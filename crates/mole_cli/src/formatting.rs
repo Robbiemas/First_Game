@@ -122,6 +122,9 @@ pub(crate) fn format_markdown_report(report: &Value) -> String {
         Some("graph inspect") => format_graph_inspect_markdown(report),
         Some("verify changed") => format_verify_changed_markdown(report),
         Some("generated check") => format_generated_check_markdown(report),
+        Some("stage inspect") => format_stage_inspect_markdown(report),
+        Some("stage extract") => format_stage_extract_markdown(report),
+        Some("stage extract-iso") => format_stage_extract_iso_markdown(report),
         Some("finish check") => format_finish_check_markdown(report),
         Some("replay check") => format_replay_check_markdown(report),
         Some("replay trace") => format_replay_trace_markdown(report),
@@ -469,6 +472,259 @@ fn format_generated_check_markdown(report: &Value) -> String {
         }
     }
     lines.push(String::new());
+    lines.join("\n")
+}
+
+fn format_stage_inspect_markdown(report: &Value) -> String {
+    let stage_name = report
+        .get("stage_name")
+        .and_then(Value::as_str)
+        .unwrap_or("Unknown Stage");
+    let stage_id = report
+        .get("stage_id")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let mut lines = vec![format!("# Stage Inspect: {stage_name}"), String::new()];
+    lines.push(format!("- Stage id: `{stage_id}`"));
+    lines.push(format!(
+        "- Decomp parity ready: {}",
+        report
+            .get("decomp_parity_ready")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    ));
+    if let Some(status) = report.get("status").and_then(Value::as_str) {
+        lines.push(format!("- Status: `{status}`"));
+    }
+    if let Some(raw_dat) = report.get("raw_dat") {
+        lines.push(format!(
+            "- Raw DAT: `{}` ({})",
+            raw_dat
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown"),
+            if raw_dat
+                .get("present")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                "present"
+            } else {
+                "missing"
+            }
+        ));
+    }
+    if let Some(asset) = report.get("asset") {
+        lines.push(format!(
+            "- Stage asset: `{}` ({})",
+            asset
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown"),
+            asset
+                .get("source_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown source")
+        ));
+    }
+    if let Some(engine_blob) = report.get("engine_blob") {
+        lines.push(format!(
+            "- Engine blob: `{}` ({})",
+            engine_blob
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown"),
+            if engine_blob
+                .get("present")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                "present"
+            } else {
+                "missing"
+            }
+        ));
+    }
+    if let Some(surfaces) = report.get("current_surfaces") {
+        lines.push(format!(
+            "- Current surface count: {}",
+            surfaces
+                .get("surface_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        ));
+    }
+    if let Some(notes) = report.get("blocking_notes").and_then(Value::as_array) {
+        if !notes.is_empty() {
+            lines.extend([String::new(), "## Blocking Notes".to_string()]);
+            lines.extend(
+                notes
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(|note| format!("- {note}")),
+            );
+        }
+    }
+    if let Some(next) = report.get("recommended_next").and_then(Value::as_array) {
+        if !next.is_empty() {
+            lines.extend([String::new(), "## Recommended Next".to_string()]);
+            lines.extend(
+                next.iter()
+                    .filter_map(Value::as_str)
+                    .map(|item| format!("- {item}")),
+            );
+        }
+    }
+    lines.join("\n")
+}
+
+fn format_stage_extract_markdown(report: &Value) -> String {
+    let stage_name = report
+        .get("stage_name")
+        .and_then(Value::as_str)
+        .unwrap_or("Unknown Stage");
+    let stage_id = report
+        .get("stage_id")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    let mutated = report
+        .get("mutated")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut lines = vec![format!("# Stage Extract: {stage_name}"), String::new()];
+    lines.push(format!("- Stage id: `{stage_id}`"));
+    lines.push(format!("- OK: `{ok}`"));
+    lines.push(format!("- Mutated: `{mutated}`"));
+    if let Some(raw_dat) = report.get("raw_dat") {
+        lines.push(format!(
+            "- Raw DAT: `{}` ({})",
+            raw_dat
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown"),
+            if raw_dat
+                .get("present")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                "present"
+            } else {
+                "missing"
+            }
+        ));
+    }
+    if let Some(path) = report.get("output_path").and_then(Value::as_str) {
+        lines.push(format!("- Stage asset: `{path}`"));
+    }
+    if let Some(engine_blob) = report.get("engine_blob") {
+        if let Some(path) = engine_blob.get("path").and_then(Value::as_str) {
+            lines.push(format!("- Engine blob: `{path}`"));
+        }
+    }
+    if let Some(collision) = report.get("collision") {
+        lines.push(String::new());
+        lines.push("## Collision".to_string());
+        for field in ["scale", "vertex_count", "line_count", "joint_count"] {
+            if let Some(value) = collision.get(field) {
+                lines.push(format!("- {field}: `{}`", display_json_scalar(value)));
+            }
+        }
+    }
+    if let Some(error) = report.get("error").and_then(Value::as_str) {
+        lines.push(String::new());
+        lines.push("## Error".to_string());
+        lines.push(format!("- {error}"));
+    }
+    lines.join("\n")
+}
+
+fn format_stage_extract_iso_markdown(report: &Value) -> String {
+    let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    let mutated = report
+        .get("mutated")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut lines = vec!["# Stage ISO Extract".to_string(), String::new()];
+    lines.push(format!("- OK: `{ok}`"));
+    lines.push(format!("- Mutated: `{mutated}`"));
+    if let Some(iso) = report.get("iso") {
+        lines.push(format!(
+            "- ISO: `{}` ({})",
+            iso.get("path").and_then(Value::as_str).unwrap_or("unknown"),
+            if iso.get("present").and_then(Value::as_bool).unwrap_or(false) {
+                "present"
+            } else {
+                "missing"
+            }
+        ));
+    }
+    lines.push(format!(
+        "- Selected stages: `{}`",
+        report
+            .get("selected_stage_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    ));
+    if let Some(path) = report.get("engine_stage_module").and_then(Value::as_str) {
+        lines.push(format!("- Engine stage module: `{path}`"));
+    }
+    if let Some(stages) = report.get("stages").and_then(Value::as_array) {
+        lines.push(String::new());
+        lines.push("## Stages".to_string());
+        for stage in stages {
+            let name = stage
+                .get("stage_name")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let id = stage
+                .get("stage_id")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let dat = stage
+                .get("dat_file")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let ok = stage.get("ok").and_then(Value::as_bool).unwrap_or(false);
+            lines.push(format!("- `{id}` {name}: `{dat}`, ok `{ok}`"));
+            if let Some(engine_blob) = stage.get("engine_blob") {
+                if let Some(path) = engine_blob.get("path").and_then(Value::as_str) {
+                    lines.push(format!("  - engine blob: `{path}`"));
+                }
+            }
+            if let Some(collision) = stage.get("collision") {
+                let vertices = collision
+                    .get("vertex_count")
+                    .map(display_json_scalar)
+                    .unwrap_or_else(|| "null".to_string());
+                let lines_count = collision
+                    .get("line_count")
+                    .map(display_json_scalar)
+                    .unwrap_or_else(|| "null".to_string());
+                let joints = collision
+                    .get("joint_count")
+                    .map(display_json_scalar)
+                    .unwrap_or_else(|| "null".to_string());
+                lines.push(format!(
+                    "  - collision: vertices `{vertices}`, lines `{lines_count}`, joints `{joints}`"
+                ));
+            }
+        }
+    }
+    if let Some(errors) = report.get("errors").and_then(Value::as_array) {
+        if !errors.is_empty() {
+            lines.push(String::new());
+            lines.push("## Errors".to_string());
+            for error in errors.iter().filter_map(Value::as_str) {
+                lines.push(format!("- {error}"));
+            }
+        }
+    }
+    if let Some(error) = report.get("error").and_then(Value::as_str) {
+        lines.push(String::new());
+        lines.push("## Error".to_string());
+        lines.push(format!("- {error}"));
+    }
     lines.join("\n")
 }
 

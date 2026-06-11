@@ -163,6 +163,17 @@ pub struct MeleeCommonData {
     pub player_nudge_z_clamp: f32,
     pub transformed_player_nudge_z: f32,
     pub transformed_player_nudge_z_clamp: f32,
+    pub shield_start_health: f32,
+    pub shield_release_lockout_frames: u8,
+    pub shield_hold_drain: f32,
+    pub shield_regen: f32,
+    pub shield_break_reset_health: f32,
+    pub shield_hit_drain_damage_scale: f32,
+    pub shield_hit_drain_base: f32,
+    pub shield_hit_lightshield_min: f32,
+    pub shield_hit_lightshield_max: f32,
+    pub shield_hold_lightshield_min: f32,
+    pub shield_hold_lightshield_max: f32,
     pub fallspecial_platform_landing_y: i8,
     pub platform_pass_y: i8,
     pub platform_pass_y_tap_window: u8,
@@ -233,11 +244,11 @@ impl MeleeCommonData {
         damage_motion_tier_3_threshold: 32.0,
         damage_landing_down_bound_knockback_threshold: 5.0,
         damage_landing_basic_knockback_threshold: 0.5,
-        passive_input_age_threshold: 0,
-        passive_window_max: 9.6,
-        passive_stand_stick_x: 1.5,
-        down_stand_stick_y: 20,
-        down_wait_timer: 0.0,
+        passive_input_age_threshold: 40,
+        passive_window_max: 20.0,
+        passive_stand_stick_x: 0.20000000298023224,
+        down_stand_stick_y: 25,
+        down_wait_timer: 220.0,
         hitlag_max_frames: 20.0,
         hitlag_damage_scale: 0.3333333432674408,
         hitlag_base_frames: 3.0,
@@ -275,6 +286,17 @@ impl MeleeCommonData {
         player_nudge_z_clamp: 1.399999976158142,
         transformed_player_nudge_z: 0.20000000298023224,
         transformed_player_nudge_z_clamp: 3.799999952316284,
+        shield_start_health: 60.0,
+        shield_release_lockout_frames: 8,
+        shield_hold_drain: 0.14000000059604645,
+        shield_regen: 0.07000000029802322,
+        shield_break_reset_health: 30.0,
+        shield_hit_drain_damage_scale: 1.0,
+        shield_hit_drain_base: 0.0,
+        shield_hit_lightshield_min: 0.10000000149011612,
+        shield_hit_lightshield_max: 0.30000001192092896,
+        shield_hold_lightshield_min: 0.10000000149011612,
+        shield_hold_lightshield_max: 2.0,
         fallspecial_platform_landing_y: -71,
         platform_pass_y: 84,
         platform_pass_y_tap_window: 6,
@@ -367,7 +389,7 @@ impl MeleeCommonData {
         data.hitlag_crouch_multiplier = read_f32(bytes, 0x1a0, "x1A0")?;
         data.damage_landing_down_bound_knockback_threshold = read_f32(bytes, 0x1e0, "x1E0")?;
         data.damage_landing_basic_knockback_threshold = read_f32(bytes, 0x1e4, "x1E4")?;
-        data.down_stand_stick_y = read_i8_from_i32(bytes, 0x244, "x244")?;
+        data.down_stand_stick_y = read_stick_i8(bytes, 0x244, "x244")?;
         data.passive_window_max = read_f32(bytes, 0x250, "x250")?;
         data.passive_stand_stick_x = read_f32(bytes, 0x254, "x254")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
@@ -395,6 +417,17 @@ impl MeleeCommonData {
         data.player_nudge_z_clamp = read_f32(bytes, 0x458, "x458")?;
         data.transformed_player_nudge_z = read_f32(bytes, 0x45c, "x45C")?;
         data.transformed_player_nudge_z_clamp = read_f32(bytes, 0x460, "x460")?;
+        data.shield_start_health = read_f32(bytes, 0x260, "x260_startShieldHealth")?;
+        data.shield_release_lockout_frames = read_u8_from_f32(bytes, 0x268, "x268")?;
+        data.shield_hold_drain = read_f32(bytes, 0x278, "x278")?;
+        data.shield_regen = read_f32(bytes, 0x27c, "x27C")?;
+        data.shield_break_reset_health = read_f32(bytes, 0x280, "x280_unkShieldHealth")?;
+        data.shield_hit_drain_damage_scale = read_f32(bytes, 0x284, "x284")?;
+        data.shield_hit_drain_base = read_f32(bytes, 0x288, "x288")?;
+        data.shield_hit_lightshield_min = read_f32(bytes, 0x2dc, "x2DC")?;
+        data.shield_hit_lightshield_max = read_f32(bytes, 0x2e0, "x2E0")?;
+        data.shield_hold_lightshield_min = read_f32(bytes, 0x2ec, "x2EC")?;
+        data.shield_hold_lightshield_max = read_f32(bytes, 0x2f0, "x2F0")?;
         data.platform_pass_y = read_stick_i8(bytes, 0x464, "x464")?;
         data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
         data.pass_initial_y_velocity = read_f32(bytes, 0x46c, "x46C")?;
@@ -510,15 +543,6 @@ fn read_trigger_u8(
 ) -> Result<u8, CommonDataExtractError> {
     let value = round_f32_to_i32(read_f32(bytes, offset, field)? * 255.0, field, offset)?;
     range_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
-}
-
-fn read_i8_from_i32(
-    bytes: &[u8],
-    offset: usize,
-    field: &'static str,
-) -> Result<i8, CommonDataExtractError> {
-    let value = read_i32(bytes, offset, field)?;
-    range_i32(value, i8::MIN as i32, i8::MAX as i32, field, offset).map(|value| value as i8)
 }
 
 fn read_radian_tangent_milli(
@@ -1094,6 +1118,72 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "passive_stand_stick_x",
         source_name: "x254",
         offset: 0x254,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_start_health",
+        source_name: "x260_startShieldHealth",
+        offset: 0x260,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_release_lockout_frames",
+        source_name: "x268",
+        offset: 0x268,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hold_drain",
+        source_name: "x278",
+        offset: 0x278,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_regen",
+        source_name: "x27C",
+        offset: 0x27c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_break_reset_health",
+        source_name: "x280_unkShieldHealth",
+        offset: 0x280,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hit_drain_damage_scale",
+        source_name: "x284",
+        offset: 0x284,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hit_drain_base",
+        source_name: "x288",
+        offset: 0x288,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hit_lightshield_min",
+        source_name: "x2DC",
+        offset: 0x2dc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hit_lightshield_max",
+        source_name: "x2E0",
+        offset: 0x2e0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hold_lightshield_min",
+        source_name: "x2EC",
+        offset: 0x2ec,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_hold_lightshield_max",
+        source_name: "x2F0",
+        offset: 0x2f0,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {

@@ -120,7 +120,7 @@ def test_combat_value_sheets_split_global_and_falcon_fields():
 
     assert global_combat["id"] == "global_combat_values"
     assert global_combat["scope"] == "global_combat"
-    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 30
+    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 41
     assert all(
         field.get("owner_scope") == "global"
         for category in global_combat["categories"]
@@ -132,7 +132,9 @@ def test_combat_value_sheets_split_global_and_falcon_fields():
         for field in category["fields"]
     }
     assert global_fields["damage_knockback_velocity_scale"]["converted_value"] == 0.029999999329447746
-    assert global_fields["passive_window_max"]["converted_value"] == 9.600000381469727
+    assert global_fields["passive_window_max"]["converted_value"] == 20.0
+    assert global_fields["shield_start_health"]["converted_value"] == 60.0
+    assert global_fields["shield_regen"]["converted_value"] == 0.07000000029802322
 
     assert falcon_combat["id"] == "captain_falcon_combat_values"
     assert falcon_combat["scope"] == "character_combat"

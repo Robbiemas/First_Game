@@ -62,13 +62,6 @@
       "source_name": "x90",
       "stick_byte": 87
     },
-    "passive_input_age_threshold": {
-      "kind": "i32_ticks",
-      "offset": 28,
-      "raw": 0,
-      "source_name": "x1C",
-      "ticks": 0
-    },
     "damage_duration_scale": {
       "kind": "source_f32",
       "offset": 340,
@@ -111,25 +104,6 @@
       "raw": 32.0,
       "source_name": "x160"
     },
-    "down_stand_stick_y": {
-      "kind": "i32_stick",
-      "offset": 580,
-      "raw": 20,
-      "source_name": "x244",
-      "stick_byte": 20
-    },
-    "passive_window_max": {
-      "kind": "source_f32",
-      "offset": 592,
-      "raw": 9.600000381469727,
-      "source_name": "x250"
-    },
-    "passive_stand_stick_x": {
-      "kind": "source_f32",
-      "offset": 596,
-      "raw": 1.5,
-      "source_name": "x254"
-    },
     "damage_sakurai_air_angle_radians": {
       "kind": "source_f32",
       "offset": 324,
@@ -153,12 +127,6 @@
       "offset": 332,
       "raw": 32.0,
       "source_name": "x14C"
-    },
-    "down_wait_timer": {
-      "kind": "source_f32",
-      "offset": 1060,
-      "raw": 0.0,
-      "source_name": "x424"
     },
     "dash_defensive_action_window": {
       "kind": "f32_ticks",
@@ -200,6 +168,19 @@
       "raw": 0.800000011920929,
       "source_name": "x3C",
       "stick_byte": 102
+    },
+    "down_stand_stick_y": {
+      "kind": "stick",
+      "offset": 580,
+      "raw": 0.20000000298023224,
+      "source_name": "x244",
+      "stick_byte": 25
+    },
+    "down_wait_timer": {
+      "kind": "source_f32",
+      "offset": 1060,
+      "raw": 220.0,
+      "source_name": "x424"
     },
     "entry_collision_landing_lag_ticks": {
       "kind": "i32_ticks",
@@ -373,19 +354,6 @@
       "raw": 20.0,
       "source_name": "x194_unkHitLagFrames"
     },
-    "lcancel_divisor": {
-      "kind": "source_f32",
-      "offset": 232,
-      "raw": 2.0,
-      "source_name": "xE8"
-    },
-    "lcancel_window": {
-      "kind": "i32_ticks",
-      "offset": 228,
-      "raw": 7,
-      "source_name": "xE4",
-      "ticks": 7
-    },
     "knockback_cap": {
       "kind": "source_f32",
       "offset": 264,
@@ -434,6 +402,19 @@
       "raw": 10.0,
       "source_name": "x118"
     },
+    "lcancel_divisor": {
+      "kind": "source_f32",
+      "offset": 232,
+      "raw": 2.0,
+      "source_name": "xE8"
+    },
+    "lcancel_window": {
+      "kind": "i32_ticks",
+      "offset": 228,
+      "raw": 7,
+      "source_name": "xE4",
+      "ticks": 7
+    },
     "main_stick_deadzone_x": {
       "kind": "stick",
       "offset": 0,
@@ -453,6 +434,25 @@
       "offset": 1132,
       "raw": -0.5,
       "source_name": "x46C"
+    },
+    "passive_input_age_threshold": {
+      "kind": "i32_ticks",
+      "offset": 28,
+      "raw": 40,
+      "source_name": "x1C",
+      "ticks": 40
+    },
+    "passive_stand_stick_x": {
+      "kind": "source_f32",
+      "offset": 596,
+      "raw": 0.20000000298023224,
+      "source_name": "x254"
+    },
+    "passive_window_max": {
+      "kind": "source_f32",
+      "offset": 592,
+      "raw": 20.0,
+      "source_name": "x250"
     },
     "platform_drop_delay_ticks": {
       "kind": "f32_ticks",
@@ -506,6 +506,73 @@
       "raw": 0.625,
       "source_name": "x58_someLStickXThreshold",
       "stick_byte": 79
+    },
+    "shield_break_reset_health": {
+      "kind": "source_f32",
+      "offset": 640,
+      "raw": 30.0,
+      "source_name": "x280_unkShieldHealth"
+    },
+    "shield_hit_drain_base": {
+      "kind": "source_f32",
+      "offset": 648,
+      "raw": 0.0,
+      "source_name": "x288"
+    },
+    "shield_hit_drain_damage_scale": {
+      "kind": "source_f32",
+      "offset": 644,
+      "raw": 1.0,
+      "source_name": "x284"
+    },
+    "shield_hit_lightshield_max": {
+      "kind": "source_f32",
+      "offset": 736,
+      "raw": 0.30000001192092896,
+      "source_name": "x2E0"
+    },
+    "shield_hit_lightshield_min": {
+      "kind": "source_f32",
+      "offset": 732,
+      "raw": 0.10000000149011612,
+      "source_name": "x2DC"
+    },
+    "shield_hold_drain": {
+      "kind": "source_f32",
+      "offset": 632,
+      "raw": 0.14000000059604645,
+      "source_name": "x278"
+    },
+    "shield_hold_lightshield_max": {
+      "kind": "source_f32",
+      "offset": 752,
+      "raw": 2.0,
+      "source_name": "x2F0"
+    },
+    "shield_hold_lightshield_min": {
+      "kind": "source_f32",
+      "offset": 748,
+      "raw": 0.10000000149011612,
+      "source_name": "x2EC"
+    },
+    "shield_regen": {
+      "kind": "source_f32",
+      "offset": 636,
+      "raw": 0.07000000029802322,
+      "source_name": "x27C"
+    },
+    "shield_release_lockout_frames": {
+      "kind": "f32_ticks",
+      "offset": 616,
+      "raw": 8.0,
+      "source_name": "x268",
+      "ticks": 8
+    },
+    "shield_start_health": {
+      "kind": "source_f32",
+      "offset": 608,
+      "raw": 60.0,
+      "source_name": "x260_startShieldHealth"
     },
     "tap_jump_release_y": {
       "kind": "stick",

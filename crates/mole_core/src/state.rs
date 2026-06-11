@@ -1433,6 +1433,9 @@ pub struct PlayerState {
     pub shield_turn_facing_after: i8,
     pub shield_turn_frame: u8,
     pub guard_catch_dash_window: u8,
+    pub shield_health: f32,
+    pub lightshield_amount: f32,
+    pub shield_release_lockout_frames: u8,
     pub jump_input: MeleeJumpInput,
     pub short_hop: bool,
     pub escape_air_iasa_timer: u8,
@@ -1523,6 +1526,9 @@ impl PlayerState {
             shield_turn_facing_after: facing,
             shield_turn_frame: 0,
             guard_catch_dash_window: 0,
+            shield_health: MeleeCommonData::PROVISIONAL.shield_start_health,
+            lightshield_amount: 0.0,
+            shield_release_lockout_frames: 0,
             jump_input: MeleeJumpInput::None,
             short_hop: false,
             escape_air_iasa_timer: 0,
@@ -1863,6 +1869,9 @@ pub struct PlayerRenderSnapshot {
     pub turn_run_completion_pending: bool,
     pub turn_run_completion_enters_run: bool,
     pub motion_anim_rate_milli: i32,
+    pub shield_health: f32,
+    pub lightshield_amount: f32,
+    pub shield_release_lockout_frames: u8,
     pub entry_base_y: i32,
     pub entry_platform_offset_y: i32,
     pub entry_timer: u8,
@@ -1943,6 +1952,9 @@ impl PlayerRenderSnapshot {
             turn_run_completion_pending: player.turn_run_completion_pending,
             turn_run_completion_enters_run: player.turn_run_completion_enters_run,
             motion_anim_rate_milli: player.motion_anim_rate_milli,
+            shield_health: player.shield_health,
+            lightshield_amount: player.lightshield_amount,
+            shield_release_lockout_frames: player.shield_release_lockout_frames,
             entry_base_y: player.entry_base_y,
             entry_platform_offset_y: player.entry_platform_offset_y,
             entry_timer: player.entry_timer,
@@ -2066,6 +2078,9 @@ macro_rules! player_rollback_snapshot_fields {
             turn_run_completion_pending: bool,
             turn_run_completion_enters_run: bool,
             motion_anim_rate_milli: i32,
+            shield_health: f32,
+            lightshield_amount: f32,
+            shield_release_lockout_frames: u8,
             shield_turn_facing_after: i8,
             shield_turn_frame: u8,
             guard_catch_dash_window: u8,
@@ -2108,6 +2123,7 @@ player_rollback_snapshot_fields!(define_player_rollback_snapshot);
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorldRollbackSnapshot {
     frame: Frame,
+    engine_features: EngineFeatureToggles,
     players: [PlayerRollbackSnapshot; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
@@ -2115,9 +2131,34 @@ pub struct WorldRollbackSnapshot {
     source_hit_victim_log: Vec<SourceHitVictimLogEntry>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EngineFeatureToggles {
+    pub shield_turnaround_during_guard: bool,
+}
+
+impl EngineFeatureToggles {
+    pub const fn parity() -> Self {
+        Self {
+            shield_turnaround_during_guard: false,
+        }
+    }
+
+    pub const fn with_shield_turnaround_during_guard(mut self, enabled: bool) -> Self {
+        self.shield_turnaround_during_guard = enabled;
+        self
+    }
+}
+
+impl Default for EngineFeatureToggles {
+    fn default() -> Self {
+        Self::parity()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct World {
     frame: Frame,
+    engine_features: EngineFeatureToggles,
     stage: StageProfile,
     common_data: MeleeCommonData,
     players: [PlayerState; PLAYER_COUNT],
@@ -2133,12 +2174,12 @@ impl World {
     }
 
     pub fn for_two_players_with_profiles(profiles: [FighterProfile; PLAYER_COUNT]) -> Self {
-        Self::for_two_players_on_stage_with_profiles(StageProfile::battlefield_test(), profiles)
+        Self::for_two_players_on_stage_with_profiles(StageProfile::battlefield(), profiles)
     }
 
     pub fn for_two_players_with_common_data(common_data: MeleeCommonData) -> Self {
         Self::for_two_players_on_stage_with_profiles_and_common_data(
-            StageProfile::battlefield_test(),
+            StageProfile::battlefield(),
             [FighterProfile::FALCON_LIKE; PLAYER_COUNT],
             common_data,
         )
@@ -2167,14 +2208,20 @@ impl World {
         profiles: [FighterProfile; PLAYER_COUNT],
         common_data: MeleeCommonData,
     ) -> Self {
+        let mut players = [
+            PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
+            PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
+        ];
+        for player in &mut players {
+            player.shield_health = common_data.shield_start_health;
+        }
+
         Self {
             frame: Frame(0),
+            engine_features: EngineFeatureToggles::parity(),
             stage,
             common_data,
-            players: [
-                PlayerState::new_with_profile(PLAYER_ONE_DEFAULT_SPAWN_X, 0, 1, profiles[0]),
-                PlayerState::new_with_profile(PLAYER_TWO_DEFAULT_SPAWN_X, 0, -1, profiles[1]),
-            ],
+            players,
             previous_inputs: [PlayerInput::neutral(), PlayerInput::neutral()],
             input_timers: [MeleeInputTimers::expired(); PLAYER_COUNT],
             last_input_facts: [MeleeInputFacts::default(); PLAYER_COUNT],
@@ -2183,7 +2230,7 @@ impl World {
     }
 
     pub fn for_slippi_battlefield_singles_match_start() -> Self {
-        let stage = StageProfile::battlefield_test();
+        let stage = StageProfile::battlefield();
         let mut world = Self::for_two_players_on_stage_with_profiles_and_common_data(
             stage,
             [FighterProfile::FALCON_LIKE; PLAYER_COUNT],
@@ -2199,6 +2246,7 @@ impl World {
                 FighterProfile::FALCON_LIKE,
             );
             player.set_motion_state_alias(MotionState::Entry);
+            player.shield_health = world.common_data.shield_start_health;
             player.entry_timer = 5 * (index as u8 + 1);
             player.grounded = false;
         }
@@ -2212,6 +2260,20 @@ impl World {
 
     pub(crate) fn set_frame(&mut self, frame: Frame) {
         self.frame = frame;
+    }
+
+    pub const fn engine_features(&self) -> EngineFeatureToggles {
+        self.engine_features
+    }
+
+    pub fn set_engine_features(&mut self, features: EngineFeatureToggles) {
+        self.engine_features = features;
+        if !self.engine_features.shield_turnaround_during_guard {
+            for player in &mut self.players {
+                player.shield_turn_facing_after = player.facing;
+                player.shield_turn_frame = 0;
+            }
+        }
     }
 
     pub const fn stage(&self) -> StageProfile {
@@ -2257,6 +2319,7 @@ impl World {
     pub fn rollback_snapshot(&self) -> WorldRollbackSnapshot {
         WorldRollbackSnapshot {
             frame: self.frame,
+            engine_features: self.engine_features,
             players: self.players.map(PlayerRollbackSnapshot::from_player),
             previous_inputs: self.previous_inputs,
             input_timers: self.input_timers,
@@ -2267,6 +2330,7 @@ impl World {
 
     pub fn restore_rollback_snapshot(&mut self, snapshot: &WorldRollbackSnapshot) {
         self.frame = snapshot.frame;
+        self.engine_features = snapshot.engine_features;
         for (player, player_snapshot) in self.players.iter_mut().zip(snapshot.players) {
             player_snapshot.restore_into(player);
         }
@@ -2516,6 +2580,10 @@ impl World {
     pub fn checksum(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         mix_u32(&mut hash, self.frame.0);
+        mix_u8(
+            &mut hash,
+            self.engine_features.shield_turnaround_during_guard as u8,
+        );
         mix_stage_profile(&mut hash, self.stage);
         mix_common_data(&mut hash, self.common_data);
         for player in self.players {
@@ -2588,6 +2656,9 @@ impl World {
             mix_u8(&mut hash, player.turn_run_completion_pending as u8);
             mix_u8(&mut hash, player.turn_run_completion_enters_run as u8);
             mix_i32(&mut hash, player.motion_anim_rate_milli);
+            mix_f32(&mut hash, player.shield_health);
+            mix_f32(&mut hash, player.lightshield_amount);
+            mix_u8(&mut hash, player.shield_release_lockout_frames);
             mix_u8(&mut hash, player.shield_turn_facing_after as u8);
             mix_u8(&mut hash, player.shield_turn_frame);
             mix_u8(&mut hash, player.guard_catch_dash_window);
@@ -3022,6 +3093,17 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.player_nudge_z_clamp);
     mix_f32(hash, common.transformed_player_nudge_z);
     mix_f32(hash, common.transformed_player_nudge_z_clamp);
+    mix_f32(hash, common.shield_start_health);
+    mix_u8(hash, common.shield_release_lockout_frames);
+    mix_f32(hash, common.shield_hold_drain);
+    mix_f32(hash, common.shield_regen);
+    mix_f32(hash, common.shield_break_reset_health);
+    mix_f32(hash, common.shield_hit_drain_damage_scale);
+    mix_f32(hash, common.shield_hit_drain_base);
+    mix_f32(hash, common.shield_hit_lightshield_min);
+    mix_f32(hash, common.shield_hit_lightshield_max);
+    mix_f32(hash, common.shield_hold_lightshield_min);
+    mix_f32(hash, common.shield_hold_lightshield_max);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);

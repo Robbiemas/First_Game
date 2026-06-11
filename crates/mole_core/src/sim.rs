@@ -87,6 +87,7 @@ pub fn step_world_with_source_runtime_data(
     let mut last_input_facts = [MeleeInputFacts::default(); 2];
     let stage = world.stage();
     let common_data = world.common_data();
+    let engine_features = world.engine_features();
     compute_player_nudge_velocities(world.players_mut(), stage, common_data);
 
     for (player_index, ((player, input), previous_input)) in world
@@ -113,6 +114,7 @@ pub fn step_world_with_source_runtime_data(
         let y_tap_timer = input_timers[player_index].y_tap;
         let trigger_timer = input_timers[player_index].trigger;
         advance_source_lr_digital_press_timers(player, input_facts);
+        tick_guard_shield_lifecycle(player, input_facts, common_data);
         if player.hitlag_frames > 0 {
             begin_ground_velocity_tick(player);
             player.hitlag_frames = player.hitlag_frames.saturating_sub(1);
@@ -372,11 +374,10 @@ pub fn step_world_with_source_runtime_data(
                     clear_turn_state(player);
                     enter_fall(player);
                 } else if turn_run_anim_outcome == TurnRunAnimOutcome::EnteredRun {
-                    // ftCo_TurnRun_Anim can enter Run before the frame's physics callback.
-                    // The source still runs the Run physics path on this same tick, so we
-                    // must use the full Run_Phys-shaped velocity update rather than a
-                    // friction-only shortcut.
-                    apply_run_velocity(player, stick_x, stage, common_data);
+                    // ftCo_TurnRun_Anim installs Run callbacks before the
+                    // frame's input/physics pass, so fresh Run_IASA branches
+                    // such as jump can still win on the handoff tick.
+                    apply_run_state_inputs(player, input_facts, stick_x, stage, common_data);
                 } else if player.motion_state != MotionState::TurnRun {
                     // TurnRun_Anim can complete into Run or fall back before IASA/Phys.
                 } else if input_facts.normal_jump_pressed {
@@ -656,7 +657,9 @@ pub fn step_world_with_source_runtime_data(
                     }
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    update_shield_turn(player, input_facts);
+                    if engine_features.shield_turnaround_during_guard {
+                        update_shield_turn(player, input_facts);
+                    }
                     apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                     if player.motion_frame >= player.profile.action_frames.guard_on_total_frames {
@@ -701,7 +704,9 @@ pub fn step_world_with_source_runtime_data(
                     }
                 } else if input_facts.shield_held {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    update_shield_turn(player, input_facts);
+                    if engine_features.shield_turnaround_during_guard {
+                        update_shield_turn(player, input_facts);
+                    }
                     apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                     if player.motion_state == MotionState::GuardReflect
@@ -3077,6 +3082,59 @@ fn clear_guard_state(player: &mut PlayerState) {
     player.guard_catch_dash_window = 0;
 }
 
+fn tick_guard_shield_lifecycle(
+    player: &mut PlayerState,
+    input_facts: MeleeInputFacts,
+    common_data: MeleeCommonData,
+) {
+    if player.shield_release_lockout_frames > 0 {
+        player.shield_release_lockout_frames -= 1;
+    }
+
+    if shield_is_active(player) {
+        if player.motion_frame == 0 {
+            player.shield_release_lockout_frames = player
+                .shield_release_lockout_frames
+                .max(common_data.shield_release_lockout_frames);
+        }
+        player.lightshield_amount = source_lightshield_amount(
+            input_facts.analog_shield,
+            player.lightshield_amount,
+            common_data,
+        );
+        let scale = player.lightshield_amount
+            * (common_data.shield_hold_lightshield_max - common_data.shield_hold_lightshield_min)
+            + common_data.shield_hold_lightshield_min;
+        player.shield_health =
+            (player.shield_health - common_data.shield_hold_drain * scale).max(0.0);
+    } else if player.shield_health < common_data.shield_start_health {
+        player.shield_health =
+            (player.shield_health + common_data.shield_regen).min(common_data.shield_start_health);
+    }
+}
+
+fn shield_is_active(player: &PlayerState) -> bool {
+    matches!(
+        player.motion_state,
+        MotionState::GuardOn | MotionState::Guard | MotionState::GuardReflect
+    )
+}
+
+fn source_lightshield_amount(
+    analog_shield: u8,
+    previous: f32,
+    common_data: MeleeCommonData,
+) -> f32 {
+    let input = f32::from(analog_shield) / f32::from(u8::MAX);
+    let deadzone = f32::from(common_data.trigger_deadzone) / f32::from(u8::MAX);
+    let amount = (input - deadzone) / (1.0 - deadzone);
+    if amount < 0.0 {
+        previous
+    } else {
+        amount
+    }
+}
+
 fn update_shield_turn(player: &mut PlayerState, input_facts: MeleeInputFacts) {
     let turn_direction = input_facts.turn_direction;
     if turn_direction == 0 || turn_direction == player.facing {
@@ -3646,6 +3704,7 @@ fn apply_airborne_iasa_actions(
             player,
             air_attack_state_from_direction(input_facts.air_attack_direction, player.facing),
         );
+        apply_air_drift(player, stick_x, common_data);
         true
     } else if input_facts.normal_jump_pressed && player.jumps_remaining > 0 {
         enter_air_jump(player, stick_x, common_data);
