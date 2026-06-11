@@ -26,7 +26,13 @@ DEFAULT_MOVE_FRAME_DATA_DIR = PROJECT_ROOT / "resources" / "melee" / "frame_data
 SOURCE_MANIFEST_FILENAME = "source_manifest.json"
 INPUT_TRACE_GLOB = "controller-input-trace-*.jsonl"
 SLIPPI_REPORT_GLOB = "*.report.md"
-VALUE_SHEET_FILES = ("global_common_values.json", "captain_falcon_values.json")
+VALUE_SHEET_FILES = (
+    "global_common_values.json",
+    "captain_falcon_values.json",
+    "physics_engine_values.json",
+    "combat_physics_values.json",
+    "battlefield_stage_values.json",
+)
 TOOL_TITLE = "Mole Game Dev Tool"
 STATE_GRAPHS_TAB_LABEL = "State Graphs"
 PARITY_LEDGER_TAB_LABEL = "Parity Ledger"
@@ -51,6 +57,9 @@ GROUNDED_LEDGER_NODE_IDS = (
 )
 TEST_CHARACTER_VALUES_TAB_LABEL = "Test Character Values"
 GLOBAL_VALUES_TAB_LABEL = "Global Values"
+PHYSICS_ENGINE_VALUES_TAB_LABEL = "Physics Engine Values"
+COMBAT_PHYSICS_VALUES_TAB_LABEL = "Combat Physics Values"
+STAGE_VALUES_TAB_LABEL = "Stage Values"
 CHARACTER_RUST_FIELD_MAP = {
     "walk_initial_velocity": "walk_initial_velocity",
     "walk_accel": "walk_accel",
@@ -184,6 +193,30 @@ def load_value_sheets(value_sheet_dir: Path = DEFAULT_VALUE_SHEET_DIR) -> list[d
         with path.open("r", encoding="utf-8") as handle:
             sheets.append(json.load(handle))
     return sheets
+
+
+def build_value_sheet_rows(sheet: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for category in sheet.get("categories", []):
+        category_id = str(category.get("id", "unknown"))
+        for field in category.get("fields", []):
+            rows.append(
+                {
+                    "category": category_id,
+                    "field": field.get("rust_name", "unknown"),
+                    "source_field": field.get("source_name", ""),
+                    "offset": _display_value(field.get("offset_hex")),
+                    "value": field.get("converted_value"),
+                    "raw": field.get("raw"),
+                    "kind": field.get("kind", "unknown"),
+                    "comparison_value_kind": field.get("comparison_value_kind", "raw"),
+                    "provenance": field.get("provenance", ""),
+                    "owner_scope": field.get("owner_scope", ""),
+                    "owner_id": field.get("owner_id", ""),
+                    "notes": field.get("notes", ""),
+                }
+            )
+    return rows
 
 
 def load_ecb_coverage(path: Path = DEFAULT_ECB_COVERAGE_JSON) -> dict[str, Any]:
@@ -1455,6 +1488,11 @@ def draw_parity_ledger_tab(
     summary.pack(fill=tk.X, pady=(0, 10))
 
     sheets_by_id = {sheet["id"]: sheet for sheet in value_sheets}
+    rust_global_values = load_rust_global_values()
+    rust_character_values = load_rust_character_values()
+    rust_physics_values = copy.deepcopy(rust_global_values)
+    rust_physics_values.update(rust_character_values)
+    rust_combat_values = copy.deepcopy(rust_physics_values)
     ledger_tabs = ttk.Notebook(frame)
     ledger_tabs.pack(fill=tk.BOTH, expand=True)
     draw_value_comparison_tab(
@@ -1470,9 +1508,30 @@ def draw_parity_ledger_tab(
         TEST_CHARACTER_VALUES_TAB_LABEL,
         build_value_comparison_rows(
             sheets_by_id["captain_falcon_values"],
-            load_rust_character_values(),
+            rust_character_values,
             character_value=True,
         ),
+    )
+    draw_value_comparison_tab(
+        ledger_tabs,
+        PHYSICS_ENGINE_VALUES_TAB_LABEL,
+        build_value_comparison_rows(
+            sheets_by_id["physics_engine_values"],
+            rust_physics_values,
+        ),
+    )
+    draw_value_comparison_tab(
+        ledger_tabs,
+        COMBAT_PHYSICS_VALUES_TAB_LABEL,
+        build_value_comparison_rows(
+            sheets_by_id["combat_physics_values"],
+            rust_combat_values,
+        ),
+    )
+    draw_value_sheet_tab(
+        ledger_tabs,
+        STAGE_VALUES_TAB_LABEL,
+        sheets_by_id["battlefield_stage_values"],
     )
 
 
@@ -1614,6 +1673,116 @@ def draw_value_comparison_tab(
         if not selected:
             return
         _set_text(details, format_value_comparison_details(row_by_iid[selected[0]]))
+
+    table.bind("<<TreeviewSelect>>", show_row_details)
+    if rows:
+        table.selection_set("0")
+        show_row_details()
+
+
+def draw_value_sheet_tab(
+    notebook: Any,
+    tab_label: str,
+    sheet: dict[str, Any],
+) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    frame = tk.Frame(notebook, bg="#ffffff", padx=8, pady=8)
+    notebook.add(frame, text=tab_label)
+
+    summary = summarize_value_sheet(sheet)
+    header = tk.Label(
+        frame,
+        text=f"{sheet.get('title', tab_label)}  -  {summary['categories']} categories, {summary['fields']} fields",
+        anchor="w",
+        bg="#ffffff",
+        fg="#0f172a",
+        font=("Segoe UI", 12, "bold"),
+    )
+    header.pack(fill=tk.X, pady=(0, 8))
+
+    meta = tk.Label(
+        frame,
+        text=f"Scope: {sheet.get('scope', 'unknown')}  |  Engine boundary: {sheet.get('engine_boundary', 'unknown')}",
+        anchor="w",
+        bg="#ffffff",
+        fg="#475569",
+        font=("Segoe UI", 9),
+    )
+    meta.pack(fill=tk.X, pady=(0, 8))
+
+    columns = (
+        "category",
+        "field",
+        "source_field",
+        "offset",
+        "value",
+        "kind",
+        "provenance",
+    )
+    table_frame = tk.Frame(frame)
+    table_frame.pack(fill=tk.BOTH, expand=True)
+    table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
+    y_scroll = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=table.yview)
+    x_scroll = ttk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=table.xview)
+    table.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+    y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+    table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    headings = {
+        "category": "Category",
+        "field": "Field",
+        "source_field": "Source Field",
+        "offset": "Offset",
+        "value": "Value",
+        "kind": "Kind",
+        "provenance": "Provenance",
+    }
+    widths = {
+        "category": 170,
+        "field": 240,
+        "source_field": 170,
+        "offset": 74,
+        "value": 120,
+        "kind": 100,
+        "provenance": 220,
+    }
+    for column in columns:
+        table.heading(column, text=headings[column])
+        table.column(column, width=widths[column], minwidth=70, stretch=column in {"field", "provenance"})
+
+    row_by_iid: dict[str, dict[str, Any]] = {}
+    rows = build_value_sheet_rows(sheet)
+    for index, row in enumerate(rows):
+        iid = str(index)
+        row_by_iid[iid] = row
+        table.insert(
+            "",
+            "end",
+            iid=iid,
+            values=tuple(_display_value(row[column]) for column in columns),
+        )
+
+    details = tk.Text(
+        frame,
+        height=8,
+        wrap=tk.WORD,
+        bg="#f8fafc",
+        fg="#0f172a",
+        relief=tk.FLAT,
+        font=("Segoe UI", 9),
+        padx=10,
+        pady=8,
+    )
+    details.pack(fill=tk.X, pady=(8, 0))
+
+    def show_row_details(_event: Any | None = None) -> None:
+        selected = table.selection()
+        if not selected:
+            return
+        _set_text(details, format_value_sheet_details(row_by_iid[selected[0]]))
 
     table.bind("<<TreeviewSelect>>", show_row_details)
     if rows:
@@ -2120,6 +2289,27 @@ def format_value_comparison_details(row: dict[str, Any]) -> str:
     ]
     if row.get("note"):
         lines.extend(["", row["note"]])
+    return "\n".join(lines)
+
+
+def format_value_sheet_details(row: dict[str, Any]) -> str:
+    lines = [
+        row["field"],
+        "",
+        f"Category: {row['category']}",
+        f"Source field: {row['source_field']} @ {row['offset']}",
+        f"Value: {_display_value(row['value'])}",
+        f"Raw: {_display_value(row['raw'])}",
+        f"Kind: {row['kind']}",
+        f"Comparison kind: {row['comparison_value_kind']}",
+        f"Provenance: {row['provenance']}",
+    ]
+    if row.get("owner_scope"):
+        lines.append(f"Owner scope: {row['owner_scope']}")
+    if row.get("owner_id"):
+        lines.append(f"Owner id: {row['owner_id']}")
+    if row.get("notes"):
+        lines.extend(["", row["notes"]])
     return "\n".join(lines)
 
 

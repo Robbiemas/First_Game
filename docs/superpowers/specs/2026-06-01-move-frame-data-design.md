@@ -20,7 +20,7 @@ The artifact keeps Melee's source coordinates as 3D `{x, y, z}` values. Any 2D r
 
 For the current 2D Mole engine path, game-facing hitbox centers may be flattened onto the Z axis at the import/view boundary. Extracted artifacts should keep the source 3D offset alongside that flattened value, such as `source_center` for the decomp-executed Melee offset and `center` for the current 2D/game-facing coordinate. This preserves source Z for future 3D consumers while keeping the present Rust engine path playable and testable in 2D.
 
-New extraction, schema, and import logic should prefer Rust so the dev tooling trends toward parity with the engine and avoids growing more Python tech debt. Python remains acceptable for the current Tk dev-tool shell and for narrow cases where it is clearly the fastest or most appropriate tool, but the reusable move-data pipeline should live in Rust wherever practical.
+New extraction, schema, import logic, and durable UI work should be Rust so the dev tooling stays aligned with the engine and avoids growing more Python tech debt. Python is historical/reference-only except for temporary legacy extraction support while Rust replacements are added.
 
 ## Character Scope
 

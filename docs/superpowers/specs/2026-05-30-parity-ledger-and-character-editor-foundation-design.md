@@ -119,7 +119,8 @@ point runtime representation.
 
 ## Viewer Behavior
 
-The current Tkinter viewer remains acceptable for the first checkpoint. The
+The old Tkinter viewer was acceptable for the first checkpoint only. The
+current durable human-facing path is the Rust dev tool. The
 design priority is clarity, not UI polish.
 
 The viewer should add:

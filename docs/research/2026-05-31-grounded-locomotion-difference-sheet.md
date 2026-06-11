@@ -87,6 +87,7 @@ human-noticeable grounded movement gaps.
 | Ground accel toward target | `ftCommon_8007C98C` in `ftcommon.c:71-105` | `apply_ground_accel_toward_target` in `sim.rs` | Aligned for flat-ground source-float acceleration and zero-crossing friction behavior in the current grounded slice |
 | General ground friction | `ft_80084F3C` in `ft_084E.c:41-52` with high-speed multiplier over walk max | `apply_ground_traction` in `sim.rs:2009` | Mostly aligned for flat Battlefield |
 | Run friction | run/turn/brake use `gr_friction * x60` | `run_ground_friction` in `sim.rs:2027` | Aligned in value, simplified surface multiplier |
+| Motion-state change velocity bridge | `Fighter_ChangeMotionState` captures old action animation flags, loads new action flags, and clamps `gr_vel` to `dash_run_terminal_velocity` when leaving a root-motion action for a non-root-motion action | Rust bakes the relevant Captain Falcon source action flags and applies the bridge on Run entry before same-frame Run physics | Aligned for the verified Dash/TurnRun-to-Run grounded slice |
 | Ground movement projection | `ftCommon_ApplyGroundMovement` in `ftcommon.c:143-160` projects through floor normal into anim/self velocity | Rust now keeps flat-stage source-float `ground_velocity_x`, `ground_accel_x`, and `ground_accel_x2`, then converts to milli only at the position/render bridge | Partial: Battlefield main floor ok, slopes/normal projection and source-float position are not complete |
 | Ground collision | `ft_80084280` and `ft_800844EC` in `ft_081B.c:1069-1142` handle ledges, nudges, fall, edge behavior | `has_floor_support` plus fall transition after position commit | Partial, acceptable on center Battlefield floor only |
 | Motion command vars | source `cmd_vars[0]`, `cmd_vars[1]` gate Dash, RunBrake, TurnRun behavior | Dash, RunBrake, and TurnRun command vars are deterministic Rust fields driven by extracted Falcon action-script events | Mostly aligned for current grounded slice |
@@ -324,6 +325,10 @@ Rust:
 - `turn_run_anim_tick` models the Falcon action-script `cmd_vars[1]` frame,
   animation pause slot `x14`, velocity-crossing resume/facing flip, and
   completion-gated `fn_800CA644`-style Run handoff.
+- The TurnRun-to-Run handoff applies the source `Fighter_ChangeMotionState`
+  action-flag velocity bridge before same-frame `Run_Phys`: TurnRun source
+  flags `0x80000082` clamp carried `gr_vel` to Falcon
+  `dash_run_terminal_velocity` when entering Run source flags `0x40000002`.
 - Graph marks `TurnRun -> Run` aligned for this grounded locomotion path while
   the broader TurnRun state remains partial.
 

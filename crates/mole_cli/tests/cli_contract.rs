@@ -11,6 +11,7 @@ use mole_cli::{
     verification_plan_for_changed_paths,
 };
 use mole_frame_data::decode_runtime_source_frame_capsules;
+use mole_ledger::{LedgerMap, LedgerRegistry};
 use serde_json::json;
 
 #[test]
@@ -2790,6 +2791,10 @@ fn finish_check_returns_read_only_completion_gate_packet() {
         ],
     );
     fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
 
     let output = run_cli(&[
         "finish".to_string(),
@@ -2803,6 +2808,11 @@ fn finish_check_returns_read_only_completion_gate_packet() {
     assert_eq!(parsed["command"], "finish check");
     assert_eq!(parsed["mutated"], false);
     assert!(parsed["completion_gate"]["checks"].is_array());
+    assert!(parsed["completion_gate"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|check| check["name"] == "ledger map"));
     assert!(parsed["help_catalog"]["ok"].as_bool().unwrap());
     assert!(parsed["help_catalog"]["documented_commands"]
         .as_array()
@@ -2857,8 +2867,15 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
     let root = temp_project_root("generated_check");
     let global_sheet = root.join("docs/state_graphs/value_sheets/global_common_values.json");
     let falcon_sheet = root.join("docs/state_graphs/value_sheets/captain_falcon_values.json");
+    let physics_sheet = root.join("docs/state_graphs/value_sheets/physics_engine_values.json");
+    let combat_sheet = root.join("docs/state_graphs/value_sheets/combat_physics_values.json");
+    let battlefield_sheet =
+        root.join("docs/state_graphs/value_sheets/battlefield_stage_values.json");
     write_json(&global_sheet, &json!({"rows": []}));
     write_json(&falcon_sheet, &json!({"rows": []}));
+    write_json(&physics_sheet, &json!({"rows": []}));
+    write_json(&combat_sheet, &json!({"rows": []}));
+    write_json(&battlefield_sheet, &json!({"rows": []}));
 
     thread::sleep(Duration::from_millis(50));
 
@@ -2870,8 +2887,14 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
         &root.join("resources/melee/extracted/captain_falcon_profile.json"),
         &json!({"newer": true}),
     );
-    fs::create_dir_all(root.join("tools")).unwrap();
-    fs::write(root.join("tools/generate_value_sheets.py"), "# generator\n").unwrap();
+    fs::create_dir_all(root.join("crates/mole_cli/src")).unwrap();
+    fs::create_dir_all(root.join("crates/mole_core/src")).unwrap();
+    fs::write(
+        root.join("crates/mole_cli/src/value_sheets.rs"),
+        "// generator\n",
+    )
+    .unwrap();
+    fs::write(root.join("crates/mole_core/src/stage.rs"), "// stage\n").unwrap();
 
     let output = run_cli(&[
         "generated".to_string(),
@@ -2899,6 +2922,9 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
         .as_array()
         .unwrap()
         .contains(&json!("resources/melee/extracted/plco_common_data.json")));
+    assert!(value_sheets["outputs"].as_array().unwrap().contains(&json!(
+        "docs/state_graphs/value_sheets/battlefield_stage_values.json"
+    )));
     assert!(runtime_source_frame_data["recommended_command"]
         .as_str()
         .unwrap()
@@ -2924,8 +2950,98 @@ fn generated_check_markdown_summarizes_groups_and_commands() {
     assert!(output.starts_with("# Mole Generated Check"));
     assert!(output.contains("## Artifact Groups"));
     assert!(output.contains("`value_sheets`"));
-    assert!(output.contains("tools\\generate_value_sheets.py"));
+    assert!(output.contains("crates/mole_cli/src/value_sheets.rs"));
+    assert!(output.contains("crates/mole_cli/src/stage_assets.rs"));
+    assert!(output.contains("resources/melee/extracted/stages/battlefield_stage.json"));
+    assert!(output.contains("docs/state_graphs/parity_ledger_map.json"));
     assert!(!output.starts_with("# Mole CLI Handoff"));
+}
+
+#[test]
+fn generated_write_stage_asset_emits_battlefield_stage_blob() {
+    let root = temp_project_root("generated_write_stage_asset");
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "write-stage-asset".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let stage_asset_path = root.join("resources/melee/extracted/stages/battlefield_stage.json");
+    let stage_asset = fs::read_to_string(&stage_asset_path).unwrap();
+
+    assert_eq!(parsed["command"], "generated write-stage-asset");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["mutated"], true);
+    assert!(parsed["written_paths"].as_array().unwrap().contains(&json!(
+        "resources/melee/extracted/stages/battlefield_stage.json"
+    )));
+    assert!(stage_asset.contains("\"stage_id\": \"battlefield\""));
+    assert!(stage_asset.contains("\"stage_name\": \"Battlefield\""));
+    assert!(stage_asset.contains("\"soft_platforms\""));
+}
+
+#[test]
+fn generated_write_ledger_map_emits_the_dual_surface_registry() {
+    let root = temp_project_root("generated_write_ledger_map");
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "write-ledger-map".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let ledger_map_path = root.join("docs/state_graphs/parity_ledger_map.json");
+    let ledger_map = fs::read_to_string(&ledger_map_path).unwrap();
+
+    assert_eq!(parsed["command"], "generated write-ledger-map");
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["mutated"].as_bool().unwrap());
+    assert!(parsed["written_paths"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("docs/state_graphs/parity_ledger_map.json")));
+    let consumed_map = LedgerMap::load(&ledger_map_path).unwrap();
+    assert_eq!(consumed_map.registry.tab_count, 10);
+    assert!(consumed_map.is_dual_surface());
+    assert!(ledger_map.contains("\"global_values\""));
+    assert!(ledger_map.contains("\"cli_surface\""));
+    assert!(ledger_map.contains("\"gui_surface\""));
+    assert!(ledger_map.contains("\"action_motion_tables\""));
+}
+
+#[test]
+fn devtool_ledger_returns_gui_ready_view_model() {
+    let root = temp_project_root("devtool_ledger");
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
+
+    let output = run_cli(&[
+        "devtool".to_string(),
+        "ledger".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "devtool ledger");
+    assert_eq!(parsed["ledger"]["registry"]["tab_count"], 10);
+    assert!(parsed["ledger"]["registry"]["dual_surface"]
+        .as_bool()
+        .unwrap());
+    assert_eq!(parsed["ledger"]["tabs"][0]["id"], "global_values");
+    assert_eq!(parsed["ledger"]["tabs"][4]["id"], "stage_values");
 }
 
 #[test]
@@ -2997,6 +3113,10 @@ fn agent_brief_returns_compaction_anchor_parity_missing_graph_and_request_contex
             "edges": [{"from": "RunDirect", "to": "Run", "status": "missing"}]
         }),
     );
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
     write_message_board(
         &root,
         "## Inbox\n\n### trace-summary - Trace Summary\n\nRequest:\nAdd trace summary.\n\nContext:\nAgents need shorter logs.\n\nExpected output:\nJSON.\n\n## Completed Notes\n\nDone.\n",
@@ -3022,6 +3142,7 @@ fn agent_brief_returns_compaction_anchor_parity_missing_graph_and_request_contex
         .unwrap()
         .contains("human-noticeable Falcon-like movement parity"));
     assert_eq!(parsed["parity"]["value_total_rows"], 2);
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
     assert_eq!(parsed["missing_graph"]["missing_count"], 1);
     assert_eq!(parsed["graph_next"]["ranked_count"], 2);
     assert_eq!(
@@ -3681,11 +3802,69 @@ fn replay_trace_returns_match_start_trace_rows() {
 }
 
 #[test]
+fn replay_artifacts_lists_input_exports_and_replay_files() {
+    let root = temp_project_root("replay_artifacts");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::create_dir_all(root.join("replays")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    write_json(
+        &root.join("debug/slippi/fixture.inputs.json"),
+        &json!({
+            "source": {"replay_path": "replays/fixture.slp"},
+            "export": {
+                "first_frame": -123,
+                "last_frame": 42,
+                "frame_count": 166,
+                "requested_frame_limit": 1800,
+                "included_negative_frames": true
+            },
+            "metadata": {
+                "played_on": "dolphin",
+                "start_at": "2026-06-10T00:00:00Z",
+                "last_frame": 42
+            },
+            "settings": {"stage_id": 31},
+            "frames": []
+        }),
+    );
+    fs::write(root.join("replays/fixture.slp"), b"slp").unwrap();
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "artifacts".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay artifacts");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(
+        parsed["inputs"][0]["path"],
+        "debug/slippi/fixture.inputs.json"
+    );
+    assert_eq!(
+        parsed["inputs"][0]["source_replay_path"],
+        "replays/fixture.slp"
+    );
+    assert_eq!(parsed["inputs"][0]["frame_count"], 166);
+    assert_eq!(parsed["inputs"][0]["stage_id"], 31);
+    assert_eq!(parsed["replays"][0]["path"], "replays/fixture.slp");
+}
+
+#[test]
 fn snapshot_command_returns_compact_agent_parity_context() {
     let root = temp_project_root("snapshot");
     fs::create_dir_all(root.join(".git")).unwrap();
     fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
     fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
     write_json(
         &root.join("docs/state_graphs/parity_reports/value_diffs.json"),
         &json!({
@@ -3737,8 +3916,37 @@ fn snapshot_command_returns_compact_agent_parity_context() {
         parsed["falcon_ecb"]["unmapped_derived_states"][0],
         "KneeBend"
     );
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
+    assert!(parsed["ledger_map"]["registry"]["dual_surface"]
+        .as_bool()
+        .unwrap());
     assert!(parsed["generated_artifacts"].as_array().unwrap().len() >= 3);
     assert!(parsed["verification_commands"].as_array().unwrap().len() >= 3);
+}
+
+#[test]
+fn parity_report_includes_owned_ledger_map_summary() {
+    let root = temp_project_root("parity_ledger_map");
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
+
+    let output = run_cli(&[
+        "parity".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "parity");
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
+    assert_eq!(parsed["ledger_map"]["registry"]["active_tab_count"], 5);
+    assert_eq!(parsed["ledger_map"]["registry"]["planned_tab_count"], 5);
+    assert!(parsed["ledger_map"]["registry"]["dual_surface"]
+        .as_bool()
+        .unwrap());
 }
 
 #[test]

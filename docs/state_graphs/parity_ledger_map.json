@@ -1,0 +1,277 @@
+{
+  "devtool_surfaces": [
+    {
+      "cli_commands": [
+        "graph missing",
+        "graph next",
+        "graph inspect"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "StateGraphs",
+      "gui_surface": "Active",
+      "id": "state_graphs",
+      "label": "State Graphs",
+      "outputs": [
+        "docs/state_graphs/mole_current_graph.json"
+      ],
+      "source_artifacts": [
+        "docs/state_graphs/melee_reference_graph.json",
+        "docs/state_graphs/mole_current_graph.json",
+        "config/state_graph_layout.json"
+      ],
+      "status": "Active",
+      "summary": "State graph parity inspection, missing-entry triage, and layout work."
+    },
+    {
+      "cli_commands": [
+        "parity",
+        "parity snapshot",
+        "generated write-value-sheets",
+        "generated write-ledger-map"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "ParityLedger",
+      "gui_surface": "Active",
+      "id": "parity_ledger",
+      "label": "Parity Ledger",
+      "outputs": [
+        "docs/state_graphs/parity_ledger_map.json",
+        "docs/state_graphs/value_sheets/global_common_values.json",
+        "docs/state_graphs/value_sheets/captain_falcon_values.json",
+        "docs/state_graphs/value_sheets/physics_engine_values.json",
+        "docs/state_graphs/value_sheets/combat_physics_values.json",
+        "docs/state_graphs/value_sheets/battlefield_stage_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/plco_common_data.json",
+        "resources/melee/extracted/captain_falcon_profile.json",
+        "resources/melee/extracted/stages/battlefield_stage.json"
+      ],
+      "status": "Active",
+      "summary": "Subsystem value sheets and the shared dual-surface registry."
+    },
+    {
+      "cli_commands": [
+        "parity snapshot",
+        "generated check"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "EcbCoverage",
+      "gui_surface": "Active",
+      "id": "ecb_coverage",
+      "label": "ECB Coverage",
+      "outputs": [
+        "docs/state_graphs/parity_reports/falcon_ecb_coverage.json"
+      ],
+      "source_artifacts": [
+        "docs/state_graphs/parity_reports/falcon_ecb_coverage.json"
+      ],
+      "status": "Active",
+      "summary": "Motion-state ECB coverage and missing sampled mapping inspection."
+    },
+    {
+      "cli_commands": [
+        "replay artifacts",
+        "replay trace"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "InputTrace",
+      "gui_surface": "Active",
+      "id": "input_trace",
+      "label": "Input Trace",
+      "outputs": [],
+      "source_artifacts": [
+        "debug/slippi/*.inputs.json"
+      ],
+      "status": "Active",
+      "summary": "Slippi input export inspection with raw and Rust-normalized inputs."
+    },
+    {
+      "cli_commands": [
+        "replay artifacts",
+        "replay trace",
+        "replay check"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "SlippiReplay",
+      "gui_surface": "Active",
+      "id": "slippi_replay",
+      "label": "Slippi Replay",
+      "outputs": [
+        "debug/slippi/*.core.report.md"
+      ],
+      "source_artifacts": [
+        "debug/slippi/*.inputs.json",
+        "replays/*.slp"
+      ],
+      "status": "Active",
+      "summary": "Replay trace comparison between exported Slippi frames and Rust runtime state."
+    },
+    {
+      "cli_commands": [
+        "frame-data show",
+        "frame-data sample",
+        "frame-data export-runtime"
+      ],
+      "cli_surface": "Active",
+      "gui_section": "MoveKeyframes",
+      "gui_surface": "Active",
+      "id": "move_keyframes",
+      "label": "Move Keyframes",
+      "outputs": [
+        "resources/melee/frame_data/dolphin_mole/*.json",
+        "crates/mole_runtime/src/generated/source_frame_data.rs"
+      ],
+      "source_artifacts": [
+        "resources/melee/frame_data/dolphin_mole/*.json",
+        "resources/melee/extracted/captain_falcon_costume_skeleton.json"
+      ],
+      "status": "Active",
+      "summary": "Frame-data keyframe inspection, runtime preview, direct edit, and round-trip save path."
+    }
+  ],
+  "registry": {
+    "active_devtool_surface_count": 6,
+    "active_tab_count": 5,
+    "devtool_surface_count": 6,
+    "dual_surface": true,
+    "planned_devtool_surface_count": 0,
+    "planned_tab_count": 5,
+    "tab_count": 10
+  },
+  "schema_version": 1,
+  "tabs": [
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "global_values",
+      "kind": "Global",
+      "label": "Global Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/global_common_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/plco_common_data.json"
+      ],
+      "status": "Active",
+      "summary": "Shared extracted values from the common data source."
+    },
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "character_values",
+      "kind": "Character",
+      "label": "Character Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/captain_falcon_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/captain_falcon_profile.json"
+      ],
+      "status": "Active",
+      "summary": "Per-character profile values for the current playable template."
+    },
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "physics_engine_values",
+      "kind": "Physics",
+      "label": "Physics Engine Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/physics_engine_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/plco_common_data.json",
+        "resources/melee/extracted/captain_falcon_profile.json"
+      ],
+      "status": "Active",
+      "summary": "Locomotion, gravity, jump, air, and movement state math."
+    },
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "combat_physics_values",
+      "kind": "Combat",
+      "label": "Combat Physics Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/combat_physics_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/plco_common_data.json",
+        "resources/melee/extracted/captain_falcon_profile.json"
+      ],
+      "status": "Active",
+      "summary": "Knockback, hitlag, landing, and other combat response math."
+    },
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "stage_values",
+      "kind": "Stage",
+      "label": "Stage Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/battlefield_stage_values.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/extracted/stages/battlefield_stage.json"
+      ],
+      "status": "Active",
+      "summary": "Stage geometry, blast zones, spawn points, and friction surfaces."
+    },
+    {
+      "cli_surface": "Planned",
+      "gui_surface": "Planned",
+      "id": "action_motion_tables",
+      "kind": "Motion",
+      "label": "Action / Motion Tables",
+      "outputs": [],
+      "source_artifacts": [],
+      "status": "Planned",
+      "summary": "Motion-state timing, callbacks, and transition windows."
+    },
+    {
+      "cli_surface": "Planned",
+      "gui_surface": "Planned",
+      "id": "collision_volumes",
+      "kind": "Collision",
+      "label": "Collision Volumes",
+      "outputs": [],
+      "source_artifacts": [],
+      "status": "Planned",
+      "summary": "Hitboxes, hurtboxes, ECB, body volumes, and other gameplay geometry."
+    },
+    {
+      "cli_surface": "Planned",
+      "gui_surface": "Planned",
+      "id": "spawned_entities_weapons",
+      "kind": "Entity",
+      "label": "Spawned Entities / Weapons",
+      "outputs": [],
+      "source_artifacts": [],
+      "status": "Planned",
+      "summary": "Gameplay objects spawned by moves or throws, not item-mode content."
+    },
+    {
+      "cli_surface": "Planned",
+      "gui_surface": "Planned",
+      "id": "shield_grab_tech_ledge",
+      "kind": "Interaction",
+      "label": "Shield / Grab / Tech / Ledge",
+      "outputs": [],
+      "source_artifacts": [],
+      "status": "Planned",
+      "summary": "Defense and interaction subsystems that do not fit cleanly elsewhere."
+    },
+    {
+      "cli_surface": "Planned",
+      "gui_surface": "Planned",
+      "id": "character_special_state_values",
+      "kind": "SpecialState",
+      "label": "Character Special State Values",
+      "outputs": [],
+      "source_artifacts": [],
+      "status": "Planned",
+      "summary": "Character-only resources and special mechanics that need a separate surface."
+    }
+  ]
+}

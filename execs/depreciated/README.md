@@ -9,4 +9,4 @@ Use the parent `execs/` folder for active Rust/WUP playtesting:
 - `Run SDL3 Runtime Vanilla No UCF.cmd`
 - `Check WUP Native.cmd`
 - `Monitor WUP Native.cmd`
-- `Open State Graphs.cmd`
+- `Open Dev Tool.cmd`

@@ -8,6 +8,8 @@ members = [
     "crates/mole_input",
     "crates/mole_signaling",
     "crates/mole_frame_data",
+    "crates/mole_ledger",
+    "crates/mole_devtool",
     "crates/mole_cli",
 ]
 resolver = "2"

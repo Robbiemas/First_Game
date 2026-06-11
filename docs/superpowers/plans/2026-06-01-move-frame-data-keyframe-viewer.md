@@ -4,7 +4,7 @@
 
 **Goal:** Build a read-only `move_frame_data` pipeline that extracts Captain Falcon-derived attack data into Dolphin Mole-scoped artifacts, exposes it through Mole CLI, and displays it in a new dev-tool keyframe viewer tab.
 
-**Architecture:** Add a canonical JSON artifact under `resources/melee/frame_data/<target_character>/<state>.json`. Rust CLI commands load or synthesize that artifact for agents, while Python dev-tool loaders consume the same artifact for the current Tk keyframe viewer shell. Preserve all source coordinates as 3D `{x, y, z}` and apply 2D flattening only through explicit projection metadata at render/import boundaries. Prefer Rust for new reusable extraction/schema/import logic; use Python only where the current dev-tool UI shell requires it or where it is clearly the best narrow tool.
+**Architecture:** Add a canonical JSON artifact under `resources/melee/frame_data/<target_character>/<state>.json`. Rust CLI commands load or synthesize that artifact for agents, and the Rust dev tool consumes the same artifact for the current keyframe editor shell. Preserve all source coordinates as 3D `{x, y, z}` and apply 2D flattening only through explicit projection metadata at render/import boundaries. Prefer Rust for reusable extraction/schema/import logic and UI work; use Python only as historical reference or temporary legacy extraction support while Rust replacements are added.
 
 **Tech Stack:** Rust `mole_cli` with `serde_json`, Python `tools/state_graph_viewer.py` with Tk/ttk, pytest contract tests, existing extracted Melee resources and local decomp lookup.
 

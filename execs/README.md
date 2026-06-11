@@ -12,7 +12,7 @@ generic controller, and standalone smoke launchers live in `depreciated/`.
 - `Run SDL3 Runtime Vanilla No UCF.cmd`: opens the same optimized local SDL3/WUP runtime with UCF disabled, leaving the WUP/native pre-UCF path exposed for controller feel testing.
 - `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.
 - `Setup SDL3.cmd`: helper used by the SDL3 launchers.
-- `Open State Graphs.cmd`: opens the Mole Game Dev Tool without launching the game.
+- `Open Dev Tool.cmd`: opens the Rust Mole Game Dev Tool without launching the game.
 - `Build Friend Playtest Package.cmd`: builds a self-contained Windows playtest folder,
   zip, and one-file bootstrap exe under `dist/`, then updates
   `playtest/MoleGame-FriendPlaytest.exe` and

@@ -539,7 +539,7 @@ impl EcbDiamond {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StageLandingContact {
     pub surface: StageSurface,
     pub y: i32,
@@ -605,6 +605,12 @@ pub fn has_floor_support(stage: StageProfile, bottom: Vec2) -> bool {
 
 pub fn floor_surface_for_bottom(stage: StageProfile, bottom: Vec2) -> Option<StageSurface> {
     floor_surface_index_for_bottom(stage, bottom).map(|(_, surface)| surface)
+}
+
+pub fn floor_friction_multiplier_for_bottom(stage: StageProfile, bottom: Vec2) -> f32 {
+    floor_surface_for_bottom(stage, bottom)
+        .map(|surface| surface.friction_multiplier)
+        .unwrap_or(1.0)
 }
 
 pub(crate) fn floor_surface_index_for_bottom(

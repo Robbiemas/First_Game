@@ -672,16 +672,19 @@ visible source, so the Rust state no longer routes shield/roll/walk/run brake
 directly out of TurnRun before the source-shaped animation/physics exit.
 When TurnRun hands off to Run, Rust now records a provisional `x430`-shaped
 no-interrupt timer so immediate neutral/opposite stick cannot become RunBrake
-or a fresh TurnRun on the very next frame. As of 2026-06-09, the stale Rust
-contract that applied ordinary same-frame `Run_Phys` on this handoff was
-removed; the handoff now uses the source run-friction path while preserving
-Run identity. The Slippi parity slice at source frames 760-768 still shows an
-unresolved velocity gap on frame 764 (`expected gx 2148`, `actual 2708` milli),
-so the next pass must verify the exact decomp data/callback source of that
-larger speed reduction before changing constants or adding a shortcut. The
-exact `x430` value still needs extraction from `PlCo.dat`; the current
-one-frame value is a lower-bound contract for source ordering, not a final data
-value.
+or a fresh TurnRun on the very next frame. `x430` is `mv.co.run.x0`, not the
+Run animation start frame: `ftCo_Run_Enter(gobj, x430)` still calls
+`Fighter_ChangeMotionState` with `anim_start = 0.0F`. The source frame-764
+handoff is now confirmed against the Slippi trace. `Fighter_ChangeMotionState`
+captures whether the old action used root-motion animation flags, loads the new
+Run action flags, and clamps `gr_vel` to Falcon
+`dash_run_terminal_velocity` when leaving a root-motion action (`TurnRun`
+flags `0x80000082`) for non-root-motion Run (`0x40000002`). Same-frame
+`Run_Phys` then applies the current opposite-stick acceleration through
+`ftCommon_8007C98C`, producing the replay value `2148` milli / `2.1475`
+source units. Rust mirrors this with a compact baked source-action-flag table
+and keeps the actual velocity path in source `f32`; milli integers are only the
+existing compatibility/readout boundary.
 `RunBrake` now mirrors the source IASA shape more closely: jump and crouch are
 available, but forward or soft stick does not immediately cancel back to Run or
 walk. When extracted character attributes provide
@@ -715,9 +718,10 @@ the decomp's `getAccelAndTarget` plus `ftCommon_8007C98C` shape:
 - Target velocity is current stick x times the character's terminal run
   velocity.
 - Friction is used when the current velocity would overshoot the target.
-- The next state's physics should not run in the same resolver pass that enters
-  it; otherwise dash-to-run or dash-to-walk can double-apply movement in one
-  frame.
+- Same-frame physics after a motion-state change must follow the source
+  callback order for that transition. In particular, TurnRun completion can
+  enter Run during `ftCo_TurnRun_Anim`, then the frame's physics callback runs
+  as Run.
 
 This replaced the legacy multiplicative dash formula and run-speed chunking.
 Those older formulas made Captain Falcon values feel worse because the data was
@@ -1286,7 +1290,7 @@ Grounded locomotion callback audit for the current Falcon movement slice:
 | `Dash` | `Dash_Enter` stores the initial dash delta in `mv.co.dash.x0` and stages it through `ftCommon_800804A0`/`xE8_ground_accel_2`; `Dash_Anim` owns animation-completion fallback; `Dash_IASA` has early and late action windows plus `cmd_vars[0]` Run handoff and `x54` fall-through decay; `Dash_Phys` consumes `x0` on the same engine frame, then later uses `getAccelAndTarget`. | Rust models the entry delta, same-frame physics callback, `cmd_var[0]` frame-16 Run gate, same-frame Run_Phys handoff, frame-29 non-run fallback, live-stick acceleration after `x0` consumption, IASA decay, dash-back gating, and non-run completion to Wait with carried `gr_vel`. |
 | `Run` | `Run_Anim` derives animation rate from `gr_vel` or stored `mv.co.run.x4` and decrements `mv.co.run.x0` before `Run_IASA`; `Run_IASA` checks specials, dash catch, dash attack, guard, jump, then TurnRun through PlCo `x38` or RunBrake after the no-interrupt timer; `Run_Phys` uses `getAccelAndTarget`, PlCo `x5C`, and records `mv.co.run.x4`. | Rust covers source action priority, animation-phase no-interrupt decrement, run acceleration taper, RunBrake entry, extracted `x38` TurnRun entry after no-interrupt, and same-frame TurnRun_Phys on the entry tick. |
 | `RunBrake` | `RunBrake_Enter` stores `max_run_brake_frames`; `RunBrake_Anim` decrements that timer and may pause animation through command vars around PlCo `x42C`; `RunBrake_IASA` checks jump, command-var-gated TurnRun, then squat; `RunBrake_Phys` applies `gr_friction * x60`; `RunBrake_Coll` stays grounded. | Rust covers explicit state identity, extracted Falcon `max_run_brake_frames == 30`, `cmd_vars[0]` TurnRun branch, `cmd_vars[1]`/`x42C` pause slot, jump/squat interrupts, and `x60` friction. Remaining gap is broader callback/collision parity, not the grounded locomotion TurnRun branch. |
-| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at the source pause/resume gate, jump-only IASA, completion-gated `fn_800CA644` Run handoff, and no longer applies ordinary same-frame Run_Phys on the handoff tick. Remaining confirmed gap: Slippi source frame 764 expects a larger handoff speed drop than current `gr_friction * x60` produces; resolve from decomp/source data before tuning. |
+| `TurnRun` | `TurnRun_Enter` stores old-facing `accel_mul`; `TurnRun_IASA` only checks jump; `TurnRun_Phys` accepts opposite acceleration while `accel_mul * accel < 0`, otherwise friction; `TurnRun_Anim` handles command-var pause, facing flip, and `fn_800CA644` Run handoff. | Rust covers old-facing acceleration, same-frame TurnRun_Phys after Run IASA entry, delayed facing flip at the source pause/resume gate, jump-only IASA, completion-gated `fn_800CA644` Run handoff, and the source `Fighter_ChangeMotionState` action-flag velocity bridge before same-frame Run_Phys. The Slippi frame-764 handoff now matches source speed. |
 | `RunDirect` | `RunDirect_Anim/Phys/Coll` delegate to Run; `RunDirect_IASA` mirrors Run action priority but uses `fp->mv.ca.specials.grav <= 0` before `fn_800CA698` same-facing Run handoff, then falls through to `ft_8008A244`. | Rust keeps RunDirect as explicit diagnostic/Slippi state identity and covers same-facing Run handoff plus Wait fallback for injected RunDirect; no normal source entry path has been found in the current decomp search. |
 
 ## Fast Fall

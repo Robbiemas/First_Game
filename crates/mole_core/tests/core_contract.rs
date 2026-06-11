@@ -747,6 +747,28 @@ fn ecb_diamond_uses_four_midpoint_vertices() {
 }
 
 #[test]
+fn battlefield_stage_surface_friction_multiplier_is_baked_in_as_float() {
+    let stage = StageProfile::battlefield_test();
+
+    assert_eq!(
+        stage.main_floor.friction_multiplier.to_bits(),
+        1.0_f32.to_bits()
+    );
+    assert_eq!(
+        stage.soft_platforms[0].friction_multiplier.to_bits(),
+        1.0_f32.to_bits()
+    );
+    assert_eq!(
+        stage.soft_platforms[1].friction_multiplier.to_bits(),
+        1.0_f32.to_bits()
+    );
+    assert_eq!(
+        stage.soft_platforms[2].friction_multiplier.to_bits(),
+        1.0_f32.to_bits()
+    );
+}
+
+#[test]
 fn vertical_stage_contact_lands_on_main_floor_when_crossing_downward() {
     let stage = StageProfile::battlefield_test();
     let contact = mole_core::landing_contact_for_bottom(
@@ -7896,6 +7918,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
             left_x: -20_000,
             right_x: 20_000,
             y: 0,
+            friction_multiplier: 1.0,
         },
         soft_platforms: [
             StageSurface {
@@ -7904,6 +7927,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
                 left_x: -20_000,
                 right_x: 20_000,
                 y: 20_000,
+                friction_multiplier: 1.0,
             },
             StageSurface {
                 name: "lower_soft",
@@ -7911,6 +7935,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
                 left_x: -20_000,
                 right_x: 20_000,
                 y: 10_000,
+                friction_multiplier: 1.0,
             },
             StageSurface {
                 name: "side_soft",
@@ -7918,6 +7943,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
                 left_x: 30_000,
                 right_x: 40_000,
                 y: 15_000,
+                friction_multiplier: 1.0,
             },
         ],
         blast_zones: World::for_two_players().stage().blast_zones,
@@ -9480,6 +9506,7 @@ fn landing_fall_special_sliding_off_floor_enters_fall_not_fall_special() {
         left_x: melee_units_f32(-20.5),
         right_x: melee_units_f32(-18.0),
         y: 0,
+        friction_multiplier: 1.0,
     };
     let mut world = World::for_two_players_on_stage(stage);
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -9520,6 +9547,7 @@ fn grounded_state_moving_past_floor_edge_enters_fall() {
         left_x: melee_units_f32(-20.5),
         right_x: melee_units_f32(-19.0),
         y: 0,
+        friction_multiplier: 1.0,
     };
     let mut world = World::for_two_players_on_stage(stage);
     let dash_right = [
@@ -9548,6 +9576,7 @@ fn turn_run_floor_edge_collision_zeros_ground_velocity_like_source() {
         left_x: melee_units_f32(-20.5),
         right_x: melee_units_f32(-19.0),
         y: 0,
+        friction_multiplier: 1.0,
     };
     let mut world = World::for_two_players_on_stage(stage);
     let mut player = world.players()[0];
@@ -13048,9 +13077,8 @@ fn turn_run_completion_uses_previous_frame_run_gate_before_current_input() {
 }
 
 #[test]
-fn turn_run_completion_into_run_uses_source_friction_handoff_tick() {
+fn turn_run_completion_into_run_uses_source_run_phys_handoff_tick() {
     let mut world = World::for_two_players();
-    let common = world.common_data();
     let mut player = world.players()[0];
     player.motion_state = MotionState::TurnRun;
     player.motion_state_alias = Some(MotionState::TurnRun);
@@ -13075,6 +13103,20 @@ fn turn_run_completion_into_run_uses_source_friction_handoff_tick() {
 
     step_world(&mut world, Frame(0), &opposite_stick);
 
+    let player = world.players()[0];
+    println!(
+        "handoff debug: motion_state={:?} motion_frame={} motion_anim_frame_milli={} run_no_interrupt_frames={} ground_velocity_x={} ground_accel_x={} ground_accel_x2={} source_self_velocity_x={} velocity_x={}",
+        player.motion_state,
+        player.motion_frame,
+        player.motion_anim_frame_milli,
+        player.run_no_interrupt_frames,
+        player.ground_velocity_x,
+        player.ground_accel_x,
+        player.ground_accel_x2,
+        player.source_self_velocity_x,
+        player.velocity.x,
+    );
+
     assert_eq!(
         world.players()[0].motion_state,
         MotionState::Run,
@@ -13082,11 +13124,8 @@ fn turn_run_completion_into_run_uses_source_friction_handoff_tick() {
     );
     assert_eq!(
         world.players()[0].velocity.x,
-        source_units_to_milli(source_apply_ground_friction_to_zero_f32(
-            2.788125,
-            source_run_ground_friction_f32(world.players()[0].profile, common),
-        )),
-        "the TurnRun->Run completion tick follows the source friction handoff before ordinary Run_Phys consumes current stick"
+        source_units_to_milli(2.1475),
+        "the TurnRun->Run completion tick first applies Fighter_ChangeMotionState's source action-flag ground velocity clamp, then runs Run_Phys"
     );
 }
 

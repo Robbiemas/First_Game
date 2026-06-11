@@ -102,7 +102,7 @@ Use the scripts in `execs/` for normal Windows playtesting:
 - `Check WUP Native.cmd`: verifies that the WUP-028 adapter is visible.
 - `Monitor WUP Native.cmd`: opens a native GameCube input monitor.
 - `Record Native Replay.cmd`: records a deterministic runtime replay.
-- `Open State Graphs.cmd`: opens the Mole Game Dev Tool/state graph viewer.
+- `Open Dev Tool.cmd`: opens the native Rust Mole Game Dev Tool.
 - `Build Friend Playtest Package.cmd`: regenerates the one-file Windows
   handoff build under `playtest/`; the packaged default launcher starts Friend
   Connect, while local-practice and solo internet headless-peer launchers remain
@@ -227,6 +227,8 @@ stores only mutable authoritative gameplay state.
 
 The project is moving toward a source-shaped Melee data pipeline:
 
+- Start with `docs/architecture/rust-devtool-lossless-middleware.md` before changing
+  decomp extraction, Mole CLI, the Rust dev tool GUI, or engine import paths.
 - Compact manifests are canonical.
 - Melee XYZ floats are preserved in source-space data.
 - Runtime/dev-tool views may flatten into the current 2D presentation layer.
@@ -234,6 +236,10 @@ The project is moving toward a source-shaped Melee data pipeline:
 - The Rust CLI/dev tool is the preferred path for any pipeline stage that feeds
   the Rust engine. Existing Python scripts are legacy/reference tooling and
   should be ported when touching them is cheaper than extending them.
+- The Mole CLI and Rust dev tool GUI are dual surfaces over the same Rust-owned
+  artifacts. Any feature exposed on one side should be added to the other side,
+  and engine-fed artifacts must preserve source provenance, raw values,
+  converted values, gaps, and explicit overrides.
 - Canonical Melee action-state ids remain authoritative even when there is no
   Rust `MotionState` alias. Common Damage and DamageFly states 75-91 plus
   Passive/PassiveStand states 199-201 bind to their source FigaTree actions as

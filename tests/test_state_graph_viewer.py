@@ -608,8 +608,11 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     text = build_parity_ledger_overview(graphs, sheets)
 
     assert "Parity Ledger" in text
-    assert "global_common_values: 7 categories, 91 fields" in text
+    assert "global_common_values: 7 categories, 72 fields" in text
     assert "captain_falcon_values: 5 categories, 40 fields" in text
+    assert "physics_engine_values: 3 categories, 36 fields" in text
+    assert "combat_physics_values: 6 categories, 30 fields" in text
+    assert "battlefield_stage_values: 3 categories, 36 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text
     assert "Dash-related physics edges:" in text
     assert "moonwalk" in text.lower()
@@ -685,7 +688,7 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
         row for row in rows if row["field"] == "run_brake_animation_pause_velocity"
     )
 
-    assert len(rows) == 91
+    assert len(rows) == 72
     assert dash_x["source_field"] == "x3C"
     assert dash_x["decomp_value"] == 102
     assert dash_x["rust_field"] == "dash_x"
@@ -1155,9 +1158,15 @@ def test_value_sheets_load_for_viewer_summary():
     assert [sheet["id"] for sheet in sheets] == [
         "global_common_values",
         "captain_falcon_values",
+        "physics_engine_values",
+        "combat_physics_values",
+        "battlefield_stage_values",
     ]
     assert summarize_value_sheet(sheets[0])["fields"] >= 10
     assert summarize_value_sheet(sheets[1])["fields"] >= 10
+    assert summarize_value_sheet(sheets[2])["fields"] >= 10
+    assert summarize_value_sheet(sheets[3])["fields"] >= 10
+    assert summarize_value_sheet(sheets[4])["fields"] >= 10
 
 
 def test_grounded_locomotion_nodes_have_source_rust_test_and_value_refs():

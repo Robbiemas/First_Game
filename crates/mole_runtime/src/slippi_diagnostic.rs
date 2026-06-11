@@ -773,7 +773,7 @@ pub fn trace_slippi_export_from_match_start_with_core(
     let mut rows = Vec::new();
     export.frames.sort_by_key(|frame| frame.frame);
 
-    for (core_frame_index, frame) in export.frames.into_iter().take(frame_limit).enumerate() {
+    for (core_frame_index, frame) in export.frames.into_iter().enumerate() {
         let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
         let mut raw_inputs = [SlippiRustPlayerInput::default(); PLAYER_COUNT];
         for (player_index, input_slot) in inputs.iter_mut().enumerate() {
@@ -851,6 +851,9 @@ pub fn trace_slippi_export_from_match_start_with_core(
             actual_velocity_x: player.velocity.x,
             actual_velocity_y: player.velocity.y,
         });
+        if rows.len() >= frame_limit {
+            break;
+        }
     }
 
     Ok(SlippiCoreTrace {

@@ -1,0 +1,74 @@
+{
+  "blast_zones": {
+    "bottom_y": -108800,
+    "left_x": -224000,
+    "right_x": 224000,
+    "top_y": 200000
+  },
+  "engine_boundary": "rust_core_authority",
+  "main_floor": {
+    "friction_multiplier": 1.0,
+    "kind": "solid",
+    "left_x": -68400,
+    "name": "main_floor",
+    "right_x": 68400,
+    "y": 0
+  },
+  "schema_version": 1,
+  "soft_platforms": [
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": -57600,
+      "name": "left_platform",
+      "right_x": -20000,
+      "y": 27200
+    },
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": 20000,
+      "name": "right_platform",
+      "right_x": 57600,
+      "y": 27200
+    },
+    {
+      "friction_multiplier": 1.0,
+      "kind": "soft",
+      "left_x": -18800,
+      "name": "top_platform",
+      "right_x": 18800,
+      "y": 54400
+    }
+  ],
+  "source": {
+    "kind": "rust_baked_stage_asset_pending_stage_extract",
+    "notes": "Battlefield is the first stage asset template. The pipeline is generic so later stage extractions can populate the same shape.",
+    "profile_name": "battlefield_test",
+    "reference_stage": "Battlefield"
+  },
+  "spawn_points": [
+    {
+      "facing": 1,
+      "x": -38800,
+      "y": 35200
+    },
+    {
+      "facing": -1,
+      "x": 38800,
+      "y": 35200
+    },
+    {
+      "facing": 1,
+      "x": 0,
+      "y": 8000
+    },
+    {
+      "facing": 1,
+      "x": 0,
+      "y": 62400
+    }
+  ],
+  "stage_id": "battlefield",
+  "stage_name": "Battlefield"
+}

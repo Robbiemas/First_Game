@@ -1198,6 +1198,72 @@ fn slippi_core_trace_report_writer_uses_markdown() {
 }
 
 #[test]
+fn slippi_core_trace_max_frames_limits_rows_after_source_window_filtering() {
+    let export = r#"{
+      "source": {"replay_path": "fixture.slp"},
+      "settings": {"players": {}},
+      "frames": [
+        {"frame": -18, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0,
+              "ucf_dashback_amendment": false
+            }
+          },
+          "post": {
+            "action_state_id": 14,
+            "position": [0.0, 0.0],
+            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+          }
+        }}},
+        {"frame": -17, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+              "ucf_dashback_amendment": false
+            }
+          },
+          "post": {
+            "action_state_id": 24,
+            "position": [32.2, 27.2],
+            "self_induced_speeds": {"ground_x": -2.14, "air_x": -2.14, "y": 0.0}
+          }
+        }}},
+        {"frame": -16, "players": {"0": {
+          "pre": {
+            "rust_player_input": {
+              "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+              "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+              "ucf_dashback_amendment": false
+            }
+          },
+          "post": {
+            "action_state_id": 24,
+            "position": [30.22, 27.2],
+            "self_induced_speeds": {"ground_x": -1.98, "air_x": -1.98, "y": 0.0}
+          }
+        }}}
+      ]
+    }"#;
+
+    let trace = trace_slippi_export_from_match_start_with_core(
+        export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: -17,
+            source_frame_end: -16,
+            max_frames: Some(1),
+        },
+    )
+    .expect("trace window should parse");
+
+    assert_eq!(trace.rows.len(), 1);
+    assert_eq!(trace.rows[0].source_frame, -17);
+}
+
+#[test]
 fn render_frame_copies_world_without_owning_simulation_state() {
     let world = World::for_two_players();
     let render_frame = RenderFrame::from_world(&world);
@@ -3028,7 +3094,7 @@ fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
     assert!(text.contains("-- --sdl --play --input-trace --no-ucf"));
     assert!(!text.contains("--friend-connect"));
     assert!(!text.contains("--netplay-delay"));
-    assert!(text.contains("Open State Graphs.cmd"));
+    assert!(text.contains("Open Dev Tool.cmd"));
 }
 
 #[test]

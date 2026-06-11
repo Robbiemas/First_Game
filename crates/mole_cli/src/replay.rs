@@ -21,9 +21,26 @@ use crate::{
 
 pub(crate) fn replay_report(root: &Path, command: &ReplayCommand) -> Value {
     match command {
+        ReplayCommand::Artifacts => replay_artifacts_report(root),
         ReplayCommand::Check(options) => replay_check_report(root, options),
         ReplayCommand::Trace(options) => replay_trace_report(root, options),
     }
+}
+
+fn replay_artifacts_report(root: &Path) -> Value {
+    let input_dir = root.join("debug/slippi");
+    let replay_dir = root.join("replays");
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "replay artifacts",
+        "project_root": root.display().to_string(),
+        "ok": true,
+        "inputs_dir": project_relative_path(root, &input_dir),
+        "replays_dir": project_relative_path(root, &replay_dir),
+        "inputs": list_input_exports(root, &input_dir),
+        "replays": list_replay_files(root, &replay_dir),
+        "errors": [],
+    })
 }
 
 fn replay_check_report(root: &Path, options: &ReplayCheckOptions) -> Value {
@@ -401,6 +418,82 @@ fn resolve_project_path(root: &Path, path: &str) -> PathBuf {
     } else {
         root.join(path)
     }
+}
+
+fn list_input_exports(root: &Path, dir: &Path) -> Vec<Value> {
+    let mut entries = fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".inputs.json"))
+        })
+        .map(|path| input_export_artifact_json(root, &path))
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| {
+        entry
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    });
+    entries
+}
+
+fn list_replay_files(root: &Path, dir: &Path) -> Vec<Value> {
+    let mut entries = fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".slp") || name.ends_with(".slp.gz"))
+        })
+        .map(|path| {
+            let size_bytes = fs::metadata(&path).ok().map(|metadata| metadata.len());
+            json!({
+                "path": project_relative_path(root, &path),
+                "size_bytes": size_bytes,
+            })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| {
+        entry
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    });
+    entries
+}
+
+fn input_export_artifact_json(root: &Path, path: &Path) -> Value {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    let parsed = serde_json::from_str::<Value>(&text).unwrap_or(Value::Null);
+    json!({
+        "path": project_relative_path(root, path),
+        "source_replay_path": parsed.pointer("/source/replay_path").and_then(Value::as_str),
+        "frame_count": parsed.pointer("/export/frame_count").and_then(Value::as_u64),
+        "first_frame": parsed.pointer("/export/first_frame").and_then(Value::as_i64),
+        "last_frame": parsed.pointer("/export/last_frame").and_then(Value::as_i64),
+        "requested_frame_limit": parsed.pointer("/export/requested_frame_limit").and_then(Value::as_u64),
+        "included_negative_frames": parsed.pointer("/export/included_negative_frames").and_then(Value::as_bool),
+        "stage_id": parsed.pointer("/settings/stage_id").and_then(Value::as_u64),
+        "played_on": parsed.pointer("/metadata/played_on").and_then(Value::as_str),
+        "start_at": parsed.pointer("/metadata/start_at").and_then(Value::as_str),
+    })
+}
+
+fn project_relative_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 #[derive(Debug)]

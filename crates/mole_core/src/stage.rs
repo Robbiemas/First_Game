@@ -6,13 +6,14 @@ pub enum StageSurfaceKind {
     Soft,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StageSurface {
     pub name: &'static str,
     pub kind: StageSurfaceKind,
     pub left_x: i32,
     pub right_x: i32,
     pub y: i32,
+    pub friction_multiplier: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +31,7 @@ pub struct StageSpawnPoint {
     pub facing: i8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StageProfile {
     pub name: &'static str,
     pub main_floor: StageSurface,
@@ -58,6 +59,7 @@ impl StageProfile {
                 left_x: melee_units_f32(-68.4),
                 right_x: melee_units_f32(68.4),
                 y: 0,
+                friction_multiplier: 1.0,
             },
             soft_platforms: [
                 StageSurface {
@@ -66,6 +68,7 @@ impl StageProfile {
                     left_x: melee_units_f32(-57.600_002),
                     right_x: melee_units_f32(-20.0),
                     y: melee_units_f32(27.200_1),
+                    friction_multiplier: 1.0,
                 },
                 StageSurface {
                     name: "right_platform",
@@ -73,6 +76,7 @@ impl StageProfile {
                     left_x: melee_units_f32(20.0),
                     right_x: melee_units_f32(57.600_002),
                     y: melee_units_f32(27.200_1),
+                    friction_multiplier: 1.0,
                 },
                 StageSurface {
                     name: "top_platform",
@@ -80,6 +84,7 @@ impl StageProfile {
                     left_x: melee_units_f32(-18.800_001),
                     right_x: melee_units_f32(18.800_001),
                     y: melee_units_f32(54.400_1),
+                    friction_multiplier: 1.0,
                 },
             ],
             blast_zones: StageBlastZones {

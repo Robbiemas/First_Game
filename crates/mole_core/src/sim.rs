@@ -1,14 +1,16 @@
 use crate::input::NO_GROUNDED_SPECIAL_DIRECTION;
 use crate::{
     collision::{
-        floor_surface_for_bottom, floor_surface_index_for_bottom, has_floor_support,
+        floor_friction_multiplier_for_bottom, floor_surface_for_bottom,
+        floor_surface_index_for_bottom, has_floor_support,
         landing_contact_for_bottom_with_floor_skip,
     },
     fighter_stick_axis_to_f32,
     state::{
         action_sample_frame_count_for_motion_state, active_ecb_bottom_offset_y,
         is_source_damage_action_state_id, melee_action_state_id_for_motion_state,
-        source_root_motion_delta, EXPIRED_INPUT_TIMER, SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
+        source_motion_change_clamps_ground_velocity, source_root_motion_delta, EXPIRED_INPUT_TIMER,
+        SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
     },
     units::{milli_to_source_units, source_units_to_milli},
     Frame, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MeleeJumpInput, MotionState,
@@ -193,6 +195,7 @@ pub fn step_world_with_source_runtime_data(
                     player,
                     input_facts,
                     stick_x,
+                    stage,
                     common_data,
                     &mut input_timers[player_index].x_tap,
                 );
@@ -219,13 +222,18 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     enter_guard(player);
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if walk_forward_dash != 0 {
                     enter_dash(player, walk_forward_dash, true);
                     input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
                 } else if walk_smash_turn != 0 {
                     enter_smash_turn(player, walk_smash_turn);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 } else if input_facts.crouch {
                     enter_squat(player);
                 } else if input_facts.walk_direction == player.facing {
@@ -238,7 +246,7 @@ pub fn step_world_with_source_runtime_data(
                     apply_walk_velocity(player, stick_x, common_data);
                 } else {
                     enter_wait_from_walk(player);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 }
             }
             MotionState::Dash => {
@@ -251,6 +259,7 @@ pub fn step_world_with_source_runtime_data(
                             player,
                             input_facts,
                             stick_x,
+                            stage,
                             common_data,
                             &mut input_timers[player_index].x_tap,
                         );
@@ -262,7 +271,7 @@ pub fn step_world_with_source_runtime_data(
                     trigger_timer,
                     common_data,
                 ) {
-                    enter_dash_iasa_action_state(player, action_state, stick_x, common_data);
+                    enter_dash_iasa_action_state(player, action_state, stick_x, stage, common_data);
                 } else {
                     let smash_turn_direction = input_facts.smash_turn_direction(player.facing);
                     if dash_allows_opposite_dashback(player, common_data)
@@ -274,7 +283,7 @@ pub fn step_world_with_source_runtime_data(
                             player,
                             dash_iasa_decayed_ground_velocity(ground_velocity, common_data),
                         );
-                        apply_ground_traction(player, common_data);
+                        apply_ground_traction(player, stage, common_data);
                     } else if input_facts.shield_held {
                         let ground_velocity = staged_ground_velocity_x(player);
                         enter_guard_from_run(player, common_data);
@@ -282,26 +291,27 @@ pub fn step_world_with_source_runtime_data(
                             player,
                             dash_iasa_decayed_ground_velocity(ground_velocity, common_data),
                         );
-                        apply_ground_traction(player, common_data);
+                        apply_ground_traction(player, stage, common_data);
                     } else if input_facts.normal_jump_pressed {
                         enter_knee_bend_from_ground(
                             player,
                             input_facts.normal_jump_input,
+                            stage,
                             common_data,
                         );
                     } else if player.motion_cmd_var0 != 0
                         && is_same_direction_run(stick_x, player.facing, common_data)
                     {
                         enter_run(player);
-                        apply_run_velocity(player, stick_x, common_data);
+                        apply_run_velocity(player, stick_x, stage, common_data);
                     } else {
-                        apply_dash_physics(player, stick_x, common_data);
+                        apply_dash_physics(player, stick_x, stage, common_data);
                     }
                 }
             }
             MotionState::Run => {
                 run_anim_tick(player);
-                apply_run_state_inputs(player, input_facts, stick_x, common_data);
+                apply_run_state_inputs(player, input_facts, stick_x, stage, common_data);
             }
             MotionState::RunDirect => {
                 if !player.grounded {
@@ -311,19 +321,24 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     enter_guard_from_run(player, common_data);
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if is_same_direction_run(stick_x, player.facing, common_data) {
                     enter_run_from_run_direct(player);
-                    apply_run_velocity(player, stick_x, common_data);
+                    apply_run_velocity(player, stick_x, stage, common_data);
                 } else if run_direct_releases_to_wait(stick_x, player.facing, common_data) {
                     enter_wait_from_walk(player);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     if stick_x == 0 {
-                        apply_run_ground_traction(player, common_data);
+                        apply_run_ground_traction(player, stage, common_data);
                     } else {
-                        apply_run_velocity(player, stick_x, common_data);
+                        apply_run_velocity(player, stick_x, stage, common_data);
                     }
                 }
             }
@@ -334,15 +349,20 @@ pub fn step_world_with_source_runtime_data(
                 } else if player.motion_state != MotionState::RunBrake {
                     // RunBrake_Anim can fall back before IASA/Phys.
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if player.motion_cmd_var0 != 0
                     && is_opposite_run_turn(stick_x, player.facing, common_data)
                 {
-                    enter_turn_run(player, stick_x, common_data, player.motion_frame);
+                    enter_turn_run(player, stick_x, stage, common_data, player.motion_frame);
                 } else if input_facts.crouch {
                     enter_squat(player);
                 } else {
-                    apply_run_ground_traction(player, common_data);
+                    apply_run_ground_traction(player, stage, common_data);
                 }
             }
             MotionState::TurnRun => {
@@ -351,16 +371,22 @@ pub fn step_world_with_source_runtime_data(
                     clear_turn_state(player);
                     enter_fall(player);
                 } else if turn_run_anim_outcome == TurnRunAnimOutcome::EnteredRun {
-                    // ftCo_TurnRun_Anim can enter Run before the frame's physics callback;
-                    // replay parity shows this handoff tick uses the source run friction path
-                    // before ordinary Run_Phys consumes the next frame's live stick.
-                    apply_run_ground_traction(player, common_data);
+                    // ftCo_TurnRun_Anim can enter Run before the frame's physics callback.
+                    // The source still runs the Run physics path on this same tick, so we
+                    // must use the full Run_Phys-shaped velocity update rather than a
+                    // friction-only shortcut.
+                    apply_run_velocity(player, stick_x, stage, common_data);
                 } else if player.motion_state != MotionState::TurnRun {
                     // TurnRun_Anim can complete into Run or fall back before IASA/Phys.
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else {
-                    apply_turn_run_velocity(player, stick_x, common_data);
+                    apply_turn_run_velocity(player, stick_x, stage, common_data);
                 }
             }
             MotionState::Turn => {
@@ -390,6 +416,7 @@ pub fn step_world_with_source_runtime_data(
                             player,
                             input_facts,
                             stick_x,
+                            stage,
                             common_data,
                             &mut input_timers[player_index].x_tap,
                         );
@@ -406,6 +433,7 @@ pub fn step_world_with_source_runtime_data(
                             enter_knee_bend_from_ground(
                                 player,
                                 input_facts.normal_jump_input,
+                                stage,
                                 common_data,
                             );
                         } else {
@@ -427,7 +455,7 @@ pub fn step_world_with_source_runtime_data(
                         }
 
                         if player.motion_state == MotionState::Turn {
-                            apply_ground_traction(player, common_data);
+                            apply_ground_traction(player, stage, common_data);
                         }
                     }
                 }
@@ -440,7 +468,12 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     enter_guard(player);
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if arm_squat_platform_pass(player, stage, stick_y, y_tap_timer, common_data)
                 {
                     advance_squat_frame(player);
@@ -460,7 +493,12 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     enter_guard(player);
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if input_facts.forward_dash_direction(player.facing) != 0 {
                     enter_dash(player, player.facing, true);
                     input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
@@ -480,7 +518,12 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     enter_guard(player);
                 } else if input_facts.normal_jump_pressed {
-                    enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+                    enter_knee_bend_from_ground(
+                        player,
+                        input_facts.normal_jump_input,
+                        stage,
+                        common_data,
+                    );
                 } else if input_facts.walk_direction != 0 {
                     enter_walk(
                         player,
@@ -613,7 +656,7 @@ pub fn step_world_with_source_runtime_data(
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     update_shield_turn(player, input_facts);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                     if player.motion_frame >= player.profile.action_frames.guard_on_total_frames {
                         enter_guard_steady(player);
@@ -658,7 +701,7 @@ pub fn step_world_with_source_runtime_data(
                 } else if input_facts.shield_held {
                     player.motion_frame = player.motion_frame.saturating_add(1);
                     update_shield_turn(player, input_facts);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                     if player.motion_state == MotionState::GuardReflect
                         && player.motion_frame >= player.profile.action_frames.guard_on_total_frames
@@ -672,7 +715,7 @@ pub fn step_world_with_source_runtime_data(
                     enter_fall(player);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                     if let Some(action_state) = guard_off_action_state(input_facts) {
                         enter_iasa_state(
@@ -697,7 +740,7 @@ pub fn step_world_with_source_runtime_data(
                     enter_fall(player);
                 } else {
                     player.motion_frame = player.motion_frame.saturating_add(1);
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                     player.velocity.y = 0;
                 }
             }
@@ -729,7 +772,7 @@ pub fn step_world_with_source_runtime_data(
                     if input_facts.short_hop_released_for(player.jump_input) {
                         player.short_hop = true;
                     }
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 }
             }
             MotionState::JumpAerialF | MotionState::JumpAerialB => {
@@ -803,14 +846,15 @@ pub fn step_world_with_source_runtime_data(
                         player,
                         input_facts,
                         stick_x,
+                        stage,
                         common_data,
                         &mut input_timers[player_index].x_tap,
                     );
                     if matches!(player.motion_state, MotionState::GuardOn) {
-                        apply_ground_traction(player, common_data);
+                        apply_ground_traction(player, stage, common_data);
                     }
                 } else {
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 }
                 player.velocity.y = 0;
             }
@@ -830,9 +874,9 @@ pub fn step_world_with_source_runtime_data(
                     }
                 }
                 if player.motion_state == MotionState::Landing {
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 } else if player.motion_state == MotionState::Turn {
-                    apply_ground_traction(player, common_data);
+                    apply_ground_traction(player, stage, common_data);
                 }
                 player.velocity.y = 0;
             }
@@ -847,7 +891,7 @@ pub fn step_world_with_source_runtime_data(
                 }
 
                 landing_anim_tick(player, common_data);
-                apply_ground_traction(player, common_data);
+                apply_ground_traction(player, stage, common_data);
                 player.velocity.y = 0;
             }
         }
@@ -1025,6 +1069,7 @@ fn apply_wait_state_inputs(
     player: &mut PlayerState,
     input_facts: MeleeInputFacts,
     stick_x: i32,
+    stage: StageProfile,
     common_data: MeleeCommonData,
     x_tap_timer: &mut u8,
 ) {
@@ -1033,7 +1078,7 @@ fn apply_wait_state_inputs(
     } else if player.grounded && input_facts.shield_held {
         enter_guard(player);
     } else if player.grounded && input_facts.normal_jump_pressed {
-        enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+        enter_knee_bend_from_ground(player, input_facts.normal_jump_input, stage, common_data);
     } else if !player.grounded {
         enter_fall(player);
     } else {
@@ -1045,12 +1090,12 @@ fn apply_wait_state_inputs(
             *x_tap_timer = EXPIRED_INPUT_TIMER;
         } else if smash_turn != 0 {
             enter_smash_turn(player, smash_turn);
-            apply_ground_traction(player, common_data);
+            apply_ground_traction(player, stage, common_data);
         } else if input_facts.crouch {
             enter_squat(player);
         } else if standing_turn != 0 {
             enter_standing_turn(player, standing_turn);
-            apply_ground_traction(player, common_data);
+            apply_ground_traction(player, stage, common_data);
         } else if input_facts.walk_direction != 0 {
             enter_walk(
                 player,
@@ -1059,7 +1104,7 @@ fn apply_wait_state_inputs(
                 common_data,
             );
         } else {
-            apply_ground_traction(player, common_data);
+            apply_ground_traction(player, stage, common_data);
         }
     }
 }
@@ -1247,7 +1292,7 @@ fn advance_source_damage_state(
     }
 
     if player.grounded {
-        apply_ground_traction(player, common_data);
+        apply_ground_traction(player, stage, common_data);
         player.velocity.y = 0;
         player.source_self_velocity_y = 0.0;
         add_source_position_x(player, player.player_nudge_x);
@@ -1727,7 +1772,7 @@ fn advance_source_down_ground_physics(
 ) -> bool {
     let floor_surface_before_ground_move =
         floor_surface_index_for_bottom(stage, player.position).map(|(index, _)| index);
-    apply_ground_traction(player, common_data);
+    apply_ground_traction(player, stage, common_data);
     player.velocity.y = 0;
     player.source_self_velocity_y = 0.0;
     add_source_position_x(player, player.player_nudge_x);
@@ -2038,10 +2083,11 @@ fn enter_knee_bend(player: &mut PlayerState, jump_input: MeleeJumpInput) {
 fn enter_knee_bend_from_ground(
     player: &mut PlayerState,
     jump_input: MeleeJumpInput,
+    stage: StageProfile,
     common_data: MeleeCommonData,
 ) {
     enter_knee_bend(player, jump_input);
-    apply_ground_traction(player, common_data);
+    apply_ground_traction(player, stage, common_data);
 }
 
 fn apply_jump_takeoff_velocity(player: &mut PlayerState, stick_x: i32) {
@@ -2431,6 +2477,7 @@ fn apply_run_state_inputs(
     player: &mut PlayerState,
     input_facts: MeleeInputFacts,
     stick_x: i32,
+    stage: StageProfile,
     common_data: MeleeCommonData,
 ) {
     if !player.grounded {
@@ -2440,19 +2487,19 @@ fn apply_run_state_inputs(
     } else if input_facts.shield_held {
         enter_guard_from_run(player, common_data);
     } else if input_facts.normal_jump_pressed {
-        enter_knee_bend_from_ground(player, input_facts.normal_jump_input, common_data);
+        enter_knee_bend_from_ground(player, input_facts.normal_jump_input, stage, common_data);
     } else if player.run_no_interrupt_frames > 0 {
         if stick_x == 0 {
-            apply_run_ground_traction(player, common_data);
+            apply_run_ground_traction(player, stage, common_data);
         } else {
-            apply_run_velocity(player, stick_x, common_data);
+            apply_run_velocity(player, stick_x, stage, common_data);
         }
     } else if is_same_direction_run(stick_x, player.facing, common_data) {
-        apply_run_velocity(player, stick_x, common_data);
+        apply_run_velocity(player, stick_x, stage, common_data);
     } else if is_opposite_run_turn(stick_x, player.facing, common_data) {
-        enter_turn_run(player, stick_x, common_data, 0);
+        enter_turn_run(player, stick_x, stage, common_data, 0);
     } else {
-        enter_run_brake(player, common_data);
+        enter_run_brake(player, stage, common_data);
     }
 }
 
@@ -2594,10 +2641,38 @@ fn enter_run(player: &mut PlayerState) {
     clear_turn_state(player);
     clear_motion_script_state(player);
     clear_platform_pass_pending(player);
-    player.set_motion_state_alias(MotionState::Run);
+    change_motion_state_alias(player, MotionState::Run);
     player.motion_frame = 0;
     player.motion_anim_frame_milli = 0;
     player.run_no_interrupt_frames = 0;
+}
+
+fn change_motion_state_alias(player: &mut PlayerState, next_motion_state: MotionState) {
+    let previous_motion_state = player.motion_state;
+    player.set_motion_state_alias(next_motion_state);
+    apply_source_motion_change_ground_velocity_bridge(
+        player,
+        previous_motion_state,
+        next_motion_state,
+    );
+}
+
+fn apply_source_motion_change_ground_velocity_bridge(
+    player: &mut PlayerState,
+    previous_motion_state: MotionState,
+    next_motion_state: MotionState,
+) {
+    if !source_motion_change_clamps_ground_velocity(previous_motion_state, next_motion_state) {
+        return;
+    }
+
+    set_ground_velocity_x(
+        player,
+        player.ground_velocity_x.clamp(
+            -player.profile.dash_run_terminal_velocity,
+            player.profile.dash_run_terminal_velocity,
+        ),
+    );
 }
 
 fn enter_run_from_turn_run(player: &mut PlayerState, common_data: MeleeCommonData) {
@@ -2615,7 +2690,7 @@ fn enter_run_from_run_direct(player: &mut PlayerState) {
     player.run_no_interrupt_frames = 0;
 }
 
-fn enter_run_brake(player: &mut PlayerState, common_data: MeleeCommonData) {
+fn enter_run_brake(player: &mut PlayerState, stage: StageProfile, common_data: MeleeCommonData) {
     clear_shield_turn(player);
     clear_turn_state(player);
     clear_motion_script_state(player);
@@ -2627,12 +2702,13 @@ fn enter_run_brake(player: &mut PlayerState, common_data: MeleeCommonData) {
         .profile
         .max_run_brake_frames
         .unwrap_or(player.profile.action_frames.run_brake_total_frames);
-    apply_run_ground_traction(player, common_data);
+    apply_run_ground_traction(player, stage, common_data);
 }
 
 fn enter_turn_run(
     player: &mut PlayerState,
     stick_x: i32,
+    stage: StageProfile,
     common_data: MeleeCommonData,
     anim_start: u8,
 ) {
@@ -2648,7 +2724,7 @@ fn enter_turn_run(
     player.turn_run_accel_mul = accel_mul;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
-    apply_turn_run_velocity(player, stick_x, common_data);
+    apply_turn_run_velocity(player, stick_x, stage, common_data);
 }
 
 fn enter_smash_turn(player: &mut PlayerState, direction: i8) {
@@ -2798,27 +2874,32 @@ fn arm_turn_dash_after_if_fresh(
     }
 }
 
-fn apply_turn_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
+fn apply_turn_run_velocity(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
     let (mut accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     if target_velocity == 0.0 {
-        apply_run_ground_traction(player, common_data);
+        apply_run_ground_traction(player, stage, common_data);
     } else if player.turn_run_accel_mul as f32 * accel < 0.0 {
         if accel > 0.0 {
             if player.ground_velocity_x + accel > target_velocity {
-                accel -= run_ground_friction(player, common_data);
+                accel -= run_ground_friction(player, stage, common_data);
                 if player.ground_velocity_x + accel < target_velocity {
                     accel = target_velocity - player.ground_velocity_x;
                 }
             }
         } else if player.ground_velocity_x + accel < target_velocity {
-            accel += run_ground_friction(player, common_data);
+            accel += run_ground_friction(player, stage, common_data);
             if player.ground_velocity_x + accel > target_velocity {
                 accel = target_velocity - player.ground_velocity_x;
             }
         }
         stage_ground_velocity_x(player, player.ground_velocity_x + accel);
     } else {
-        apply_run_ground_traction(player, common_data);
+        apply_run_ground_traction(player, stage, common_data);
     }
 }
 
@@ -3069,6 +3150,7 @@ fn enter_dash_iasa_action_state(
     player: &mut PlayerState,
     motion_state: MotionState,
     stick_x: i32,
+    stage: StageProfile,
     common_data: MeleeCommonData,
 ) {
     let ground_velocity = staged_ground_velocity_x(player);
@@ -3084,7 +3166,7 @@ fn enter_dash_iasa_action_state(
         );
     }
     if motion_state == MotionState::GuardReflect {
-        apply_ground_traction(player, common_data);
+        apply_ground_traction(player, stage, common_data);
     }
 }
 
@@ -3612,30 +3694,45 @@ fn apply_air_drift(player: &mut PlayerState, stick_x: i32, common_data: MeleeCom
     set_source_self_velocity_x(player, current_velocity + accel);
 }
 
-fn apply_dash_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
+fn apply_dash_velocity(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
     let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     let next_velocity = apply_ground_accel_toward_target(
         player.ground_velocity_x,
         accel,
         target_velocity,
-        run_ground_friction(player, common_data),
+        run_ground_friction(player, stage, common_data),
         player.profile.ground_max_horizontal_velocity,
     );
     stage_ground_velocity_x(player, next_velocity);
 }
 
-fn apply_dash_physics(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
+fn apply_dash_physics(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
     let stick_x = fighter_input_cleanup_stick_axis(stick_x, common_data.main_stick_deadzone_x);
     if player.dash_x0 != 0.0 {
         player.dash_x0 = 0.0;
     } else if stick_x == 0 {
-        apply_run_ground_traction(player, common_data);
+        apply_run_ground_traction(player, stage, common_data);
     } else {
-        apply_dash_velocity(player, stick_x, common_data);
+        apply_dash_velocity(player, stick_x, stage, common_data);
     }
 }
 
-fn apply_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: MeleeCommonData) {
+fn apply_run_velocity(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
     let (accel, target_velocity) = dash_run_accel_and_target(player.profile, stick_x);
     let accel = apply_remaining_velocity_taper(
         player.ground_velocity_x,
@@ -3647,7 +3744,7 @@ fn apply_run_velocity(player: &mut PlayerState, stick_x: i32, common_data: Melee
         player.ground_velocity_x,
         accel,
         target_velocity,
-        run_ground_friction(player, common_data),
+        run_ground_friction(player, stage, common_data),
         player.profile.ground_max_horizontal_velocity,
     );
     stage_ground_velocity_x(player, next_velocity);
@@ -3670,8 +3767,13 @@ fn run_direct_releases_to_wait(stick_x: i32, facing: i8, common_data: MeleeCommo
     stick_x * (facing as i32) < 0 || stick_x.abs() < common_data.walk_x as i32
 }
 
-fn apply_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData) {
-    let mut traction = player.profile.ground_friction;
+fn apply_ground_traction(
+    player: &mut PlayerState,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
+    let mut traction = player.profile.ground_friction
+        * floor_friction_multiplier_for_bottom(stage, player.position);
     if player.ground_velocity_x.abs() > player.profile.walk_max_velocity {
         traction = traction * common_data.high_speed_ground_friction_multiplier;
     }
@@ -3679,16 +3781,26 @@ fn apply_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData)
     stage_ground_velocity_x(player, next_velocity);
 }
 
-fn apply_run_ground_traction(player: &mut PlayerState, common_data: MeleeCommonData) {
+fn apply_run_ground_traction(
+    player: &mut PlayerState,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
     let next_velocity = apply_friction_to_zero(
         player.ground_velocity_x,
-        run_ground_friction(player, common_data),
+        run_ground_friction(player, stage, common_data),
     );
     stage_ground_velocity_x(player, next_velocity);
 }
 
-fn run_ground_friction(player: &PlayerState, common_data: MeleeCommonData) -> f32 {
-    player.profile.ground_friction * common_data.run_ground_friction_multiplier
+fn run_ground_friction(
+    player: &PlayerState,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) -> f32 {
+    player.profile.ground_friction
+        * common_data.run_ground_friction_multiplier
+        * floor_friction_multiplier_for_bottom(stage, player.position)
 }
 
 fn dash_iasa_decayed_ground_velocity(velocity_x: f32, common_data: MeleeCommonData) -> f32 {

@@ -9,8 +9,8 @@ if errorlevel 1 (
 )
 set "SDL3_ROOT=%CD%\.local\SDL3"
 set "PATH=%USERPROFILE%\.cargo\bin;%SDL3_ROOT%\lib\x64;%PATH%"
-if exist "%~dp0Open State Graphs.cmd" (
-    start "Mole Game Dev Tool" "%~dp0Open State Graphs.cmd"
+if exist "%~dp0Open Dev Tool.cmd" (
+    start "Mole Game Dev Tool" "%~dp0Open Dev Tool.cmd"
 )
 echo Running native SDL3/WUP local runtime with UCF disabled for vanilla input testing.
 call cargo run --release -p mole_runtime --features "sdl wup" -- --sdl --play --input-trace --no-ucf

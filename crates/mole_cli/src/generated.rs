@@ -2,7 +2,8 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path, time::UNIX_EPOCH};
 
 use crate::{
-    generated_artifact_statuses, GeneratedArtifactStatus, GeneratedCommand, SCHEMA_VERSION,
+    generated_artifact_statuses, ledger_map, stage_assets, value_sheets, GeneratedArtifactStatus,
+    GeneratedCommand, SCHEMA_VERSION,
 };
 
 struct ArtifactGroup {
@@ -17,6 +18,15 @@ struct ArtifactGroup {
 pub(crate) fn generated_report(root: &Path, command: &GeneratedCommand) -> Value {
     match command {
         GeneratedCommand::Check => generated_check_report(root),
+        GeneratedCommand::WriteValueSheets { write } => {
+            value_sheets::write_value_sheets_report(root, *write)
+        }
+        GeneratedCommand::WriteStageAsset { stage, write } => {
+            stage_assets::write_stage_asset_report(root, stage, *write)
+        }
+        GeneratedCommand::WriteLedgerMap { write } => {
+            ledger_map::write_ledger_map_report(root, *write)
+        }
     }
 }
 
@@ -168,16 +178,26 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
         ArtifactGroup {
             id: "value_sheets",
             name: "Value Sheets",
-            generator: "tools/generate_value_sheets.py",
-            recommended_command: ".venv\\Scripts\\python.exe tools\\generate_value_sheets.py",
-            inputs: &[
-                "resources/melee/extracted/plco_common_data.json",
-                "resources/melee/extracted/captain_falcon_profile.json",
-            ],
-            outputs: &[
-                "docs/state_graphs/value_sheets/global_common_values.json",
-                "docs/state_graphs/value_sheets/captain_falcon_values.json",
-            ],
+            generator: value_sheets::VALUE_SHEETS_GENERATOR,
+            recommended_command: value_sheets::VALUE_SHEETS_COMMAND,
+            inputs: value_sheets::VALUE_SHEETS_INPUTS,
+            outputs: value_sheets::VALUE_SHEET_OUTPUTS,
+        },
+        ArtifactGroup {
+            id: "battlefield_stage_asset",
+            name: "Battlefield Stage Asset",
+            generator: stage_assets::STAGE_ASSETS_GENERATOR,
+            recommended_command: stage_assets::STAGE_ASSETS_COMMAND,
+            inputs: stage_assets::STAGE_ASSET_INPUTS,
+            outputs: stage_assets::STAGE_ASSET_OUTPUTS,
+        },
+        ArtifactGroup {
+            id: "parity_ledger_map",
+            name: "Parity Ledger Map",
+            generator: ledger_map::LEDGER_MAP_GENERATOR,
+            recommended_command: ledger_map::LEDGER_MAP_COMMAND,
+            inputs: ledger_map::LEDGER_MAP_INPUTS,
+            outputs: ledger_map::LEDGER_MAP_OUTPUTS,
         },
         ArtifactGroup {
             id: "value_parity_diff_report",

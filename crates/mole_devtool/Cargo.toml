@@ -1,0 +1,13 @@
+[package]
+name = "mole_devtool"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+eframe = { version = "0.34.3", default-features = true }
+mole_core = { path = "../mole_core" }
+mole_ledger = { path = "../mole_ledger" }
+mole_runtime = { path = "../mole_runtime" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

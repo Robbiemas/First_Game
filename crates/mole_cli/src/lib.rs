@@ -9,14 +9,20 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use mole_devtool::ParityLedgerViewModel;
+use mole_ledger::LedgerMap;
+
 mod decomp;
 mod formatting;
 mod frame_data;
 mod frame_data_sampler;
 mod generated;
 mod graph;
+mod ledger_map;
 mod package;
 mod replay;
+mod stage_assets;
+mod value_sheets;
 mod verify;
 
 pub use verify::verification_plan_for_changed_paths;
@@ -44,6 +50,7 @@ enum CliCommand {
     Graph(GraphCommand),
     Verify(VerifyCommand),
     Generated(GeneratedCommand),
+    Devtool(DevtoolCommand),
     Finish(FinishCommand),
     Replay(ReplayCommand),
     Decomp(DecompCommand),
@@ -76,8 +83,16 @@ enum VerifyCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+enum DevtoolCommand {
+    Ledger,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GeneratedCommand {
     Check,
+    WriteValueSheets { write: bool },
+    WriteStageAsset { stage: String, write: bool },
+    WriteLedgerMap { write: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,6 +102,7 @@ enum FinishCommand {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ReplayCommand {
+    Artifacts,
     Check(ReplayCheckOptions),
     Trace(ReplayTraceOptions),
 }
@@ -388,6 +404,7 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "graph" => parse_graph_command(&positional[1..]).map(CliCommand::Graph),
         "verify" => parse_verify_command(&positional[1..]).map(CliCommand::Verify),
         "generated" => parse_generated_command(&positional[1..]).map(CliCommand::Generated),
+        "devtool" => parse_devtool_command(&positional[1..]).map(CliCommand::Devtool),
         "finish" => parse_finish_command(&positional[1..]).map(CliCommand::Finish),
         "replay" => parse_replay_command(&positional[1..]).map(CliCommand::Replay),
         "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
@@ -784,6 +801,61 @@ fn parse_generated_command(args: &[String]) -> Result<GeneratedCommand, String> 
     let rest = subcommand_args(args);
     match subcommand {
         "check" => ensure_no_extra_args("generated check", rest).map(|()| GeneratedCommand::Check),
+        "write-value-sheets" => {
+            let mut write = false;
+            for arg in rest {
+                match arg.as_str() {
+                    "--write" => write = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for generated write-value-sheets: {other}"
+                        ))
+                    }
+                }
+            }
+            Ok(GeneratedCommand::WriteValueSheets { write })
+        }
+        "write-stage-asset" => {
+            let mut stage = None;
+            let mut write = false;
+            let mut index = 0;
+            while index < rest.len() {
+                match rest[index].as_str() {
+                    "--stage" => {
+                        index += 1;
+                        let Some(value) = rest.get(index) else {
+                            return Err("--stage requires a stage id".to_string());
+                        };
+                        stage = Some(value.to_string());
+                    }
+                    "--write" => write = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for generated write-stage-asset: {other}"
+                        ))
+                    }
+                }
+                index += 1;
+            }
+            Ok(GeneratedCommand::WriteStageAsset {
+                stage: stage.ok_or_else(|| "--stage requires a stage id".to_string())?,
+                write,
+            })
+        }
+        "write-ledger-map" => {
+            let mut write = false;
+            for arg in rest {
+                match arg.as_str() {
+                    "--write" => write = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for generated write-ledger-map: {other}"
+                        ))
+                    }
+                }
+            }
+            Ok(GeneratedCommand::WriteLedgerMap { write })
+        }
         other => Err(format!("unknown mole generated command: {other}")),
     }
 }
@@ -797,10 +869,22 @@ fn parse_finish_command(args: &[String]) -> Result<FinishCommand, String> {
     }
 }
 
+fn parse_devtool_command(args: &[String]) -> Result<DevtoolCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("ledger");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "ledger" => ensure_no_extra_args("devtool ledger", rest).map(|()| DevtoolCommand::Ledger),
+        other => Err(format!("unknown mole devtool command: {other}")),
+    }
+}
+
 fn parse_replay_command(args: &[String]) -> Result<ReplayCommand, String> {
     let subcommand = args.first().map(String::as_str).unwrap_or("check");
     let rest = subcommand_args(args);
     match subcommand {
+        "artifacts" => {
+            ensure_no_extra_args("replay artifacts", rest).map(|()| ReplayCommand::Artifacts)
+        }
         "check" => parse_replay_check(rest).map(ReplayCommand::Check),
         "trace" => parse_replay_trace(rest).map(ReplayCommand::Trace),
         other => Err(format!("unknown mole replay command: {other}")),
@@ -1049,6 +1133,7 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Graph(command) => graph::graph_report(&options.root, command),
         CliCommand::Verify(command) => verify_report(&options.root, command),
         CliCommand::Generated(command) => generated::generated_report(&options.root, command),
+        CliCommand::Devtool(command) => devtool_report(&options.root, command),
         CliCommand::Finish(command) => finish_report(&options.root, command),
         CliCommand::Replay(command) => replay::replay_report(&options.root, command),
         CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
@@ -1082,8 +1167,10 @@ fn status_report(root: &Path) -> Value {
 
 fn parity_report(root: &Path) -> Value {
     let parity = parity_summary(root);
+    let ledger_map = ledger_map_summary(root);
     let mut report = base_report("parity", root);
     report["parity"] = serde_json::to_value(parity).expect("parity summary serializes");
+    report["ledger_map"] = ledger_map;
     report
 }
 
@@ -1351,6 +1438,7 @@ fn system_time_unix_seconds(time: SystemTime) -> Option<u64> {
 fn snapshot_report(root: &Path) -> Value {
     let git = git_status_summary(root);
     let parity = parity_summary(root);
+    let ledger_map = ledger_map_summary(root);
     let generated_artifacts = generated_artifact_statuses(root);
     let generated_artifacts_dirty = generated_artifacts.iter().any(|artifact| artifact.dirty);
     json!({
@@ -1375,6 +1463,7 @@ fn snapshot_report(root: &Path) -> Value {
             "derived": parity.value_derived,
             "sections": parity.value_sections,
         },
+        "ledger_map": ledger_map,
         "falcon_ecb": {
             "mapped_motion_states": parity.ecb_mapped_motion_states,
             "missing_sampled_mappings": parity.ecb_missing_sampled_mappings,
@@ -1389,6 +1478,48 @@ fn snapshot_report(root: &Path) -> Value {
         "verification_commands": recommended_test_commands(),
         "errors": parity.errors,
     })
+}
+
+fn devtool_report(root: &Path, command: &DevtoolCommand) -> Value {
+    match command {
+        DevtoolCommand::Ledger => devtool_ledger_report(root),
+    }
+}
+
+fn devtool_ledger_report(root: &Path) -> Value {
+    let path = root.join("docs/state_graphs/parity_ledger_map.json");
+    match ParityLedgerViewModel::load(&path) {
+        Ok(view_model) => json!({
+            "schema_version": SCHEMA_VERSION,
+            "command": "devtool ledger",
+            "project_root": root.display().to_string(),
+            "mutated": false,
+            "ok": true,
+            "surface": view_model.surface,
+            "ledger": view_model,
+        }),
+        Err(error) => json!({
+            "schema_version": SCHEMA_VERSION,
+            "command": "devtool ledger",
+            "project_root": root.display().to_string(),
+            "mutated": false,
+            "ok": false,
+            "surface": "parity_ledger",
+            "error": error,
+            "ledger": {
+                "schema_version": 1,
+                "surface": "parity_ledger",
+                "registry": {
+                    "tab_count": 0,
+                    "active_tab_count": 0,
+                    "planned_tab_count": 0,
+                    "dual_surface": false,
+                },
+                "tabs": [],
+                "all_tabs_dual_surface": false,
+            },
+        }),
+    }
 }
 
 fn doctor_report(root: &Path) -> Value {
@@ -1441,6 +1572,20 @@ fn finish_check_report(root: &Path) -> Value {
     let doctor_ok = doctor_checks.iter().all(|check| check.ok);
     let request_summary = message_board_summary(root);
     let (verification, verification_ok) = finish_verification_report(root);
+    let ledger_map = ledger_map_summary(root);
+    let ledger_map_registry = ledger_map
+        .get("registry")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let ledger_map_ok = ledger_map
+        .get("loadable")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        && ledger_map_registry
+            .get("dual_surface")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
     let completion_checks = vec![
         json!({
             "name": "repository branch",
@@ -1471,6 +1616,15 @@ fn finish_check_report(root: &Path) -> Value {
             "name": "verification plan",
             "ok": verification_ok,
             "detail": "changed-file verification plan was generated",
+        }),
+        json!({
+            "name": "ledger map",
+            "ok": ledger_map_ok,
+            "detail": format!(
+                "tab_count {}, dual_surface {}",
+                ledger_map_registry.get("tab_count").and_then(Value::as_u64).unwrap_or(0),
+                ledger_map_registry.get("dual_surface").and_then(Value::as_bool).unwrap_or(false)
+            ),
         }),
     ];
     let completion_ok = completion_checks
@@ -1582,6 +1736,7 @@ fn expected_command_names() -> Vec<&'static str> {
         "graph inspect",
         "verify changed",
         "generated check",
+        "devtool ledger",
         "finish check",
         "frame-data extract",
         "frame-data export-runtime",
@@ -1610,12 +1765,16 @@ fn agent_report(root: &Path, command: &AgentCommand) -> Value {
 fn agent_brief_report(root: &Path) -> Value {
     let git = git_status_summary(root);
     let parity = parity_summary(root);
+    let ledger_map = ledger_map_summary(root);
     let missing_graph = graph::graph_missing_report(root);
     let graph_next = graph::graph_next_report(root);
     let request_summary = message_board_summary(root);
     let next_request = request_summary.inbox.first().cloned();
     let (macro_plan_exists, compaction_anchor, macro_plan_error) = macro_plan_anchor(root);
     let mut errors = parity.errors.clone();
+    if let Some(error) = ledger_map.get("error").and_then(Value::as_str) {
+        errors.push(error.to_string());
+    }
     errors.extend(request_summary.errors.clone());
     if let Some(error) = macro_plan_error {
         errors.push(error);
@@ -1640,6 +1799,7 @@ fn agent_brief_report(root: &Path) -> Value {
         },
         "compaction_anchor": compaction_anchor,
         "parity": parity,
+        "ledger_map": ledger_map,
         "missing_graph": {
             "missing_count": missing_graph.get("missing_count").cloned().unwrap_or(json!(0)),
             "nodes": missing_graph.get("nodes").cloned().unwrap_or_else(|| json!([])),
@@ -1983,6 +2143,60 @@ fn command_help_catalog() -> Value {
             "agent_notes": "Read-only; use before handoff or after editing extraction inputs/generators so agents do not guess whether generated parity files are current."
         },
         {
+            "name": "devtool ledger",
+            "usage": "mole devtool ledger [--json|--format markdown]",
+            "purpose": "Load the Rust parity ledger map into a GUI-ready view model for the native dev-tool layer.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["devtool"],
+            "agent_notes": "Use this when a future Rust GUI needs the same tab model that the CLI already consumes."
+        },
+        {
+            "name": "generated write-value-sheets",
+            "usage": "mole generated write-value-sheets [--write] [--json]",
+            "purpose": "Write Rust-owned parity value sheets for global, character, physics, combat, and stage-ledger values.",
+            "mutates_workspace": true,
+            "writes": [
+                "docs/state_graphs/value_sheets/global_common_values.json",
+                "docs/state_graphs/value_sheets/captain_falcon_values.json",
+                "docs/state_graphs/value_sheets/physics_engine_values.json",
+                "docs/state_graphs/value_sheets/combat_physics_values.json",
+                "docs/state_graphs/value_sheets/battlefield_stage_values.json"
+            ],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["generated"],
+            "agent_notes": "Use this when the checked-in parity sheet schema changes so the repo stays Rust-owned instead of depending on Python generation."
+        },
+        {
+            "name": "generated write-stage-asset",
+            "usage": "mole generated write-stage-asset --stage battlefield [--write] [--json]",
+            "purpose": "Write a portable extracted stage asset for the named stage, starting with Battlefield as the template stage.",
+            "mutates_workspace": true,
+            "writes": ["resources/melee/extracted/stages/battlefield_stage.json"],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--stage"],
+            "optional_flags": ["--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["generated"],
+            "agent_notes": "Use this to keep stage extraction structured so later stages can reuse the same pipeline and file shape."
+        },
+        {
+            "name": "generated write-ledger-map",
+            "usage": "mole generated write-ledger-map [--write] [--json]",
+            "purpose": "Write the canonical dual-surface parity ledger registry for CLI and GUI consumers.",
+            "mutates_workspace": true,
+            "writes": ["docs/state_graphs/parity_ledger_map.json"],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["generated"],
+            "agent_notes": "Use this when the ledger tab contract changes so both human and agentic surfaces keep reading the same Rust-owned registry."
+        },
+        {
             "name": "finish check",
             "usage": "mole finish check [--json|--format markdown]",
             "purpose": "Run a read-only completion gate over repository anchor, help catalog freshness, doctor status, request queue, and changed-file verification plan.",
@@ -2005,6 +2219,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--frames", "--mode", "--include-negative-frames", "--no-negative-frames", "--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Default mode is sequential match-start and includes negative entry frames for raw .slp exports. Use --inputs with an existing exported JSON file to skip Node export."
+        },
+        {
+            "name": "replay artifacts",
+            "usage": "mole replay artifacts [--json|--format markdown]",
+            "purpose": "List existing Slippi replay files and exported input JSON artifacts for trace/replay selection without mutating the workspace.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use before replay trace or when wiring GUI artifact selectors; returns paths plus available export metadata."
         },
         {
             "name": "replay trace",
@@ -2837,6 +3063,26 @@ fn generated_artifact_paths() -> Vec<(&'static str, &'static str)> {
             "docs/state_graphs/value_sheets/captain_falcon_values.json",
         ),
         (
+            "physics engine value sheet",
+            "docs/state_graphs/value_sheets/physics_engine_values.json",
+        ),
+        (
+            "combat physics value sheet",
+            "docs/state_graphs/value_sheets/combat_physics_values.json",
+        ),
+        (
+            "battlefield stage value sheet",
+            "docs/state_graphs/value_sheets/battlefield_stage_values.json",
+        ),
+        (
+            "battlefield stage asset",
+            "resources/melee/extracted/stages/battlefield_stage.json",
+        ),
+        (
+            "parity ledger map",
+            "docs/state_graphs/parity_ledger_map.json",
+        ),
+        (
             "falcon generated ecb rust",
             "crates/mole_core/src/generated/falcon_ecb.rs",
         ),
@@ -2996,6 +3242,27 @@ pub fn parity_summary(root: &Path) -> ParitySummary {
     }
 }
 
+fn ledger_map_summary(root: &Path) -> Value {
+    let path = root.join("docs/state_graphs/parity_ledger_map.json");
+    match LedgerMap::load(&path) {
+        Ok(ledger_map) => serde_json::to_value(ledger_map).expect("ledger map serializes"),
+        Err(error) => json!({
+            "schema_version": 1,
+            "path": path.display().to_string(),
+            "exists": path.exists(),
+            "loadable": false,
+            "error": error,
+            "registry": {
+                "tab_count": 0,
+                "active_tab_count": 0,
+                "planned_tab_count": 0,
+                "dual_surface": false,
+            },
+            "tabs": [],
+        }),
+    }
+}
+
 pub(crate) fn read_json(path: PathBuf) -> Result<Value, io::Error> {
     let text = fs::read_to_string(path)?;
     Ok(serde_json::from_str(&text)?)
@@ -3053,8 +3320,13 @@ fn command_check(command: &str, args: &[&str]) -> DoctorCheck {
 fn recommended_test_commands() -> Vec<&'static str> {
     vec![
         "cargo test --workspace",
-        ".venv\\Scripts\\python.exe -m pytest tests\\test_value_sheets.py tests\\test_state_graph_viewer.py tests\\test_launch_inputs.py tests\\test_parity_diff_report.py tests\\test_generate_falcon_ecb_rust.py -q",
+        ".venv\\Scripts\\python.exe -m pytest tests\\test_state_graph_viewer.py tests\\test_launch_inputs.py tests\\test_parity_diff_report.py tests\\test_generate_falcon_ecb_rust.py -q",
         ".venv\\Scripts\\python.exe tools\\state_graph_viewer.py --check",
+        "cargo run -p mole_cli -- generated write-value-sheets --write --json",
+        "cargo run -p mole_cli -- generated write-stage-asset --stage battlefield --write --json",
+        "cargo run -p mole_cli -- generated write-ledger-map --write --json",
+        "cargo run -p mole_cli -- devtool ledger --json",
+        "cargo run -p mole_devtool",
         "cargo run -p mole_cli -- parity --json",
         "cargo run -p mole_cli -- parity snapshot --json",
     ]
@@ -3063,6 +3335,7 @@ fn recommended_test_commands() -> Vec<&'static str> {
 fn recommended_next(root: &Path) -> Vec<String> {
     let git = git_status_summary(root);
     let parity = parity_summary(root);
+    let ledger_map = ledger_map_summary(root);
     let mut recommendations = Vec::new();
 
     if !git.branch_ok {
@@ -3102,6 +3375,24 @@ fn recommended_next(root: &Path) -> Vec<String> {
                 "Continue bottom-up decomp parity for {missing} graph entries marked missing."
             ));
         }
+    }
+    if !ledger_map
+        .get("loadable")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+    {
+        recommendations.push("Regenerate the parity ledger map so Rust can load the owned contract for CLI and future GUI consumers.".to_string());
+    } else if !ledger_map
+        .get("registry")
+        .and_then(Value::as_object)
+        .and_then(|registry| registry.get("dual_surface"))
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+    {
+        recommendations.push(
+            "Restore CLI/GUI dual-surface parity in the ledger map before expanding the dev tool."
+                .to_string(),
+        );
     }
     if recommendations.is_empty() {
         recommendations.push("No high-priority structural gap detected by Mole CLI.".to_string());

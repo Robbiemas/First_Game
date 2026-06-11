@@ -1086,6 +1086,46 @@ pub const fn source_binding_for_motion_state(
     }
 }
 
+const SOURCE_ACTION_FLAG_TRANSN_ROOT: u32 = 0x8000_0000;
+const SOURCE_ACTION_FLAG_ALT_ROOT: u32 = 0x0400_0000;
+const SOURCE_ACTION_GROUND_VELOCITY_FLAGS: u32 =
+    SOURCE_ACTION_FLAG_TRANSN_ROOT | SOURCE_ACTION_FLAG_ALT_ROOT;
+
+pub(crate) const fn source_action_anim_flags_raw_for_motion_state(
+    motion_state: MotionState,
+) -> Option<u32> {
+    match motion_state {
+        // Captain Falcon action animation table flags from
+        // resources/melee/frame_data/dolphin_mole/source_manifest.json.
+        MotionState::Wait => Some(0x0000_0002),
+        MotionState::WalkSlow => Some(0x8000_0002),
+        MotionState::WalkMiddle => Some(0x8000_0002),
+        MotionState::WalkFast => Some(0x4000_0002),
+        MotionState::Turn => Some(0x8000_0002),
+        MotionState::TurnRun => Some(0x8000_0082),
+        MotionState::Dash => Some(0x8000_0002),
+        MotionState::Run | MotionState::RunDirect => Some(0x4000_0002),
+        MotionState::RunBrake => Some(0x0000_0002),
+        MotionState::EscapeF => Some(0x8000_00c2),
+        MotionState::EscapeB => Some(0x8000_0002),
+        _ => None,
+    }
+}
+
+pub(crate) fn source_motion_change_clamps_ground_velocity(
+    previous: MotionState,
+    next: MotionState,
+) -> bool {
+    let Some(previous_flags) = source_action_anim_flags_raw_for_motion_state(previous) else {
+        return false;
+    };
+    let Some(next_flags) = source_action_anim_flags_raw_for_motion_state(next) else {
+        return false;
+    };
+    previous_flags & SOURCE_ACTION_GROUND_VELOCITY_FLAGS != 0
+        && next_flags & SOURCE_ACTION_GROUND_VELOCITY_FLAGS == 0
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerState {
     pub profile: FighterProfile,
@@ -2599,6 +2639,7 @@ fn mix_stage_surface(hash: &mut u64, surface: StageSurface) {
     mix_i32(hash, surface.left_x);
     mix_i32(hash, surface.right_x);
     mix_i32(hash, surface.y);
+    mix_f32(hash, surface.friction_multiplier);
 }
 
 fn stage_surface_kind_id(kind: StageSurfaceKind) -> u8 {
