@@ -240,7 +240,7 @@ impl ParityLedgerApp {
     }
 
     pub fn title(&self) -> &'static str {
-        "Parity Ledger"
+        "Mole Game Dev Tool"
     }
 
     pub fn section_titles(&self) -> [&'static str; 6] {
@@ -403,6 +403,19 @@ impl ParityLedgerApp {
     }
 }
 
+impl AppSection {
+    pub fn label(self) -> &'static str {
+        match self {
+            AppSection::StateGraphs => "State Graphs",
+            AppSection::ParityLedger => "Parity Ledger",
+            AppSection::EcbCoverage => "ECB Coverage",
+            AppSection::InputTrace => "Input Trace",
+            AppSection::SlippiReplay => "Slippi Replay",
+            AppSection::MoveKeyframes => "Move Keyframes",
+        }
+    }
+}
+
 impl eframe::App for ParityLedgerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui::render_app(ui, self);
@@ -457,7 +470,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(app.title(), "Parity Ledger");
+        assert_eq!(app.title(), "Mole Game Dev Tool");
         assert_eq!(app.section_titles()[1], "Parity Ledger");
         assert_eq!(
             app.registered_devtool_surface_labels(),

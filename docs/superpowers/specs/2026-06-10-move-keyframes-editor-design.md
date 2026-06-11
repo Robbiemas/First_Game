@@ -4,7 +4,9 @@
 
 **Goal:** Turn the Rust `Move Keyframes` tab into a simple, exportable keyframe editor that can select, drag, save, and later compile geometry edits without adding a second editor model.
 
-**Architecture:** The editor stays centered on the existing `resources/melee/frame_data/dolphin_mole/AttackAirN.json` artifact and one reusable geometry primitive. The canvas renders the selected keyframe, while a shared handle/selection layer edits joints, capsule endpoints, and ECB/body-volume points through the same interaction path. Export remains a direct write-back to the current JSON shape first, which keeps the tool modular and leaves room for a later animation-set compiler without rewriting the UI.
+**Architecture:** The editor stays centered on the existing `resources/melee/frame_data/dolphin_mole/AttackAirN.json` artifact and one reusable geometry primitive. The canvas renders the selected keyframe through the Rust runtime scene path, while a shared handle/selection layer edits only runtime-aligned capsule endpoints and ECB/body-volume points through the same interaction path. Export remains a direct write-back to the current JSON shape first, which keeps the tool modular and leaves room for a later animation-set compiler without rewriting the UI.
+
+**2026-06-11 update:** The original sketch allowed raw joint dragging. That is now superseded. Imported figatree/JObj skeleton data is preserved as provenance and inspection data, but joint handles should not be durable GUI controls until `mole_runtime` exposes typed pose/joint primitives and the Mole CLI can validate the same edit surface.
 
 **Tech Stack:** Rust, `eframe`/`egui`, `serde_json`, existing `mole_devtool` data loaders, existing frame-data JSON artifact.
 
@@ -12,7 +14,7 @@
 
 ## Problem Statement
 
-The current Rust `Move Keyframes` tab can show frame data and a preview, but it does not yet behave like an editor. The long-term goal is a lightweight keyframe editor that lets a human manipulate collision pills, joints, and ECB/body-volume geometry directly in the same interface that later exports editable animation data.
+The current Rust `Move Keyframes` tab can show frame data and a preview, but it does not yet behave like an editor. The long-term goal is a lightweight keyframe editor that lets a human manipulate runtime-aligned collision pills and ECB/body-volume geometry directly in the same interface that later exports editable animation data. Pose/joint editing remains a later typed-runtime primitive, not a raw JSON overlay.
 
 We want the editor to:
 - stay Rust-first,
@@ -43,13 +45,12 @@ The editor should expose a single editable scene derived from the current keyfra
 
 Shape kinds should normalize into a shared handle model:
 
-- `JointHandle`
 - `CapsuleEndpointHandle`
 - `CapsuleRadiusHandle`
 - `BodyVolumeHandle`
 - `EcbHandle`
 
-All of these should be draggable through the same interaction plumbing, even if they affect different JSON fields underneath.
+All active handles should be draggable through the same interaction plumbing, even if they affect different JSON fields underneath. A future `PoseJointHandle` must be added only after the runtime exposes the same typed primitive the GUI draws.
 
 ## Rendering Model
 
@@ -59,7 +60,7 @@ The tab should stay split into two areas:
 - right side: a canvas preview of the currently selected frame.
 
 The canvas should draw:
-- the character wireframe / joint graph,
+- the runtime-rendered fighter/pose representation,
 - ECB/body volume outlines,
 - hurtboxes,
 - hitboxes,
@@ -127,7 +128,8 @@ Those can come later, but the editor should not depend on them.
 ## Acceptance Criteria
 
 - The `Move Keyframes` tab behaves like an editor, not just a viewer.
-- Joints, capsule endpoints, and ECB/body-volume controls can be selected and dragged.
+- Capsule endpoints and ECB/body-volume controls can be selected and dragged.
+- Joint controls are absent unless backed by typed runtime pose primitives and matching CLI validation.
 - Edits are saved back through the existing JSON artifact path.
 - The editor stays small and modular, with one shared geometry-editing core.
 - The Rust devtool remains the primary path; Python is not expanded.

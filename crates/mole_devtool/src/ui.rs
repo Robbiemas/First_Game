@@ -12,31 +12,61 @@ use mole_runtime::{RenderCapsule, RenderColor, RenderPolygon, RenderRect, Render
 use std::collections::BTreeMap;
 
 pub fn render_app(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
-    let app_theme = devtool_theme(app.theme());
-    let mut visuals = match app.theme() {
-        ThemeMode::Dark => egui::Visuals::dark(),
-        ThemeMode::Light => egui::Visuals::light(),
-    };
-    visuals.panel_fill = app_theme.app_background;
-    visuals.window_fill = app_theme.workbench_fill;
-    ui.ctx().set_visuals(visuals);
+    apply_app_visuals(ui);
 
-    ui.vertical(|ui| {
-        render_outer_tabs(ui, app);
-        ui.separator();
-        match app.selected_section {
-            AppSection::ParityLedger => render_parity_ledger(ui, app),
-            AppSection::StateGraphs => render_state_graphs(ui, app),
-            AppSection::EcbCoverage => render_ecb_coverage(ui, app),
-            AppSection::InputTrace => render_input_trace(ui, app),
-            AppSection::SlippiReplay => render_slippi_replay(ui, app),
-            AppSection::MoveKeyframes => render_move_keyframes(ui, app),
-        }
+    egui::Panel::top("devtool_header")
+        .resizable(false)
+        .show_inside(ui, |ui| {
+            ui.add_space(2.0);
+            render_outer_tabs(ui, app);
+            ui.add_space(2.0);
+        });
+
+    egui::Panel::bottom("devtool_footer")
+        .resizable(false)
+        .show_inside(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!("Section: {}", app.selected_section.label()));
+                ui.separator();
+                ui.label(
+                    "CLI-first contract: GUI surfaces mirror agent commands and Rust artifacts.",
+                );
+                ui.separator();
+                ui.label("Layout: adaptive split panes, mobile sub-tabs, bounded data panes.");
+            });
+        });
+
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+        render_active_section(ui, app);
     });
 }
 
+fn apply_app_visuals(ui: &mut egui::Ui) {
+    let app_theme = devtool_theme(ThemeMode::Light);
+    let mut visuals = egui::Visuals::light();
+    visuals.panel_fill = app_theme.app_background;
+    visuals.window_fill = app_theme.workbench_fill;
+    visuals.override_text_color = Some(app_theme.accent_text);
+    visuals.widgets.active.bg_fill = app_theme.accent_fill;
+    visuals.widgets.hovered.bg_fill = app_theme.panel_fill;
+    ui.ctx().set_visuals(visuals);
+}
+
+fn render_active_section(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    match app.selected_section {
+        AppSection::ParityLedger => render_parity_ledger(ui, app),
+        AppSection::StateGraphs => render_state_graphs(ui, app),
+        AppSection::EcbCoverage => render_ecb_coverage(ui, app),
+        AppSection::InputTrace => render_input_trace(ui, app),
+        AppSection::SlippiReplay => render_slippi_replay(ui, app),
+        AppSection::MoveKeyframes => render_move_keyframes(ui, app),
+    }
+}
+
 fn render_outer_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
+        ui.heading("Mole Game Dev Tool");
+        ui.separator();
         let titles = app.section_titles();
         for (index, title) in titles.iter().enumerate() {
             let section = match index {
@@ -51,17 +81,6 @@ fn render_outer_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
             if ui.selectable_label(selected, *title).clicked() {
                 app.select_section(section);
             }
-        }
-
-        ui.separator();
-        ui.label("Theme:");
-        let dark_selected = app.theme() == ThemeMode::Dark;
-        if ui.selectable_label(dark_selected, "Dark").clicked() {
-            app.set_theme(ThemeMode::Dark);
-        }
-        let light_selected = app.theme() == ThemeMode::Light;
-        if ui.selectable_label(light_selected, "Light").clicked() {
-            app.set_theme(ThemeMode::Light);
         }
     });
 }
@@ -307,7 +326,8 @@ fn render_state_graph_canvas(
             if !graph.description.is_empty() {
                 ui.label(&graph.description);
             }
-            let canvas_height = bounded_child_height(ui.available_height(), 220.0, 300.0);
+            let canvas_height =
+                bounded_child_height(ui.available_height(), 120.0, ui.available_height());
             let desired_size = egui::vec2(ui.available_width().max(1.0), canvas_height);
             let (rect, response) =
                 ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
@@ -963,7 +983,7 @@ fn render_move_keyframes_strip_panel(
             let gap = ui.spacing().item_spacing.x.max(2.0);
             let tile_width = ((available_width - gap * (frame_count.saturating_sub(1) as f32))
                 / frame_count as f32)
-                .clamp(14.0, 44.0);
+                .clamp(4.0, 44.0);
             let tile_height = 28.0;
 
             ui.horizontal(|ui| {
@@ -976,7 +996,11 @@ fn render_move_keyframes_strip_panel(
                     } else {
                         egui::Stroke::new(1.0, palette.border)
                     };
-                    let label = format!("{}", frame.frame);
+                    let label = if tile_width >= 14.0 {
+                        format!("{}", frame.frame)
+                    } else {
+                        String::new()
+                    };
                     let response = ui.add_sized(
                         egui::vec2(tile_width, tile_height),
                         egui::Button::new(label).fill(fill).stroke(stroke),
@@ -1031,7 +1055,8 @@ fn render_move_keyframes_viewport_panel(
             });
             ui.separator();
 
-            let preview_height = bounded_child_height(ui.available_height(), 210.0, 320.0);
+            let preview_height =
+                bounded_child_height(ui.available_height(), 120.0, ui.available_height());
             let desired_size = egui::vec2(ui.available_width().max(1.0), preview_height);
             let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
             let painter = ui.painter_at(rect);

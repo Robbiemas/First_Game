@@ -15,13 +15,7 @@ pub fn responsive_split_layout(
     let width = available_width.max(1.0);
     let height = available_height.max(1.0);
     let stacked = pane_count > 1 && width < 760.0;
-    let min_height = if stacked { 180.0 } else { 220.0 };
-    let preferred_height = if stacked {
-        height * 0.42
-    } else {
-        height * 0.62
-    };
-    let body_height = bounded_child_height_from_preferred(height, min_height, preferred_height);
+    let body_height = height;
     if stacked || pane_count <= 1 {
         SplitLayout {
             stacked,

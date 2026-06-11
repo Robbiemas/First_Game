@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the Rust `Move Keyframes` tab into a draggable keyframe editor that can edit joints, capsules, ECB/body volumes, save the edited JSON, and keep the renderer modular enough for future animation-set export.
+**Goal:** Turn the Rust `Move Keyframes` tab into a draggable keyframe editor that can edit runtime-aligned capsules and ECB/body volumes, save the edited JSON, and keep the renderer modular enough for future animation-set export.
 
-**Architecture:** Keep one editor core in `crates/mole_devtool/src/move_keyframes.rs` and let `ui.rs` be a thin shell that renders it. The editor should load the existing `AttackAirN.json` artifact, normalize all editable geometry into shared handles, and apply direct edits back to the selected frame. Save/export should stay on the same JSON artifact shape for now so the UI remains simple and the eventual compiler step can be added later without redesigning the editor.
+**2026-06-11 update:** The original implementation sketch included raw `Joint` handles. That path is superseded. Imported figatree/JObj skeleton data is preserved for provenance, but active joint dragging must wait until `mole_runtime` exposes typed pose/joint primitives and the Mole CLI can validate those same edits.
+
+**Architecture:** Keep one editor core in `crates/mole_devtool/src/move_keyframes.rs` and let `ui.rs` be a thin shell that renders it. The editor should load the existing `AttackAirN.json` artifact, normalize runtime-aligned editable geometry into shared handles, and apply direct edits back to the selected frame. Save/export should stay on the same JSON artifact shape for now so the UI remains simple and the eventual compiler step can be added later without redesigning the editor.
 
 **Tech Stack:** Rust, `eframe`/`egui`, `serde_json`, existing `mole_devtool` module layout, existing `resources/melee/frame_data/dolphin_mole/AttackAirN.json`.
 
@@ -30,7 +32,6 @@ fn move_keyframes_editor_exposes_frame_handles_and_dirty_state() {
     assert_eq!(editor.frame_count(), surface.keyframes.len());
 
     let handles = editor.handles_for_selected_frame();
-    assert!(handles.iter().any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::Joint { .. })));
     assert!(handles.iter().any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::EcbPoint { .. })));
     assert!(handles.iter().any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::HurtboxEndpoint { .. })));
     assert!(handles.iter().any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::HitboxEndpoint { .. })));
@@ -50,7 +51,6 @@ Expected: FAIL because `MoveKeyframesEditorSurface`, `MoveKeyframeHandleKind`, a
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MoveKeyframeHandleKind {
-    Joint { joint_index: usize },
     HurtboxEndpoint { hurtbox_index: usize, endpoint: MoveKeyframeEndpoint },
     HitboxEndpoint { hitbox_index: usize, endpoint: MoveKeyframeEndpoint },
     EcbPoint { body_volume_index: usize, point: MoveKeyframeBodyPoint },

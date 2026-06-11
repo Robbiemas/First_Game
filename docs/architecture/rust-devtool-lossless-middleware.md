@@ -63,6 +63,12 @@ Every middleware artifact that can feed the engine should carry:
 
 If a GUI edit cannot be represented in the artifact and replayed through the CLI, do not treat it as durable.
 
+## Runtime-Backed GUI Editing
+
+For visual editors, the rendered scene is owned by the Rust engine/runtime. GUI overlays may annotate that scene, but they must not become a second renderer or a second source of geometry truth.
+
+Move-keyframe editing currently uses `RenderFrame -> RenderScene` for the viewport. Editable GUI handles are limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
+
 ## Feature Acceptance Checklist
 
 For every new parity feature, add or update all of these:

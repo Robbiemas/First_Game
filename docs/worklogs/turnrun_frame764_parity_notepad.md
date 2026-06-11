@@ -154,7 +154,7 @@ Purpose: a short working note for the current parity investigation so I can resu
 
 - Wrote the design doc for the next `Move Keyframes` slice at `docs/superpowers/specs/2026-06-10-move-keyframes-editor-design.md`.
 - Wrote the implementation plan at `docs/superpowers/plans/2026-06-10-move-keyframes-editor-implementation.md`.
-- The editor direction is now a single Rust geometry-editing core for joints, capsules, and ECB/body volumes, with save/export staying on the current JSON artifact shape first.
+- The editor direction is now a single Rust geometry-editing core for runtime-aligned capsules and ECB/body volumes, with save/export staying on the current JSON artifact shape first. Raw joint editing is superseded until runtime-owned pose primitives exist.
 - Next execution should start from the implementation plan, keeping Python out of the new editor path.
 
 ## 2026-06-10 resolved frame-764 source path
@@ -297,10 +297,9 @@ Purpose: a short working note for the current parity investigation so I can resu
 
 ## 2026-06-10 move keyframes joint drag slice
 
-- Added an in-place drag path for a selected joint handle so the editor mutates only the targeted joint instead of rebuilding the frame.
-- The joint drag helper updates the existing world matrix translation components directly and keeps the Z axis intact for now.
-- The editor marks itself dirty only when a real mutation happens, which keeps the change model cheap and easy to export later.
-- Current focus remains on simple, fast primitives that can be layered into an exportable animation-set backend without introducing lag.
+- Superseded on 2026-06-11 by the runtime-backed edit rule. Raw pose JSON joint dragging was removed from the active editor because those handles were not owned by the runtime scene and could drift from the hurtbox/collision display.
+- The imported figatree/JObj skeleton remains preserved source metadata, loaded once for inspection and provenance.
+- Joint editing should return only after `mole_runtime` exposes typed pose/joint primitives that the CLI can validate and the GUI can manipulate without a second geometry authority.
 
 ## 2026-06-10 move keyframes save round-trip slice
 
@@ -312,7 +311,7 @@ Purpose: a short working note for the current parity investigation so I can resu
 ## 2026-06-10 move keyframes handle interaction slice
 
 - The `Move Keyframes` preview now draws draggable handle markers for the selected frame.
-- Clicking and dragging a joint handle mutates the matching joint in place using the current preview scale, with no reparsing of the frame JSON.
+- As of 2026-06-11, active draggable handles are limited to runtime-aligned collision geometry: hitbox endpoints, hurtbox endpoints, and ECB/body-volume points.
 - The active handle state is kept tiny: one active handle plus accumulated screen delta, which keeps the interaction path responsive.
 - The save button is now exposed in the Rust UI and writes back to the current artifact path when the editor is dirty.
 
@@ -324,8 +323,8 @@ Purpose: a short working note for the current parity investigation so I can resu
 ## 2026-06-10 move keyframes verification pass
 
 - Ran the full focused move-keyframes test filter: `cargo test -p mole_devtool move_keyframes_ -- --nocapture`.
-- Result: all move-keyframes editor tests passed, including skeleton loading, joint drag, hurtbox drag, and save round-trip.
-- This slice is now stable enough to build the next editor primitives on top of without revisiting the current tree/drag/save baseline.
+- Historical result: all move-keyframes editor tests passed at the time, including skeleton loading, joint drag, hurtbox drag, and save round-trip.
+- Superseded result: the current accepted baseline excludes raw joint dragging and keeps skeleton loading as provenance only until the runtime exposes typed pose handles.
 - The consumer can round-trip the registry into an owned `LedgerMap` with:
   - tab metadata
   - surface access states
@@ -390,27 +389,26 @@ Purpose: a short working note for the current parity investigation so I can resu
 ## 2026-06-10 move keyframes debug stage and inspector
 
 - The move-keyframes preview now uses a dedicated flat debug stage instead of Battlefield, with only one visible ground surface in the scene.
-- The preview viewport now fit-factors the rendered runtime geometry so the character, collision shapes, and imported figatree joints stay centered and zoomed appropriately.
-- The viewport now overlays the imported joint hierarchy so all nodes and joints are visible in the 2D projection, not just the collision pills.
+- The preview viewport now fit-factors the rendered runtime geometry so the character and collision shapes stay centered and zoomed appropriately.
+- The imported joint hierarchy is not drawn as a default editable overlay; it is provenance data until the engine owns the typed pose primitive.
 - A visible selected-frame inspector was added under the timeline strip so keyframe metadata and hitbox/hurtbox/body-volume values remain exposed outside the click-drag handles.
 - Float-based engine values should stay float-based in the runtime/editor path; only frame indices and other discrete counters stay integral.
 
 ## 2026-06-10 move keyframes right-facing overlay and direct inspector
 
-- The move-keyframes overlay now uses the right-facing flattened basis that the runtime uses: screen x maps to source z and screen y maps to source y.
-- Joint dragging updates the flattened axes instead of the depth axis, so the on-screen rig stays aligned with the hurtbox pills.
+- Superseded on 2026-06-11: the right-facing raw joint overlay was removed because it was not the same primitive the engine renders.
+- Runtime-aligned handle dragging remains for collision geometry visible in the `RenderScene` viewport.
 - The frame strip compresses horizontally to fit the window instead of turning into a scroll wheel.
 - The right-hand panel now exposes direct editable fields for the first hitbox, hurtbox, and body volume instead of a JSON dump.
 - The Rust devtool continues to repurpose existing editor/runtime code rather than rewriting the wheel.
-- The joint overlay now uses the selected frame's sampled pose joints directly, so the on-screen rig follows the same frame basis as the editor handles.
 - The viewport height is now tighter so the selection/inspector region can stay visible in the same window without clipping.
 
 ## 2026-06-11 functional handoff cleanup
 
 - The Rust devtool now has one shared theme palette module for workbench identity colors and status colors; table rendering consumes the shared palette instead of carrying duplicate row colors.
-- The devtool defaults to the light Python-viewer-style workbench while retaining a dark toggle.
+- The devtool uses one Python-viewer-style workbench palette; the visible theme toggle is removed so new tabs inherit one consistent baseline.
 - The move-keyframes viewport keeps `RenderFrame -> RenderScene` as the visual authority and no longer draws the imported pose-tree rig as a default overlay.
-- Editable handles remain as the annotation layer over the runtime scene. Selecting a handle exposes focused values in the right inspector, and dragging/editing the selected handle updates the projected artifact `x/y` fields.
+- Editable handles remain as the annotation layer over the runtime scene. Selecting a runtime-aligned collision handle exposes focused values in the right inspector, and dragging/editing the selected handle updates the projected artifact `x/y` fields.
 - The old `Open State Graphs.cmd` entrypoint was replaced by `Open Dev Tool.cmd`; runtime launcher contracts now point at the renamed Rust devtool launcher.
 - Verification for this handoff:
   - `cargo fmt --check`

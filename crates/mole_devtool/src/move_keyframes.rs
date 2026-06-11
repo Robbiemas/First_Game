@@ -251,9 +251,6 @@ pub enum MoveKeyframeBodyPoint {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MoveKeyframeHandleKind {
-    Joint {
-        joint_index: usize,
-    },
     HurtboxEndpoint {
         hurtbox_index: usize,
         endpoint: MoveKeyframeEndpoint,
@@ -448,9 +445,6 @@ impl MoveKeyframesEditorSurface {
             return false;
         };
         let changed = match kind {
-            MoveKeyframeHandleKind::Joint { joint_index } => {
-                move_keyframe_drag_joint(frame, joint_index, delta)
-            }
             MoveKeyframeHandleKind::HurtboxEndpoint {
                 hurtbox_index,
                 endpoint,
@@ -658,17 +652,6 @@ fn load_move_keyframe_pose_tree(
 
 fn move_keyframe_handles_for_frame(frame: &MoveKeyframe) -> Vec<MoveKeyframeHandle> {
     let mut handles = Vec::new();
-    if let Some(joints) = frame.pose.get("joints").and_then(Value::as_array) {
-        for (index, joint) in joints.iter().enumerate() {
-            if let Some(position) = move_keyframe_joint_position(joint) {
-                handles.push(MoveKeyframeHandle {
-                    kind: MoveKeyframeHandleKind::Joint { joint_index: index },
-                    position,
-                    label: format!("joint_{index}"),
-                });
-            }
-        }
-    }
 
     for (index, hurtbox) in frame.hurtboxes.iter().enumerate() {
         push_endpoints(&mut handles, index, hurtbox, true, "hurtbox", |endpoint| {
@@ -710,16 +693,6 @@ fn move_keyframe_handles_for_frame(frame: &MoveKeyframe) -> Vec<MoveKeyframeHand
     }
 
     handles
-}
-
-fn move_keyframe_drag_joint(frame: &mut MoveKeyframe, joint_index: usize, delta: [f64; 2]) -> bool {
-    let Some(joints) = frame.pose.get_mut("joints").and_then(Value::as_array_mut) else {
-        return false;
-    };
-    let Some(joint) = joints.get_mut(joint_index) else {
-        return false;
-    };
-    move_keyframe_drag_world_matrix_translation(joint, delta)
 }
 
 fn move_keyframe_drag_capsule_endpoint(
@@ -811,51 +784,6 @@ fn move_keyframe_drag_point(point: &mut Value, delta: [f64; 2]) -> bool {
     }
 
     false
-}
-
-fn move_keyframe_drag_world_matrix_translation(joint: &mut Value, delta: [f64; 2]) -> bool {
-    let Some(matrix) = joint.get_mut("world_matrix").and_then(Value::as_array_mut) else {
-        return false;
-    };
-    if matrix.len() < 2 {
-        return false;
-    }
-    let (first_two_rows, remaining_rows) = matrix.split_at_mut(2);
-    let (row_x_slice, row_y_slice) = first_two_rows.split_at_mut(1);
-    let Some(row_x) = row_x_slice.get_mut(0).and_then(Value::as_array_mut) else {
-        return false;
-    };
-    let Some(row_y) = row_y_slice.get_mut(0).and_then(Value::as_array_mut) else {
-        return false;
-    };
-    let Some(row_z) = remaining_rows.get_mut(0).and_then(Value::as_array_mut) else {
-        return false;
-    };
-    if row_x.len() < 4 || row_y.len() < 4 || row_z.len() < 4 {
-        return false;
-    }
-    let Some(x) = row_x.get(3).and_then(Value::as_f64) else {
-        return false;
-    };
-    let Some(y) = row_y.get(3).and_then(Value::as_f64) else {
-        return false;
-    };
-    row_x[3] = Value::from(x + delta[0]);
-    row_y[3] = Value::from(y + delta[1]);
-
-    if let Some(world_position) = joint
-        .get_mut("world_position")
-        .and_then(Value::as_object_mut)
-    {
-        if let Some(current_x) = world_position.get("x").and_then(Value::as_f64) {
-            world_position.insert("x".to_string(), Value::from(current_x + delta[0]));
-        }
-        if let Some(current_y) = world_position.get("y").and_then(Value::as_f64) {
-            world_position.insert("y".to_string(), Value::from(current_y + delta[1]));
-        }
-    }
-
-    true
 }
 
 fn push_endpoints<F>(
@@ -1046,9 +974,10 @@ mod tests {
         assert_eq!(editor.selected_frame_index(), 6);
         assert_eq!(editor.frame_count(), surface.keyframes.len());
         let handles = editor.handles_for_selected_frame();
-        assert!(handles
-            .iter()
-            .any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::Joint { .. })));
+        assert!(
+            !handles.is_empty(),
+            "runtime edit handles should be backed by rendered collision or capsule data"
+        );
         assert!(handles
             .iter()
             .any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::EcbPoint { .. })));
@@ -1094,45 +1023,6 @@ mod tests {
     }
 
     #[test]
-    fn move_keyframes_dragging_a_joint_updates_only_that_joint_and_marks_dirty() {
-        let root = workspace_root();
-        let surface = MoveKeyframesSurface::load(&root).unwrap();
-        let mut editor =
-            MoveKeyframesEditorSurface::from_surface_with_workspace(surface, &root).unwrap();
-        editor.set_selected_frame_index(6);
-
-        let before = {
-            let frame = editor.selected_frame().expect("frame");
-            let joints = frame
-                .pose
-                .get("joints")
-                .and_then(Value::as_array)
-                .expect("joints");
-            move_keyframe_joint_position(&joints[2]).expect("joint position")
-        };
-
-        editor.drag_handle(
-            MoveKeyframeHandleKind::Joint { joint_index: 2 },
-            [3.0, -4.0],
-        );
-
-        let after = {
-            let frame = editor.selected_frame().expect("frame");
-            let joints = frame
-                .pose
-                .get("joints")
-                .and_then(Value::as_array)
-                .expect("joints");
-            move_keyframe_joint_position(&joints[2]).expect("joint position")
-        };
-
-        assert_eq!(after[0], before[0] + 3.0);
-        assert_eq!(after[1], before[1] - 4.0);
-        assert_eq!(after[2], before[2]);
-        assert!(editor.is_dirty());
-    }
-
-    #[test]
     fn move_keyframes_editor_selects_and_drags_the_active_handle() {
         let root = workspace_root();
         let surface = MoveKeyframesSurface::load(&root).unwrap();
@@ -1174,44 +1064,19 @@ mod tests {
     }
 
     #[test]
-    fn move_keyframes_dragging_a_joint_updates_the_flattened_axes_for_right_facing_preview() {
+    fn move_keyframes_runtime_handles_do_not_offer_raw_pose_joint_dragging() {
         let root = workspace_root();
         let surface = MoveKeyframesSurface::load(&root).unwrap();
-        let mut editor =
+        let editor =
             MoveKeyframesEditorSurface::from_surface_with_workspace(surface, &root).unwrap();
-        editor.set_selected_frame_index(6);
 
-        let before = {
-            let frame = editor.selected_frame().expect("frame");
-            let joints = frame
-                .pose
-                .get("joints")
-                .and_then(Value::as_array)
-                .expect("joints");
-            move_keyframe_joint_position(&joints[2]).expect("joint position")
-        };
-
-        editor.drag_handle(
-            MoveKeyframeHandleKind::Joint { joint_index: 2 },
-            [3.0, -4.0],
+        assert!(
+            editor
+                .handles_for_selected_frame()
+                .iter()
+                .all(|handle| !handle.label.starts_with("joint_")),
+            "raw pose JSON joints are preserved as source data until the runtime exposes typed pose edit handles"
         );
-
-        let after = {
-            let frame = editor.selected_frame().expect("frame");
-            let joints = frame
-                .pose
-                .get("joints")
-                .and_then(Value::as_array)
-                .expect("joints");
-            move_keyframe_joint_position(&joints[2]).expect("joint position")
-        };
-
-        assert_eq!(
-            before[2], after[2],
-            "depth axis should stay untouched in the flattened preview"
-        );
-        assert_eq!(after[0], before[0] + 3.0, "screen x should map to world x");
-        assert_eq!(after[1], before[1] - 4.0, "screen y should map to world y");
     }
 
     #[test]
@@ -1249,7 +1114,10 @@ mod tests {
         let mut editor = MoveKeyframesEditorSurface::from_surface(surface);
         editor.set_selected_frame_index(6);
         assert!(editor.drag_handle(
-            MoveKeyframeHandleKind::Joint { joint_index: 2 },
+            MoveKeyframeHandleKind::HurtboxEndpoint {
+                hurtbox_index: 0,
+                endpoint: MoveKeyframeEndpoint::A,
+            },
             [1.0, -1.0]
         ));
         assert!(editor.is_dirty());
