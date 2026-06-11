@@ -276,7 +276,7 @@ fn devtool_surfaces() -> Vec<DevtoolSurfaceSpec> {
                 gui: LedgerSurfaceState::Active,
             },
             summary: "State graph parity inspection, missing-entry triage, and layout work.",
-            cli_commands: &["graph missing", "graph next", "graph inspect"],
+            cli_commands: &["graph missing", "graph next", "graph inspect", "graph layout"],
             gui_section: "StateGraphs",
             source_artifacts: &[
                 "docs/state_graphs/melee_reference_graph.json",

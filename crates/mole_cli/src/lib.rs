@@ -75,6 +75,7 @@ pub(crate) enum GraphCommand {
     Missing,
     Next,
     Inspect { target: String },
+    Layout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -775,6 +776,7 @@ fn parse_graph_command(args: &[String]) -> Result<GraphCommand, String> {
     match subcommand {
         "missing" => ensure_no_extra_args("graph missing", rest).map(|()| GraphCommand::Missing),
         "next" => ensure_no_extra_args("graph next", rest).map(|()| GraphCommand::Next),
+        "layout" => ensure_no_extra_args("graph layout", rest).map(|()| GraphCommand::Layout),
         "inspect" => {
             let target = rest.join(" ");
             if target.trim().is_empty() {
@@ -1734,6 +1736,7 @@ fn expected_command_names() -> Vec<&'static str> {
         "graph missing",
         "graph next",
         "graph inspect",
+        "graph layout",
         "verify changed",
         "generated check",
         "devtool ledger",
@@ -2117,6 +2120,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Use after graph next selects a target so agents do not manually parse graph JSON."
+        },
+        {
+            "name": "graph layout",
+            "usage": "mole graph layout [--json|--format markdown]",
+            "purpose": "Inspect the two-pane state graph canvas contract: graph files, saved layout coverage, zoom, and validation errors.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use before changing Rust state graph canvas behavior so CLI and GUI consume the same graph/layout facts."
         },
         {
             "name": "verify changed",

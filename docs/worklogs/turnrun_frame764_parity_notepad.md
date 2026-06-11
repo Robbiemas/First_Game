@@ -418,3 +418,14 @@ Purpose: a short working note for the current parity investigation so I can resu
   - `cargo test -p mole_cli`
   - `cargo test -p mole_runtime`
   - `cargo test -p mole_core`
+
+## 2026-06-11 state graph layout contract
+
+- Added a typed Rust state graph canvas model in `mole_devtool` that loads both `docs/state_graphs/melee_reference_graph.json` and `docs/state_graphs/mole_current_graph.json`.
+- The model applies `config/state_graph_layout.json` so Rust sees the same saved node positions and zoom values the Python viewer used.
+- Added graph validation for duplicate/missing nodes, missing statuses, missing roots, and edges that point at absent nodes.
+- Added `mole graph layout --json` as a read-only CLI surface over the same Rust model, reporting both graph panes, node/edge counts, zoom, status counts, and validation errors.
+- Updated the dual-surface ledger so State Graphs now lists `graph layout` alongside `graph missing`, `graph next`, and `graph inspect`.
+- Verification for this slice:
+  - `cargo test -p mole_devtool`
+  - `cargo test -p mole_cli`

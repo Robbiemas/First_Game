@@ -4,7 +4,8 @@
       "cli_commands": [
         "graph missing",
         "graph next",
-        "graph inspect"
+        "graph inspect",
+        "graph layout"
       ],
       "cli_surface": "Active",
       "gui_section": "StateGraphs",

@@ -19,7 +19,7 @@ pub use move_keyframes::{
 };
 pub use parity_ledger::{ParityLedgerSurface, ParityLedgerSurfaceRow, ParityLedgerSurfaceTab};
 pub use slippi_replay::SlippiReplaySurface;
-pub use state_graphs::StateGraphsSurface;
+pub use state_graphs::{StateGraphCanvasPair, StateGraphDocument, StateGraphsSurface};
 pub use template::{LedgerTabTemplate, LedgerTabTemplateRow};
 
 use mole_ledger::{

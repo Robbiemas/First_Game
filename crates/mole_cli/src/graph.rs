@@ -2,13 +2,84 @@ use serde_json::{json, Value};
 use std::path::Path;
 
 use crate::{read_json, GraphCommand, SCHEMA_VERSION};
+use mole_devtool::{StateGraphCanvasPair, StateGraphDocument};
 
 pub(crate) fn graph_report(root: &Path, command: &GraphCommand) -> Value {
     match command {
         GraphCommand::Missing => graph_missing_report(root),
         GraphCommand::Next => graph_next_report(root),
         GraphCommand::Inspect { target } => graph_inspect_report(root, target),
+        GraphCommand::Layout => graph_layout_report(root),
     }
+}
+
+pub(crate) fn graph_layout_report(root: &Path) -> Value {
+    let layout_path = "config/state_graph_layout.json";
+    match StateGraphCanvasPair::load(root) {
+        Ok(pair) => {
+            let graph_reports = pair
+                .graphs
+                .iter()
+                .map(graph_layout_graph_report)
+                .collect::<Vec<_>>();
+            let errors = pair.validation_errors();
+            json!({
+                "schema_version": SCHEMA_VERSION,
+                "command": "graph layout",
+                "project_root": root.display().to_string(),
+                "layout_path": layout_path,
+                "graph_paths": [
+                    "docs/state_graphs/melee_reference_graph.json",
+                    "docs/state_graphs/mole_current_graph.json"
+                ],
+                "mutated": false,
+                "ok": errors.is_empty(),
+                "graph_count": pair.graphs.len(),
+                "graphs": graph_reports,
+                "errors": errors,
+            })
+        }
+        Err(error) => json!({
+            "schema_version": SCHEMA_VERSION,
+            "command": "graph layout",
+            "project_root": root.display().to_string(),
+            "layout_path": layout_path,
+            "graph_paths": [
+                "docs/state_graphs/melee_reference_graph.json",
+                "docs/state_graphs/mole_current_graph.json"
+            ],
+            "mutated": false,
+            "ok": false,
+            "graph_count": 0,
+            "graphs": [],
+            "errors": [error],
+        }),
+    }
+}
+
+fn graph_layout_graph_report(graph: &StateGraphDocument) -> Value {
+    json!({
+        "id": graph.id,
+        "title": graph.title,
+        "root": graph.root,
+        "zoom": graph.zoom,
+        "node_count": graph.nodes.len(),
+        "edge_count": graph.edges.len(),
+        "nodes_with_positions": graph.nodes.iter().filter(|node| node.pos != [0.0, 0.0]).count(),
+        "statuses": graph_status_counts(graph),
+        "validation_errors": graph.validation_errors(),
+    })
+}
+
+fn graph_status_counts(graph: &StateGraphDocument) -> Value {
+    let mut counts = std::collections::BTreeMap::<String, usize>::new();
+    for node in &graph.nodes {
+        *counts.entry(node.status.clone()).or_default() += 1;
+    }
+    for edge in &graph.edges {
+        *counts.entry(edge.status.clone()).or_default() += 1;
+    }
+    json!(counts)
 }
 
 pub(crate) fn graph_missing_report(root: &Path) -> Value {
