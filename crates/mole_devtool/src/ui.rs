@@ -1,10 +1,13 @@
 use crate::{
-    template::render_spreadsheet_table, theme::devtool_theme, AppSection, LedgerTabTemplate,
-    ParityLedgerApp, ThemeMode,
+    state_graphs::StateGraphDocument,
+    template::render_spreadsheet_table,
+    theme::{devtool_theme, status_palette},
+    AppSection, LedgerTabTemplate, ParityLedgerApp, ThemeMode,
 };
 use eframe::egui;
 use mole_core::Vec2 as CoreVec2;
 use mole_runtime::{RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene};
+use std::collections::BTreeMap;
 
 pub fn render_app(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     let app_theme = devtool_theme(app.theme());
@@ -153,6 +156,9 @@ fn render_sheet_tab(
 fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     ui.heading("State Graphs");
     ui.label(app.state_graphs.summary());
+    ui.label(format!("Layout: {}", app.state_graph_canvas.layout_path));
+    ui.separator();
+    render_state_graph_canvas_pair(ui, app);
     ui.separator();
 
     let template = LedgerTabTemplate::from(&app.state_graphs);
@@ -171,6 +177,155 @@ fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         selected_row = pending_selection;
     }
     app.selected_state_graph_row = selected_row;
+}
+
+fn render_state_graph_canvas_pair(ui: &mut egui::Ui, app: &ParityLedgerApp) {
+    if app.state_graph_canvas.graphs.is_empty() {
+        ui.label("No state graph canvas data available.");
+        return;
+    }
+
+    let available_width = ui.available_width();
+    let pane_gap = ui.spacing().item_spacing.x;
+    let pane_width = if app.state_graph_canvas.graphs.len() > 1 {
+        ((available_width - pane_gap) / 2.0).max(320.0)
+    } else {
+        available_width.max(320.0)
+    };
+    let pane_height = 390.0;
+    ui.horizontal_top(|ui| {
+        for graph in &app.state_graph_canvas.graphs {
+            ui.allocate_ui_with_layout(
+                egui::vec2(pane_width, pane_height),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| render_state_graph_canvas(ui, app.theme(), graph),
+            );
+        }
+    });
+}
+
+fn render_state_graph_canvas(ui: &mut egui::Ui, theme: ThemeMode, graph: &StateGraphDocument) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.heading(&graph.title);
+                ui.label(format!(
+                    "{} nodes | {} edges | zoom {:.2}x",
+                    graph.nodes.len(),
+                    graph.edges.len(),
+                    graph.zoom
+                ));
+            });
+            if !graph.description.is_empty() {
+                ui.label(&graph.description);
+            }
+            let desired_size = egui::vec2(ui.available_width().max(280.0), 300.0);
+            let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+            let painter = ui.painter_at(rect);
+            let theme_palette = devtool_theme(theme);
+            painter.rect_filled(rect, 4.0, theme_palette.workbench_fill);
+            painter.rect_stroke(
+                rect,
+                4.0,
+                egui::Stroke::new(1.0, theme_palette.panel_border),
+                egui::StrokeKind::Inside,
+            );
+            draw_state_graph_document(&painter, rect.shrink(16.0), theme, graph);
+        });
+    });
+}
+
+fn draw_state_graph_document(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    theme: ThemeMode,
+    graph: &StateGraphDocument,
+) {
+    let Some(bounds) = graph.bounds() else {
+        painter.text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "No nodes.",
+            egui::FontId::proportional(14.0),
+            devtool_theme(theme).muted_text,
+        );
+        return;
+    };
+    let positions = graph
+        .nodes
+        .iter()
+        .map(|node| {
+            (
+                node.id.as_str(),
+                graph_node_screen_pos(rect, bounds, node.pos),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let node_size = egui::vec2(94.0, 42.0);
+
+    for edge in &graph.edges {
+        let (Some(from), Some(to)) = (
+            positions.get(edge.from.as_str()),
+            positions.get(edge.to.as_str()),
+        ) else {
+            continue;
+        };
+        let palette = status_palette(theme, Some(&edge.status), false);
+        painter.line_segment(
+            [*from, *to],
+            egui::Stroke::new(1.5, palette.border.gamma_multiply(0.85)),
+        );
+        let midpoint = egui::pos2((from.x + to.x) * 0.5, (from.y + to.y) * 0.5);
+        painter.circle_filled(midpoint, 3.0, palette.border);
+    }
+
+    for node in &graph.nodes {
+        let Some(center) = positions.get(node.id.as_str()).copied() else {
+            continue;
+        };
+        let palette = status_palette(theme, Some(&node.status), false);
+        let node_rect = egui::Rect::from_center_size(center, node_size);
+        painter.rect_filled(node_rect, 4.0, palette.fill);
+        painter.rect_stroke(
+            node_rect,
+            4.0,
+            egui::Stroke::new(1.5, palette.border),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            node_rect.center_top() + egui::vec2(0.0, 8.0),
+            egui::Align2::CENTER_TOP,
+            if node.label.is_empty() {
+                node.id.as_str()
+            } else {
+                node.label.as_str()
+            },
+            egui::FontId::proportional(11.0),
+            palette.text,
+        );
+        painter.text(
+            node_rect.center_bottom() - egui::vec2(0.0, 14.0),
+            egui::Align2::CENTER_BOTTOM,
+            &node.status,
+            egui::FontId::proportional(9.0),
+            palette.accent_text,
+        );
+    }
+}
+
+fn graph_node_screen_pos(
+    rect: egui::Rect,
+    bounds: crate::state_graphs::StateGraphBounds,
+    pos: [f64; 2],
+) -> egui::Pos2 {
+    let width = (bounds.max_x - bounds.min_x).max(1.0);
+    let height = (bounds.max_y - bounds.min_y).max(1.0);
+    let x = ((pos[0] - bounds.min_x) / width) as f32;
+    let y = ((pos[1] - bounds.min_y) / height) as f32;
+    egui::pos2(
+        rect.left() + x * rect.width(),
+        rect.top() + y * rect.height(),
+    )
 }
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {

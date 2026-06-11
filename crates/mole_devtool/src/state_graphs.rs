@@ -29,6 +29,14 @@ pub struct StateGraphCanvasPair {
     pub layout_path: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StateGraphBounds {
+    pub min_x: f64,
+    pub min_y: f64,
+    pub max_x: f64,
+    pub max_y: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StateGraphDocument {
     pub id: String,
@@ -184,6 +192,13 @@ impl StateGraphCanvasPair {
         self.graphs.iter().find(|graph| graph.id == id)
     }
 
+    pub fn empty() -> Self {
+        Self {
+            graphs: Vec::new(),
+            layout_path: "config/state_graph_layout.json".to_string(),
+        }
+    }
+
     pub fn validation_errors(&self) -> Vec<String> {
         self.graphs
             .iter()
@@ -243,6 +258,23 @@ impl StateGraphDocument {
             }
         }
         errors
+    }
+
+    pub fn bounds(&self) -> Option<StateGraphBounds> {
+        let first = self.nodes.first()?;
+        let mut bounds = StateGraphBounds {
+            min_x: first.pos[0],
+            min_y: first.pos[1],
+            max_x: first.pos[0],
+            max_y: first.pos[1],
+        };
+        for node in &self.nodes {
+            bounds.min_x = bounds.min_x.min(node.pos[0]);
+            bounds.min_y = bounds.min_y.min(node.pos[1]);
+            bounds.max_x = bounds.max_x.max(node.pos[0]);
+            bounds.max_y = bounds.max_y.max(node.pos[1]);
+        }
+        Some(bounds)
     }
 }
 
@@ -437,5 +469,8 @@ mod tests {
         assert_eq!(melee.zoom, 0.712);
         assert_eq!(mole.node_position("Wait"), Some([3.816, -0.569]));
         assert!(pair.validation_errors().is_empty());
+        let bounds = mole.bounds().expect("bounds");
+        assert!(bounds.max_x > bounds.min_x);
+        assert!(bounds.max_y > bounds.min_y);
     }
 }

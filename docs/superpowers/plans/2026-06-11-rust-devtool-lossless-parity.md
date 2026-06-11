@@ -38,7 +38,7 @@
 - Use existing graph JSON and `config/state_graph_layout.json`.
 
 - [x] Add a Rust view model that loads both Melee reference and Mole current graphs.
-- [ ] Render two side-by-side egui graph canvases with status colors matching the Python palette.
+- [x] Render two side-by-side egui graph canvases with status colors matching the Python palette.
 - [ ] Add pan/zoom, node selection, edge selection, and detail panes.
 - [ ] Add node dragging and save-layout support.
 - [ ] Add edge label visibility and pinning with linked equivalent edge behavior.

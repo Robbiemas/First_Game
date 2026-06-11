@@ -5,7 +5,7 @@ use crate::move_keyframes::{
 };
 use crate::parity_ledger::ParityLedgerSurface;
 use crate::slippi_replay::{SlippiReplayLoadOptions, SlippiReplaySurface};
-use crate::state_graphs::StateGraphsSurface;
+use crate::state_graphs::{StateGraphCanvasPair, StateGraphsSurface};
 use crate::ui;
 use crate::ParityLedgerViewModel;
 use eframe::egui;
@@ -32,6 +32,7 @@ pub enum ThemeMode {
 pub struct ParityLedgerApp {
     pub(crate) view_model: ParityLedgerViewModel,
     pub(crate) state_graphs: StateGraphsSurface,
+    pub(crate) state_graph_canvas: StateGraphCanvasPair,
     pub(crate) parity_ledger: ParityLedgerSurface,
     pub(crate) ecb_coverage: EcbCoverageSurface,
     pub(crate) input_trace: InputTraceSurface,
@@ -109,9 +110,12 @@ impl ParityLedgerApp {
         let slippi_replay_start = slippi_replay.focus_start;
         let slippi_replay_end = slippi_replay.focus_end;
         let slippi_replay_max_frames = slippi_replay.rows.len().max(1);
+        let state_graph_canvas = StateGraphCanvasPair::load(&workspace_root)
+            .unwrap_or_else(|_| StateGraphCanvasPair::empty());
         Self {
             view_model,
             state_graphs,
+            state_graph_canvas,
             parity_ledger,
             ecb_coverage,
             input_trace,
@@ -174,6 +178,7 @@ impl ParityLedgerApp {
         let view_model =
             ParityLedgerViewModel::load(root.join("docs/state_graphs/parity_ledger_map.json"))?;
         let state_graphs = StateGraphsSurface::load(root)?;
+        let state_graph_canvas = StateGraphCanvasPair::load(root)?;
         let parity_ledger = ParityLedgerSurface::load(root)?;
         let ecb_coverage = EcbCoverageSurface::load(root)?;
         let input_trace = InputTraceSurface::load(root)?;
@@ -191,7 +196,8 @@ impl ParityLedgerApp {
             move_keyframes,
             move_keyframes_editor,
             root.to_path_buf(),
-        ))
+        )
+        .with_state_graph_canvas(state_graph_canvas))
     }
 
     pub fn load_workspace_root() -> Result<Self, String> {
@@ -329,6 +335,11 @@ impl ParityLedgerApp {
             self.workspace_root.join(path)
         }
     }
+
+    fn with_state_graph_canvas(mut self, state_graph_canvas: StateGraphCanvasPair) -> Self {
+        self.state_graph_canvas = state_graph_canvas;
+        self
+    }
 }
 
 impl eframe::App for ParityLedgerApp {
@@ -381,6 +392,9 @@ mod tests {
             app.state_graph_missing_count(),
             app.state_graphs.missing_node_count + app.state_graphs.missing_edge_count
         );
+        assert_eq!(app.state_graph_canvas.graphs.len(), 2);
+        assert!(app.state_graph_canvas.graph("melee_reference").is_some());
+        assert!(app.state_graph_canvas.graph("mole_current").is_some());
         assert_eq!(app.ledger_tab_count(), 5);
         assert_eq!(app.ecb_coverage_motion_state_count(), 72);
         assert_eq!(app.input_trace_row_count(), 9);

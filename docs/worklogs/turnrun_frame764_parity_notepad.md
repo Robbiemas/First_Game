@@ -429,3 +429,13 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Verification for this slice:
   - `cargo test -p mole_devtool`
   - `cargo test -p mole_cli`
+
+## 2026-06-11 state graph read-only canvas
+
+- The Rust devtool now renders the Melee reference graph and Mole current graph as two side-by-side egui canvases.
+- The panes consume the shared `StateGraphCanvasPair` model and use the Python-derived semantic status palette, keeping the GUI tied to the same data contract as `mole graph layout --json`.
+- The existing missing-entry spreadsheet remains below the canvases so visual graph parity and audit-table parity stay visible in one tab.
+- This is intentionally a read-only parity slice. Pan/zoom, node and edge selection, dragging, save-layout, and edge label pinning remain open in the plan.
+- Verification for this slice:
+  - `cargo fmt --check`
+  - `cargo test -p mole_devtool`
