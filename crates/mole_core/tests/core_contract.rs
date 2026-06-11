@@ -8659,6 +8659,40 @@ fn landing_fall_special_render_pose_uses_source_scaled_landing_animation_rate() 
 }
 
 #[test]
+fn landing_air_render_pose_uses_source_scaled_landing_animation_rate() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::LandingAirF;
+    player.motion_frame = 5;
+    player.landing_lag_ticks = player.profile.landing_air_f_lag_ticks;
+    player.position = Vec2 { x: 1_000, y: 2_000 };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let snapshot = world.snapshot();
+    let ecb = snapshot.players[0].active_ecb;
+
+    // ftCo_LandingAir_EnterWithMsidLag sets anim_speed to
+    // (0.1 + figatree frames) / lag. Falcon LandingAirF has 30 source
+    // samples and 19 landing-lag ticks, so lag tick 5 samples action frame 7.
+    assert_eq!(ecb.bottom, Vec2 { x: 1_000, y: 2_747 });
+    assert_eq!(
+        ecb.top,
+        Vec2 {
+            x: 1_000,
+            y: 14_170
+        }
+    );
+    assert_eq!(ecb.right, Vec2 { x: 5_321, y: 8_459 });
+    assert_eq!(
+        ecb.left,
+        Vec2 {
+            x: -3_321,
+            y: 8_459
+        }
+    );
+}
+
+#[test]
 fn ground_jump_escape_air_uses_locked_floor_probe_for_same_frame_landing() {
     let mut world = World::for_two_players();
     let mut player = world.players()[0];

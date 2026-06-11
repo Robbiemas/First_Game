@@ -585,7 +585,7 @@ mod tests {
                 .map(|view| view.zoom),
             Some(0.712)
         );
-        assert_eq!(app.ledger_tab_count(), 5);
+        assert_eq!(app.ledger_tab_count(), 6);
         assert_eq!(app.ecb_coverage_motion_state_count(), 72);
         assert_eq!(app.input_trace_row_count(), 9);
         assert_eq!(app.slippi_replay_row_count(), 9);

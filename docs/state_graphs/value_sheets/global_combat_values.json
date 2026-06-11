@@ -1,24 +1,14 @@
 {
-  "id": "combat_physics_values",
-  "title": "Combat Physics Values",
-  "scope": "combat_physics",
+  "id": "global_combat_values",
+  "title": "Global Combat Values",
+  "scope": "global_combat",
   "engine_boundary": "rust_core_authority",
   "source": {
-    "captain_falcon": {
-      "file": "resources/melee/raw/PlCa.dat",
-      "format": "HSD DAT, big-endian floats/ints",
-      "ft_data_offset": 39428,
-      "ftco_dat_attrs_len": 388,
-      "ftco_dat_attrs_offset": 14164,
-      "symbol": "ftDataCaptain"
-    },
-    "global": {
-      "common_attributes_offset": 40896,
-      "file": "resources/melee/raw/PlCo.dat",
-      "format": "HSD DAT, big-endian floats/ints",
-      "ft_load_common_data_offset": 60632,
-      "symbol": "ftLoadCommonData"
-    }
+    "common_attributes_offset": 40896,
+    "file": "resources/melee/raw/PlCo.dat",
+    "format": "HSD DAT, big-endian floats/ints",
+    "ft_load_common_data_offset": 60632,
+    "symbol": "ftLoadCommonData"
   },
   "categories": [
     {
@@ -132,19 +122,6 @@
           "comparison_value_kind": "source_f32",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
-        },
-        {
-          "rust_name": "weight",
-          "source_name": "weight",
-          "offset": 136,
-          "offset_hex": "0x88",
-          "kind": "source_f32",
-          "raw": 104.0,
-          "converted_value": 104.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "character",
-          "owner_id": "captain_falcon"
         }
       ]
     },

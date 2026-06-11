@@ -2215,7 +2215,8 @@ fn command_help_catalog() -> Value {
                 "docs/state_graphs/value_sheets/global_common_values.json",
                 "docs/state_graphs/value_sheets/captain_falcon_values.json",
                 "docs/state_graphs/value_sheets/physics_engine_values.json",
-                "docs/state_graphs/value_sheets/combat_physics_values.json",
+                "docs/state_graphs/value_sheets/global_combat_values.json",
+                "docs/state_graphs/value_sheets/captain_falcon_combat_values.json",
                 "docs/state_graphs/value_sheets/battlefield_stage_values.json"
             ],
             "output_modes": ["json", "text", "markdown"],
@@ -3119,8 +3120,12 @@ fn generated_artifact_paths() -> Vec<(&'static str, &'static str)> {
             "docs/state_graphs/value_sheets/physics_engine_values.json",
         ),
         (
-            "combat physics value sheet",
-            "docs/state_graphs/value_sheets/combat_physics_values.json",
+            "global combat value sheet",
+            "docs/state_graphs/value_sheets/global_combat_values.json",
+        ),
+        (
+            "captain falcon combat value sheet",
+            "docs/state_graphs/value_sheets/captain_falcon_combat_values.json",
         ),
         (
             "battlefield stage value sheet",

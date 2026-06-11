@@ -130,10 +130,22 @@ fn build_battlefield_stage_asset() -> Value {
         "stage_name": "Battlefield",
         "engine_boundary": "rust_core_authority",
         "source": {
-            "kind": "rust_baked_stage_asset_pending_stage_extract",
+            "kind": "rust_baked_stage_asset_pending_grnba_dat_extract",
             "profile_name": stage.name,
             "reference_stage": "Battlefield",
-            "notes": "Battlefield is the first stage asset template. The pipeline is generic so later stage extractions can populate the same shape."
+            "required_raw_dat": "resources/melee/raw/GrNBa.dat",
+            "decomp_refs": [
+                ".research/doldecomp-melee/src/melee/gr/grbattle.c",
+                ".research/doldecomp-melee/src/melee/gr/grdatfiles.c",
+                ".research/doldecomp-melee/src/melee/gr/ground.c",
+                ".research/doldecomp-melee/src/melee/mp/types.h"
+            ],
+            "required_public_symbols": [
+                "map_head",
+                "coll_data",
+                "grGroundParam"
+            ],
+            "notes": "Current numeric values are the Rust baked Battlefield profile. True stage parity requires extracting /GrNBa.dat coll_data into the MapCollData shape used by mpLibLoad."
         },
         "main_floor": surface_to_json(stage.main_floor),
         "soft_platforms": stage.soft_platforms.iter().copied().map(surface_to_json).collect::<Vec<_>>(),

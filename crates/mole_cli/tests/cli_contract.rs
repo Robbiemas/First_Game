@@ -2868,13 +2868,16 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
     let global_sheet = root.join("docs/state_graphs/value_sheets/global_common_values.json");
     let falcon_sheet = root.join("docs/state_graphs/value_sheets/captain_falcon_values.json");
     let physics_sheet = root.join("docs/state_graphs/value_sheets/physics_engine_values.json");
-    let combat_sheet = root.join("docs/state_graphs/value_sheets/combat_physics_values.json");
+    let global_combat_sheet = root.join("docs/state_graphs/value_sheets/global_combat_values.json");
+    let falcon_combat_sheet =
+        root.join("docs/state_graphs/value_sheets/captain_falcon_combat_values.json");
     let battlefield_sheet =
         root.join("docs/state_graphs/value_sheets/battlefield_stage_values.json");
     write_json(&global_sheet, &json!({"rows": []}));
     write_json(&falcon_sheet, &json!({"rows": []}));
     write_json(&physics_sheet, &json!({"rows": []}));
-    write_json(&combat_sheet, &json!({"rows": []}));
+    write_json(&global_combat_sheet, &json!({"rows": []}));
+    write_json(&falcon_combat_sheet, &json!({"rows": []}));
     write_json(&battlefield_sheet, &json!({"rows": []}));
 
     thread::sleep(Duration::from_millis(50));
@@ -2984,6 +2987,10 @@ fn generated_write_stage_asset_emits_battlefield_stage_blob() {
     assert!(stage_asset.contains("\"stage_id\": \"battlefield\""));
     assert!(stage_asset.contains("\"stage_name\": \"Battlefield\""));
     assert!(stage_asset.contains("\"soft_platforms\""));
+    assert!(stage_asset.contains("\"kind\": \"rust_baked_stage_asset_pending_grnba_dat_extract\""));
+    assert!(stage_asset.contains("\"required_raw_dat\": \"resources/melee/raw/GrNBa.dat\""));
+    assert!(stage_asset.contains(".research/doldecomp-melee/src/melee/gr/grbattle.c"));
+    assert!(stage_asset.contains(".research/doldecomp-melee/src/melee/mp/types.h"));
 }
 
 #[test]
@@ -3010,7 +3017,7 @@ fn generated_write_ledger_map_emits_the_dual_surface_registry() {
         .unwrap()
         .contains(&json!("docs/state_graphs/parity_ledger_map.json")));
     let consumed_map = LedgerMap::load(&ledger_map_path).unwrap();
-    assert_eq!(consumed_map.registry.tab_count, 10);
+    assert_eq!(consumed_map.registry.tab_count, 11);
     assert!(consumed_map.is_dual_surface());
     assert!(ledger_map.contains("\"global_values\""));
     assert!(ledger_map.contains("\"cli_surface\""));
@@ -3036,12 +3043,12 @@ fn devtool_ledger_returns_gui_ready_view_model() {
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
 
     assert_eq!(parsed["command"], "devtool ledger");
-    assert_eq!(parsed["ledger"]["registry"]["tab_count"], 10);
+    assert_eq!(parsed["ledger"]["registry"]["tab_count"], 11);
     assert!(parsed["ledger"]["registry"]["dual_surface"]
         .as_bool()
         .unwrap());
     assert_eq!(parsed["ledger"]["tabs"][0]["id"], "global_values");
-    assert_eq!(parsed["ledger"]["tabs"][4]["id"], "stage_values");
+    assert_eq!(parsed["ledger"]["tabs"][5]["id"], "stage_values");
 }
 
 #[test]
@@ -3142,7 +3149,7 @@ fn agent_brief_returns_compaction_anchor_parity_missing_graph_and_request_contex
         .unwrap()
         .contains("human-noticeable Falcon-like movement parity"));
     assert_eq!(parsed["parity"]["value_total_rows"], 2);
-    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 11);
     assert_eq!(parsed["missing_graph"]["missing_count"], 1);
     assert_eq!(parsed["graph_next"]["ranked_count"], 2);
     assert_eq!(
@@ -4038,7 +4045,7 @@ fn snapshot_command_returns_compact_agent_parity_context() {
         parsed["falcon_ecb"]["unmapped_derived_states"][0],
         "KneeBend"
     );
-    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 11);
     assert!(parsed["ledger_map"]["registry"]["dual_surface"]
         .as_bool()
         .unwrap());
@@ -4063,8 +4070,8 @@ fn parity_report_includes_owned_ledger_map_summary() {
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
 
     assert_eq!(parsed["command"], "parity");
-    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 10);
-    assert_eq!(parsed["ledger_map"]["registry"]["active_tab_count"], 5);
+    assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 11);
+    assert_eq!(parsed["ledger_map"]["registry"]["active_tab_count"], 6);
     assert_eq!(parsed["ledger_map"]["registry"]["planned_tab_count"], 5);
     assert!(parsed["ledger_map"]["registry"]["dual_surface"]
         .as_bool()

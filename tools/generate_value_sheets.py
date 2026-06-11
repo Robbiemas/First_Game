@@ -158,6 +158,57 @@ CHARACTER_CATEGORIES = {
     ],
 }
 
+GLOBAL_COMBAT_CATEGORIES = {
+    "knockback": [
+        "knockback_weight_multiplier",
+        "knockback_decay",
+        "knockback_cap",
+        "knockback_damage_scale",
+        "knockback_hit_count_scale",
+        "knockback_weight_set_damage",
+        "knockback_result_scale",
+        "knockback_result_offset",
+        "damage_knockback_velocity_scale",
+    ],
+    "damage_motion_thresholds": [
+        "damage_landing_basic_knockback_threshold",
+        "damage_landing_down_bound_knockback_threshold",
+        "damage_motion_tier_1_threshold",
+        "damage_motion_tier_2_threshold",
+        "damage_motion_tier_3_threshold",
+        "down_wait_timer",
+    ],
+    "damage_angles": [
+        "damage_sakurai_air_angle_radians",
+        "damage_sakurai_ground_angle_degrees",
+        "damage_sakurai_ground_max_knockback",
+        "damage_sakurai_ground_min_knockback",
+    ],
+    "hitlag_and_lcancel": [
+        "hitlag_base_frames",
+        "hitlag_crouch_multiplier",
+        "hitlag_damage_scale",
+        "hitlag_max_frames",
+        "lcancel_divisor",
+        "lcancel_window",
+    ],
+    "passive_and_recovery": [
+        "down_stand_stick_y",
+        "passive_input_age_threshold",
+        "passive_stand_stick_x",
+        "passive_window_max",
+    ],
+    "damage_response": [
+        "damage_duration_scale",
+    ],
+}
+
+FALCON_COMBAT_CATEGORIES = {
+    "combat_attributes": [
+        "weight",
+    ],
+}
+
 
 def build_global_sheet(path: Path = DEFAULT_COMMON) -> dict[str, Any]:
     payload = _read_json(path)
@@ -189,6 +240,39 @@ def build_character_sheet(
     )
 
 
+def build_global_combat_sheet(path: Path = DEFAULT_COMMON) -> dict[str, Any]:
+    payload = _read_json(path)
+    return _build_sheet(
+        sheet_id="global_combat_values",
+        title="Global Combat Values",
+        scope="global_combat",
+        source=payload["source"],
+        fields=payload["fields"],
+        categories=GLOBAL_COMBAT_CATEGORIES,
+        extra={},
+        owner_scope="global",
+    )
+
+
+def build_falcon_combat_sheet(
+    path: Path = DEFAULT_FALCON,
+    *,
+    character_id: str = "captain_falcon",
+) -> dict[str, Any]:
+    payload = _read_json(path)
+    return _build_sheet(
+        sheet_id=f"{character_id}_combat_values",
+        title="Captain Falcon Combat Values",
+        scope="character_combat",
+        source=payload["source"],
+        fields=payload["fields"],
+        categories=FALCON_COMBAT_CATEGORIES,
+        extra={"character_id": character_id},
+        owner_scope="character",
+        owner_id=character_id,
+    )
+
+
 def generate_value_sheets(
     common_path: Path = DEFAULT_COMMON,
     falcon_path: Path = DEFAULT_FALCON,
@@ -198,6 +282,11 @@ def generate_value_sheets(
     sheets = [
         (output_dir / "global_common_values.json", build_global_sheet(common_path)),
         (output_dir / "captain_falcon_values.json", build_character_sheet(falcon_path)),
+        (output_dir / "global_combat_values.json", build_global_combat_sheet(common_path)),
+        (
+            output_dir / "captain_falcon_combat_values.json",
+            build_falcon_combat_sheet(falcon_path),
+        ),
     ]
     for path, sheet in sheets:
         path.write_text(
@@ -216,6 +305,8 @@ def _build_sheet(
     fields: dict[str, Any],
     categories: dict[str, list[str]],
     extra: dict[str, Any],
+    owner_scope: str | None = None,
+    owner_id: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": sheet_id,
@@ -229,7 +320,7 @@ def _build_sheet(
                 "id": category_id,
                 "label": category_id.replace("_", " ").title(),
                 "fields": [
-                    _field_row(rust_name, fields[rust_name])
+                    _field_row(rust_name, fields[rust_name], owner_scope, owner_id)
                     for rust_name in rust_names
                 ],
             }
@@ -238,8 +329,13 @@ def _build_sheet(
     }
 
 
-def _field_row(rust_name: str, field: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _field_row(
+    rust_name: str,
+    field: dict[str, Any],
+    owner_scope: str | None = None,
+    owner_id: str | None = None,
+) -> dict[str, Any]:
+    row = {
         "rust_name": rust_name,
         "source_name": field["source_name"],
         "offset": field["offset"],
@@ -250,6 +346,11 @@ def _field_row(rust_name: str, field: dict[str, Any]) -> dict[str, Any]:
         "comparison_value_kind": _comparison_value_kind(rust_name, field),
         "provenance": "extracted_melee_dat",
     }
+    if owner_scope is not None:
+        row["owner_scope"] = owner_scope
+    if owner_id is not None:
+        row["owner_id"] = owner_id
+    return row
 
 
 def _converted_value(rust_name: str, field: dict[str, Any]) -> int | float | None:

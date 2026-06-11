@@ -17,7 +17,8 @@ pub(crate) const VALUE_SHEET_OUTPUTS: &[&str] = &[
     "docs/state_graphs/value_sheets/global_common_values.json",
     "docs/state_graphs/value_sheets/captain_falcon_values.json",
     "docs/state_graphs/value_sheets/physics_engine_values.json",
-    "docs/state_graphs/value_sheets/combat_physics_values.json",
+    "docs/state_graphs/value_sheets/global_combat_values.json",
+    "docs/state_graphs/value_sheets/captain_falcon_combat_values.json",
     "docs/state_graphs/value_sheets/battlefield_stage_values.json",
 ];
 
@@ -376,160 +377,67 @@ const PHYSICS_ENGINE_CATEGORIES: &[(&str, &[FieldSpec])] = &[
     ),
 ];
 
-const COMBAT_PHYSICS_CATEGORIES: &[(&str, &[FieldSpec])] = &[
+const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
     (
         "knockback",
         &[
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_weight_multiplier",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_decay",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_cap",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_damage_scale",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_hit_count_scale",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_weight_set_damage",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_result_scale",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "knockback_result_offset",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_knockback_velocity_scale",
-            },
-            FieldSpec {
-                owner: FieldOwner::Falcon,
-                rust_name: "weight",
-            },
+            "knockback_weight_multiplier",
+            "knockback_decay",
+            "knockback_cap",
+            "knockback_damage_scale",
+            "knockback_hit_count_scale",
+            "knockback_weight_set_damage",
+            "knockback_result_scale",
+            "knockback_result_offset",
+            "damage_knockback_velocity_scale",
         ],
     ),
     (
         "damage_motion_thresholds",
         &[
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_landing_basic_knockback_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_landing_down_bound_knockback_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_motion_tier_1_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_motion_tier_2_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_motion_tier_3_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "down_wait_timer",
-            },
+            "damage_landing_basic_knockback_threshold",
+            "damage_landing_down_bound_knockback_threshold",
+            "damage_motion_tier_1_threshold",
+            "damage_motion_tier_2_threshold",
+            "damage_motion_tier_3_threshold",
+            "down_wait_timer",
         ],
     ),
     (
         "damage_angles",
         &[
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_sakurai_air_angle_radians",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_sakurai_ground_angle_degrees",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_sakurai_ground_max_knockback",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "damage_sakurai_ground_min_knockback",
-            },
+            "damage_sakurai_air_angle_radians",
+            "damage_sakurai_ground_angle_degrees",
+            "damage_sakurai_ground_max_knockback",
+            "damage_sakurai_ground_min_knockback",
         ],
     ),
     (
         "hitlag_and_lcancel",
         &[
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "hitlag_base_frames",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "hitlag_crouch_multiplier",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "hitlag_damage_scale",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "hitlag_max_frames",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "lcancel_divisor",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "lcancel_window",
-            },
+            "hitlag_base_frames",
+            "hitlag_crouch_multiplier",
+            "hitlag_damage_scale",
+            "hitlag_max_frames",
+            "lcancel_divisor",
+            "lcancel_window",
         ],
     ),
     (
         "passive_and_recovery",
         &[
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "down_stand_stick_y",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "passive_input_age_threshold",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "passive_stand_stick_x",
-            },
-            FieldSpec {
-                owner: FieldOwner::Global,
-                rust_name: "passive_window_max",
-            },
+            "down_stand_stick_y",
+            "passive_input_age_threshold",
+            "passive_stand_stick_x",
+            "passive_window_max",
         ],
     ),
-    (
-        "damage_response",
-        &[FieldSpec {
-            owner: FieldOwner::Global,
-            rust_name: "damage_duration_scale",
-        }],
-    ),
+    ("damage_response", &["damage_duration_scale"]),
 ];
+
+const FALCON_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[("combat_attributes", &["weight"])];
+const BATTLEFIELD_STAGE_PENDING_PROVENANCE: &str =
+    "rust_baked_stage_asset_pending_grnba_dat_extract";
 
 #[derive(Serialize)]
 struct ValueSheet {
@@ -720,23 +628,32 @@ fn build_sheet_outputs(root: &Path) -> Result<Vec<SheetOutput>, String> {
         },
         SheetOutput {
             relative_path: VALUE_SHEET_OUTPUTS[3],
-            sheet: build_mixed_sheet(
-                "combat_physics_values",
-                "Combat Physics Values",
-                "combat_physics",
-                json!({
-                    "global": global_source.source.clone(),
-                    "captain_falcon": falcon_source.source.clone(),
-                }),
+            sheet: build_extracted_sheet(
+                "global_combat_values",
+                "Global Combat Values",
+                "global_combat",
+                global_source.source.clone(),
                 None,
                 None,
-                COMBAT_PHYSICS_CATEGORIES,
+                GLOBAL_COMBAT_CATEGORIES,
                 &global_source,
-                &falcon_source,
             )?,
         },
         SheetOutput {
             relative_path: VALUE_SHEET_OUTPUTS[4],
+            sheet: build_extracted_sheet(
+                "captain_falcon_combat_values",
+                "Captain Falcon Combat Values",
+                "character_combat",
+                falcon_source.source.clone(),
+                Some("captain_falcon"),
+                None,
+                FALCON_COMBAT_CATEGORIES,
+                &falcon_source,
+            )?,
+        },
+        SheetOutput {
+            relative_path: VALUE_SHEET_OUTPUTS[5],
             sheet: build_battlefield_stage_sheet(),
         },
     ])
@@ -848,35 +765,35 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             &format!("{}.left_x", surface.name),
             "stage_coord_milli",
             surface.left_x,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         surface_fields.push(stage_int_row(
             &format!("{}.right_x", surface.name),
             &format!("{}.right_x", surface.name),
             "stage_coord_milli",
             surface.right_x,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         surface_fields.push(stage_int_row(
             &format!("{}.y", surface.name),
             &format!("{}.y", surface.name),
             "stage_coord_milli",
             surface.y,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         surface_fields.push(stage_enum_row(
             &format!("{}.kind", surface.name),
             &format!("{}.kind", surface.name),
             "stage_surface_kind",
             surface_kind_label(surface.kind),
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         surface_fields.push(stage_float_row(
             &format!("{}.friction_multiplier", surface.name),
             &format!("{}.friction_multiplier", surface.name),
             "source_f32",
             surface.friction_multiplier,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
     }
 
@@ -886,28 +803,28 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             "blast_zones.left_x",
             "stage_coord_milli",
             stage.blast_zones.left_x,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.right_x",
             "blast_zones.right_x",
             "stage_coord_milli",
             stage.blast_zones.right_x,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.top_y",
             "blast_zones.top_y",
             "stage_coord_milli",
             stage.blast_zones.top_y,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ),
         stage_int_row(
             "blast_zones.bottom_y",
             "blast_zones.bottom_y",
             "stage_coord_milli",
             stage.blast_zones.bottom_y,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ),
     ];
 
@@ -919,21 +836,21 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
             &format!("{label}.x"),
             "stage_coord_milli",
             spawn_point.x,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         spawn_point_fields.push(stage_int_row(
             &format!("{label}.y"),
             &format!("{label}.y"),
             "stage_coord_milli",
             spawn_point.y,
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
         spawn_point_fields.push(stage_int_row(
             &format!("{label}.facing"),
             &format!("{label}.facing"),
             "stage_facing",
             i32::from(spawn_point.facing),
-            "rust_baked_stage_asset_pending_stage_extract",
+            BATTLEFIELD_STAGE_PENDING_PROVENANCE,
         ));
     }
 
@@ -945,8 +862,20 @@ fn build_battlefield_stage_sheet() -> ValueSheet {
         source: json!({
             "stage_profile_name": stage.name,
             "reference_stage": "Battlefield",
-            "provenance": "rust_baked_stage_asset_pending_stage_extract",
-            "notes": "Current development stage is Battlefield-aligned in Rust while the generalized decomp stage extraction pipeline is still being built."
+            "provenance": BATTLEFIELD_STAGE_PENDING_PROVENANCE,
+            "required_raw_dat": "resources/melee/raw/GrNBa.dat",
+            "decomp_refs": [
+                ".research/doldecomp-melee/src/melee/gr/grbattle.c",
+                ".research/doldecomp-melee/src/melee/gr/grdatfiles.c",
+                ".research/doldecomp-melee/src/melee/gr/ground.c",
+                ".research/doldecomp-melee/src/melee/mp/types.h"
+            ],
+            "required_public_symbols": [
+                "map_head",
+                "coll_data",
+                "grGroundParam"
+            ],
+            "notes": "Current values are the Rust baked Battlefield profile. True stage parity requires extracting /GrNBa.dat coll_data into the MapCollData shape used by mpLibLoad."
         }),
         character_id: None,
         stage_id: Some("battlefield".to_string()),

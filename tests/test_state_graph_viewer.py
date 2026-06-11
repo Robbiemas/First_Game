@@ -611,7 +611,8 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     assert "global_common_values: 7 categories, 72 fields" in text
     assert "captain_falcon_values: 5 categories, 40 fields" in text
     assert "physics_engine_values: 3 categories, 36 fields" in text
-    assert "combat_physics_values: 6 categories, 30 fields" in text
+    assert "global_combat_values: 6 categories, 30 fields" in text
+    assert "captain_falcon_combat_values: 1 categories, 1 fields" in text
     assert "battlefield_stage_values: 3 categories, 36 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text
     assert "Dash-related physics edges:" in text
@@ -769,6 +770,36 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     assert landing_air_f["rust_field"] == "landing_air_f_lag_ticks"
     assert landing_air_f["rust_value"] == 19
     assert landing_air_f["status"] == "match"
+
+
+def test_physics_engine_value_comparison_resolves_character_owned_fields():
+    sheets = load_value_sheets(ROOT / "docs" / "state_graphs" / "value_sheets")
+    physics_sheet = next(sheet for sheet in sheets if sheet["id"] == "physics_engine_values")
+    rust_values = {**load_rust_global_values(), **load_rust_character_values()}
+
+    rows = build_value_comparison_rows(physics_sheet, rust_values)
+    rows_by_field = {row["field"]: row for row in rows}
+
+    assert len(rows) == 36
+    assert rows_by_field["grav"]["rust_field"] == "gravity"
+    assert rows_by_field["grav"]["rust_value"] == 0.12999999523162842
+    assert rows_by_field["grav"]["status"] == "match"
+    assert rows_by_field["terminal_vel"]["rust_field"] == "terminal_velocity"
+    assert rows_by_field["terminal_vel"]["status"] == "match"
+    assert (
+        rows_by_field["jump_h_initial_velocity"]["rust_field"]
+        == "jump_horizontal_initial_velocity"
+    )
+    assert rows_by_field["jump_h_initial_velocity"]["status"] == "match"
+    assert (
+        rows_by_field["jump_v_initial_velocity"]["rust_field"]
+        == "jump_vertical_initial_velocity"
+    )
+    assert rows_by_field["jump_v_initial_velocity"]["status"] == "match"
+    assert rows_by_field["jump_h_max_velocity"]["rust_field"] == "jump_horizontal_max_velocity"
+    assert rows_by_field["jump_h_max_velocity"]["status"] == "match"
+    assert rows_by_field["air_drift_stick_mul"]["rust_field"] == "air_drift_stick_multiplier"
+    assert rows_by_field["air_drift_stick_mul"]["status"] == "match"
 
 
 def test_state_graph_data_files_define_reference_and_current_graphs():
@@ -1159,14 +1190,16 @@ def test_value_sheets_load_for_viewer_summary():
         "global_common_values",
         "captain_falcon_values",
         "physics_engine_values",
-        "combat_physics_values",
+        "global_combat_values",
+        "captain_falcon_combat_values",
         "battlefield_stage_values",
     ]
     assert summarize_value_sheet(sheets[0])["fields"] >= 10
     assert summarize_value_sheet(sheets[1])["fields"] >= 10
     assert summarize_value_sheet(sheets[2])["fields"] >= 10
     assert summarize_value_sheet(sheets[3])["fields"] >= 10
-    assert summarize_value_sheet(sheets[4])["fields"] >= 10
+    assert summarize_value_sheet(sheets[4])["fields"] == 1
+    assert summarize_value_sheet(sheets[5])["fields"] >= 10
 
 
 def test_grounded_locomotion_nodes_have_source_rust_test_and_value_refs():

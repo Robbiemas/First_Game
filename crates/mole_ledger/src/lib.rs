@@ -317,7 +317,8 @@ fn devtool_surfaces() -> Vec<DevtoolSurfaceSpec> {
                 "docs/state_graphs/value_sheets/global_common_values.json",
                 "docs/state_graphs/value_sheets/captain_falcon_values.json",
                 "docs/state_graphs/value_sheets/physics_engine_values.json",
-                "docs/state_graphs/value_sheets/combat_physics_values.json",
+                "docs/state_graphs/value_sheets/global_combat_values.json",
+                "docs/state_graphs/value_sheets/captain_falcon_combat_values.json",
                 "docs/state_graphs/value_sheets/battlefield_stage_values.json",
             ],
         },
@@ -431,20 +432,30 @@ fn roadmap_tabs() -> Vec<LedgerTabSpec> {
             outputs: &["docs/state_graphs/value_sheets/physics_engine_values.json"],
         },
         LedgerTabSpec {
-            id: "combat_physics_values",
-            label: "Combat Physics Values",
+            id: "global_combat_values",
+            label: "Global Combat Values",
             kind: LedgerTabKind::Combat,
             status: LedgerTabStatus::Active,
             access: LedgerAccess {
                 cli: LedgerSurfaceState::Active,
                 gui: LedgerSurfaceState::Active,
             },
-            summary: "Knockback, hitlag, landing, and other combat response math.",
-            source_artifacts: &[
-                "resources/melee/extracted/plco_common_data.json",
-                "resources/melee/extracted/captain_falcon_profile.json",
-            ],
-            outputs: &["docs/state_graphs/value_sheets/combat_physics_values.json"],
+            summary: "Global knockback, hitlag, landing, and other combat response math.",
+            source_artifacts: &["resources/melee/extracted/plco_common_data.json"],
+            outputs: &["docs/state_graphs/value_sheets/global_combat_values.json"],
+        },
+        LedgerTabSpec {
+            id: "captain_falcon_combat_values",
+            label: "Captain Falcon Combat Values",
+            kind: LedgerTabKind::Combat,
+            status: LedgerTabStatus::Active,
+            access: LedgerAccess {
+                cli: LedgerSurfaceState::Active,
+                gui: LedgerSurfaceState::Active,
+            },
+            summary: "Captain Falcon combat-specific character attributes currently used by global combat math.",
+            source_artifacts: &["resources/melee/extracted/captain_falcon_profile.json"],
+            outputs: &["docs/state_graphs/value_sheets/captain_falcon_combat_values.json"],
         },
         LedgerTabSpec {
             id: "stage_values",
@@ -542,7 +553,8 @@ mod tests {
                 "global_values",
                 "character_values",
                 "physics_engine_values",
-                "combat_physics_values",
+                "global_combat_values",
+                "captain_falcon_combat_values",
                 "stage_values",
                 "action_motion_tables",
                 "collision_volumes",
@@ -557,7 +569,7 @@ mod tests {
                 .iter()
                 .filter(|tab| tab.status == LedgerTabStatus::Active)
                 .count(),
-            5
+            6
         );
         assert_eq!(
             registry
@@ -591,14 +603,14 @@ mod tests {
         let json = serde_json::to_string_pretty(&ledger_map).unwrap();
         let parsed: LedgerMap = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(parsed.registry.tab_count, 10);
+        assert_eq!(parsed.registry.tab_count, 11);
         assert_eq!(parsed.registry.devtool_surface_count, 6);
-        assert_eq!(parsed.tabs.len(), 10);
+        assert_eq!(parsed.tabs.len(), 11);
         assert_eq!(parsed.devtool_surfaces.len(), 6);
         assert!(parsed.is_dual_surface());
         assert_eq!(parsed.tabs[0].id, "global_values");
         assert_eq!(parsed.tabs[0].cli_surface, LedgerSurfaceState::Active);
-        assert_eq!(parsed.tabs[5].status, LedgerTabStatus::Planned);
+        assert_eq!(parsed.tabs[6].status, LedgerTabStatus::Planned);
         assert_eq!(parsed.devtool_surfaces[3].id, "input_trace");
         assert!(parsed.devtool_surfaces[3]
             .cli_commands
@@ -616,7 +628,8 @@ mod tests {
                 "global_values",
                 "character_values",
                 "physics_engine_values",
-                "combat_physics_values",
+                "global_combat_values",
+                "captain_falcon_combat_values",
                 "stage_values",
             ]
         );

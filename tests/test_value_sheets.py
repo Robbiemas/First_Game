@@ -11,6 +11,8 @@ from tools.generate_value_sheets import (
 ROOT = Path(__file__).resolve().parents[1]
 COMMON = ROOT / "resources" / "melee" / "extracted" / "plco_common_data.json"
 FALCON = ROOT / "resources" / "melee" / "extracted" / "captain_falcon_profile.json"
+GLOBAL_COMBAT_SHEET = ROOT / "docs" / "state_graphs" / "value_sheets" / "global_combat_values.json"
+FALCON_COMBAT_SHEET = ROOT / "docs" / "state_graphs" / "value_sheets" / "captain_falcon_combat_values.json"
 
 
 def test_global_value_sheet_groups_common_movement_fields():
@@ -80,6 +82,8 @@ def test_character_value_sheet_groups_falcon_locomotion_fields():
 def test_value_sheets_expose_every_extracted_decomp_field():
     common_fields = set(json.loads(COMMON.read_text(encoding="utf-8"))["fields"])
     falcon_fields = set(json.loads(FALCON.read_text(encoding="utf-8"))["fields"])
+    global_combat_sheet = json.loads(GLOBAL_COMBAT_SHEET.read_text(encoding="utf-8"))
+    falcon_combat_sheet = json.loads(FALCON_COMBAT_SHEET.read_text(encoding="utf-8"))
 
     global_sheet = build_global_sheet(COMMON)
     falcon_sheet = build_character_sheet(FALCON, character_id="captain_falcon")
@@ -93,9 +97,52 @@ def test_value_sheets_expose_every_extracted_decomp_field():
         for category in falcon_sheet["categories"]
         for field in category["fields"]
     }
+    global_combat_sheet_fields = {
+        field["rust_name"]
+        for category in global_combat_sheet["categories"]
+        for field in category["fields"]
+    }
+    falcon_combat_sheet_fields = {
+        field["rust_name"]
+        for category in falcon_combat_sheet["categories"]
+        for field in category["fields"]
+    }
 
-    assert global_sheet_fields == common_fields
-    assert falcon_sheet_fields == falcon_fields
+    assert common_fields <= global_sheet_fields | global_combat_sheet_fields
+    assert falcon_fields <= falcon_sheet_fields | falcon_combat_sheet_fields
+
+
+def test_combat_value_sheets_split_global_and_falcon_fields():
+    from tools.generate_value_sheets import build_falcon_combat_sheet, build_global_combat_sheet
+
+    global_combat = build_global_combat_sheet(COMMON)
+    falcon_combat = build_falcon_combat_sheet(FALCON, character_id="captain_falcon")
+
+    assert global_combat["id"] == "global_combat_values"
+    assert global_combat["scope"] == "global_combat"
+    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 30
+    assert all(
+        field.get("owner_scope") == "global"
+        for category in global_combat["categories"]
+        for field in category["fields"]
+    )
+    global_fields = {
+        field["rust_name"]: field
+        for category in global_combat["categories"]
+        for field in category["fields"]
+    }
+    assert global_fields["damage_knockback_velocity_scale"]["converted_value"] == 0.029999999329447746
+    assert global_fields["passive_window_max"]["converted_value"] == 9.600000381469727
+
+    assert falcon_combat["id"] == "captain_falcon_combat_values"
+    assert falcon_combat["scope"] == "character_combat"
+    assert falcon_combat["character_id"] == "captain_falcon"
+    assert sum(len(category["fields"]) for category in falcon_combat["categories"]) == 1
+    weight = falcon_combat["categories"][0]["fields"][0]
+    assert weight["rust_name"] == "weight"
+    assert weight["owner_scope"] == "character"
+    assert weight["owner_id"] == "captain_falcon"
+    assert weight["converted_value"] == 104.0
 
 
 def test_generate_value_sheets_writes_stable_json_files(tmp_path):
@@ -106,6 +153,8 @@ def test_generate_value_sheets_writes_stable_json_files(tmp_path):
     assert generated == [
         output_dir / "global_common_values.json",
         output_dir / "captain_falcon_values.json",
+        output_dir / "global_combat_values.json",
+        output_dir / "captain_falcon_combat_values.json",
     ]
     assert generated[0].read_text(encoding="utf-8").endswith("\n")
     assert generated[1].read_text(encoding="utf-8").endswith("\n")

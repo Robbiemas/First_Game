@@ -1286,7 +1286,7 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact neutral-aerial landing state from AttackAirN ground contact, maps generated Falcon action-table ECB samples from action 73, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairn_lag window.",
+      "notes": "Rust enters the exact neutral-aerial landing state from AttackAirN ground contact, maps generated Falcon action-table ECB samples from action 73, keeps LandingAir_IASA empty, exits through shared Landing_Anim completion using the extracted Falcon landingairn_lag window, and samples render/ECB pose through the ftCo_LandingAir_EnterWithMsidLag animation-rate formula (source figatree frames + 0.1) / lag.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
@@ -1307,7 +1307,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
+        "Stale landing-lag scaling through fp->x67F < p_ftCommonData->xE4 remains pending."
       ]
     },
     {
@@ -1318,7 +1318,7 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact forward-aerial landing state from AttackAirF ground contact, maps generated Falcon action-table ECB samples from action 74, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairf_lag window.",
+      "notes": "Rust enters the exact forward-aerial landing state from AttackAirF ground contact, maps generated Falcon action-table ECB samples from action 74, keeps LandingAir_IASA empty, exits through shared Landing_Anim completion using the extracted Falcon landingairf_lag window, and samples render/ECB pose through the ftCo_LandingAir_EnterWithMsidLag animation-rate formula (source figatree frames + 0.1) / lag.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
@@ -1339,7 +1339,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
+        "Stale landing-lag scaling through fp->x67F < p_ftCommonData->xE4 remains pending."
       ]
     },
     {
@@ -1350,7 +1350,7 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact back-aerial landing state from AttackAirB ground contact, maps generated Falcon action-table ECB samples from action 75, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairb_lag window.",
+      "notes": "Rust enters the exact back-aerial landing state from AttackAirB ground contact, maps generated Falcon action-table ECB samples from action 75, keeps LandingAir_IASA empty, exits through shared Landing_Anim completion using the extracted Falcon landingairb_lag window, and samples render/ECB pose through the ftCo_LandingAir_EnterWithMsidLag animation-rate formula (source figatree frames + 0.1) / lag.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
@@ -1371,7 +1371,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
+        "Stale landing-lag scaling through fp->x67F < p_ftCommonData->xE4 remains pending."
       ]
     },
     {
@@ -1382,7 +1382,7 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact up-aerial landing state from AttackAirHi ground contact, maps generated Falcon action-table ECB samples from action 76, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairhi_lag window.",
+      "notes": "Rust enters the exact up-aerial landing state from AttackAirHi ground contact, maps generated Falcon action-table ECB samples from action 76, keeps LandingAir_IASA empty, exits through shared Landing_Anim completion using the extracted Falcon landingairhi_lag window, and samples render/ECB pose through the ftCo_LandingAir_EnterWithMsidLag animation-rate formula (source figatree frames + 0.1) / lag.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
@@ -1403,7 +1403,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
+        "Stale landing-lag scaling through fp->x67F < p_ftCommonData->xE4 remains pending."
       ]
     },
     {
@@ -1414,7 +1414,7 @@
         9
       ],
       "status": "partial",
-      "notes": "Rust enters the exact down-aerial landing state from AttackAirLw ground contact, maps generated Falcon action-table ECB samples from action 77, keeps LandingAir_IASA empty, and exits through shared Landing_Anim completion using the extracted Falcon landingairlw_lag window.",
+      "notes": "Rust enters the exact down-aerial landing state from AttackAirLw ground contact, maps generated Falcon action-table ECB samples from action 77, keeps LandingAir_IASA empty, exits through shared Landing_Anim completion using the extracted Falcon landingairlw_lag window, and samples render/ECB pose through the ftCo_LandingAir_EnterWithMsidLag animation-rate formula (source figatree frames + 0.1) / lag.",
       "source_refs": [
         {
           "label": "Melee LandingAir source",
@@ -1435,7 +1435,7 @@
         }
       ],
       "known_gaps": [
-        "Stale landing-lag scaling and render-pose ftAnim_SetAnimRate sampling are not modeled yet."
+        "Stale landing-lag scaling through fp->x67F < p_ftCommonData->xE4 remains pending."
       ]
     },
     {
@@ -2917,7 +2917,7 @@
       "input": "neutral-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window, and render/ECB pose follows ftCo_LandingAir_EnterWithMsidLag animation-rate sampling. Stale fp->x67F lag scaling remains pending."
     },
     {
       "from": "LandingAirF",
@@ -2925,7 +2925,7 @@
       "input": "forward-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window, and render/ECB pose follows ftCo_LandingAir_EnterWithMsidLag animation-rate sampling. Stale fp->x67F lag scaling remains pending."
     },
     {
       "from": "LandingAirB",
@@ -2933,7 +2933,7 @@
       "input": "back-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window, and render/ECB pose follows ftCo_LandingAir_EnterWithMsidLag animation-rate sampling. Stale fp->x67F lag scaling remains pending."
     },
     {
       "from": "LandingAirHi",
@@ -2941,7 +2941,7 @@
       "input": "up-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window, and render/ECB pose follows ftCo_LandingAir_EnterWithMsidLag animation-rate sampling. Stale fp->x67F lag scaling remains pending."
     },
     {
       "from": "LandingAirLw",
@@ -2949,7 +2949,7 @@
       "input": "down-aerial landing lag completes",
       "frames": "aerial landing lag window",
       "status": "partial",
-      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window. Stale lag scaling and render-pose animation-rate sampling remain pending."
+      "notes": "LandingAir_IASA is empty in decomp; exit is shared Landing_Anim completion after the source-scaled landing-air lag window, and render/ECB pose follows ftCo_LandingAir_EnterWithMsidLag animation-rate sampling. Stale fp->x67F lag scaling remains pending."
     },
     {
       "from": "Fall",

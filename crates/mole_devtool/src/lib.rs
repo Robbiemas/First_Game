@@ -185,13 +185,13 @@ mod tests {
         ));
 
         assert_eq!(view.schema_version, 1);
-        assert_eq!(view.registry.tab_count, 10);
-        assert_eq!(view.tabs.len(), 10);
+        assert_eq!(view.registry.tab_count, 11);
+        assert_eq!(view.tabs.len(), 11);
         assert_eq!(view.devtool_surfaces.len(), 6);
         assert!(view.all_tabs_dual_surface);
         assert!(view.all_devtool_surfaces_dual_surface);
         assert_eq!(view.tabs[0].id, "global_values");
-        assert_eq!(view.tabs[4].id, "stage_values");
+        assert_eq!(view.tabs[5].id, "stage_values");
         assert_eq!(view.devtool_surfaces[3].id, "input_trace");
         assert!(view.tabs.iter().all(|tab| tab.surface_alignment_ok));
         assert!(view

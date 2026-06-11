@@ -4,6 +4,7 @@ import argparse
 import copy
 import json
 import re
+import struct
 import subprocess
 import sys
 from collections import Counter, deque
@@ -30,7 +31,8 @@ VALUE_SHEET_FILES = (
     "global_common_values.json",
     "captain_falcon_values.json",
     "physics_engine_values.json",
-    "combat_physics_values.json",
+    "global_combat_values.json",
+    "captain_falcon_combat_values.json",
     "battlefield_stage_values.json",
 )
 TOOL_TITLE = "Mole Game Dev Tool"
@@ -58,7 +60,8 @@ GROUNDED_LEDGER_NODE_IDS = (
 TEST_CHARACTER_VALUES_TAB_LABEL = "Test Character Values"
 GLOBAL_VALUES_TAB_LABEL = "Global Values"
 PHYSICS_ENGINE_VALUES_TAB_LABEL = "Physics Engine Values"
-COMBAT_PHYSICS_VALUES_TAB_LABEL = "Combat Physics Values"
+GLOBAL_COMBAT_VALUES_TAB_LABEL = "Global Combat Values"
+FALCON_COMBAT_VALUES_TAB_LABEL = "Captain Falcon Combat Values"
 STAGE_VALUES_TAB_LABEL = "Stage Values"
 CHARACTER_RUST_FIELD_MAP = {
     "walk_initial_velocity": "walk_initial_velocity",
@@ -1091,7 +1094,12 @@ def build_value_comparison_rows(
     for category in sheet.get("categories", []):
         for field in category.get("fields", []):
             field_name = field["rust_name"]
-            rust_field = field_map.get(field_name, field_name)
+            row_field_map = (
+                CHARACTER_RUST_FIELD_MAP
+                if field.get("owner_scope") == "character"
+                else field_map
+            )
+            rust_field = row_field_map.get(field_name, field_name)
             rust_value = rust_values.get(rust_field)
             decomp_value = field.get("converted_value")
             note = derived_notes.get(field_name, "")
@@ -1099,7 +1107,7 @@ def build_value_comparison_rows(
                 status = "derived"
             elif rust_field not in rust_values:
                 status = "missing"
-            elif rust_value == decomp_value:
+            elif _comparison_values_match(rust_value, decomp_value, field.get("comparison_value_kind")):
                 status = "match"
             else:
                 status = "diff"
@@ -1120,6 +1128,18 @@ def build_value_comparison_rows(
                 }
             )
     return rows
+
+
+def _comparison_values_match(left: Any, right: Any, value_kind: str | None) -> bool:
+    if value_kind == "source_f32":
+        return _f32_bits(left) == _f32_bits(right)
+    return left == right
+
+
+def _f32_bits(value: Any) -> int | None:
+    if not isinstance(value, (int, float)):
+        return None
+    return struct.unpack(">I", struct.pack(">f", float(value)))[0]
 
 
 def build_parity_ledger_overview(
@@ -1522,9 +1542,17 @@ def draw_parity_ledger_tab(
     )
     draw_value_comparison_tab(
         ledger_tabs,
-        COMBAT_PHYSICS_VALUES_TAB_LABEL,
+        GLOBAL_COMBAT_VALUES_TAB_LABEL,
         build_value_comparison_rows(
-            sheets_by_id["combat_physics_values"],
+            sheets_by_id["global_combat_values"],
+            rust_combat_values,
+        ),
+    )
+    draw_value_comparison_tab(
+        ledger_tabs,
+        FALCON_COMBAT_VALUES_TAB_LABEL,
+        build_value_comparison_rows(
+            sheets_by_id["captain_falcon_combat_values"],
             rust_combat_values,
         ),
     )

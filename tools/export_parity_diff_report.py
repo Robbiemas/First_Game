@@ -36,12 +36,26 @@ def build_parity_diff_report(value_sheet_dir: Path = DEFAULT_VALUE_SHEETS) -> di
         load_rust_character_values(),
         character_value=True,
     )
+    rust_combat_values = {
+        **load_rust_global_values(),
+        **load_rust_character_values(),
+    }
+    global_combat_rows = build_value_comparison_rows(
+        sheets["global_combat_values"],
+        rust_combat_values,
+    )
+    falcon_combat_rows = build_value_comparison_rows(
+        sheets["captain_falcon_combat_values"],
+        rust_combat_values,
+    )
     return {
         "id": "value_parity_diff_report",
         "engine_boundary": "rust_core_authority",
         "sections": {
             "global_values": _section(global_rows),
             "test_character_values": _section(character_rows),
+            "global_combat_values": _section(global_combat_rows),
+            "captain_falcon_combat_values": _section(falcon_combat_rows),
         },
     }
 
@@ -68,6 +82,8 @@ def format_parity_diff_markdown(report: dict[str, Any]) -> str:
     for section_id, title in (
         ("global_values", "Global Values"),
         ("test_character_values", "Test Character Values"),
+        ("global_combat_values", "Global Combat Values"),
+        ("captain_falcon_combat_values", "Captain Falcon Combat Values"),
     ):
         section = report["sections"][section_id]
         summary = section["summary"]

@@ -4,9 +4,21 @@
   "scope": "stage",
   "engine_boundary": "rust_core_authority",
   "source": {
-    "notes": "Current development stage is Battlefield-aligned in Rust while the generalized decomp stage extraction pipeline is still being built.",
-    "provenance": "rust_baked_stage_asset_pending_stage_extract",
+    "decomp_refs": [
+      ".research/doldecomp-melee/src/melee/gr/grbattle.c",
+      ".research/doldecomp-melee/src/melee/gr/grdatfiles.c",
+      ".research/doldecomp-melee/src/melee/gr/ground.c",
+      ".research/doldecomp-melee/src/melee/mp/types.h"
+    ],
+    "notes": "Current values are the Rust baked Battlefield profile. True stage parity requires extracting /GrNBa.dat coll_data into the MapCollData shape used by mpLibLoad.",
+    "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
     "reference_stage": "Battlefield",
+    "required_public_symbols": [
+      "map_head",
+      "coll_data",
+      "grGroundParam"
+    ],
+    "required_raw_dat": "resources/melee/raw/GrNBa.dat",
     "stage_profile_name": "battlefield_test"
   },
   "stage_id": "battlefield",
@@ -25,7 +37,7 @@
           "raw": -68400,
           "converted_value": -68400,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -38,7 +50,7 @@
           "raw": 68400,
           "converted_value": 68400,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -51,7 +63,7 @@
           "raw": 0,
           "converted_value": 0,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -64,7 +76,7 @@
           "raw": "solid",
           "converted_value": "solid",
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -77,7 +89,7 @@
           "raw": 1.0,
           "converted_value": 1.0,
           "comparison_value_kind": "source_f32",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -90,7 +102,7 @@
           "raw": -57600,
           "converted_value": -57600,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -103,7 +115,7 @@
           "raw": -20000,
           "converted_value": -20000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -116,7 +128,7 @@
           "raw": 27200,
           "converted_value": 27200,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -129,7 +141,7 @@
           "raw": "soft",
           "converted_value": "soft",
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -142,7 +154,7 @@
           "raw": 1.0,
           "converted_value": 1.0,
           "comparison_value_kind": "source_f32",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -155,7 +167,7 @@
           "raw": 20000,
           "converted_value": 20000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -168,7 +180,7 @@
           "raw": 57600,
           "converted_value": 57600,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -181,7 +193,7 @@
           "raw": 27200,
           "converted_value": 27200,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -194,7 +206,7 @@
           "raw": "soft",
           "converted_value": "soft",
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -207,7 +219,7 @@
           "raw": 1.0,
           "converted_value": 1.0,
           "comparison_value_kind": "source_f32",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -220,7 +232,7 @@
           "raw": -18800,
           "converted_value": -18800,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -233,7 +245,7 @@
           "raw": 18800,
           "converted_value": 18800,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -246,7 +258,7 @@
           "raw": 54400,
           "converted_value": 54400,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -259,7 +271,7 @@
           "raw": "soft",
           "converted_value": "soft",
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -272,7 +284,7 @@
           "raw": 1.0,
           "converted_value": 1.0,
           "comparison_value_kind": "source_f32",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         }
@@ -291,7 +303,7 @@
           "raw": -224000,
           "converted_value": -224000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -304,7 +316,7 @@
           "raw": 224000,
           "converted_value": 224000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -317,7 +329,7 @@
           "raw": 200000,
           "converted_value": 200000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -330,7 +342,7 @@
           "raw": -108800,
           "converted_value": -108800,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         }
@@ -349,7 +361,7 @@
           "raw": -38800,
           "converted_value": -38800,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -362,7 +374,7 @@
           "raw": 35200,
           "converted_value": 35200,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -375,7 +387,7 @@
           "raw": 1,
           "converted_value": 1,
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -388,7 +400,7 @@
           "raw": 38800,
           "converted_value": 38800,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -401,7 +413,7 @@
           "raw": 35200,
           "converted_value": 35200,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -414,7 +426,7 @@
           "raw": -1,
           "converted_value": -1,
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -427,7 +439,7 @@
           "raw": 0,
           "converted_value": 0,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -440,7 +452,7 @@
           "raw": 8000,
           "converted_value": 8000,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -453,7 +465,7 @@
           "raw": 1,
           "converted_value": 1,
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -466,7 +478,7 @@
           "raw": 0,
           "converted_value": 0,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -479,7 +491,7 @@
           "raw": 62400,
           "converted_value": 62400,
           "comparison_value_kind": "milli",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         },
@@ -492,7 +504,7 @@
           "raw": 1,
           "converted_value": 1,
           "comparison_value_kind": "raw",
-          "provenance": "rust_baked_stage_asset_pending_stage_extract",
+          "provenance": "rust_baked_stage_asset_pending_grnba_dat_extract",
           "owner_scope": "stage",
           "owner_id": "battlefield"
         }

@@ -19,18 +19,36 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
     assert report["id"] == "value_parity_diff_report"
     global_values = report["sections"]["global_values"]
     character_values = report["sections"]["test_character_values"]
+    global_combat_values = report["sections"]["global_combat_values"]
+    falcon_combat_values = report["sections"]["captain_falcon_combat_values"]
 
     assert global_values["summary"] == {
-        "total": 64,
-        "match": 64,
+        "total": 72,
+        "match": 72,
         "diff": 0,
         "derived": 0,
         "missing": 0,
         "actionable": 0,
     }
     assert character_values["summary"] == {
-        "total": 39,
-        "match": 39,
+        "total": 40,
+        "match": 40,
+        "diff": 0,
+        "derived": 0,
+        "missing": 0,
+        "actionable": 0,
+    }
+    assert global_combat_values["summary"] == {
+        "total": 30,
+        "match": 30,
+        "diff": 0,
+        "derived": 0,
+        "missing": 0,
+        "actionable": 0,
+    }
+    assert falcon_combat_values["summary"] == {
+        "total": 1,
+        "match": 1,
         "diff": 0,
         "derived": 0,
         "missing": 0,
@@ -39,6 +57,8 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
 
     assert global_values["actionable_rows"] == []
     assert character_values["derived_rows"] == []
+    assert global_combat_values["actionable_rows"] == []
+    assert falcon_combat_values["actionable_rows"] == []
     max_jumps = next(row for row in character_values["rows"] if row["field"] == "max_jumps")
     assert max_jumps["decomp_value"] == 2
     assert max_jumps["rust_value"] == 2
@@ -58,9 +78,13 @@ def test_write_parity_diff_reports_writes_stable_json_and_markdown(tmp_path):
     assert generated[0].read_text(encoding="utf-8").endswith("\n")
     assert generated[1].read_text(encoding="utf-8").endswith("\n")
     assert payload["sections"]["global_values"]["summary"]["actionable"] == 0
+    assert payload["sections"]["global_combat_values"]["summary"]["actionable"] == 0
+    assert payload["sections"]["captain_falcon_combat_values"]["summary"]["actionable"] == 0
     assert "## Global Values" in markdown
     assert "No non-matching rows." in markdown
     assert "## Test Character Values" in markdown
+    assert "## Global Combat Values" in markdown
+    assert "## Captain Falcon Combat Values" in markdown
     assert "Derived Rows" not in markdown
 
 

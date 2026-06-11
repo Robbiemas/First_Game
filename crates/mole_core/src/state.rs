@@ -1618,7 +1618,13 @@ fn active_local_ecb(
     if let Some(samples) = falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state) {
         sampled_ecb(
             samples,
-            action_pose_sample_frame(motion_state, motion_frame, common_data, samples.len()),
+            action_pose_sample_frame(
+                player,
+                motion_state,
+                motion_frame,
+                common_data,
+                samples.len(),
+            ),
         )
     } else {
         fallback_local_ecb(player, fallback_bottom_offset_y(player))
@@ -1626,6 +1632,7 @@ fn active_local_ecb(
 }
 
 fn action_pose_sample_frame(
+    player: &PlayerState,
     motion_state: MotionState,
     motion_frame: u8,
     common_data: MeleeCommonData,
@@ -1635,8 +1642,29 @@ fn action_pose_sample_frame(
         MotionState::LandingFallSpecial => {
             landing_fall_special_pose_sample_frame(motion_frame, common_data, sample_count)
         }
+        MotionState::LandingAirN
+        | MotionState::LandingAirF
+        | MotionState::LandingAirB
+        | MotionState::LandingAirHi
+        | MotionState::LandingAirLw => {
+            landing_air_pose_sample_frame(player, motion_state, motion_frame, sample_count)
+        }
         _ => motion_frame,
     }
+}
+
+fn landing_air_pose_sample_frame(
+    player: &PlayerState,
+    motion_state: MotionState,
+    motion_frame: u8,
+    sample_count: usize,
+) -> u8 {
+    let landing_lag = if player.landing_lag_ticks == 0 {
+        landing_air_profile_lag_ticks(motion_state, player.profile)
+    } else {
+        player.landing_lag_ticks
+    };
+    scaled_landing_pose_sample_frame(motion_frame, landing_lag, sample_count)
 }
 
 fn landing_fall_special_pose_sample_frame(
@@ -1644,18 +1672,35 @@ fn landing_fall_special_pose_sample_frame(
     common_data: MeleeCommonData,
     sample_count: usize,
 ) -> u8 {
-    let landing_lag = common_data.escapeair_landing_lag_ticks;
+    scaled_landing_pose_sample_frame(
+        motion_frame,
+        common_data.escapeair_landing_lag_ticks,
+        sample_count,
+    )
+}
+
+fn scaled_landing_pose_sample_frame(motion_frame: u8, landing_lag: u8, sample_count: usize) -> u8 {
     if landing_lag == 0 || sample_count == 0 {
         return motion_frame;
     }
 
-    // ftCo_LandingFallSpecial_Enter scales the Landing figatree by
-    // (0.1 + fp->x2EC) / landing_lag, where x2EC is the source Landing
-    // animation duration cached at fighter creation.
+    // ftCo_LandingAir_EnterWithMsidLag and ftCo_LandingFallSpecial_Enter
+    // both scale the landing figatree by (source_frames + 0.1) / landing_lag.
     let action_frames_tenths = sample_count.saturating_mul(10).saturating_add(1);
     let scaled = usize::from(motion_frame).saturating_mul(action_frames_tenths)
         / (usize::from(landing_lag) * 10);
     u8::try_from(scaled.min(sample_count.saturating_sub(1))).unwrap_or(u8::MAX)
+}
+
+fn landing_air_profile_lag_ticks(motion_state: MotionState, profile: FighterProfile) -> u8 {
+    match motion_state {
+        MotionState::LandingAirN => profile.landing_air_n_lag_ticks,
+        MotionState::LandingAirF => profile.landing_air_f_lag_ticks,
+        MotionState::LandingAirB => profile.landing_air_b_lag_ticks,
+        MotionState::LandingAirHi => profile.landing_air_hi_lag_ticks,
+        MotionState::LandingAirLw => profile.landing_air_lw_lag_ticks,
+        _ => 0,
+    }
 }
 
 fn active_pose_motion_state(player: &PlayerState, common_data: MeleeCommonData) -> MotionState {

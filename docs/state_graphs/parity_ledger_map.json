@@ -41,7 +41,8 @@
         "docs/state_graphs/value_sheets/global_common_values.json",
         "docs/state_graphs/value_sheets/captain_falcon_values.json",
         "docs/state_graphs/value_sheets/physics_engine_values.json",
-        "docs/state_graphs/value_sheets/combat_physics_values.json",
+        "docs/state_graphs/value_sheets/global_combat_values.json",
+        "docs/state_graphs/value_sheets/captain_falcon_combat_values.json",
         "docs/state_graphs/value_sheets/battlefield_stage_values.json"
       ],
       "source_artifacts": [
@@ -134,12 +135,12 @@
   ],
   "registry": {
     "active_devtool_surface_count": 6,
-    "active_tab_count": 5,
+    "active_tab_count": 6,
     "devtool_surface_count": 6,
     "dual_surface": true,
     "planned_devtool_surface_count": 0,
     "planned_tab_count": 5,
-    "tab_count": 10
+    "tab_count": 11
   },
   "schema_version": 1,
   "tabs": [
@@ -192,18 +193,32 @@
     {
       "cli_surface": "Active",
       "gui_surface": "Active",
-      "id": "combat_physics_values",
+      "id": "global_combat_values",
       "kind": "Combat",
-      "label": "Combat Physics Values",
+      "label": "Global Combat Values",
       "outputs": [
-        "docs/state_graphs/value_sheets/combat_physics_values.json"
+        "docs/state_graphs/value_sheets/global_combat_values.json"
       ],
       "source_artifacts": [
-        "resources/melee/extracted/plco_common_data.json",
+        "resources/melee/extracted/plco_common_data.json"
+      ],
+      "status": "Active",
+      "summary": "Global knockback, hitlag, landing, and other combat response math."
+    },
+    {
+      "cli_surface": "Active",
+      "gui_surface": "Active",
+      "id": "captain_falcon_combat_values",
+      "kind": "Combat",
+      "label": "Captain Falcon Combat Values",
+      "outputs": [
+        "docs/state_graphs/value_sheets/captain_falcon_combat_values.json"
+      ],
+      "source_artifacts": [
         "resources/melee/extracted/captain_falcon_profile.json"
       ],
       "status": "Active",
-      "summary": "Knockback, hitlag, landing, and other combat response math."
+      "summary": "Captain Falcon combat-specific character attributes currently used by global combat math."
     },
     {
       "cli_surface": "Active",

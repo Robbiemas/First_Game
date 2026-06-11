@@ -101,8 +101,11 @@ impl ParityLedgerSurface {
         let physics_sheet = load_value_sheet(
             root.join("docs/state_graphs/value_sheets/physics_engine_values.json"),
         )?;
-        let combat_sheet = load_value_sheet(
-            root.join("docs/state_graphs/value_sheets/combat_physics_values.json"),
+        let global_combat_sheet = load_value_sheet(
+            root.join("docs/state_graphs/value_sheets/global_combat_values.json"),
+        )?;
+        let falcon_combat_sheet = load_value_sheet(
+            root.join("docs/state_graphs/value_sheets/captain_falcon_combat_values.json"),
         )?;
         let stage_sheet = load_value_sheet(
             root.join("docs/state_graphs/value_sheets/battlefield_stage_values.json"),
@@ -112,11 +115,18 @@ impl ParityLedgerSurface {
             global_tab,
             character_tab,
             value_sheet_tab("physics_engine_values", &physics_sheet),
-            value_sheet_tab("combat_physics_values", &combat_sheet),
+            value_sheet_tab("global_combat_values", &global_combat_sheet),
+            value_sheet_tab("captain_falcon_combat_values", &falcon_combat_sheet),
             value_sheet_tab("battlefield_stage_values", &stage_sheet),
         ];
 
-        let summary = build_summary(&tabs, &physics_sheet, &combat_sheet, &stage_sheet);
+        let summary = build_summary(
+            &tabs,
+            &physics_sheet,
+            &global_combat_sheet,
+            &falcon_combat_sheet,
+            &stage_sheet,
+        );
         Ok(Self { summary, tabs })
     }
 }
@@ -300,7 +310,8 @@ fn comparison_summary(rows: &[ValueParityDiffRow]) -> String {
 fn build_summary(
     tabs: &[ParityLedgerSurfaceTab],
     physics_sheet: &ValueSheetFile,
-    combat_sheet: &ValueSheetFile,
+    global_combat_sheet: &ValueSheetFile,
+    falcon_combat_sheet: &ValueSheetFile,
     stage_sheet: &ValueSheetFile,
 ) -> String {
     let mut lines = vec![
@@ -318,9 +329,14 @@ fn build_summary(
         build_value_sheet_rows(physics_sheet).len()
     ));
     lines.push(format!(
-        "Combat sheet: {} categories, {} fields",
-        combat_sheet.categories.len(),
-        build_value_sheet_rows(combat_sheet).len()
+        "Global combat sheet: {} categories, {} fields",
+        global_combat_sheet.categories.len(),
+        build_value_sheet_rows(global_combat_sheet).len()
+    ));
+    lines.push(format!(
+        "Captain Falcon combat sheet: {} categories, {} fields",
+        falcon_combat_sheet.categories.len(),
+        build_value_sheet_rows(falcon_combat_sheet).len()
     ));
     lines.push(format!(
         "Stage sheet: {} categories, {} fields",
@@ -411,12 +427,14 @@ mod tests {
     fn surface_loads_active_parity_ledger_tabs_and_rows() {
         let surface = ParityLedgerSurface::load(workspace_root()).expect("surface loads");
 
-        assert_eq!(surface.tabs.len(), 5);
+        assert_eq!(surface.tabs.len(), 6);
         assert_eq!(surface.tabs[0].label, "Global Values");
         assert_eq!(surface.tabs[1].label, "Test Character Values");
         assert_eq!(surface.tabs[2].label, "Physics Engine Values");
+        assert_eq!(surface.tabs[3].label, "Global Combat Values");
+        assert_eq!(surface.tabs[4].label, "Captain Falcon Combat Values");
         assert!(!surface.tabs[0].rows.is_empty());
-        assert!(!surface.tabs[4].rows.is_empty());
+        assert!(!surface.tabs[5].rows.is_empty());
         assert!(surface.summary.contains("Parity Ledger"));
     }
 }
