@@ -1,8 +1,8 @@
 use crate::{LedgerTabTemplate, LedgerTabTemplateRow};
 use mole_core::{
-    melee_action_state_id_for_motion_state, melee_units_f32, motion_state_for_runtime_variant,
-    source_binding_for_motion_state, EcbDiamond, MeleeActionStateId, MotionState, SourceActionKey,
-    StageBlastZones, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, World,
+    canonical_source_action_binding_for_source_table_id, melee_action_state_id_for_motion_state,
+    motion_state_for_runtime_variant, source_binding_for_motion_state, EcbDiamond,
+    MeleeActionStateId, MotionState, SourceActionKey, StageProfile, Vec2, World,
 };
 use mole_frame_data::FrameDataSampleOptions;
 use mole_runtime::{RenderFrame, RenderScene};
@@ -1012,9 +1012,9 @@ impl MoveKeyframesEditorSurface {
     ) -> Option<MoveKeyframesRuntimePreview> {
         let frame = self.selected_frame()?;
         let source_frame = frame.frame.min(u8::MAX as usize) as u8;
-        let mut runtime_frame = RenderFrame::from_world(&World::for_two_players_on_stage(
-            move_keyframes_preview_stage(),
-        ));
+        let preview_stage = StageProfile::dev_flat_test();
+        let mut runtime_frame =
+            RenderFrame::from_world(&World::for_two_players_on_stage(preview_stage));
 
         runtime_frame.player_positions[0] = Vec2 { x: 0, y: 0 };
         runtime_frame.player_positions[1] = Vec2 { x: 10_000, y: 0 };
@@ -1052,81 +1052,17 @@ impl MoveKeyframesEditorSurface {
         ];
         runtime_frame.player_profile_weights = [104.0, 104.0];
 
-        let mut scene = RenderScene::from_frame(&runtime_frame, viewport_width, viewport_height);
-        scene.stage_surfaces = vec![scene.stage];
+        let mut scene = RenderScene::from_frame_on_stage(
+            &runtime_frame,
+            &preview_stage,
+            viewport_width,
+            viewport_height,
+        );
         scene.entry_platforms = [None, None];
         Some(MoveKeyframesRuntimePreview {
             frame: runtime_frame,
             scene,
         })
-    }
-}
-
-fn move_keyframes_preview_stage() -> StageProfile {
-    StageProfile {
-        name: "move_keyframes_flat_preview",
-        main_floor: StageSurface {
-            name: "debug_floor",
-            kind: StageSurfaceKind::Solid,
-            left_x: melee_units_f32(-96.0),
-            right_x: melee_units_f32(96.0),
-            y: 0,
-            friction_multiplier: 1.0,
-        },
-        soft_platforms: [
-            StageSurface {
-                name: "left_platform",
-                kind: StageSurfaceKind::Soft,
-                left_x: melee_units_f32(-16.0),
-                right_x: melee_units_f32(-12.0),
-                y: melee_units_f32(96.0),
-                friction_multiplier: 1.0,
-            },
-            StageSurface {
-                name: "right_platform",
-                kind: StageSurfaceKind::Soft,
-                left_x: melee_units_f32(12.0),
-                right_x: melee_units_f32(16.0),
-                y: melee_units_f32(96.0),
-                friction_multiplier: 1.0,
-            },
-            StageSurface {
-                name: "top_platform",
-                kind: StageSurfaceKind::Soft,
-                left_x: melee_units_f32(-4.0),
-                right_x: melee_units_f32(4.0),
-                y: melee_units_f32(120.0),
-                friction_multiplier: 1.0,
-            },
-        ],
-        blast_zones: StageBlastZones {
-            left_x: melee_units_f32(-224.0),
-            right_x: melee_units_f32(224.0),
-            top_y: melee_units_f32(200.0),
-            bottom_y: melee_units_f32(-108.8),
-        },
-        spawn_points: [
-            StageSpawnPoint {
-                x: melee_units_f32(-16.0),
-                y: 0,
-                facing: 1,
-            },
-            StageSpawnPoint {
-                x: melee_units_f32(16.0),
-                y: 0,
-                facing: -1,
-            },
-            StageSpawnPoint {
-                x: 0,
-                y: melee_units_f32(8.0),
-                facing: 1,
-            },
-            StageSpawnPoint {
-                x: 0,
-                y: melee_units_f32(20.0),
-                facing: -1,
-            },
-        ],
     }
 }
 
@@ -1405,17 +1341,42 @@ fn move_keyframes_preview_binding(surface: &MoveKeyframesSurface) -> MoveKeyfram
     let parsed_motion_state = move_keyframes_runtime_motion_state(surface);
     let motion_state = parsed_motion_state.unwrap_or(MotionState::Wait);
     let source_binding = parsed_motion_state.and_then(source_binding_for_motion_state);
+    let canonical_source_binding = move_keyframes_source_action_table_id(surface)
+        .and_then(canonical_source_action_binding_for_source_table_id);
     let action_state_id = source_binding
         .map(|binding| binding.action_state_id)
+        .or_else(|| canonical_source_binding.map(|binding| binding.action_state_id))
         .or_else(|| move_keyframes_source_action_state_id(surface))
         .or_else(|| parsed_motion_state.map(melee_action_state_id_for_motion_state));
-    let source_action_key = source_binding.map(|binding| binding.source_action_key);
+    let source_action_key = source_binding
+        .map(|binding| binding.source_action_key)
+        .or_else(|| canonical_source_binding.map(|binding| binding.source_action_key));
 
     MoveKeyframesPreviewBinding {
         motion_state,
         action_state_id,
         source_action_key,
     }
+}
+
+fn move_keyframes_source_action_table_id(surface: &MoveKeyframesSurface) -> Option<u16> {
+    surface
+        .extra
+        .get("manifest_action")
+        .and_then(|action| action.get("action_state_id"))
+        .and_then(value_as_u16)
+        .or_else(|| surface.extra.get("action_state_id").and_then(value_as_u16))
+        .or_else(|| {
+            surface.sources.iter().find_map(|source| {
+                let is_source_action_table =
+                    source.get("kind").and_then(Value::as_str) == Some("source_action_table");
+                if is_source_action_table {
+                    source.get("action_state_id").and_then(value_as_u16)
+                } else {
+                    None
+                }
+            })
+        })
 }
 
 fn move_keyframes_runtime_motion_state(surface: &MoveKeyframesSurface) -> Option<MotionState> {
@@ -1437,24 +1398,7 @@ fn move_keyframes_runtime_motion_state(surface: &MoveKeyframesSurface) -> Option
 fn move_keyframes_source_action_state_id(
     surface: &MoveKeyframesSurface,
 ) -> Option<MeleeActionStateId> {
-    surface
-        .extra
-        .get("manifest_action")
-        .and_then(|action| action.get("action_state_id"))
-        .and_then(value_as_u16)
-        .or_else(|| surface.extra.get("action_state_id").and_then(value_as_u16))
-        .or_else(|| {
-            surface.sources.iter().find_map(|source| {
-                let is_source_action_table =
-                    source.get("kind").and_then(Value::as_str) == Some("source_action_table");
-                if is_source_action_table {
-                    source.get("action_state_id").and_then(value_as_u16)
-                } else {
-                    None
-                }
-            })
-        })
-        .map(MeleeActionStateId::new)
+    move_keyframes_source_action_table_id(surface).map(MeleeActionStateId::new)
 }
 
 fn value_as_u16(value: &Value) -> Option<u16> {
@@ -1616,6 +1560,40 @@ mod tests {
         assert!(
             !preview.scene.player_hitbox_pills[0].is_empty(),
             "runtime preview should render selected state's source hitboxes"
+        );
+    }
+
+    #[test]
+    fn move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding() {
+        let root = workspace_root();
+
+        let surface =
+            MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "Attack12")
+                .expect("source-only jab followup view");
+        let mut editor =
+            MoveKeyframesEditorSurface::from_surface_with_workspace(surface.clone(), &root)
+                .expect("editor wrapper");
+        let active_hurtbox_index = surface
+            .keyframes
+            .iter()
+            .position(|frame| !frame.hurtboxes.is_empty())
+            .expect("sampled jab followup should expose hurtbox frames");
+        editor.set_selected_frame_index(active_hurtbox_index);
+
+        let preview = editor.runtime_preview(960, 540).expect("runtime preview");
+
+        assert_eq!(surface.state, "Attack12");
+        assert_eq!(
+            preview.frame.player_source_pose_action_state_ids[0],
+            Some(MeleeActionStateId::new(45))
+        );
+        assert_eq!(
+            preview.frame.player_source_pose_action_keys[0],
+            Some(SourceActionKey::new("Attack12"))
+        );
+        assert!(
+            !preview.scene.player_hurtbox_pills[0].is_empty(),
+            "source-only states should still render runtime-baked source capsules"
         );
     }
 

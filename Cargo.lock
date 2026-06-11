@@ -1836,6 +1836,7 @@ name = "mole_devtool"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "image",
  "mole_core",
  "mole_frame_data",
  "mole_ledger",

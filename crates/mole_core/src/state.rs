@@ -830,6 +830,72 @@ impl MotionStateSourceBinding {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CanonicalSourceActionBinding {
+    pub action_state_id: MeleeActionStateId,
+    pub source_action_table_id: u16,
+    pub source_action_key: SourceActionKey,
+}
+
+impl CanonicalSourceActionBinding {
+    const fn new(
+        action_state_id: u16,
+        source_action_table_id: u16,
+        source_action_key: &'static str,
+    ) -> Self {
+        Self {
+            action_state_id: MeleeActionStateId::new(action_state_id),
+            source_action_table_id,
+            source_action_key: SourceActionKey::new(source_action_key),
+        }
+    }
+}
+
+pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding] = &[
+    CanonicalSourceActionBinding::new(45, 47, "Attack12"),
+    CanonicalSourceActionBinding::new(46, 48, "Attack13"),
+    CanonicalSourceActionBinding::new(47, 49, "Attack100Start"),
+    CanonicalSourceActionBinding::new(48, 50, "Attack100Loop"),
+    CanonicalSourceActionBinding::new(49, 51, "Attack100End"),
+    CanonicalSourceActionBinding::new(75, 165, "DamageHi1"),
+    CanonicalSourceActionBinding::new(76, 166, "DamageHi2"),
+    CanonicalSourceActionBinding::new(77, 167, "DamageHi3"),
+    CanonicalSourceActionBinding::new(78, 168, "DamageN1"),
+    CanonicalSourceActionBinding::new(79, 169, "DamageN2"),
+    CanonicalSourceActionBinding::new(80, 170, "DamageN3"),
+    CanonicalSourceActionBinding::new(81, 171, "DamageLw1"),
+    CanonicalSourceActionBinding::new(82, 172, "DamageLw2"),
+    CanonicalSourceActionBinding::new(83, 173, "DamageLw3"),
+    CanonicalSourceActionBinding::new(84, 174, "DamageAir1"),
+    CanonicalSourceActionBinding::new(85, 175, "DamageAir2"),
+    CanonicalSourceActionBinding::new(86, 176, "DamageAir3"),
+    CanonicalSourceActionBinding::new(87, 177, "DamageFlyHi"),
+    CanonicalSourceActionBinding::new(88, 178, "DamageFlyN"),
+    CanonicalSourceActionBinding::new(89, 179, "DamageFlyLw"),
+    CanonicalSourceActionBinding::new(90, 180, "DamageFlyTop"),
+    CanonicalSourceActionBinding::new(91, 181, "DamageFlyRoll"),
+    CanonicalSourceActionBinding::new(183, 288, "DownBoundU"),
+    CanonicalSourceActionBinding::new(184, 184, "DownWaitU"),
+    CanonicalSourceActionBinding::new(186, 290, "DownStandU"),
+    CanonicalSourceActionBinding::new(187, 187, "DownAttackU"),
+    CanonicalSourceActionBinding::new(191, 289, "DownBoundD"),
+    CanonicalSourceActionBinding::new(192, 192, "DownWaitD"),
+    CanonicalSourceActionBinding::new(194, 291, "DownStandD"),
+    CanonicalSourceActionBinding::new(195, 195, "DownAttackD"),
+    CanonicalSourceActionBinding::new(199, 199, "Passive"),
+    CanonicalSourceActionBinding::new(200, 200, "PassiveStandF"),
+    CanonicalSourceActionBinding::new(201, 201, "PassiveStandB"),
+];
+
+pub fn canonical_source_action_binding_for_source_table_id(
+    source_action_table_id: u16,
+) -> Option<CanonicalSourceActionBinding> {
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS
+        .iter()
+        .copied()
+        .find(|binding| binding.source_action_table_id == source_action_table_id)
+}
+
 pub const fn melee_action_state_id_for_motion_state(
     motion_state: MotionState,
 ) -> MeleeActionStateId {

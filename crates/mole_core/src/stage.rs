@@ -117,4 +117,55 @@ impl StageProfile {
             ],
         }
     }
+
+    pub fn dev_flat_test() -> Self {
+        let hidden_platform = StageSurface {
+            name: "unused_dev_platform",
+            kind: StageSurfaceKind::Soft,
+            left_x: melee_units_f32(10_000.0),
+            right_x: melee_units_f32(10_000.0),
+            y: melee_units_f32(10_000.0),
+            friction_multiplier: 1.0,
+        };
+        Self {
+            name: "dev_flat_test",
+            main_floor: StageSurface {
+                name: "dev_floor",
+                kind: StageSurfaceKind::Solid,
+                left_x: melee_units_f32(-96.0),
+                right_x: melee_units_f32(96.0),
+                y: 0,
+                friction_multiplier: 1.0,
+            },
+            soft_platforms: [hidden_platform; 3],
+            blast_zones: StageBlastZones {
+                left_x: melee_units_f32(-224.0),
+                right_x: melee_units_f32(224.0),
+                top_y: melee_units_f32(200.0),
+                bottom_y: melee_units_f32(-108.8),
+            },
+            spawn_points: [
+                StageSpawnPoint {
+                    x: 0,
+                    y: 0,
+                    facing: 1,
+                },
+                StageSpawnPoint {
+                    x: melee_units_f32(16.0),
+                    y: 0,
+                    facing: -1,
+                },
+                StageSpawnPoint {
+                    x: melee_units_f32(-16.0),
+                    y: 0,
+                    facing: 1,
+                },
+                StageSpawnPoint {
+                    x: 0,
+                    y: melee_units_f32(20.0),
+                    facing: -1,
+                },
+            ],
+        }
+    }
 }

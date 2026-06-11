@@ -500,3 +500,19 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Regression coverage:
   - `cargo test -p mole_devtool move_keyframes_loads_manifest_state_as_sampled_read_only_browser_view`
   - `cargo test -p mole_devtool app_move_keyframe_selectors_load_manifest_states_as_sampled_read_only_views`
+
+## 2026-06-11 move/state runtime viewport cleanup
+
+- Removed another duplicate source-action path by promoting canonical source-only action bindings into `mole_core`. CLI runtime export and GUI previews now share `CANONICAL_SOURCE_ONLY_ACTION_BINDINGS`, so source-only actions such as `Attack12` resolve from Melee source table id `47` to canonical runtime action id `45` instead of accidentally rendering `Attack100Start`.
+- Added `StageProfile::dev_flat_test()` and `RenderScene::from_frame_on_stage(...)` so the move/state editor viewport asks the runtime for a scene on an explicit flat dev stage instead of building a frame on one stage and patching a Battlefield-rendered scene afterward.
+- Updated the egui viewport to draw the runtime sprite cue from the project PNG assets, then runtime hurt capsules, hit capsules, and ECB polygon over it. The player rectangle is now only a fallback image target when there is no sprite and no runtime collision data.
+- Fixed the SDL renderer to honor `LegacySpriteCue::flip_x`, keeping the game renderer and devtool viewport aligned.
+- Ran the requested Captain Falcon all-states CLI refresh for Dolphin Mole:
+  - `cargo run -q -p mole_cli -- frame-data extract --all-states --character dolphin_mole --source-character captain --write --json`
+  - `cargo run -q -p mole_cli -- frame-data export-runtime --all-states --character dolphin_mole --output crates/mole_runtime/src/generated/source_frame_data.rs --write --json`
+  - Extract summary: `mapped_state_count=275`, `runtime_mapped_state_count=65`, `manifest_bytes=11116070`.
+  - Runtime export summary: `state_count=105`, `figatree_chunk_count=99`, `hitbox_count=1000`, `hurtbox_count=39644`, `generated_bytes=5194838`.
+- Regression coverage:
+  - `cargo test -p mole_devtool move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding`
+  - `cargo test -p mole_devtool move_keyframe_preview_uses_sprite_asset_instead_of_player_rect_when_available`
+  - `cargo test -p mole_runtime render_scene_can_use_dev_flat_stage_without_battlefield_surfaces`

@@ -85,6 +85,16 @@ Current planned agent-facing helpers:
 - `frame-data import-plan`: dry-run target/source state replacement.
 - Typed value import plans for profile/global/stage values, preserving source integer/float ownership.
 
+## Runtime Viewports
+
+Engine-owned visuals should enter the GUI as runtime viewports. The reusable shape is:
+
+```text
+typed selection -> RenderFrame -> RenderScene on an explicit StageProfile -> GUI draw adapter
+```
+
+The GUI draw adapter may cache textures and decide how to fit the viewport rectangle, but it must not invent gameplay geometry. Sprites are visual assets, hit/hurt capsules and ECB polygons are runtime scene primitives, and body rectangles are fallback image targets only. Use `StageProfile::dev_flat_test()` for compact editor previews unless the workflow explicitly selects another stage.
+
 ## Tests
 
 Shared primitives own their own tests. When a tab exposes a new reusable behavior:

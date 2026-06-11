@@ -77,7 +77,7 @@ It should match the old Python frontend shape where useful: compact top selector
 
 Manifest-backed states must not appear as blank just because no editable artifact exists. The GUI loads them through the same Rust sampler path used by CLI frame-data sampling, currently `mole_frame_data::sample_action_keyframes`, and projects the sampled hit capsules, hurt capsules, frame counts, active windows, and provenance into the normal `MoveKeyframesSurface`. These sampled views remain read-only and keep `artifact_path` empty until an explicit materialized artifact or typed override workflow exists.
 
-Runtime state-name mapping is a core primitive. Use `mole_core::motion_state_for_runtime_variant`, `mole_core::runtime_motion_state_for_source_key`, and `mole_core::RUST_MOTION_STATE_VARIANTS` from both CLI and GUI code rather than adding tab-local or command-local variant tables.
+Runtime state-name and source-action mapping are core primitives. Use `mole_core::motion_state_for_runtime_variant`, `mole_core::runtime_motion_state_for_source_key`, `mole_core::RUST_MOTION_STATE_VARIANTS`, and `mole_core::CANONICAL_SOURCE_ONLY_ACTION_BINDINGS` from both CLI and GUI code rather than adding tab-local or command-local variant tables. Source-only Melee actions like `Attack12` may have a source action-table id that differs from the canonical runtime action id; the GUI and CLI must resolve those through the shared core mapping before asking the runtime for baked capsules.
 
 Import and replacement workflows should wrap the existing Mole CLI frame-data commands rather than creating a GUI-only path. Examples:
 
@@ -99,7 +99,9 @@ Do not add visible GUI import controls until they call the same Rust-owned comma
 
 For visual editors, the rendered scene is owned by the Rust engine/runtime. GUI overlays may annotate that scene, but they must not become a second renderer or a second source of geometry truth.
 
-Move-keyframe preview currently uses `RenderFrame -> RenderScene` for the viewport. The visible GUI should remain browser/read-only until editing can be represented by typed runtime primitives and replayed through the CLI. Existing editor-model handle code is limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
+Move-keyframe preview is an engine viewport, not a standalone GUI renderer. The current path is `World/RenderFrame -> RenderScene::from_frame_on_stage(..., StageProfile::dev_flat_test(), ...) -> egui/SDL draw`. The devtool may choose the viewport stage and camera, but the scene geometry, sprite cue, hurt capsules, hit capsules, and ECB polygon come from the runtime scene. Draw the sprite rectangle only as an image target/fallback; never treat the rectangle as body geometry when runtime capsules or the ECB are available.
+
+The visible GUI should remain browser/read-only until editing can be represented by typed runtime primitives and replayed through the CLI. Existing editor-model handle code is limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
 
 ## Feature Acceptance Checklist
 

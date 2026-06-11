@@ -852,6 +852,10 @@ pub struct RenderTransform {
 impl RenderTransform {
     pub fn battlefield_camera(viewport_width: u32, viewport_height: u32) -> Self {
         let stage = StageProfile::battlefield_test();
+        Self::stage_camera(&stage, viewport_width, viewport_height)
+    }
+
+    pub fn stage_camera(stage: &StageProfile, viewport_width: u32, viewport_height: u32) -> Self {
         let stage_width_units = stage.main_floor.right_x - stage.main_floor.left_x;
         let target_stage_width = viewport_width as i32 * 3 / 4;
         let pixels_per_core_unit_milli = (target_stage_width as i64
@@ -903,6 +907,12 @@ impl RenderColor {
         r: 17,
         g: 19,
         b: 24,
+        a: 255,
+    };
+    pub const DEV_BACKGROUND: Self = Self {
+        r: 247,
+        g: 250,
+        b: 252,
         a: 255,
     };
     pub const STAGE: Self = Self {
@@ -1056,10 +1066,29 @@ pub struct RenderScene {
 
 impl RenderScene {
     pub fn from_frame(frame: &RenderFrame, viewport_width: u32, viewport_height: u32) -> Self {
-        let transform = RenderTransform::battlefield_camera(viewport_width, viewport_height);
+        Self::from_frame_on_stage(
+            frame,
+            &StageProfile::battlefield_test(),
+            viewport_width,
+            viewport_height,
+        )
+    }
+
+    pub fn from_frame_on_stage(
+        frame: &RenderFrame,
+        stage_profile: &StageProfile,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> Self {
+        let transform =
+            RenderTransform::stage_camera(stage_profile, viewport_width, viewport_height);
         let player_colors = [RenderColor::PLAYER_ONE, RenderColor::PLAYER_TWO];
-        let stage_profile = StageProfile::battlefield_test();
-        let stage_surfaces = render_stage_surfaces(&stage_profile, transform);
+        let stage_surfaces = render_stage_surfaces(stage_profile, transform);
+        let background = if stage_profile.name == "dev_flat_test" {
+            RenderColor::DEV_BACKGROUND
+        } else {
+            RenderColor::BACKGROUND
+        };
         let player_sprites = [
             LegacySpriteCue::for_player(
                 frame.player_motion_states[0],
@@ -1095,7 +1124,7 @@ impl RenderScene {
         ];
 
         Self {
-            background: RenderColor::BACKGROUND,
+            background,
             background_image: RenderImage {
                 relative_path: "background.png",
                 rect: RenderRect {
@@ -1103,7 +1132,7 @@ impl RenderScene {
                     y: 0,
                     width: viewport_width,
                     height: viewport_height,
-                    color: RenderColor::BACKGROUND,
+                    color: background,
                 },
             },
             transform,
@@ -1917,6 +1946,7 @@ fn render_stage_surfaces(
         stage_profile
             .soft_platforms
             .iter()
+            .filter(|surface| surface.left_x != surface.right_x)
             .map(|surface| render_stage_surface(surface, transform)),
     );
     surfaces
