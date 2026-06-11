@@ -32,6 +32,8 @@ Every parity feature must satisfy all four surfaces:
 
 The CLI and GUI are dual surfaces. Anything added to one must be represented on the other. A GUI-only edit path is incomplete. A CLI-only inspection path is incomplete.
 
+Treat the Mole CLI as the primary truth and automation contract. Agents use the CLI directly; the Rust dev tool GUI should build on the same Rust command/view-model functions and artifact schemas so humans and agents are always operating the same machinery. If a GUI workflow needs behavior that the CLI cannot inspect, validate, or replay, add the CLI surface first or in the same slice. The GUI may provide richer visual controls, but it should not become a second source of rules, parsing, mutation, or import/export semantics.
+
 ## Do Not Reinvent Existing Rust Backend Work
 
 The Rust backend/data pipeline built to support the original Python-facing tool is the reliable substrate. The new Rust GUI/frontend rewrite is the part that needs stricter review, simplification, and parity cleanup. Before creating a new pipeline or schema, check these Rust-owned modules:
@@ -43,7 +45,7 @@ The Rust backend/data pipeline built to support the original Python-facing tool 
 - `crates/mole_core`: deterministic gameplay state, source units, collision, motion, and engine import targets.
 - `crates/mole_frame_data`: compact runtime source capsule decoding.
 
-Repurpose and extend backend/data surfaces first. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability.
+Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability.
 
 ## Lossless Artifact Requirements
 
