@@ -5,7 +5,8 @@
         "graph missing",
         "graph next",
         "graph inspect",
-        "graph layout"
+        "graph layout",
+        "graph layout save"
       ],
       "cli_surface": "Active",
       "gui_section": "StateGraphs",

@@ -29,6 +29,14 @@ pub struct StateGraphCanvasPair {
     pub layout_path: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StateGraphLayoutSaveReport {
+    pub layout_path: String,
+    pub mutated: bool,
+    pub graph_count: usize,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StateGraphBounds {
     pub min_x: f64,
@@ -217,6 +225,76 @@ impl StateGraphCanvasPair {
             .flat_map(StateGraphDocument::validation_errors)
             .collect()
     }
+
+    pub fn set_node_position(
+        &mut self,
+        graph_id: &str,
+        node_id: &str,
+        position: [f64; 2],
+    ) -> Result<(), String> {
+        let graph = self
+            .graphs
+            .iter_mut()
+            .find(|graph| graph.id == graph_id)
+            .ok_or_else(|| format!("graph {graph_id} is not loaded"))?;
+        let node = graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.id == node_id)
+            .ok_or_else(|| format!("graph {graph_id} has no node {node_id}"))?;
+        node.pos = position;
+        Ok(())
+    }
+
+    pub fn validate_layout_save(&self) -> StateGraphLayoutSaveReport {
+        StateGraphLayoutSaveReport {
+            layout_path: self.layout_path.clone(),
+            mutated: false,
+            graph_count: self.graphs.len(),
+            errors: self.validation_errors(),
+        }
+    }
+
+    pub fn save_layout(
+        &self,
+        root: impl AsRef<Path>,
+    ) -> Result<StateGraphLayoutSaveReport, String> {
+        let mut report = self.validate_layout_save();
+        if !report.errors.is_empty() {
+            return Ok(report);
+        }
+        let layout = StateGraphLayoutFile {
+            version: 1,
+            graphs: self
+                .graphs
+                .iter()
+                .map(|graph| {
+                    (
+                        graph.id.clone(),
+                        StateGraphLayoutGraph {
+                            zoom: clamp_graph_zoom(graph.zoom),
+                            nodes: graph
+                                .nodes
+                                .iter()
+                                .map(|node| (node.id.clone(), node.pos))
+                                .collect(),
+                        },
+                    )
+                })
+                .collect(),
+        };
+        let path = root.as_ref().join(&self.layout_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+        }
+        let text = serde_json::to_string_pretty(&layout)
+            .map_err(|error| format!("failed to serialize {}: {error}", self.layout_path))?;
+        fs::write(&path, format!("{text}\n"))
+            .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
+        report.mutated = true;
+        Ok(report)
+    }
 }
 
 impl StateGraphDocument {
@@ -309,6 +387,22 @@ impl StateGraphDocument {
         let from = self.node_canvas_position(view, canvas_size, &edge.from)?;
         let to = self.node_canvas_position(view, canvas_size, &edge.to)?;
         Some([(from[0] + to[0]) * 0.5, (from[1] + to[1]) * 0.5])
+    }
+
+    pub fn graph_delta_from_canvas_delta(
+        &self,
+        view: &StateGraphCanvasView,
+        canvas_size: [f64; 2],
+        delta: [f64; 2],
+    ) -> Option<[f64; 2]> {
+        let bounds = self.bounds()?;
+        let width = (bounds.max_x - bounds.min_x).max(1.0);
+        let height = (bounds.max_y - bounds.min_y).max(1.0);
+        let zoom = view.zoom.max(0.01);
+        Some([
+            delta[0] * width / canvas_size[0].max(1.0) / zoom,
+            delta[1] * height / canvas_size[1].max(1.0) / zoom,
+        ])
     }
 
     pub fn selection_at_canvas_point(
@@ -734,6 +828,40 @@ mod tests {
     }
 
     #[test]
+    fn state_graph_canvas_converts_screen_drag_into_graph_delta() {
+        let graph = StateGraphDocument {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            root: "Wait".to_string(),
+            description: String::new(),
+            zoom: 1.0,
+            nodes: vec![
+                StateGraphNode {
+                    id: "Wait".to_string(),
+                    label: "Wait".to_string(),
+                    pos: [0.0, 0.0],
+                    status: "complete".to_string(),
+                    metadata: BTreeMap::new(),
+                },
+                StateGraphNode {
+                    id: "Dash".to_string(),
+                    label: "Dash".to_string(),
+                    pos: [10.0, 20.0],
+                    status: "partial".to_string(),
+                    metadata: BTreeMap::new(),
+                },
+            ],
+            edges: Vec::new(),
+        };
+        let view = StateGraphCanvasView::from_graph_zoom(2.0);
+
+        assert_eq!(
+            graph.graph_delta_from_canvas_delta(&view, [100.0, 200.0], [10.0, 20.0]),
+            Some([0.5, 1.0])
+        );
+    }
+
+    #[test]
     fn state_graph_selection_details_expose_node_and_edge_values() {
         let mut metadata = BTreeMap::new();
         metadata.insert(
@@ -783,5 +911,81 @@ mod tests {
         assert!(edge_detail.contains("edge: Wait -> Wait"));
         assert!(edge_detail.contains("input: none"));
         assert!(edge_detail.contains("label: loop"));
+    }
+
+    #[test]
+    fn state_graph_canvas_pair_saves_updated_layout_positions() {
+        let root = std::env::temp_dir().join(format!(
+            "mole_devtool_state_graph_layout_{}",
+            std::process::id()
+        ));
+        if root.exists() {
+            fs::remove_dir_all(&root).unwrap();
+        }
+        let graphs_dir = root.join("docs/state_graphs");
+        let config_dir = root.join("config");
+        fs::create_dir_all(&graphs_dir).unwrap();
+        fs::create_dir_all(&config_dir).unwrap();
+        let graph = |id: &str, title: &str| {
+            serde_json::json!({
+                "id": id,
+                "title": title,
+                "root": "Wait",
+                "nodes": [
+                    {"id": "Wait", "label": "Wait", "pos": [0.0, 0.0], "status": "reference"},
+                    {"id": "Dash", "label": "Dash", "pos": [1.0, 0.0], "status": "partial"}
+                ],
+                "edges": [
+                    {"from": "Wait", "to": "Dash", "input": "tap", "frames": "1", "status": "partial"}
+                ]
+            })
+        };
+        fs::write(
+            graphs_dir.join("melee_reference_graph.json"),
+            serde_json::to_string_pretty(&graph("melee_reference", "Melee Reference")).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            graphs_dir.join("mole_current_graph.json"),
+            serde_json::to_string_pretty(&graph("mole_current", "Mole Current")).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            config_dir.join("state_graph_layout.json"),
+            serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1,
+                "graphs": {
+                    "melee_reference": {"zoom": 0.5, "nodes": {"Wait": [3.0, 4.0], "Dash": [4.0, 4.0]}},
+                    "mole_current": {"zoom": 0.75, "nodes": {"Wait": [5.0, 6.0], "Dash": [6.0, 6.0]}}
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let mut pair = StateGraphCanvasPair::load(&root).unwrap();
+        pair.set_node_position("mole_current", "Wait", [9.25, -2.5])
+            .unwrap();
+        let report = pair.save_layout(&root).unwrap();
+        let reloaded = StateGraphCanvasPair::load(&root).unwrap();
+
+        assert_eq!(report.mutated, true);
+        assert_eq!(report.graph_count, 2);
+        assert!(report.errors.is_empty());
+        assert_eq!(
+            reloaded
+                .graph("mole_current")
+                .unwrap()
+                .node_position("Wait"),
+            Some([9.25, -2.5])
+        );
+        assert_eq!(
+            reloaded
+                .graph("melee_reference")
+                .unwrap()
+                .node_position("Wait"),
+            Some([3.0, 4.0])
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 }

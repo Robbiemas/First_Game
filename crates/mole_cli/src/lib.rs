@@ -76,6 +76,7 @@ pub(crate) enum GraphCommand {
     Next,
     Inspect { target: String },
     Layout,
+    LayoutSave { write: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -776,7 +777,7 @@ fn parse_graph_command(args: &[String]) -> Result<GraphCommand, String> {
     match subcommand {
         "missing" => ensure_no_extra_args("graph missing", rest).map(|()| GraphCommand::Missing),
         "next" => ensure_no_extra_args("graph next", rest).map(|()| GraphCommand::Next),
-        "layout" => ensure_no_extra_args("graph layout", rest).map(|()| GraphCommand::Layout),
+        "layout" => parse_graph_layout_command(rest),
         "inspect" => {
             let target = rest.join(" ");
             if target.trim().is_empty() {
@@ -787,6 +788,30 @@ fn parse_graph_command(args: &[String]) -> Result<GraphCommand, String> {
         }
         other => Err(format!("unknown mole graph command: {other}")),
     }
+}
+
+fn parse_graph_layout_command(args: &[String]) -> Result<GraphCommand, String> {
+    if args.first().map(String::as_str) != Some("save") {
+        return ensure_no_extra_args("graph layout", args).map(|()| GraphCommand::Layout);
+    }
+
+    let mut write = false;
+    let mut check = false;
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "--check" => check = true,
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for graph layout save: {other}"
+                ))
+            }
+        }
+    }
+    if write && check {
+        return Err("graph layout save accepts either --check or --write, not both".to_string());
+    }
+    Ok(GraphCommand::LayoutSave { write })
 }
 
 fn parse_verify_command(args: &[String]) -> Result<VerifyCommand, String> {
@@ -2132,6 +2157,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Use before changing Rust state graph canvas behavior so CLI and GUI consume the same graph/layout facts."
+        },
+        {
+            "name": "graph layout save",
+            "usage": "mole graph layout save [--check|--write] [--json|--format markdown]",
+            "purpose": "Validate or write the shared state graph layout file used by the Rust devtool canvases.",
+            "mutates_workspace": true,
+            "writes": ["config/state_graph_layout.json"],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format", "--check", "--write"],
+            "aliases": [],
+            "agent_notes": "Use --check before committing GUI layout edits; use --write only when intentionally canonicalizing the shared layout file."
         },
         {
             "name": "verify changed",

@@ -156,7 +156,20 @@ fn render_sheet_tab(
 fn render_state_graphs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     ui.heading("State Graphs");
     ui.label(app.state_graphs.summary());
-    ui.label(format!("Layout: {}", app.state_graph_canvas.layout_path));
+    ui.horizontal_wrapped(|ui| {
+        ui.label(format!("Layout: {}", app.state_graph_canvas.layout_path));
+        let save_label = if app.state_graph_layout_dirty {
+            "Save Layout*"
+        } else {
+            "Save Layout"
+        };
+        if ui.button(save_label).clicked() {
+            let _ = app.save_state_graph_layout();
+        }
+        if let Some(status) = app.state_graph_layout_status.as_ref() {
+            ui.label(status);
+        }
+    });
     ui.separator();
     render_state_graph_canvas_pair(ui, app);
     render_state_graph_selection_detail(ui, app);
@@ -256,6 +269,63 @@ fn render_state_graph_canvas(
                 .state_graph_canvas_views
                 .entry(graph.id.clone())
                 .or_insert_with(|| StateGraphCanvasView::from_graph_zoom(graph.zoom));
+            if response.dragged_by(egui::PointerButton::Primary) {
+                if app.state_graph_active_drag_node.is_none() {
+                    if let Some(pointer) = response.interact_pointer_pos() {
+                        let point = [
+                            (pointer.x - canvas_rect.left()) as f64,
+                            (pointer.y - canvas_rect.top()) as f64,
+                        ];
+                        if let Some(StateGraphSelection::Node { graph_id, id }) =
+                            graph.selection_at_canvas_point(&view, canvas_size, point)
+                        {
+                            app.state_graph_active_drag_node = Some((graph_id.clone(), id.clone()));
+                            app.state_graph_selection =
+                                Some(StateGraphSelection::Node { graph_id, id });
+                        }
+                    }
+                }
+                if let Some((active_graph_id, active_node_id)) =
+                    app.state_graph_active_drag_node.clone()
+                {
+                    if active_graph_id == graph.id {
+                        let delta = ui.input(|input| input.pointer.delta());
+                        if delta != egui::Vec2::ZERO {
+                            if let Some(graph_delta) = graph.graph_delta_from_canvas_delta(
+                                &view,
+                                canvas_size,
+                                [delta.x as f64, delta.y as f64],
+                            ) {
+                                if let Some(current) = app
+                                    .state_graph_canvas
+                                    .graph(&active_graph_id)
+                                    .and_then(|graph| graph.node_position(&active_node_id))
+                                {
+                                    if app
+                                        .state_graph_canvas
+                                        .set_node_position(
+                                            &active_graph_id,
+                                            &active_node_id,
+                                            [
+                                                current[0] + graph_delta[0],
+                                                current[1] + graph_delta[1],
+                                            ],
+                                        )
+                                        .is_ok()
+                                    {
+                                        app.state_graph_layout_dirty = true;
+                                        app.state_graph_layout_status =
+                                            Some("Layout has unsaved changes.".to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !response.dragged_by(egui::PointerButton::Primary) {
+                app.state_graph_active_drag_node = None;
+            }
             if response.clicked() {
                 if let Some(pointer) = response.interact_pointer_pos() {
                     let point = [

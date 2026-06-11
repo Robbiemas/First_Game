@@ -38,6 +38,9 @@ pub struct ParityLedgerApp {
     pub(crate) state_graph_canvas: StateGraphCanvasPair,
     pub(crate) state_graph_canvas_views: BTreeMap<String, StateGraphCanvasView>,
     pub(crate) state_graph_selection: Option<StateGraphSelection>,
+    pub(crate) state_graph_active_drag_node: Option<(String, String)>,
+    pub(crate) state_graph_layout_dirty: bool,
+    pub(crate) state_graph_layout_status: Option<String>,
     pub(crate) parity_ledger: ParityLedgerSurface,
     pub(crate) ecb_coverage: EcbCoverageSurface,
     pub(crate) input_trace: InputTraceSurface,
@@ -124,6 +127,9 @@ impl ParityLedgerApp {
             state_graph_canvas,
             state_graph_canvas_views,
             state_graph_selection: None,
+            state_graph_active_drag_node: None,
+            state_graph_layout_dirty: false,
+            state_graph_layout_status: None,
             parity_ledger,
             ecb_coverage,
             input_trace,
@@ -251,6 +257,22 @@ impl ParityLedgerApp {
             .and_then(|graph| selection.detail(graph))
     }
 
+    pub fn save_state_graph_layout(&mut self) -> Result<(), String> {
+        let report = self.state_graph_canvas.save_layout(&self.workspace_root)?;
+        if report.errors.is_empty() {
+            self.state_graph_layout_dirty = false;
+            self.state_graph_layout_status = Some(format!(
+                "Saved {} graph layouts to {}.",
+                report.graph_count, report.layout_path
+            ));
+            Ok(())
+        } else {
+            let message = format!("Layout not saved: {}", report.errors.join("; "));
+            self.state_graph_layout_status = Some(message.clone());
+            Err(message)
+        }
+    }
+
     pub fn ecb_coverage_motion_state_count(&self) -> usize {
         self.ecb_coverage.mapped_motion_states.len()
     }
@@ -354,6 +376,9 @@ impl ParityLedgerApp {
         self.state_graph_canvas_views = state_graph_canvas_views_from_pair(&state_graph_canvas);
         self.state_graph_canvas = state_graph_canvas;
         self.state_graph_selection = None;
+        self.state_graph_active_drag_node = None;
+        self.state_graph_layout_dirty = false;
+        self.state_graph_layout_status = None;
         self
     }
 }
@@ -426,6 +451,7 @@ mod tests {
         assert!(app.state_graph_canvas.graph("melee_reference").is_some());
         assert!(app.state_graph_canvas.graph("mole_current").is_some());
         assert_eq!(app.state_graph_canvas_views.len(), 2);
+        assert!(!app.state_graph_layout_dirty);
         assert_eq!(
             app.state_graph_canvas_views
                 .get("melee_reference")

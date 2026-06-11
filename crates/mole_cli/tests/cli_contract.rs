@@ -3521,6 +3521,68 @@ fn graph_layout_reports_two_pane_canvas_contract_and_saved_positions() {
 }
 
 #[test]
+fn graph_layout_save_check_validates_without_mutating_layout_file() {
+    let root = temp_project_root("graph_layout_save_check");
+    let graphs_dir = root.join("docs/state_graphs");
+    let config_dir = root.join("config");
+    fs::create_dir_all(&graphs_dir).unwrap();
+    fs::create_dir_all(&config_dir).unwrap();
+    let graph = |id: &str, title: &str| {
+        json!({
+            "id": id,
+            "title": title,
+            "root": "Wait",
+            "nodes": [
+                {"id": "Wait", "label": "Wait", "pos": [0.0, 0.0], "status": "reference"},
+                {"id": "Dash", "label": "Dash", "pos": [1.0, 0.0], "status": "partial"}
+            ],
+            "edges": [
+                {"from": "Wait", "to": "Dash", "input": "tap", "frames": "1", "status": "partial"}
+            ]
+        })
+    };
+    write_json(
+        &graphs_dir.join("melee_reference_graph.json"),
+        &graph("melee_reference", "Melee Reference"),
+    );
+    write_json(
+        &graphs_dir.join("mole_current_graph.json"),
+        &graph("mole_current", "Mole Current"),
+    );
+    let layout_path = config_dir.join("state_graph_layout.json");
+    write_json(
+        &layout_path,
+        &json!({
+            "version": 1,
+            "graphs": {
+                "melee_reference": {"zoom": 0.5, "nodes": {"Wait": [3.0, 4.0], "Dash": [4.0, 4.0]}},
+                "mole_current": {"zoom": 0.75, "nodes": {"Wait": [5.0, 6.0], "Dash": [6.0, 6.0]}}
+            }
+        }),
+    );
+    let before = fs::read_to_string(&layout_path).unwrap();
+
+    let output = run_cli(&[
+        "graph".to_string(),
+        "layout".to_string(),
+        "save".to_string(),
+        "--check".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "graph layout save");
+    assert_eq!(parsed["mutated"], false);
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["layout_path"], "config/state_graph_layout.json");
+    assert_eq!(parsed["graph_count"], 2);
+    assert!(parsed["errors"].as_array().unwrap().is_empty());
+    assert_eq!(fs::read_to_string(&layout_path).unwrap(), before);
+}
+
+#[test]
 fn verify_changed_plans_small_safe_command_set_from_changed_paths() {
     let commands = verification_plan_for_changed_paths(&[
         "crates/mole_core/src/sim.rs".to_string(),

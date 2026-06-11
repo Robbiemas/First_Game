@@ -449,3 +449,16 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Verification for this slice:
   - `cargo fmt --check`
   - `cargo test -p mole_devtool`
+
+## 2026-06-11 state graph layout editing
+
+- Added shared Rust layout save/validation support to `StateGraphCanvasPair`, including node-position mutation and canonical writes back to `config/state_graph_layout.json`.
+- Added `mole graph layout save --check|--write` as the CLI-side twin for validating or intentionally writing the same layout contract used by the GUI.
+- The State Graphs tab now supports primary-dragging nodes and a Save Layout control that writes only the layout file, leaving the graph JSON documents untouched.
+- Regenerated `docs/state_graphs/parity_ledger_map.json` so State Graphs lists `graph layout save` alongside the other CLI commands.
+- Edge label visibility and pinning remain open; this slice covers node dragging and layout persistence only.
+- Verification for this slice:
+  - `cargo fmt --check`
+  - `cargo test -p mole_devtool`
+  - `cargo test -p mole_cli`
+  - `cargo run -p mole_cli -- generated write-ledger-map --write --json`

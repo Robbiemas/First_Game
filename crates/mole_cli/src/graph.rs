@@ -10,6 +10,7 @@ pub(crate) fn graph_report(root: &Path, command: &GraphCommand) -> Value {
         GraphCommand::Next => graph_next_report(root),
         GraphCommand::Inspect { target } => graph_inspect_report(root, target),
         GraphCommand::Layout => graph_layout_report(root),
+        GraphCommand::LayoutSave { write } => graph_layout_save_report(root, *write),
     }
 }
 
@@ -52,6 +53,51 @@ pub(crate) fn graph_layout_report(root: &Path) -> Value {
             "ok": false,
             "graph_count": 0,
             "graphs": [],
+            "errors": [error],
+        }),
+    }
+}
+
+pub(crate) fn graph_layout_save_report(root: &Path, write: bool) -> Value {
+    let layout_path = "config/state_graph_layout.json";
+    match StateGraphCanvasPair::load(root) {
+        Ok(pair) => {
+            let report = if write {
+                pair.save_layout(root)
+            } else {
+                Ok(pair.validate_layout_save())
+            };
+            match report {
+                Ok(report) => json!({
+                    "schema_version": SCHEMA_VERSION,
+                    "command": "graph layout save",
+                    "project_root": root.display().to_string(),
+                    "layout_path": report.layout_path,
+                    "mutated": report.mutated,
+                    "ok": report.errors.is_empty(),
+                    "graph_count": report.graph_count,
+                    "errors": report.errors,
+                }),
+                Err(error) => json!({
+                    "schema_version": SCHEMA_VERSION,
+                    "command": "graph layout save",
+                    "project_root": root.display().to_string(),
+                    "layout_path": layout_path,
+                    "mutated": false,
+                    "ok": false,
+                    "graph_count": 0,
+                    "errors": [error],
+                }),
+            }
+        }
+        Err(error) => json!({
+            "schema_version": SCHEMA_VERSION,
+            "command": "graph layout save",
+            "project_root": root.display().to_string(),
+            "layout_path": layout_path,
+            "mutated": false,
+            "ok": false,
+            "graph_count": 0,
             "errors": [error],
         }),
     }
