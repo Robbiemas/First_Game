@@ -8386,11 +8386,11 @@ fn render_snapshot_exposes_active_gameplay_ecb_from_sampled_action_pose() {
             y: 14_449
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 4_360, y: 9_008 });
+    assert_eq!(ecb.right, Vec2 { x: 3_791, y: 9_008 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -2_360,
+            x: -1_791,
             y: 9_008
         }
     );
@@ -8417,11 +8417,11 @@ fn render_snapshot_exposes_generated_dash_ecb_from_action_pose_table() {
             y: 14_759
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 3_570, y: 9_742 });
+    assert_eq!(ecb.right, Vec2 { x: 4_950, y: 9_742 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -1_570,
+            x: -2_950,
             y: 9_742
         }
     );
@@ -8447,11 +8447,11 @@ fn render_snapshot_exposes_generated_fall_aerial_ecb_from_action_pose_table() {
             y: 13_574
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 3_655, y: 9_195 });
+    assert_eq!(ecb.right, Vec2 { x: 7_498, y: 9_195 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -1_655,
+            x: -3_927,
             y: 9_195
         }
     );
@@ -8481,11 +8481,11 @@ fn render_snapshot_uses_fall_directional_submotion_ecb_without_changing_state() 
             y: 12_695
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 4_208, y: 8_040 });
+    assert_eq!(ecb.right, Vec2 { x: 5_712, y: 8_040 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -2_208,
+            x: -3_712,
             y: 8_040
         }
     );
@@ -8518,14 +8518,14 @@ fn render_snapshot_uses_fall_aerial_directional_submotion_ecb_without_changing_s
     assert_eq!(
         ecb.right,
         Vec2 {
-            x: 3_253,
+            x: 8_237,
             y: 10_871
         }
     );
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -1_253,
+            x: -6_136,
             y: 10_871
         }
     );
@@ -8555,11 +8555,11 @@ fn render_snapshot_uses_fall_special_directional_submotion_ecb_without_changing_
             y: 15_271
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 7_490, y: 9_037 });
+    assert_eq!(ecb.right, Vec2 { x: 4_231, y: 9_037 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -5_474,
+            x: -2_231,
             y: 9_037
         }
     );
@@ -8585,11 +8585,11 @@ fn render_snapshot_exposes_generated_fall_special_forward_ecb_from_action_pose_t
             y: 15_271
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 7_490, y: 9_037 });
+    assert_eq!(ecb.right, Vec2 { x: 4_231, y: 9_037 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -5_474,
+            x: -2_231,
             y: 9_037
         }
     );
@@ -8615,11 +8615,11 @@ fn render_snapshot_exposes_generated_landing_fall_special_ecb_from_exact_submoti
             y: 11_637
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 5_423, y: 6_818 });
+    assert_eq!(ecb.right, Vec2 { x: 5_651, y: 6_818 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -3_423,
+            x: -3_651,
             y: 6_818
         }
     );
@@ -8648,11 +8648,11 @@ fn landing_fall_special_render_pose_uses_source_scaled_landing_animation_rate() 
             y: 10_359
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 4_103, y: 6_259 });
+    assert_eq!(ecb.right, Vec2 { x: 5_410, y: 6_259 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -2_103,
+            x: -3_410,
             y: 6_259
         }
     );
@@ -8682,11 +8682,11 @@ fn landing_air_render_pose_uses_source_scaled_landing_animation_rate() {
             y: 14_170
         }
     );
-    assert_eq!(ecb.right, Vec2 { x: 5_321, y: 8_459 });
+    assert_eq!(ecb.right, Vec2 { x: 5_214, y: 8_459 });
     assert_eq!(
         ecb.left,
         Vec2 {
-            x: -3_321,
+            x: -3_214,
             y: 8_459
         }
     );

@@ -45,6 +45,7 @@ pub struct CliOptions {
 enum CliCommand {
     Status,
     Parity,
+    ParityGaps,
     Snapshot,
     Agent(AgentCommand),
     Graph(GraphCommand),
@@ -395,6 +396,9 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
             if positional.get(1).map(String::as_str) == Some("snapshot") {
                 ensure_no_extra_args("parity snapshot", &positional[2..])
                     .map(|()| CliCommand::Snapshot)
+            } else if positional.get(1).map(String::as_str) == Some("gaps") {
+                ensure_no_extra_args("parity gaps", &positional[2..])
+                    .map(|()| CliCommand::ParityGaps)
             } else {
                 ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Parity)
             }
@@ -1155,6 +1159,7 @@ fn command_report(options: &CliOptions) -> Value {
     match &options.command {
         CliCommand::Status => status_report(&options.root),
         CliCommand::Parity => parity_report(&options.root),
+        CliCommand::ParityGaps => parity_gaps_report(&options.root),
         CliCommand::Snapshot => snapshot_report(&options.root),
         CliCommand::Agent(command) => agent_report(&options.root, command),
         CliCommand::Graph(command) => graph::graph_report(&options.root, command),
@@ -1199,6 +1204,142 @@ fn parity_report(root: &Path) -> Value {
     report["parity"] = serde_json::to_value(parity).expect("parity summary serializes");
     report["ledger_map"] = ledger_map;
     report
+}
+
+fn parity_gaps_report(root: &Path) -> Value {
+    let mut errors = Vec::new();
+    let ledger_path = root.join("docs/state_graphs/parity_ledger_map.json");
+    let graph_path = root.join("docs/state_graphs/mole_current_graph.json");
+    let ledger = read_json(ledger_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", ledger_path.display())))
+        .ok();
+    let graph = read_json(graph_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", graph_path.display())))
+        .ok();
+    let planned_surfaces = ledger
+        .as_ref()
+        .and_then(|ledger| ledger.get("tabs"))
+        .and_then(Value::as_array)
+        .map(|tabs| planned_ledger_surfaces(tabs))
+        .unwrap_or_default();
+    let partial_graph_entries = graph
+        .as_ref()
+        .map(partial_graph_entries)
+        .unwrap_or_default();
+    let mut report = base_report("parity gaps", root);
+    report["mutated"] = json!(false);
+    report["ok"] = json!(errors.is_empty());
+    report["ledger_path"] = json!("docs/state_graphs/parity_ledger_map.json");
+    report["graph_path"] = json!("docs/state_graphs/mole_current_graph.json");
+    report["summary"] = json!({
+        "planned_surface_count": planned_surfaces.len(),
+        "partial_graph_count": partial_graph_entries.len(),
+        "total_gap_count": planned_surfaces.len() + partial_graph_entries.len(),
+    });
+    report["planned_surfaces"] = json!(planned_surfaces);
+    report["partial_graph_entries"] = json!(partial_graph_entries);
+    report["recommended_next"] = json!(parity_gap_recommendations(
+        report["planned_surfaces"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]),
+        report["partial_graph_entries"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]),
+    ));
+    report["errors"] = json!(errors);
+    report
+}
+
+fn planned_ledger_surfaces(tabs: &[Value]) -> Vec<Value> {
+    tabs.iter()
+        .filter(|tab| {
+            tab.get("status").and_then(Value::as_str) != Some("Active")
+                || tab.get("cli_surface").and_then(Value::as_str) != Some("Active")
+                || tab.get("gui_surface").and_then(Value::as_str) != Some("Active")
+        })
+        .map(|tab| {
+            json!({
+                "id": tab.get("id").cloned().unwrap_or(Value::Null),
+                "label": tab.get("label").cloned().unwrap_or(Value::Null),
+                "kind": tab.get("kind").cloned().unwrap_or(Value::Null),
+                "status": tab.get("status").cloned().unwrap_or(Value::Null),
+                "cli_surface": tab.get("cli_surface").cloned().unwrap_or(Value::Null),
+                "gui_surface": tab.get("gui_surface").cloned().unwrap_or(Value::Null),
+                "summary": tab.get("summary").cloned().unwrap_or(Value::Null),
+            })
+        })
+        .collect()
+}
+
+fn partial_graph_entries(graph: &Value) -> Vec<Value> {
+    let nodes = graph
+        .get("nodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|node| node.get("status").and_then(Value::as_str) == Some("partial"))
+        .map(|node| {
+            json!({
+                "kind": "node",
+                "id": node.get("id").cloned().unwrap_or(Value::Null),
+                "label": node.get("label").cloned().unwrap_or(Value::Null),
+                "status": node.get("status").cloned().unwrap_or(Value::Null),
+                "notes": node.get("notes").cloned().unwrap_or(Value::Null),
+                "known_gaps": node.get("known_gaps").cloned().unwrap_or_else(|| json!([])),
+            })
+        });
+    let edges = graph
+        .get("edges")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|edge| edge.get("status").and_then(Value::as_str) == Some("partial"))
+        .map(|edge| {
+            let from = edge.get("from").and_then(Value::as_str).unwrap_or("");
+            let to = edge.get("to").and_then(Value::as_str).unwrap_or("");
+            json!({
+                "kind": "edge",
+                "id": format!("{from} -> {to}"),
+                "from": edge.get("from").cloned().unwrap_or(Value::Null),
+                "to": edge.get("to").cloned().unwrap_or(Value::Null),
+                "label": edge.get("label").cloned().unwrap_or(Value::Null),
+                "status": edge.get("status").cloned().unwrap_or(Value::Null),
+                "notes": edge.get("notes").cloned().unwrap_or(Value::Null),
+                "known_gaps": edge.get("known_gaps").cloned().unwrap_or_else(|| json!([])),
+            })
+        });
+    nodes.chain(edges).collect()
+}
+
+fn parity_gap_recommendations(
+    planned_surfaces: &[Value],
+    partial_entries: &[Value],
+) -> Vec<String> {
+    let mut recommendations = Vec::new();
+    if let Some(surface) = planned_surfaces.first() {
+        let id = surface
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("planned surface");
+        recommendations.push(format!(
+            "Implement the `{id}` CLI artifact/read model first, then mirror it in the Rust GUI."
+        ));
+    }
+    if let Some(entry) = partial_entries.first() {
+        let id = entry
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("partial graph entry");
+        recommendations.push(format!(
+            "Use `mole graph inspect \"{id}\" --json` before changing gameplay for the highest-priority partial graph entry."
+        ));
+    }
+    if recommendations.is_empty() {
+        recommendations.push("No planned or partial parity gaps detected.".to_string());
+    }
+    recommendations
 }
 
 fn friend_connect_report(root: &Path, command: &FriendConnectCommand) -> Value {
@@ -1755,6 +1896,7 @@ fn expected_command_names() -> Vec<&'static str> {
     vec![
         "status",
         "parity",
+        "parity gaps",
         "parity snapshot",
         "snapshot",
         "agent brief",
@@ -2073,6 +2215,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Read-only; does not run generators."
+        },
+        {
+            "name": "parity gaps",
+            "usage": "mole parity gaps [--json]",
+            "purpose": "List planned parity-ledger surfaces and partial state-graph entries as one agent-facing implementation queue.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use before implementing broad parity work so planned surfaces and partial graph entries come from checked-in artifacts instead of ad-hoc JSON parsing."
         },
         {
             "name": "parity snapshot",

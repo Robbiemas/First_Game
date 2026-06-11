@@ -110,6 +110,10 @@ impl ParityLedgerSurface {
         let stage_sheet = load_value_sheet(
             root.join("docs/state_graphs/value_sheets/battlefield_stage_values.json"),
         )?;
+        let gap_tab = parity_gap_tab(
+            root.join("docs/state_graphs/parity_ledger_map.json"),
+            root.join("docs/state_graphs/mole_current_graph.json"),
+        )?;
 
         let tabs = vec![
             global_tab,
@@ -118,6 +122,7 @@ impl ParityLedgerSurface {
             value_sheet_tab("global_combat_values", &global_combat_sheet),
             value_sheet_tab("captain_falcon_combat_values", &falcon_combat_sheet),
             value_sheet_tab("battlefield_stage_values", &stage_sheet),
+            gap_tab,
         ];
 
         let summary = build_summary(
@@ -231,6 +236,140 @@ fn value_sheet_tab(id: &str, sheet: &ValueSheetFile) -> ParityLedgerSurfaceTab {
         headers,
         rows,
     }
+}
+
+fn parity_gap_tab(
+    ledger_path: impl AsRef<Path>,
+    graph_path: impl AsRef<Path>,
+) -> Result<ParityLedgerSurfaceTab, String> {
+    let ledger = load_json(ledger_path)?;
+    let graph = load_json(graph_path)?;
+    let planned_rows = ledger
+        .get("tabs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|tab| {
+            tab.get("status").and_then(Value::as_str) != Some("Active")
+                || tab.get("cli_surface").and_then(Value::as_str) != Some("Active")
+                || tab.get("gui_surface").and_then(Value::as_str) != Some("Active")
+        })
+        .map(planned_gap_row);
+    let partial_node_rows = graph
+        .get("nodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|node| node.get("status").and_then(Value::as_str) == Some("partial"))
+        .map(|node| graph_gap_row("Node", node_id(node), node));
+    let partial_edge_rows = graph
+        .get("edges")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|edge| edge.get("status").and_then(Value::as_str) == Some("partial"))
+        .map(|edge| graph_gap_row("Edge", edge_id(edge), edge));
+    let rows = planned_rows
+        .chain(partial_node_rows)
+        .chain(partial_edge_rows)
+        .collect::<Vec<_>>();
+    let planned_count = rows
+        .iter()
+        .filter(|row| row.cells.first().map(String::as_str) == Some("Planned Surface"))
+        .count();
+    let partial_count = rows.len().saturating_sub(planned_count);
+
+    Ok(ParityLedgerSurfaceTab {
+        id: "parity_gaps".to_string(),
+        label: "Parity Gaps".to_string(),
+        summary: format!(
+            "{planned_count} planned surfaces | {partial_count} partial graph entries"
+        ),
+        headers: vec![
+            "Kind".to_string(),
+            "Id".to_string(),
+            "Label".to_string(),
+            "Status".to_string(),
+            "Summary".to_string(),
+        ],
+        rows,
+    })
+}
+
+fn load_json(path: impl AsRef<Path>) -> Result<Value, String> {
+    let text = fs::read_to_string(path.as_ref())
+        .map_err(|error| format!("failed to read {}: {error}", path.as_ref().display()))?;
+    serde_json::from_str(&text)
+        .map_err(|error| format!("failed to parse {}: {error}", path.as_ref().display()))
+}
+
+fn planned_gap_row(tab: &Value) -> ParityLedgerSurfaceRow {
+    let id = string_field(tab, "id");
+    let label = string_field(tab, "label");
+    let status = string_field(tab, "status");
+    let summary = string_field(tab, "summary");
+    let detail = format!(
+        "{label}\n\nStatus: {status}\nCLI: {}\nGUI: {}\n\n{summary}",
+        string_field(tab, "cli_surface"),
+        string_field(tab, "gui_surface")
+    );
+    ParityLedgerSurfaceRow {
+        cells: vec![
+            "Planned Surface".to_string(),
+            id,
+            label,
+            status.clone(),
+            summary,
+        ],
+        detail,
+        status: Some(status),
+    }
+}
+
+fn graph_gap_row(kind: &str, id: String, entry: &Value) -> ParityLedgerSurfaceRow {
+    let label = string_field(entry, "label");
+    let status = string_field(entry, "status");
+    let notes = string_field(entry, "notes");
+    let known_gaps = entry
+        .get("known_gaps")
+        .and_then(Value::as_array)
+        .map(|gaps| {
+            gaps.iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default();
+    let detail = if known_gaps.is_empty() {
+        format!("{id}\n\nStatus: {status}\n\n{notes}")
+    } else {
+        format!("{id}\n\nStatus: {status}\n\n{notes}\n\nKnown gaps:\n{known_gaps}")
+    };
+    ParityLedgerSurfaceRow {
+        cells: vec![kind.to_string(), id, label, status.clone(), notes],
+        detail,
+        status: Some(status),
+    }
+}
+
+fn node_id(node: &Value) -> String {
+    string_field(node, "id")
+}
+
+fn edge_id(edge: &Value) -> String {
+    format!(
+        "{} -> {}",
+        string_field(edge, "from"),
+        string_field(edge, "to")
+    )
+}
+
+fn string_field(value: &Value, field: &str) -> String {
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 #[derive(Debug)]
@@ -427,14 +566,24 @@ mod tests {
     fn surface_loads_active_parity_ledger_tabs_and_rows() {
         let surface = ParityLedgerSurface::load(workspace_root()).expect("surface loads");
 
-        assert_eq!(surface.tabs.len(), 6);
+        assert_eq!(surface.tabs.len(), 7);
         assert_eq!(surface.tabs[0].label, "Global Values");
         assert_eq!(surface.tabs[1].label, "Test Character Values");
         assert_eq!(surface.tabs[2].label, "Physics Engine Values");
         assert_eq!(surface.tabs[3].label, "Global Combat Values");
         assert_eq!(surface.tabs[4].label, "Captain Falcon Combat Values");
+        assert_eq!(surface.tabs[6].label, "Parity Gaps");
         assert!(!surface.tabs[0].rows.is_empty());
         assert!(!surface.tabs[5].rows.is_empty());
+        assert!(surface.tabs[6]
+            .rows
+            .iter()
+            .any(|row| row.cells.iter().any(|cell| cell == "action_motion_tables")));
+        assert!(surface.tabs[6]
+            .rows
+            .iter()
+            .any(|row| row.cells.iter().any(|cell| cell == "EntryEnd")));
         assert!(surface.summary.contains("Parity Ledger"));
+        assert!(surface.summary.contains("Parity Gaps"));
     }
 }

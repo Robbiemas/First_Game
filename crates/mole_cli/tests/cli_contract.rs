@@ -2451,6 +2451,7 @@ fn help_command_exposes_full_agent_command_catalog() {
     for expected in [
         "status",
         "parity",
+        "parity gaps",
         "parity snapshot",
         "snapshot",
         "agent brief",
@@ -4082,6 +4083,62 @@ fn parity_report_includes_owned_ledger_map_summary() {
     assert!(parsed["ledger_map"]["registry"]["dual_surface"]
         .as_bool()
         .unwrap());
+}
+
+#[test]
+fn parity_gaps_reports_planned_surfaces_and_partial_graph_entries() {
+    let root = temp_project_root("parity_gaps");
+    write_json(
+        &root.join("docs/state_graphs/parity_ledger_map.json"),
+        &serde_json::to_value(LedgerMap::from_registry(&LedgerRegistry::roadmap())).unwrap(),
+    );
+    write_json(
+        &root.join("docs/state_graphs/mole_current_graph.json"),
+        &json!({
+            "nodes": [
+                {
+                    "id": "GuardReflect",
+                    "label": "GuardReflect",
+                    "status": "partial",
+                    "notes": "Shield-hit reflect behavior is still missing.",
+                    "known_gaps": ["Shield-hit reflect behavior is still missing."]
+                },
+                {"id": "Wait", "label": "Wait", "status": "aligned"}
+            ],
+            "edges": [
+                {
+                    "from": "GuardReflect",
+                    "to": "Guard",
+                    "status": "partial",
+                    "notes": "GuardReflect exit remains partial."
+                }
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "parity".to_string(),
+        "gaps".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "parity gaps");
+    assert_eq!(parsed["mutated"], false);
+    assert_eq!(parsed["summary"]["planned_surface_count"], 5);
+    assert_eq!(parsed["summary"]["partial_graph_count"], 2);
+    assert_eq!(parsed["planned_surfaces"][0]["id"], "action_motion_tables");
+    assert_eq!(parsed["partial_graph_entries"][0]["id"], "GuardReflect");
+    assert_eq!(
+        parsed["partial_graph_entries"][1]["id"],
+        "GuardReflect -> Guard"
+    );
+    assert!(parsed["recommended_next"][0]
+        .as_str()
+        .unwrap()
+        .contains("action_motion_tables"));
 }
 
 #[test]
