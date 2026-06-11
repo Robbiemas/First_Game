@@ -1876,6 +1876,7 @@ fn input_common_data_sources_track_melee_field_offsets() {
             0x1e0,
         ),
         ("damage_landing_basic_knockback_threshold", "x1E4", 0x1e4),
+        ("down_stand_stick_y", "x244", 0x244),
         ("passive_window_max", "x250", 0x250),
         ("passive_stand_stick_x", "x254", 0x254),
         ("down_wait_timer", "x424", 0x424),
@@ -1957,6 +1958,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x1a0, 0.75);
     put_f32_be(&mut bytes, 0x1e0, 4.5);
     put_f32_be(&mut bytes, 0x1e4, 8.0);
+    put_i32_be(&mut bytes, 0x244, 72);
     put_f32_be(&mut bytes, 0x250, 9.5);
     put_f32_be(&mut bytes, 0x254, 1.25);
     put_f32_be(&mut bytes, 0x25c, -0.62);
@@ -2129,6 +2131,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.passive_input_age_threshold, 6);
     assert_eq!(common.passive_window_max.to_bits(), 9.5_f32.to_bits());
     assert_eq!(common.passive_stand_stick_x.to_bits(), 1.25_f32.to_bits());
+    assert_eq!(common.down_stand_stick_y, 72);
     assert_eq!(common.down_wait_timer.to_bits(), 61.0_f32.to_bits());
     assert_eq!(common.crouch_y, 44);
     assert_eq!(common.crouch_release_y, 36);
@@ -4361,6 +4364,67 @@ fn source_down_wait_fresh_lr_enters_down_stand_like_ftco_800980bc() {
             &[
                 PlayerInput::neutral(),
                 PlayerInput::neutral().with_left_trigger_digital(true),
+            ],
+            |_| None,
+            |action_state_id| match action_state_id.get() {
+                186 | 194 => Some(30),
+                _ => None,
+            },
+        );
+
+        let standing = world.players()[1];
+        assert!(standing.grounded);
+        assert_eq!(
+            standing.melee_action_state_id,
+            Some(MeleeActionStateId::new(stand_action_id))
+        );
+        assert_eq!(
+            standing.source_action_key,
+            Some(SourceActionKey::new(stand_key))
+        );
+        assert_eq!(standing.motion_state_alias, None);
+        assert_eq!(standing.motion_frame, 0);
+        assert_eq!(standing.motion_anim_frame_milli, 0);
+        assert_eq!(standing.source_action_total_frames, 30);
+        assert_eq!(standing.source_down_wait_timer.to_bits(), 0.0_f32.to_bits());
+    }
+}
+
+#[test]
+fn source_down_wait_up_stick_angle_enters_down_stand_like_ftco_800980bc() {
+    for (wait_action_id, wait_key, stand_action_id, stand_key) in [
+        (184, "DownWaitU", 186, "DownStandU"),
+        (192, "DownWaitD", 194, "DownStandD"),
+    ] {
+        let common = MeleeCommonData {
+            aerial_vertical_angle_tan_milli: 1000,
+            down_stand_stick_y: 72,
+            ..MeleeCommonData::PROVISIONAL
+        };
+        let mut world = World::for_two_players_with_common_data(common);
+        let floor = world.stage().main_floor;
+        let mut player = world.players()[1];
+        player.grounded = true;
+        player.motion_state_alias = None;
+        player.motion_state = MotionState::Fall;
+        player.melee_action_state_id = Some(MeleeActionStateId::new(wait_action_id));
+        player.source_action_key = Some(SourceActionKey::new(wait_key));
+        player.source_action_total_frames = 70;
+        player.source_down_wait_timer = 10.0;
+        player.motion_frame = 12;
+        player.motion_anim_frame_milli = 12_000;
+        player.position = Vec2 {
+            x: floor.left_x + 10_000,
+            y: floor.y,
+        };
+        assert!(world.set_player_state_for_diagnostic(1, player));
+
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(wait_action_id as u32),
+            &[
+                PlayerInput::neutral(),
+                PlayerInput::neutral().with_left_stick(80, 80),
             ],
             |_| None,
             |action_state_id| match action_state_id.get() {

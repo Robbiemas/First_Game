@@ -163,6 +163,7 @@ pub fn step_world_with_source_runtime_data(
                 common_data,
                 input_facts,
                 stick_x,
+                stick_y as i32,
                 &mut source_action_total_frames,
             );
             continue;
@@ -1613,6 +1614,7 @@ fn advance_source_down_wait_state(
     common_data: MeleeCommonData,
     input_facts: MeleeInputFacts,
     stick_x: i32,
+    stick_y: i32,
     source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) {
     player.motion_frame = player.motion_frame.saturating_add(1);
@@ -1635,7 +1637,7 @@ fn advance_source_down_wait_state(
         enter_source_down_attack(player, source_action_total_frames);
         return;
     }
-    if input_facts.source_pressed.lr() {
+    if source_down_wait_stand_input(input_facts, stick_x, stick_y, common_data) {
         enter_source_down_stand(player, source_action_total_frames);
         return;
     }
@@ -1647,6 +1649,34 @@ fn advance_source_down_wait_state(
     } else {
         enter_fall(player);
     }
+}
+
+fn source_down_wait_stand_input(
+    input_facts: MeleeInputFacts,
+    stick_x: i32,
+    stick_y: i32,
+    common_data: MeleeCommonData,
+) -> bool {
+    input_facts.source_pressed.lr()
+        || source_down_wait_up_stick_stand_input(stick_x, stick_y, common_data)
+}
+
+fn source_down_wait_up_stick_stand_input(
+    stick_x: i32,
+    stick_y: i32,
+    common_data: MeleeCommonData,
+) -> bool {
+    if stick_y < common_data.down_stand_stick_y as i32 {
+        return false;
+    }
+    if stick_y <= 0 {
+        return false;
+    }
+    let abs_x = stick_x.abs();
+    if abs_x == 0 {
+        return true;
+    }
+    stick_y.abs() * 1000 >= abs_x * common_data.aerial_vertical_angle_tan_milli
 }
 
 fn enter_source_down_stand(

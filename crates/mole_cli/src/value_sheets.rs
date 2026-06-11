@@ -506,6 +506,10 @@ const COMBAT_PHYSICS_CATEGORIES: &[(&str, &[FieldSpec])] = &[
         &[
             FieldSpec {
                 owner: FieldOwner::Global,
+                rust_name: "down_stand_stick_y",
+            },
+            FieldSpec {
+                owner: FieldOwner::Global,
                 rust_name: "passive_input_age_threshold",
             },
             FieldSpec {

@@ -1584,7 +1584,7 @@
         }
       ],
       "known_gaps": [
-        "Hammer-item passive veto state, wall/ceiling passive callbacks, exact PassiveStand model-velocity physics, wall/ceiling damage callbacks, SDI/ASDI, damage tumble special cases, DownWait side getup/roll routing, vertical-stick stand-up thresholds, and downed damage/passive callbacks remain pending."
+        "Hammer-item passive veto state, wall/ceiling passive callbacks, exact PassiveStand model-velocity physics, wall/ceiling damage callbacks, SDI/ASDI, damage tumble special cases, DownWait side getup/roll routing, and downed damage/passive callbacks remain pending."
       ]
     },
     {
@@ -1658,7 +1658,7 @@
         }
       ],
       "known_gaps": [
-        "DownWait side getup/roll routing, vertical-stick stand-up thresholds, downed damage/passive callbacks, and sandbag x2228_b2 side-orientation bounce routing remain pending."
+        "DownWait side getup/roll routing, downed damage/passive callbacks, and sandbag x2228_b2 side-orientation bounce routing remain pending."
       ]
     },
     {
@@ -1669,7 +1669,7 @@
         7
       ],
       "status": "partial",
-      "notes": "Canonical source-only DownWaitU/D action ids 184/192 are entered from DownBound animation exhaustion via the Rust equivalent of ftCo_80097E8C. Core seeds rollback-owned source_down_wait_timer from extracted CommonAttributes x424, clears the DownBound hip-pose latch, keeps the source action authoritative with no MotionState alias, decrements the timer like ftCo_DownWait_Anim, and enters source-only DownStandU/D when the timer expires. The visible ftCo_DownWait_IASA slice is now ordered like the decomp for owned branches: fresh source-normalized HSD_PAD_A/HSD_PAD_B enters DownAttackU/D before fresh source-normalized HSD_PAD_LR enters DownStandU/D. While waiting, grounded down-state physics/support advances without falling through to legacy MotionState logic.",
+      "notes": "Canonical source-only DownWaitU/D action ids 184/192 are entered from DownBound animation exhaustion via the Rust equivalent of ftCo_80097E8C. Core seeds rollback-owned source_down_wait_timer from extracted CommonAttributes x424, clears the DownBound hip-pose latch, keeps the source action authoritative with no MotionState alias, decrements the timer like ftCo_DownWait_Anim, and enters source-only DownStandU/D when the timer expires. The visible ftCo_DownWait_IASA slice is now ordered like the decomp for owned branches: fresh source-normalized HSD_PAD_A/HSD_PAD_B enters DownAttackU/D before ftCo_800980BC enters DownStandU/D from either fresh source-normalized HSD_PAD_LR or the extracted x244 vertical-stick plus x20_radians angle gate. While waiting, grounded down-state physics/support advances without falling through to legacy MotionState logic.",
       "source_refs": [
         {
           "label": "Melee DownWait source",
@@ -1686,11 +1686,11 @@
         {
           "label": "Runtime DownWait contracts",
           "path": "crates/mole_runtime/tests/runtime_contract.rs",
-          "function": "runtime_source_down_bound_animation_end_uses_baked_down_wait_binding / runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / runtime_source_down_wait_fresh_attack_uses_baked_down_attack_binding / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
+          "function": "runtime_source_down_bound_animation_end_uses_baked_down_wait_binding / runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / runtime_source_down_wait_fresh_attack_uses_baked_down_attack_binding / source_down_wait_up_stick_angle_enters_down_stand_like_ftco_800980bc / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
         }
       ],
       "known_gaps": [
-        "DownWait side getup/roll routing through ftCo_Down_CheckInput, vertical-stick stand-up thresholds for ftCo_800980BC, c-stick down attack helper routing, and downed damage/passive callbacks remain pending."
+        "DownWait side getup/roll routing through ftCo_Down_CheckInput, c-stick down attack helper routing, and downed damage/passive callbacks remain pending."
       ]
     },
     {
@@ -1701,7 +1701,7 @@
         7
       ],
       "status": "partial",
-      "notes": "Canonical source-only DownStandU/D action ids 186/194 are entered from DownWait timer expiry via the Rust equivalent of ftCo_80098160, and from fresh source-normalized HSD_PAD_LR through the owned ftCo_800980BC branch. Runtime binds those canonical ids to baked Captain Falcon DownStand source rows 290/291, core keeps motion_state_alias None, advances grounded down-state physics/support, and exits to Wait when ftCo_DownStand_Anim-style animation exhaustion occurs.",
+      "notes": "Canonical source-only DownStandU/D action ids 186/194 are entered from DownWait timer expiry via the Rust equivalent of ftCo_80098160, and from ftCo_800980BC through either fresh source-normalized HSD_PAD_LR or extracted x244 vertical-stick plus x20_radians angle gating. Runtime binds those canonical ids to baked Captain Falcon DownStand source rows 290/291, core keeps motion_state_alias None, advances grounded down-state physics/support, and exits to Wait when ftCo_DownStand_Anim-style animation exhaustion occurs.",
       "source_refs": [
         {
           "label": "Melee DownStand source",
@@ -1718,11 +1718,11 @@
         {
           "label": "Runtime DownStand contracts",
           "path": "crates/mole_runtime/tests/runtime_contract.rs",
-          "function": "runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
+          "function": "runtime_source_down_wait_timer_expiry_uses_baked_down_stand_binding / source_down_wait_up_stick_angle_enters_down_stand_like_ftco_800980bc / runtime_source_down_bound_actions_resolve_from_canonical_action_ids"
         }
       ],
       "known_gaps": [
-        "Vertical-stick stand-up via ftCo_800980BC and broader downed-state damage/passive callbacks remain pending."
+        "Broader downed-state damage/passive callbacks remain pending."
       ]
     },
     {
@@ -1843,10 +1843,10 @@
     {
       "from": "SourceDownWait",
       "to": "SourceDownStand",
-      "label": "fresh LR stand-up",
+      "label": "fresh LR/up-stick stand-up",
       "status": "partial",
-      "notes": "Rust mirrors the owned LR half of ftCo_800980BC from ftCo_DownWait_IASA: a fresh source-normalized HSD_PAD_LR press enters DownStandU from DownWaitU and DownStandD from DownWaitD through canonical source-only action ids 186/194.",
-      "input": "input.x668 & HSD_PAD_LR",
+      "notes": "Rust mirrors the owned ftCo_800980BC branch from ftCo_DownWait_IASA: a fresh source-normalized HSD_PAD_LR press or extracted x244 vertical-stick plus x20_radians angle gate enters DownStandU from DownWaitU and DownStandD from DownWaitD through canonical source-only action ids 186/194.",
+      "input": "input.x668 & HSD_PAD_LR || (lstick.y >= p_ftCommonData->x244 && ftCo_GetLStickAngle(fp) >= p_ftCommonData->x20_radians)",
       "frames": "after ftCo_DownWait_Anim decrement and after ftCo_800984D4 / ftCo_Down_CheckInput priority"
     },
     {

@@ -363,6 +363,18 @@
       "label": "Passive And Recovery",
       "fields": [
         {
+          "rust_name": "down_stand_stick_y",
+          "source_name": "x244",
+          "offset": 580,
+          "offset_hex": "0x244",
+          "kind": "i32_stick",
+          "raw": 20,
+          "converted_value": 20,
+          "comparison_value_kind": "stick_byte",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
           "rust_name": "passive_input_age_threshold",
           "source_name": "x1C",
           "offset": 28,

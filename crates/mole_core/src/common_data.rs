@@ -124,6 +124,7 @@ pub struct MeleeCommonData {
     pub passive_input_age_threshold: u8,
     pub passive_window_max: f32,
     pub passive_stand_stick_x: f32,
+    pub down_stand_stick_y: i8,
     pub down_wait_timer: f32,
     pub hitlag_max_frames: f32,
     pub hitlag_damage_scale: f32,
@@ -235,6 +236,7 @@ impl MeleeCommonData {
         passive_input_age_threshold: 0,
         passive_window_max: 9.6,
         passive_stand_stick_x: 1.5,
+        down_stand_stick_y: 20,
         down_wait_timer: 0.0,
         hitlag_max_frames: 20.0,
         hitlag_damage_scale: 0.3333333432674408,
@@ -365,6 +367,7 @@ impl MeleeCommonData {
         data.hitlag_crouch_multiplier = read_f32(bytes, 0x1a0, "x1A0")?;
         data.damage_landing_down_bound_knockback_threshold = read_f32(bytes, 0x1e0, "x1E0")?;
         data.damage_landing_basic_knockback_threshold = read_f32(bytes, 0x1e4, "x1E4")?;
+        data.down_stand_stick_y = read_i8_from_i32(bytes, 0x244, "x244")?;
         data.passive_window_max = read_f32(bytes, 0x250, "x250")?;
         data.passive_stand_stick_x = read_f32(bytes, 0x254, "x254")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
@@ -507,6 +510,15 @@ fn read_trigger_u8(
 ) -> Result<u8, CommonDataExtractError> {
     let value = round_f32_to_i32(read_f32(bytes, offset, field)? * 255.0, field, offset)?;
     range_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
+}
+
+fn read_i8_from_i32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<i8, CommonDataExtractError> {
+    let value = read_i32(bytes, offset, field)?;
+    range_i32(value, i8::MIN as i32, i8::MAX as i32, field, offset).map(|value| value as i8)
 }
 
 fn read_radian_tangent_milli(
@@ -1064,6 +1076,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "damage_landing_basic_knockback_threshold",
         source_name: "x1E4",
         offset: 0x1e4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "down_stand_stick_y",
+        source_name: "x244",
+        offset: 0x244,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {

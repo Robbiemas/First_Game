@@ -111,6 +111,13 @@
       "raw": 32.0,
       "source_name": "x160"
     },
+    "down_stand_stick_y": {
+      "kind": "i32_stick",
+      "offset": 580,
+      "raw": 20,
+      "source_name": "x244",
+      "stick_byte": 20
+    },
     "passive_window_max": {
       "kind": "source_f32",
       "offset": 592,

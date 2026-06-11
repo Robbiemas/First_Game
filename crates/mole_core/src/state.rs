@@ -2702,6 +2702,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.passive_input_age_threshold);
     mix_f32(hash, common.passive_window_max);
     mix_f32(hash, common.passive_stand_stick_x);
+    mix_i32(hash, i32::from(common.down_stand_stick_y));
     mix_f32(hash, common.down_wait_timer);
     mix_f32(hash, common.hitlag_max_frames);
     mix_f32(hash, common.hitlag_damage_scale);
