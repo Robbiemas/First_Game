@@ -6,7 +6,9 @@ This document is the entry point for work that touches the Melee decomp extracti
 
 ## North Star
 
-The project is moving away from Python and Pygame. Python files in this repository are historical reference or temporary legacy extraction helpers only. New durable tooling and UI work belongs in Rust.
+The durable project direction is Rust-owned engine, CLI, middleware artifacts, and native devtool UI. Python/Pygame must not own new gameplay, import/export, or artifact semantics.
+
+The Python state graph viewer is currently allowed as a supported temporary parity-ledger surface because its ledger view is still more usable than the Rust rewrite. Treat it as a compatibility UI over repository artifacts, not as the authority. Do not remove its launcher or tests until the Rust parity ledger reaches feature parity and this document is updated with the replacement milestone.
 
 The Rust dev tool is not just a viewer. It is the middleware layer between the Melee decomp reference and the Rust engine:
 
@@ -29,6 +31,7 @@ Every parity feature must satisfy all four surfaces:
 - **Rust engine:** runtime consumes the artifact without hidden conversion or semantic drift.
 - **Mole CLI:** agents can extract, inspect, diff, edit/apply, validate, regenerate, and import headlessly.
 - **Rust dev tool GUI:** humans can see and edit the same data visually.
+- **Temporary Python ledger UI:** humans may inspect the parity ledger through `tools/state_graph_viewer.py` while Rust catches up, but it must read the same artifacts and must not define new semantics.
 
 The CLI and GUI are dual surfaces. Anything added to one must be represented on the other. A GUI-only edit path is incomplete. A CLI-only inspection path is incomplete.
 
@@ -45,7 +48,7 @@ The Rust backend/data pipeline built to support the original Python-facing tool 
 - `crates/mole_core`: deterministic gameplay state, source units, collision, motion, and engine import targets.
 - `crates/mole_frame_data`: compact runtime source capsule decoding.
 
-Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability.
+Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability. If a branch revives the Python parity ledger for usability, preserve that surface as a temporary compatibility launcher and keep its data path artifact-backed.
 
 For GUI layout, sizing, color, selection, and panel behavior, follow `docs/architecture/rust-devtool-ui-primitives.md`. Move tab fixes into shared primitives when they are reusable; do not let a one-tab patch become the copied pattern for the next surface.
 
@@ -136,11 +139,11 @@ Rust already owns important backend pieces:
 
 Remaining parity work should close gaps on top of these pieces instead of replacing them.
 
-## Legacy Reference Surfaces
+## Compatibility And Legacy Surfaces
 
-Use these Python files only to understand visual/interaction behavior that still needs to be translated:
+Use these Python files to understand visual/interaction behavior that still needs to be translated:
 
-- `tools/state_graph_viewer.py`: old dev tool UI behavior.
+- `tools/state_graph_viewer.py`: old dev tool UI behavior and temporarily supported parity-ledger UI.
 - `RealMainFile.py`, `states.py`, `Camera.py`, `DebugOverlay.py`, `DisplayInputs.py`: old playable Pygame harness behavior.
 
-Do not add new responsibilities to those files.
+Do not add new gameplay, engine, import/export, or artifact-authority responsibilities to those files. The only acceptable active Python UI responsibility is temporary parity-ledger inspection through the same checked-in artifacts the CLI and Rust devtool consume.

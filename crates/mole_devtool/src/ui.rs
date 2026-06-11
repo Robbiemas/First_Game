@@ -577,6 +577,7 @@ fn graph_node_screen_pos(
 }
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    app.poll_move_keyframe_import_pipeline();
     ui.heading("Move Keyframes");
     render_move_keyframes_browser_controls(ui, app);
     ui.separator();
@@ -786,11 +787,16 @@ fn render_move_keyframes_import_controls(ui: &mut egui::Ui, app: &mut ParityLedg
                 if let Some(source_id) = pending_source {
                     app.select_move_keyframe_import_source(source_id);
                 }
-                if ui.button("Import All States").clicked() {
-                    match app.run_move_keyframe_import_pipeline() {
-                        Ok(()) => {}
-                        Err(error) => app.move_keyframes_status = Some(error),
-                    }
+                let import_button = egui::Button::new(if app.move_keyframe_import_in_progress() {
+                    "Importing..."
+                } else {
+                    "Import All States"
+                });
+                if ui
+                    .add_enabled(!app.move_keyframe_import_in_progress(), import_button)
+                    .clicked()
+                {
+                    app.begin_move_keyframe_import_pipeline();
                 }
             });
             ui.label(format!(
@@ -1364,7 +1370,7 @@ fn draw_render_capsule(
     capsule: RenderCapsule,
     fit: MoveKeyframePreviewFit,
 ) {
-    let color = render_color(capsule.color);
+    let color = move_keyframe_debug_color(capsule.color);
     let a = fit.apply(egui::pos2(capsule.a.x as f32, capsule.a.y as f32));
     let b = fit.apply(egui::pos2(capsule.b.x as f32, capsule.b.y as f32));
     let radius = (capsule.radius.max(1) as f32 * fit.scale).max(1.0);
@@ -1524,6 +1530,10 @@ fn render_color(color: RenderColor) -> egui::Color32 {
     egui::Color32::from_rgba_unmultiplied(color.r, color.g, color.b, color.a)
 }
 
+fn move_keyframe_debug_color(color: RenderColor) -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(color.r, color.g, color.b, 255)
+}
+
 #[derive(Clone, Copy)]
 struct MoveKeyframePreviewPalette {
     background: egui::Color32,
@@ -1609,6 +1619,23 @@ mod tests {
             move_keyframe_capsule_wireframe(egui::pos2(5.0, 5.0), egui::pos2(5.0, 5.0), 3.0);
         assert_eq!(circle.radius, 3.0);
         assert!(circle.sides.is_none());
+    }
+
+    #[test]
+    fn move_keyframe_debug_color_keeps_runtime_rgb_but_makes_overlay_visible() {
+        let runtime = RenderColor {
+            r: 246,
+            g: 197,
+            b: 83,
+            a: 96,
+        };
+
+        let debug = move_keyframe_debug_color(runtime);
+
+        assert_eq!(debug.r(), 246);
+        assert_eq!(debug.g(), 197);
+        assert_eq!(debug.b(), 83);
+        assert_eq!(debug.a(), 255);
     }
 
     #[test]

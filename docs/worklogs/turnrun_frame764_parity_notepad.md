@@ -545,3 +545,15 @@ Purpose: a short working note for the current parity investigation so I can resu
 - Added a Move/State editor import panel beside the target selector. It defaults to importing all Captain Falcon states into Dolphin Mole by running the same Mole CLI commands agents use: `frame-data extract --all-states` followed by `frame-data export-runtime --all-states`.
 - Updated devtool and CLI tests to treat manifest-backed states as the normal full-import browser path. The manifest-backed surface now exposes the embedded Captain Falcon skeleton path so rig metadata remains available after removing expanded per-state JSON.
 - Updated the egui viewport adapter to draw runtime ECB polygons as the decomp-shaped top/right/bottom/left diamond with top-bottom and left-right axes. The ECB data still comes from `mole_runtime::RenderScene`, not a GUI-local body box.
+
+## 2026-06-11 import responsiveness and collision visibility follow-up
+
+- User observed that `Import All States` looked frozen while Cargo was running. Root cause: the GUI button executed the CLI import/export synchronously on the egui frame. The button now starts a background worker, disables itself as `Importing...`, and polls for completion before refreshing the state catalog.
+- User observed states such as `Swing42` reporting hurtboxes but not visibly drawing them. Root cause: editor wireframes reused runtime alpha, which was too faint over the light sprite/background. The devtool now keeps the runtime RGB/type color but forces editor capsule overlays to full opacity.
+- Capture/hold naming check: `CaptureHoldLw` is not a compact-manifest state key. Current imported Captain Falcon keys include `CapturePulledLw`, `CaptureWaitLw`, and `CaptureDamageLw`; `CaptureWaitLw` samples 11 hurt capsules. Do not fake a missing `CaptureHoldLw` state unless the decomp/source table proves that is the correct canonical name.
+
+## 2026-06-11 Python parity ledger compatibility note
+
+- The other workstation revived the Python parity ledger because that ledger view is still more usable than the Rust parity ledger. This is accepted as a temporary compatibility surface, not a reversal of the Rust-owned architecture.
+- Added `execs/Open Python Parity Ledger.cmd` beside `execs/Open Dev Tool.cmd`. Future merges should preserve both launchers: Rust devtool for the active native editor/runtime viewport work, Python viewer for parity-ledger inspection until Rust reaches true parity.
+- Updated the architecture contract so agents do not remove the Python ledger launcher as stale clutter. The Python surface may inspect checked-in artifacts, but CLI/shared Rust artifacts remain the authority for extraction, import/export, validation, and engine behavior.

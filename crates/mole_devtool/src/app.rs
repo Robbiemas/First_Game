@@ -19,6 +19,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::{Arc, Mutex},
+    thread,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +61,14 @@ pub struct MoveKeyframeImportPlan {
     pub export_args: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MoveKeyframeImportOutcome {
+    source_label: String,
+    target_label: String,
+    extract_stdout_len: usize,
+    export_stdout_len: usize,
+}
+
 #[derive(Clone)]
 pub struct ParityLedgerApp {
     pub(crate) view_model: ParityLedgerViewModel,
@@ -91,6 +101,8 @@ pub struct ParityLedgerApp {
     pub(crate) selected_move_keyframe_character_id: String,
     pub(crate) selected_move_keyframe_state: String,
     pub(crate) selected_move_keyframe_import_source_id: String,
+    move_keyframe_import_pending:
+        Option<Arc<Mutex<Option<Result<MoveKeyframeImportOutcome, String>>>>>,
     pub(crate) move_keyframes_status: Option<String>,
     pub(crate) move_keyframes_active_handle: Option<MoveKeyframeHandleKind>,
     pub(crate) move_keyframes_active_drag_delta: egui::Vec2,
@@ -196,6 +208,7 @@ impl ParityLedgerApp {
             selected_move_keyframe_character_id,
             selected_move_keyframe_state,
             selected_move_keyframe_import_source_id,
+            move_keyframe_import_pending: None,
             move_keyframes_status: None,
             move_keyframes_active_handle: None,
             move_keyframes_active_drag_delta: egui::Vec2::ZERO,
@@ -510,9 +523,71 @@ impl ParityLedgerApp {
 
     pub fn run_move_keyframe_import_pipeline(&mut self) -> Result<(), String> {
         let plan = self.move_keyframe_import_plan();
-        self.clear_move_keyframe_target_cache()?;
-        let extract = run_cargo_command(&self.workspace_root, &plan.extract_args)?;
-        let export = run_cargo_command(&self.workspace_root, &plan.export_args)?;
+        let outcome = run_move_keyframe_import_pipeline(
+            &self.workspace_root,
+            &plan,
+            self.selected_move_keyframe_import_source_label()
+                .to_string(),
+            self.selected_move_keyframe_character_label(),
+        )?;
+        self.apply_move_keyframe_import_outcome(outcome)?;
+        Ok(())
+    }
+
+    pub fn begin_move_keyframe_import_pipeline(&mut self) {
+        if self.move_keyframe_import_in_progress() {
+            return;
+        }
+        let plan = self.move_keyframe_import_plan();
+        let root = self.workspace_root.clone();
+        let source_label = self
+            .selected_move_keyframe_import_source_label()
+            .to_string();
+        let target_label = self.selected_move_keyframe_character_label();
+        let pending = Arc::new(Mutex::new(None));
+        let worker_pending = Arc::clone(&pending);
+        self.move_keyframe_import_pending = Some(pending);
+        self.move_keyframes_status = Some(format!(
+            "Importing {source_label} into {target_label} through Mole CLI..."
+        ));
+        thread::spawn(move || {
+            let outcome =
+                run_move_keyframe_import_pipeline(&root, &plan, source_label, target_label);
+            if let Ok(mut slot) = worker_pending.lock() {
+                *slot = Some(outcome);
+            }
+        });
+    }
+
+    pub fn poll_move_keyframe_import_pipeline(&mut self) {
+        let Some(pending) = self.move_keyframe_import_pending.clone() else {
+            return;
+        };
+        let outcome = pending.lock().ok().and_then(|mut slot| slot.take());
+        let Some(outcome) = outcome else {
+            return;
+        };
+        self.move_keyframe_import_pending = None;
+        match outcome {
+            Ok(outcome) => {
+                if let Err(error) = self.apply_move_keyframe_import_outcome(outcome) {
+                    self.move_keyframes_status = Some(error);
+                }
+            }
+            Err(error) => {
+                self.move_keyframes_status = Some(error);
+            }
+        }
+    }
+
+    pub fn move_keyframe_import_in_progress(&self) -> bool {
+        self.move_keyframe_import_pending.is_some()
+    }
+
+    fn apply_move_keyframe_import_outcome(
+        &mut self,
+        outcome: MoveKeyframeImportOutcome,
+    ) -> Result<(), String> {
         self.move_keyframe_characters = list_move_keyframe_characters(&self.workspace_root);
         self.move_keyframe_states = list_move_keyframe_states(
             &self.workspace_root,
@@ -536,52 +611,11 @@ impl ParityLedgerApp {
         }
         self.move_keyframes_status = Some(format!(
             "Imported {} into {} through Mole CLI. Extract: {} bytes stdout, export: {} bytes stdout.",
-            self.selected_move_keyframe_import_source_label(),
-            self.selected_move_keyframe_character_label(),
-            extract.len(),
-            export.len()
+            outcome.source_label,
+            outcome.target_label,
+            outcome.extract_stdout_len,
+            outcome.export_stdout_len
         ));
-        Ok(())
-    }
-
-    fn clear_move_keyframe_target_cache(&self) -> Result<(), String> {
-        let target_dir = self
-            .workspace_root
-            .join("resources")
-            .join("melee")
-            .join("frame_data")
-            .join(&self.selected_move_keyframe_character_id);
-        let expected_root = self
-            .workspace_root
-            .join("resources")
-            .join("melee")
-            .join("frame_data");
-        if !target_dir.starts_with(&expected_root) {
-            return Err(format!(
-                "refusing to clear frame-data cache outside {}",
-                expected_root.display()
-            ));
-        }
-        if !target_dir.exists() {
-            fs::create_dir_all(&target_dir)
-                .map_err(|error| format!("failed to create {}: {error}", target_dir.display()))?;
-            return Ok(());
-        }
-        for entry in fs::read_dir(&target_dir)
-            .map_err(|error| format!("failed to read {}: {error}", target_dir.display()))?
-        {
-            let entry = entry.map_err(|error| {
-                format!("failed to read entry in {}: {error}", target_dir.display())
-            })?;
-            let path = entry.path();
-            if path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|error| format!("failed to remove {}: {error}", path.display()))?;
-            } else {
-                fs::remove_file(&path)
-                    .map_err(|error| format!("failed to remove {}: {error}", path.display()))?;
-            }
-        }
         Ok(())
     }
 
@@ -648,6 +682,59 @@ impl ParityLedgerApp {
         self.state_graph_layout_status = None;
         self
     }
+}
+
+fn run_move_keyframe_import_pipeline(
+    root: &Path,
+    plan: &MoveKeyframeImportPlan,
+    source_label: String,
+    target_label: String,
+) -> Result<MoveKeyframeImportOutcome, String> {
+    clear_move_keyframe_target_cache(root, &plan.target_character_id)?;
+    let extract = run_cargo_command(root, &plan.extract_args)?;
+    let export = run_cargo_command(root, &plan.export_args)?;
+    Ok(MoveKeyframeImportOutcome {
+        source_label,
+        target_label,
+        extract_stdout_len: extract.len(),
+        export_stdout_len: export.len(),
+    })
+}
+
+fn clear_move_keyframe_target_cache(root: &Path, character_id: &str) -> Result<(), String> {
+    let target_dir = root
+        .join("resources")
+        .join("melee")
+        .join("frame_data")
+        .join(character_id);
+    let expected_root = root.join("resources").join("melee").join("frame_data");
+    if !target_dir.starts_with(&expected_root) {
+        return Err(format!(
+            "refusing to clear frame-data cache outside {}",
+            expected_root.display()
+        ));
+    }
+    if !target_dir.exists() {
+        fs::create_dir_all(&target_dir)
+            .map_err(|error| format!("failed to create {}: {error}", target_dir.display()))?;
+        return Ok(());
+    }
+    for entry in fs::read_dir(&target_dir)
+        .map_err(|error| format!("failed to read {}: {error}", target_dir.display()))?
+    {
+        let entry = entry.map_err(|error| {
+            format!("failed to read entry in {}: {error}", target_dir.display())
+        })?;
+        let path = entry.path();
+        if path.is_dir() {
+            fs::remove_dir_all(&path)
+                .map_err(|error| format!("failed to remove {}: {error}", path.display()))?;
+        } else {
+            fs::remove_file(&path)
+                .map_err(|error| format!("failed to remove {}: {error}", path.display()))?;
+        }
+    }
+    Ok(())
 }
 
 fn string_args<const N: usize>(args: [&str; N]) -> Vec<String> {
@@ -909,5 +996,29 @@ mod tests {
                 "--json",
             ])
         );
+    }
+
+    #[test]
+    fn app_move_keyframe_import_poll_applies_finished_background_result() {
+        let root = workspace_root().unwrap();
+        let mut app = ParityLedgerApp::load(&root).unwrap();
+        app.move_keyframes_status = Some("Importing...".to_string());
+        app.move_keyframe_import_pending =
+            Some(Arc::new(Mutex::new(Some(Ok(MoveKeyframeImportOutcome {
+                source_label: "Captain Falcon".to_string(),
+                target_label: "Dolphin Mole".to_string(),
+                extract_stdout_len: 10,
+                export_stdout_len: 20,
+            })))));
+
+        app.poll_move_keyframe_import_pipeline();
+
+        assert!(!app.move_keyframe_import_in_progress());
+        assert!(app
+            .move_keyframes_status
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Imported Captain Falcon into Dolphin Mole"));
+        assert_eq!(app.move_keyframe_states.len(), 275);
     }
 }
