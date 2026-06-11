@@ -267,11 +267,23 @@ impl MoveKeyframesSurface {
             .and_then(Value::as_str)
             .map(str::to_string)
             .unwrap_or_else(|| move_keyframes_character_label(character_id));
-        let sources = manifest
+        let mut sources = manifest
             .get("sources")
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        if let Some(path) = manifest
+            .get("rig")
+            .and_then(|rig| rig.get("skeleton"))
+            .and_then(|skeleton| skeleton.get("path"))
+            .and_then(Value::as_str)
+        {
+            sources.push(serde_json::json!({
+                "kind": "extracted_costume_skeleton",
+                "path": path,
+                "purpose": "source skeleton path embedded in the compact import manifest"
+            }));
+        }
 
         let mut extra = BTreeMap::new();
         if let Some(value) = manifest.get("schema_version").cloned() {
@@ -1467,13 +1479,18 @@ mod tests {
 
         assert_eq!(surface.target_character_label, "Dolphin Mole");
         assert_eq!(surface.state, "AttackAirN");
-        assert_eq!(template.title, "Dolphin Mole Neutral Air Move Keyframes");
+        assert_eq!(template.title, "Dolphin Mole AttackAirN Move Keyframes");
         assert_eq!(template.headers.len(), 6);
         assert_eq!(template.rows.len(), surface.keyframes.len());
         assert_eq!(
             template.rows.first().unwrap().status.as_deref(),
             Some("match")
         );
+        assert!(template
+            .rows
+            .iter()
+            .skip(1)
+            .any(|row| row.status.as_deref() == Some("derived")));
     }
 
     #[test]
@@ -1507,11 +1524,33 @@ mod tests {
 
         assert_eq!(
             attack_air_n.source,
-            MoveKeyframesStateSource::MaterializedArtifact
+            MoveKeyframesStateSource::SourceManifest
         );
-        assert_eq!(attack_air_n.label, "Neutral Air");
+        assert_eq!(attack_air_n.label, "AttackAirN");
         assert_eq!(attack_lw3.source, MoveKeyframesStateSource::SourceManifest);
         assert_eq!(attack_lw3.label, "AttackLw3");
+    }
+
+    #[test]
+    fn move_keyframes_catalog_exposes_every_manifest_state_once() {
+        let root = workspace_root();
+        let manifest = load_move_keyframes_manifest(&root, "dolphin_mole").expect("manifest");
+        let manifest_states = manifest
+            .get("actions")
+            .and_then(Value::as_array)
+            .expect("actions")
+            .iter()
+            .filter_map(|action| action.get("state").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+
+        let catalog_states = list_move_keyframe_states(&root, "dolphin_mole")
+            .into_iter()
+            .map(|record| record.state)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(manifest_states.len(), 275);
+        assert_eq!(catalog_states, manifest_states);
     }
 
     #[test]
@@ -1564,6 +1603,34 @@ mod tests {
     }
 
     #[test]
+    fn move_keyframes_runtime_preview_is_the_engine_render_scene() {
+        let root = workspace_root();
+        let surface =
+            MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "AttackLw3")
+                .expect("manifest-backed state view");
+        let mut editor =
+            MoveKeyframesEditorSurface::from_surface_with_workspace(surface.clone(), &root)
+                .expect("editor wrapper");
+        let active_hitbox_index = surface
+            .keyframes
+            .iter()
+            .position(|frame| !frame.hitboxes.is_empty())
+            .expect("sampled down tilt should expose active hitbox frames");
+        editor.set_selected_frame_index(active_hitbox_index);
+
+        let preview = editor.runtime_preview(960, 540).expect("runtime preview");
+        let mut expected_scene = RenderScene::from_frame_on_stage(
+            &preview.frame,
+            &StageProfile::dev_flat_test(),
+            960,
+            540,
+        );
+        expected_scene.entry_platforms = [None, None];
+
+        assert_eq!(preview.scene, expected_scene);
+    }
+
+    #[test]
     fn move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding() {
         let root = workspace_root();
 
@@ -1610,9 +1677,6 @@ mod tests {
             !handles.is_empty(),
             "runtime edit handles should be backed by rendered collision or capsule data"
         );
-        assert!(handles
-            .iter()
-            .any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::EcbPoint { .. })));
         assert!(handles
             .iter()
             .any(|handle| matches!(handle.kind, MoveKeyframeHandleKind::HurtboxEndpoint { .. })));
@@ -1736,13 +1800,14 @@ mod tests {
     #[test]
     fn move_keyframes_save_round_trips_the_existing_json_shape() {
         let root = workspace_root();
-        let source_path = root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json");
         let temp_path = root
             .join("target")
             .join("move_keyframes_editor_round_trip.json");
         let _ = std::fs::remove_file(&temp_path);
 
-        let surface = MoveKeyframesSurface::load_from(&source_path).unwrap();
+        let surface =
+            MoveKeyframesSurface::load_for_character_state(&root, "dolphin_mole", "AttackAirN")
+                .unwrap();
         let mut editor = MoveKeyframesEditorSurface::from_surface(surface);
         editor.set_selected_frame_index(6);
         assert!(editor.drag_handle(

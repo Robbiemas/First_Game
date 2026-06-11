@@ -577,6 +577,7 @@ fn graph_node_screen_pos(
 }
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    app.poll_move_keyframe_import_pipeline();
     ui.heading("Move Keyframes");
     render_move_keyframes_browser_controls(ui, app);
     ui.separator();
@@ -669,6 +670,23 @@ fn render_move_keyframes_mobile_tabs(ui: &mut egui::Ui, app: &mut ParityLedgerAp
 }
 
 fn render_move_keyframes_browser_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    ui.horizontal_wrapped(|ui| {
+        let column_width = ((ui.available_width() - ui.spacing().item_spacing.x) * 0.5)
+            .clamp(320.0, ui.available_width());
+        ui.allocate_ui_with_layout(
+            egui::vec2(column_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| render_move_keyframes_target_controls(ui, app),
+        );
+        ui.allocate_ui_with_layout(
+            egui::vec2(column_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| render_move_keyframes_import_controls(ui, app),
+        );
+    });
+}
+
+fn render_move_keyframes_target_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
@@ -739,6 +757,53 @@ fn render_move_keyframes_browser_controls(ui: &mut egui::Ui, app: &mut ParityLed
             if let Some(status) = &app.move_keyframes_status {
                 ui.label(status);
             }
+        });
+    });
+}
+
+fn render_move_keyframes_import_controls(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Import From");
+                let sources = app.move_keyframe_import_sources();
+                let selected_source = app.selected_move_keyframe_import_source_label();
+                let mut pending_source: Option<&'static str> = None;
+                egui::ComboBox::from_id_salt("move_keyframes_import_source")
+                    .selected_text(selected_source)
+                    .show_ui(ui, |ui| {
+                        for (id, label) in sources {
+                            if ui
+                                .selectable_label(
+                                    app.selected_move_keyframe_import_source_id == id,
+                                    label,
+                                )
+                                .clicked()
+                            {
+                                pending_source = Some(id);
+                            }
+                        }
+                    });
+                if let Some(source_id) = pending_source {
+                    app.select_move_keyframe_import_source(source_id);
+                }
+                let import_button = egui::Button::new(if app.move_keyframe_import_in_progress() {
+                    "Importing..."
+                } else {
+                    "Import All States"
+                });
+                if ui
+                    .add_enabled(!app.move_keyframe_import_in_progress(), import_button)
+                    .clicked()
+                {
+                    app.begin_move_keyframe_import_pipeline();
+                }
+            });
+            ui.label(format!(
+                "Target: {} | Source: {} | Method: Mole CLI all-states import",
+                app.selected_move_keyframe_character_label(),
+                app.selected_move_keyframe_import_source_label()
+            ));
         });
     });
 }
@@ -1305,13 +1370,52 @@ fn draw_render_capsule(
     capsule: RenderCapsule,
     fit: MoveKeyframePreviewFit,
 ) {
-    let color = render_color(capsule.color);
+    let color = move_keyframe_debug_color(capsule.color);
     let a = fit.apply(egui::pos2(capsule.a.x as f32, capsule.a.y as f32));
     let b = fit.apply(egui::pos2(capsule.b.x as f32, capsule.b.y as f32));
     let radius = (capsule.radius.max(1) as f32 * fit.scale).max(1.0);
-    painter.line_segment([a, b], egui::Stroke::new(radius, color));
-    painter.circle_filled(a, radius.max(1.5), color.gamma_multiply(0.55));
-    painter.circle_filled(b, radius.max(1.5), color.gamma_multiply(0.55));
+    let wireframe = move_keyframe_capsule_wireframe(a, b, radius);
+    let stroke = egui::Stroke::new(1.25, color);
+    if let Some((left, right)) = wireframe.sides {
+        painter.line_segment(left, stroke);
+        painter.line_segment(right, stroke);
+        painter.line_segment([a, b], egui::Stroke::new(1.0, color.gamma_multiply(0.55)));
+    }
+    painter.circle_stroke(a, wireframe.radius, stroke);
+    if b != a {
+        painter.circle_stroke(b, wireframe.radius, stroke);
+    }
+    painter.circle_filled(a, 1.5, color);
+    if b != a {
+        painter.circle_filled(b, 1.5, color);
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct MoveKeyframeCapsuleWireframe {
+    radius: f32,
+    sides: Option<([egui::Pos2; 2], [egui::Pos2; 2])>,
+}
+
+fn move_keyframe_capsule_wireframe(
+    a: egui::Pos2,
+    b: egui::Pos2,
+    radius: f32,
+) -> MoveKeyframeCapsuleWireframe {
+    let radius = radius.max(1.0);
+    let delta = b - a;
+    let length = delta.length();
+    if length <= f32::EPSILON {
+        return MoveKeyframeCapsuleWireframe {
+            radius,
+            sides: None,
+        };
+    }
+    let normal = egui::vec2(-delta.y / length, delta.x / length) * radius;
+    MoveKeyframeCapsuleWireframe {
+        radius,
+        sides: Some(([a + normal, b + normal], [a - normal, b - normal])),
+    }
 }
 
 fn draw_render_polygon(
@@ -1325,11 +1429,24 @@ fn draw_render_polygon(
         .into_iter()
         .map(|point| fit.apply(egui::pos2(point.x as f32, point.y as f32)))
         .collect::<Vec<_>>();
-    painter.add(egui::Shape::convex_polygon(
-        points,
-        color.gamma_multiply(0.22),
-        egui::Stroke::new(1.0, color),
-    ));
+    let Ok(points): Result<[egui::Pos2; 4], _> = points.try_into() else {
+        return;
+    };
+    let stroke = egui::Stroke::new(1.0, color);
+    for line in move_keyframe_ecb_wireframe_lines(points) {
+        painter.line_segment(line, stroke);
+    }
+}
+
+fn move_keyframe_ecb_wireframe_lines(points: [egui::Pos2; 4]) -> Vec<[egui::Pos2; 2]> {
+    vec![
+        [points[0], points[1]],
+        [points[1], points[2]],
+        [points[2], points[3]],
+        [points[3], points[0]],
+        [points[0], points[2]],
+        [points[3], points[1]],
+    ]
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1413,6 +1530,10 @@ fn render_color(color: RenderColor) -> egui::Color32 {
     egui::Color32::from_rgba_unmultiplied(color.r, color.g, color.b, color.a)
 }
 
+fn move_keyframe_debug_color(color: RenderColor) -> egui::Color32 {
+    egui::Color32::from_rgba_unmultiplied(color.r, color.g, color.b, 255)
+}
+
 #[derive(Clone, Copy)]
 struct MoveKeyframePreviewPalette {
     background: egui::Color32,
@@ -1482,5 +1603,56 @@ mod tests {
 
         assert!(asset_path.ends_with(Path::new("DolphinMole/turning/Standing1.png")));
         assert!(!move_keyframe_draws_player_rect(&scene, true));
+    }
+
+    #[test]
+    fn move_keyframe_capsules_are_projected_as_wireframe_sides_not_filled_pills() {
+        let wireframe =
+            move_keyframe_capsule_wireframe(egui::pos2(10.0, 20.0), egui::pos2(30.0, 20.0), 4.0);
+
+        let (top, bottom) = wireframe.sides.expect("non-zero capsule has sides");
+        assert_eq!(wireframe.radius, 4.0);
+        assert_eq!(top, [egui::pos2(10.0, 24.0), egui::pos2(30.0, 24.0)]);
+        assert_eq!(bottom, [egui::pos2(10.0, 16.0), egui::pos2(30.0, 16.0)]);
+
+        let circle =
+            move_keyframe_capsule_wireframe(egui::pos2(5.0, 5.0), egui::pos2(5.0, 5.0), 3.0);
+        assert_eq!(circle.radius, 3.0);
+        assert!(circle.sides.is_none());
+    }
+
+    #[test]
+    fn move_keyframe_debug_color_keeps_runtime_rgb_but_makes_overlay_visible() {
+        let runtime = RenderColor {
+            r: 246,
+            g: 197,
+            b: 83,
+            a: 96,
+        };
+
+        let debug = move_keyframe_debug_color(runtime);
+
+        assert_eq!(debug.r(), 246);
+        assert_eq!(debug.g(), 197);
+        assert_eq!(debug.b(), 83);
+        assert_eq!(debug.a(), 255);
+    }
+
+    #[test]
+    fn move_keyframe_ecb_wireframe_uses_decomp_top_right_bottom_left_axes() {
+        let points = [
+            egui::pos2(10.0, 0.0),
+            egui::pos2(20.0, 10.0),
+            egui::pos2(10.0, 20.0),
+            egui::pos2(0.0, 10.0),
+        ];
+
+        let lines = move_keyframe_ecb_wireframe_lines(points);
+
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines[0], [points[0], points[1]]);
+        assert_eq!(lines[3], [points[3], points[0]]);
+        assert_eq!(lines[4], [points[0], points[2]]);
+        assert_eq!(lines[5], [points[3], points[1]]);
     }
 }

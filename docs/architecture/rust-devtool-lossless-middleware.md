@@ -6,7 +6,9 @@ This document is the entry point for work that touches the Melee decomp extracti
 
 ## North Star
 
-The project is moving away from Python and Pygame. Python files in this repository are historical reference or temporary legacy extraction helpers only. New durable tooling and UI work belongs in Rust.
+The durable project direction is Rust-owned engine, CLI, middleware artifacts, and native devtool UI. Python/Pygame must not own new gameplay, import/export, or artifact semantics.
+
+The Python state graph viewer is currently allowed as a supported temporary parity-ledger surface because its ledger view is still more usable than the Rust rewrite. Treat it as a compatibility UI over repository artifacts, not as the authority. Do not remove its launcher or tests until the Rust parity ledger reaches feature parity and this document is updated with the replacement milestone.
 
 The Rust dev tool is not just a viewer. It is the middleware layer between the Melee decomp reference and the Rust engine:
 
@@ -29,6 +31,7 @@ Every parity feature must satisfy all four surfaces:
 - **Rust engine:** runtime consumes the artifact without hidden conversion or semantic drift.
 - **Mole CLI:** agents can extract, inspect, diff, edit/apply, validate, regenerate, and import headlessly.
 - **Rust dev tool GUI:** humans can see and edit the same data visually.
+- **Temporary Python ledger UI:** humans may inspect the parity ledger through `tools/state_graph_viewer.py` while Rust catches up, but it must read the same artifacts and must not define new semantics.
 
 The CLI and GUI are dual surfaces. Anything added to one must be represented on the other. A GUI-only edit path is incomplete. A CLI-only inspection path is incomplete.
 
@@ -45,7 +48,7 @@ The Rust backend/data pipeline built to support the original Python-facing tool 
 - `crates/mole_core`: deterministic gameplay state, source units, collision, motion, and engine import targets.
 - `crates/mole_frame_data`: compact runtime source capsule decoding.
 
-Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability.
+Repurpose and extend backend/data surfaces first. Prefer adding a typed CLI/report/apply surface before wiring a GUI control, then let the GUI consume that same Rust model. Only translate legacy Python GUI behavior when the Rust GUI lacks the capability. If a branch revives the Python parity ledger for usability, preserve that surface as a temporary compatibility launcher and keep its data path artifact-backed.
 
 For GUI layout, sizing, color, selection, and panel behavior, follow `docs/architecture/rust-devtool-ui-primitives.md`. Move tab fixes into shared primitives when they are reusable; do not let a one-tab patch become the copied pattern for the next surface.
 
@@ -99,7 +102,9 @@ Do not add visible GUI import controls until they call the same Rust-owned comma
 
 For visual editors, the rendered scene is owned by the Rust engine/runtime. GUI overlays may annotate that scene, but they must not become a second renderer or a second source of geometry truth.
 
-Move-keyframe preview is an engine viewport, not a standalone GUI renderer. The current path is `World/RenderFrame -> RenderScene::from_frame_on_stage(..., StageProfile::dev_flat_test(), ...) -> egui/SDL draw`. The devtool may choose the viewport stage and camera, but the scene geometry, sprite cue, hurt capsules, hit capsules, and ECB polygon come from the runtime scene. Draw the sprite rectangle only as an image target/fallback; never treat the rectangle as body geometry when runtime capsules or the ECB are available.
+Move-keyframe preview is an engine viewport, not a standalone GUI renderer. The current path is `World/RenderFrame -> RenderScene::from_frame_on_stage(..., StageProfile::dev_flat_test(), ...) -> egui/SDL draw`. The devtool may choose the viewport stage and camera, but the scene geometry, sprite cue, hurt capsules, hit capsules, and ECB polygon come from the runtime scene. Draw the sprite rectangle only as an image target/fallback; never treat the rectangle as body geometry when runtime capsules or the ECB are available. The GUI adapter should present collision primitives as wireframe debug geometry: capsule side strokes plus endpoint rings, and ECB polygon strokes without filled body blocks.
+
+Engine changes must flow into the devtool by changing the shared runtime/core types and render-scene builders, not by patching duplicate GUI behavior. When another agent changes gameplay, collision, stage, camera, sprite, or render semantics, the devtool should pick that up through `mole_core`, `mole_runtime::RenderFrame`, and `mole_runtime::RenderScene`. If a GUI tab needs a new visual or editable primitive, add the typed runtime/CLI primitive first or in the same slice, then have the GUI adapt that primitive. Do not add a parallel egui-only model for anything that the engine can own.
 
 The visible GUI should remain browser/read-only until editing can be represented by typed runtime primitives and replayed through the CLI. Existing editor-model handle code is limited to runtime-aligned collision primitives that are already represented in the rendered scene or active engine artifact path, such as ECB/body-volume points and hitbox/hurtbox capsule endpoints. Imported figatree/JObj skeleton data remains preserved source metadata until the runtime exposes typed pose/joint edit primitives. Do not reintroduce raw JSON joint dragging or fake rig overlays as durable behavior; add typed runtime pose primitives first, then expose matching CLI validation and GUI controls in the same slice.
 
@@ -134,11 +139,11 @@ Rust already owns important backend pieces:
 
 Remaining parity work should close gaps on top of these pieces instead of replacing them.
 
-## Legacy Reference Surfaces
+## Compatibility And Legacy Surfaces
 
-Use these Python files only to understand visual/interaction behavior that still needs to be translated:
+Use these Python files to understand visual/interaction behavior that still needs to be translated:
 
-- `tools/state_graph_viewer.py`: old dev tool UI behavior.
+- `tools/state_graph_viewer.py`: old dev tool UI behavior and temporarily supported parity-ledger UI.
 - `RealMainFile.py`, `states.py`, `Camera.py`, `DebugOverlay.py`, `DisplayInputs.py`: old playable Pygame harness behavior.
 
-Do not add new responsibilities to those files.
+Do not add new gameplay, engine, import/export, or artifact-authority responsibilities to those files. The only acceptable active Python UI responsibility is temporary parity-ledger inspection through the same checked-in artifacts the CLI and Rust devtool consume.

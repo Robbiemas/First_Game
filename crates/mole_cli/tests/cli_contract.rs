@@ -744,19 +744,25 @@ fn frame_data_sample_attack_air_n_uses_compact_manifest() {
     assert!(source_hurt["z"].as_f64().unwrap().abs() > 0.01);
     assert_eq!(projected_hurt["z"], json!(0.0));
 
-    let artifact: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(root.join("resources/melee/frame_data/dolphin_mole/AttackAirN.json"))
-            .unwrap(),
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(
+            root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        )
+        .unwrap(),
     )
     .unwrap();
-    let frame7 = artifact["keyframes"]
+    let attack_air_n = manifest["actions"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|frame| frame["frame"] == json!(7))
+        .find(|action| action["state"] == json!("AttackAirN"))
         .unwrap();
-    assert_json_point_close(source_hit, &frame7["hitboxes"][0]["source_center"], 0.05);
-    assert_json_point_close(source_hurt, &frame7["hurtboxes"][0]["source_a"], 0.05);
+    assert_eq!(
+        attack_air_n["derived_frame_capsules"]["materialized"],
+        json!(false)
+    );
+    assert_eq!(attack_air_n["source_action_key"], json!("AttackAirN"));
+    assert_eq!(attack_air_n["source_action"]["action_state_id"], json!(68));
 }
 
 #[test]
@@ -4234,21 +4240,6 @@ fn workspace_root() -> PathBuf {
         .parent()
         .unwrap()
         .to_path_buf()
-}
-
-fn assert_json_point_close(
-    actual: &serde_json::Value,
-    expected: &serde_json::Value,
-    tolerance: f64,
-) {
-    for axis in ["x", "y", "z"] {
-        let actual = actual[axis].as_f64().unwrap();
-        let expected = expected[axis].as_f64().unwrap();
-        assert!(
-            (actual - expected).abs() <= tolerance,
-            "axis {axis} differed: actual={actual}, expected={expected}, tolerance={tolerance}"
-        );
-    }
 }
 
 fn write_json(path: &Path, value: &serde_json::Value) {

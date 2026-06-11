@@ -516,3 +516,44 @@ Purpose: a short working note for the current parity investigation so I can resu
   - `cargo test -p mole_devtool move_keyframes_source_only_manifest_state_uses_canonical_runtime_binding`
   - `cargo test -p mole_devtool move_keyframe_preview_uses_sprite_asset_instead_of_player_rect_when_available`
   - `cargo test -p mole_runtime render_scene_can_use_dev_flat_stage_without_battlefield_surfaces`
+
+## 2026-06-11 laptop merge and wireframe viewport follow-up
+
+- Fast-forwarded the current branch to `origin/laptop/test`, bringing in the laptop agent's `feat: align source down wait stand input` work before continuing local devtool work.
+- Re-ran the Captain Falcon all-states import/export after the merge. The Dolphin Mole compact manifest still reports `mapped_state_count=275`, `runtime_mapped_state_count=65`, and the runtime export reports `state_count=105`, `figatree_chunk_count=99`, `hitbox_count=1000`, `hurtbox_count=39644`.
+- Added a GUI catalog regression proving `list_move_keyframe_states("dolphin_mole")` exposes every unique state in `source_manifest.json` exactly once. Current state count is `275`.
+- Changed the move/state editor viewport adapter to render runtime capsules as wireframes instead of filled pills: side strokes, endpoint rings, and small endpoint markers. The ECB polygon is now stroked without a filled body block.
+- Regression coverage:
+  - `cargo test -p mole_devtool move_keyframes_catalog_exposes_every_manifest_state_once`
+  - `cargo test -p mole_devtool move_keyframe_capsules_are_projected_as_wireframe_sides_not_filled_pills`
+
+## 2026-06-11 engine/devtool viewport coupling guard
+
+- User clarified that another agent may be changing the game engine in parallel. The devtool must reflect those engine changes through shared `mole_core` and `mole_runtime` types, because the devtool viewport is only an adapter over the runtime engine scene.
+- Added a regression proving the move/state editor preview scene is exactly the engine-built `RenderScene::from_frame_on_stage(&preview.frame, StageProfile::dev_flat_test(), ...)`, with only editor-specific entry platform suppression applied afterward.
+- Architecture rule: no tab-local replicas of engine state, camera math, collision geometry, animation stepping, or stage setup. Add shared runtime/CLI primitives first, then adapt them in the GUI.
+
+## Future Note: State Animation Batching After Parity
+
+- User wants full lossless parity first: every source state should remain importable and inspectable while combat, game flow, and the runtime loop are still being translated from the decompilation.
+- After parity is proven, revisit small duplicated state animations such as repeated item/swing variants. If multiple states are byte-for-byte or semantically equivalent under the typed runtime model, they can be batched/deduplicated behind a canonical source mapping.
+- Do not collapse or alias these states now. The future batching pass must preserve source action IDs, provenance, CLI import/export behavior, GUI selection, and round-trip losslessness.
+
+## 2026-06-11 compact import reset and GUI import panel
+
+- Cleared the old Dolphin Mole per-state frame-data cache and refilled it through the Rust CLI all-states Captain Falcon import/export pipeline. Dolphin Mole now keeps `resources/melee/frame_data/dolphin_mole/source_manifest.json` as the compact authority; the stale expanded `AttackAirN.json` cache is intentionally removed.
+- Added a Move/State editor import panel beside the target selector. It defaults to importing all Captain Falcon states into Dolphin Mole by running the same Mole CLI commands agents use: `frame-data extract --all-states` followed by `frame-data export-runtime --all-states`.
+- Updated devtool and CLI tests to treat manifest-backed states as the normal full-import browser path. The manifest-backed surface now exposes the embedded Captain Falcon skeleton path so rig metadata remains available after removing expanded per-state JSON.
+- Updated the egui viewport adapter to draw runtime ECB polygons as the decomp-shaped top/right/bottom/left diamond with top-bottom and left-right axes. The ECB data still comes from `mole_runtime::RenderScene`, not a GUI-local body box.
+
+## 2026-06-11 import responsiveness and collision visibility follow-up
+
+- User observed that `Import All States` looked frozen while Cargo was running. Root cause: the GUI button executed the CLI import/export synchronously on the egui frame. The button now starts a background worker, disables itself as `Importing...`, and polls for completion before refreshing the state catalog.
+- User observed states such as `Swing42` reporting hurtboxes but not visibly drawing them. Root cause: editor wireframes reused runtime alpha, which was too faint over the light sprite/background. The devtool now keeps the runtime RGB/type color but forces editor capsule overlays to full opacity.
+- Capture/hold naming check: `CaptureHoldLw` is not a compact-manifest state key. Current imported Captain Falcon keys include `CapturePulledLw`, `CaptureWaitLw`, and `CaptureDamageLw`; `CaptureWaitLw` samples 11 hurt capsules. Do not fake a missing `CaptureHoldLw` state unless the decomp/source table proves that is the correct canonical name.
+
+## 2026-06-11 Python parity ledger compatibility note
+
+- The other workstation revived the Python parity ledger because that ledger view is still more usable than the Rust parity ledger. This is accepted as a temporary compatibility surface, not a reversal of the Rust-owned architecture.
+- Added `execs/Open Python Parity Ledger.cmd` beside `execs/Open Dev Tool.cmd`. Future merges should preserve both launchers: Rust devtool for the active native editor/runtime viewport work, Python viewer for parity-ledger inspection until Rust reaches true parity.
+- Updated the architecture contract so agents do not remove the Python ledger launcher as stale clutter. The Python surface may inspect checked-in artifacts, but CLI/shared Rust artifacts remain the authority for extraction, import/export, validation, and engine behavior.
