@@ -2781,7 +2781,7 @@ fn draw_sdl_scene(
                     cache,
                     &scene.player_sprites[index].relative_path(),
                     player,
-                    false,
+                    scene.player_sprites[index].flip_x,
                 )?;
             }
         } else {

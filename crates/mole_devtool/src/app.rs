@@ -47,7 +47,7 @@ pub enum MoveKeyframesPanel {
     Data,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ParityLedgerApp {
     pub(crate) view_model: ParityLedgerViewModel,
     pub(crate) state_graphs: StateGraphsSurface,
@@ -81,6 +81,7 @@ pub struct ParityLedgerApp {
     pub(crate) move_keyframes_status: Option<String>,
     pub(crate) move_keyframes_active_handle: Option<MoveKeyframeHandleKind>,
     pub(crate) move_keyframes_active_drag_delta: egui::Vec2,
+    pub(crate) move_keyframe_texture_cache: BTreeMap<String, egui::TextureHandle>,
     pub(crate) selected_section: AppSection,
     pub(crate) selected_state_graph_row: usize,
     pub(crate) selected_state_graph_panel: StateGraphsPanel,
@@ -183,6 +184,7 @@ impl ParityLedgerApp {
             move_keyframes_status: None,
             move_keyframes_active_handle: None,
             move_keyframes_active_drag_delta: egui::Vec2::ZERO,
+            move_keyframe_texture_cache: BTreeMap::new(),
             selected_section: AppSection::ParityLedger,
             selected_state_graph_row: 0,
             selected_state_graph_panel: StateGraphsPanel::Graphs,
@@ -467,6 +469,10 @@ impl ParityLedgerApp {
         self.theme
     }
 
+    pub(crate) fn workspace_root(&self) -> &Path {
+        &self.workspace_root
+    }
+
     pub fn set_theme(&mut self, theme: ThemeMode) {
         self.theme = theme;
     }
@@ -656,7 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn app_move_keyframe_selectors_load_manifest_only_states_without_edit_path() {
+    fn app_move_keyframe_selectors_load_manifest_states_as_sampled_read_only_views() {
         let root = workspace_root().unwrap();
         let mut app = ParityLedgerApp::load(&root).unwrap();
 
@@ -665,8 +671,20 @@ mod tests {
         assert_eq!(app.selected_move_keyframe_character_id, "dolphin_mole");
         assert_eq!(app.selected_move_keyframe_state, "AttackLw3");
         assert_eq!(app.selected_move_keyframe_state_label(), "AttackLw3");
-        assert!(app.move_keyframes.keyframes.is_empty());
-        assert!(app.move_keyframes.summary.total_frames > 0);
+        assert_eq!(
+            app.move_keyframes.keyframes.len(),
+            app.move_keyframes.summary.total_frames
+        );
+        assert!(app
+            .move_keyframes
+            .keyframes
+            .iter()
+            .any(|frame| !frame.hurtboxes.is_empty()));
+        assert!(app
+            .move_keyframes
+            .keyframes
+            .iter()
+            .any(|frame| !frame.hitboxes.is_empty()));
         assert!(app.move_keyframes_editor.artifact_path().is_none());
     }
 }

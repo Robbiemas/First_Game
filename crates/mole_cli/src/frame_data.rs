@@ -10,8 +10,9 @@ use crate::{
     FrameDataExportBatchOptions, FrameDataExportOptions, FrameDataOptions,
 };
 use mole_core::{
-    melee_action_state_id_for_motion_state, source_binding_for_motion_state, MotionState,
-    MotionStateSourceBinding,
+    melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
+    runtime_motion_state_for_source_key, source_binding_for_motion_state, MotionStateSourceBinding,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, RUST_MOTION_STATE_VARIANTS,
 };
 use mole_frame_data::{
     encode_runtime_source_frame_capsules, FrameDataSampleOptions, RuntimeFigatreeChunk,
@@ -517,23 +518,6 @@ fn sanitize_state_key(value: &str) -> String {
     }
 }
 
-fn runtime_motion_state_for_source_key(source_action_key: &str) -> Option<&'static str> {
-    if RUST_MOTION_STATE_VARIANTS.contains(&source_action_key) {
-        return RUST_MOTION_STATE_VARIANTS
-            .iter()
-            .copied()
-            .find(|state| *state == source_action_key);
-    }
-    let alias = match source_action_key {
-        "Wait1" => Some("Wait"),
-        "Attack11" => Some("Attack1"),
-        "AttackS3S" => Some("AttackS3"),
-        "AttackS4S" => Some("AttackS4"),
-        _ => None,
-    }?;
-    RUST_MOTION_STATE_VARIANTS.contains(&alias).then_some(alias)
-}
-
 fn skipped_motion_states<'a>(
     mapped_states: impl IntoIterator<Item = &'a str>,
 ) -> Vec<&'static str> {
@@ -908,7 +892,7 @@ fn apply_compact_manifest_runtime_batch_export(
         })
         .collect::<BTreeSet<_>>();
     consumed_source_action_table_ids.extend(
-        CANONICAL_SOURCE_ONLY_BINDINGS
+        CANONICAL_SOURCE_ONLY_ACTION_BINDINGS
             .iter()
             .map(|binding| u64::from(binding.source_action_table_id)),
     );
@@ -1277,13 +1261,6 @@ struct RuntimeStateBindingExport {
     source_action_key: String,
 }
 
-#[derive(Debug, Clone, Copy)]
-struct CanonicalRuntimeSourceBinding {
-    action_state_id: u16,
-    source_action_table_id: u16,
-    source_action_key: &'static str,
-}
-
 const DERIVED_RUNTIME_SOURCE_BINDINGS: &[&str] = &[
     "RunDirect",
     "KneeBend",
@@ -1292,174 +1269,6 @@ const DERIVED_RUNTIME_SOURCE_BINDINGS: &[&str] = &[
     "LandingFallSpecial",
     "EntryStart",
     "EntryEnd",
-];
-
-const CANONICAL_SOURCE_ONLY_BINDINGS: &[CanonicalRuntimeSourceBinding] = &[
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 45,
-        source_action_table_id: 47,
-        source_action_key: "Attack12",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 46,
-        source_action_table_id: 48,
-        source_action_key: "Attack13",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 47,
-        source_action_table_id: 49,
-        source_action_key: "Attack100Start",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 48,
-        source_action_table_id: 50,
-        source_action_key: "Attack100Loop",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 49,
-        source_action_table_id: 51,
-        source_action_key: "Attack100End",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 75,
-        source_action_table_id: 165,
-        source_action_key: "DamageHi1",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 76,
-        source_action_table_id: 166,
-        source_action_key: "DamageHi2",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 77,
-        source_action_table_id: 167,
-        source_action_key: "DamageHi3",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 78,
-        source_action_table_id: 168,
-        source_action_key: "DamageN1",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 79,
-        source_action_table_id: 169,
-        source_action_key: "DamageN2",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 80,
-        source_action_table_id: 170,
-        source_action_key: "DamageN3",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 81,
-        source_action_table_id: 171,
-        source_action_key: "DamageLw1",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 82,
-        source_action_table_id: 172,
-        source_action_key: "DamageLw2",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 83,
-        source_action_table_id: 173,
-        source_action_key: "DamageLw3",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 84,
-        source_action_table_id: 174,
-        source_action_key: "DamageAir1",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 85,
-        source_action_table_id: 175,
-        source_action_key: "DamageAir2",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 86,
-        source_action_table_id: 176,
-        source_action_key: "DamageAir3",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 87,
-        source_action_table_id: 177,
-        source_action_key: "DamageFlyHi",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 88,
-        source_action_table_id: 178,
-        source_action_key: "DamageFlyN",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 89,
-        source_action_table_id: 179,
-        source_action_key: "DamageFlyLw",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 90,
-        source_action_table_id: 180,
-        source_action_key: "DamageFlyTop",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 91,
-        source_action_table_id: 181,
-        source_action_key: "DamageFlyRoll",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 183,
-        source_action_table_id: 288,
-        source_action_key: "DownBoundU",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 184,
-        source_action_table_id: 184,
-        source_action_key: "DownWaitU",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 186,
-        source_action_table_id: 290,
-        source_action_key: "DownStandU",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 187,
-        source_action_table_id: 187,
-        source_action_key: "DownAttackU",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 191,
-        source_action_table_id: 289,
-        source_action_key: "DownBoundD",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 192,
-        source_action_table_id: 192,
-        source_action_key: "DownWaitD",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 194,
-        source_action_table_id: 291,
-        source_action_key: "DownStandD",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 195,
-        source_action_table_id: 195,
-        source_action_key: "DownAttackD",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 199,
-        source_action_table_id: 199,
-        source_action_key: "Passive",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 200,
-        source_action_table_id: 200,
-        source_action_key: "PassiveStandF",
-    },
-    CanonicalRuntimeSourceBinding {
-        action_state_id: 201,
-        source_action_table_id: 201,
-        source_action_key: "PassiveStandB",
-    },
 ];
 
 #[derive(Debug, Clone)]
@@ -1616,14 +1425,12 @@ impl RuntimeSourceExportModule {
             });
         }
 
-        for source_binding in CANONICAL_SOURCE_ONLY_BINDINGS {
-            if state_filter
-                .is_some_and(|state_filter| state_filter != source_binding.source_action_key)
-            {
+        for source_binding in CANONICAL_SOURCE_ONLY_ACTION_BINDINGS {
+            let source_action_key = source_binding.source_action_key.as_str();
+            if state_filter.is_some_and(|state_filter| state_filter != source_action_key) {
                 continue;
             }
             let source_action_table_id = u64::from(source_binding.source_action_table_id);
-            let source_action_key = source_binding.source_action_key;
             let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
             if !chunks_by_key.contains_key(source_action_key) {
                 chunks_by_key.insert(
@@ -1640,7 +1447,7 @@ impl RuntimeSourceExportModule {
             }
             source_only_action_count = source_only_action_count.saturating_sub(1);
             state_bindings.push(RuntimeStateBindingExport {
-                action_state_id: u64::from(source_binding.action_state_id),
+                action_state_id: u64::from(source_binding.action_state_id.get()),
                 runtime_motion_state: None,
                 source_action_key: source_action_key.to_string(),
             });
@@ -2879,159 +2686,6 @@ const MELEE_HURTBOX_COLOR_TABLE: &str = "lbColl_803B9928[hurt->state]";
 const MELEE_HURTBOX_Z_POLICY: &str =
     "preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null";
 const MELEE_HURTBOX_SOURCE: &str = "ftData.x30 + PlCaAJ FigaTree + PlCaNr JObj skeleton";
-const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
-    "Wait",
-    "Entry",
-    "EntryStart",
-    "EntryEnd",
-    "WalkSlow",
-    "WalkMiddle",
-    "WalkFast",
-    "Dash",
-    "Run",
-    "RunDirect",
-    "RunBrake",
-    "TurnRun",
-    "Turn",
-    "Squat",
-    "SquatWait",
-    "SquatRv",
-    "SpecialN",
-    "SpecialSStart",
-    "SpecialS",
-    "SpecialHi",
-    "SpecialLw",
-    "SpecialAirN",
-    "SpecialAirSStart",
-    "SpecialAirS",
-    "SpecialAirHi",
-    "SpecialAirLw",
-    "AttackAirN",
-    "AttackAirF",
-    "AttackAirB",
-    "AttackAirHi",
-    "AttackAirLw",
-    "LandingAirN",
-    "LandingAirF",
-    "LandingAirB",
-    "LandingAirHi",
-    "LandingAirLw",
-    "Catch",
-    "CatchDash",
-    "Attack1",
-    "AttackDash",
-    "AttackS3",
-    "AttackHi3",
-    "AttackLw3",
-    "AttackS4",
-    "AttackHi4",
-    "AttackLw4",
-    "KneeBend",
-    "JumpF",
-    "JumpB",
-    "Fall",
-    "FallF",
-    "FallB",
-    "FallAerial",
-    "FallAerialF",
-    "FallAerialB",
-    "JumpAerialF",
-    "JumpAerialB",
-    "GuardOn",
-    "Guard",
-    "GuardOff",
-    "GuardSetOff",
-    "GuardReflect",
-    "EscapeN",
-    "EscapeF",
-    "EscapeB",
-    "EscapeAir",
-    "FallSpecial",
-    "FallSpecialF",
-    "FallSpecialB",
-    "LandingFallSpecial",
-    "Landing",
-    "Pass",
-];
-
-fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
-    Some(match state {
-        "Wait" => MotionState::Wait,
-        "Entry" => MotionState::Entry,
-        "EntryStart" => MotionState::EntryStart,
-        "EntryEnd" => MotionState::EntryEnd,
-        "WalkSlow" => MotionState::WalkSlow,
-        "WalkMiddle" => MotionState::WalkMiddle,
-        "WalkFast" => MotionState::WalkFast,
-        "Dash" => MotionState::Dash,
-        "Run" => MotionState::Run,
-        "RunDirect" => MotionState::RunDirect,
-        "RunBrake" => MotionState::RunBrake,
-        "TurnRun" => MotionState::TurnRun,
-        "Turn" => MotionState::Turn,
-        "Squat" => MotionState::Squat,
-        "SquatWait" => MotionState::SquatWait,
-        "SquatRv" => MotionState::SquatRv,
-        "SpecialN" => MotionState::SpecialN,
-        "SpecialSStart" => MotionState::SpecialSStart,
-        "SpecialS" => MotionState::SpecialS,
-        "SpecialHi" => MotionState::SpecialHi,
-        "SpecialLw" => MotionState::SpecialLw,
-        "SpecialAirN" => MotionState::SpecialAirN,
-        "SpecialAirSStart" => MotionState::SpecialAirSStart,
-        "SpecialAirS" => MotionState::SpecialAirS,
-        "SpecialAirHi" => MotionState::SpecialAirHi,
-        "SpecialAirLw" => MotionState::SpecialAirLw,
-        "AttackAirN" => MotionState::AttackAirN,
-        "AttackAirF" => MotionState::AttackAirF,
-        "AttackAirB" => MotionState::AttackAirB,
-        "AttackAirHi" => MotionState::AttackAirHi,
-        "AttackAirLw" => MotionState::AttackAirLw,
-        "LandingAirN" => MotionState::LandingAirN,
-        "LandingAirF" => MotionState::LandingAirF,
-        "LandingAirB" => MotionState::LandingAirB,
-        "LandingAirHi" => MotionState::LandingAirHi,
-        "LandingAirLw" => MotionState::LandingAirLw,
-        "Catch" => MotionState::Catch,
-        "CatchDash" => MotionState::CatchDash,
-        "Attack1" => MotionState::Attack1,
-        "AttackDash" => MotionState::AttackDash,
-        "AttackS3" => MotionState::AttackS3,
-        "AttackHi3" => MotionState::AttackHi3,
-        "AttackLw3" => MotionState::AttackLw3,
-        "AttackS4" => MotionState::AttackS4,
-        "AttackHi4" => MotionState::AttackHi4,
-        "AttackLw4" => MotionState::AttackLw4,
-        "KneeBend" => MotionState::KneeBend,
-        "JumpF" => MotionState::JumpF,
-        "JumpB" => MotionState::JumpB,
-        "Fall" => MotionState::Fall,
-        "FallF" => MotionState::FallF,
-        "FallB" => MotionState::FallB,
-        "FallAerial" => MotionState::FallAerial,
-        "FallAerialF" => MotionState::FallAerialF,
-        "FallAerialB" => MotionState::FallAerialB,
-        "JumpAerialF" => MotionState::JumpAerialF,
-        "JumpAerialB" => MotionState::JumpAerialB,
-        "GuardOn" => MotionState::GuardOn,
-        "Guard" => MotionState::Guard,
-        "GuardOff" => MotionState::GuardOff,
-        "GuardSetOff" => MotionState::GuardSetOff,
-        "GuardReflect" => MotionState::GuardReflect,
-        "EscapeN" => MotionState::EscapeN,
-        "EscapeF" => MotionState::EscapeF,
-        "EscapeB" => MotionState::EscapeB,
-        "EscapeAir" => MotionState::EscapeAir,
-        "FallSpecial" => MotionState::FallSpecial,
-        "FallSpecialF" => MotionState::FallSpecialF,
-        "FallSpecialB" => MotionState::FallSpecialB,
-        "LandingFallSpecial" => MotionState::LandingFallSpecial,
-        "Landing" => MotionState::Landing,
-        "Pass" => MotionState::Pass,
-        _ => return None,
-    })
-}
-
 fn source_binding_for_runtime_motion_state_variant(
     state: &str,
 ) -> Result<Option<MotionStateSourceBinding>, String> {

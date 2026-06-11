@@ -8,8 +8,13 @@ use crate::{
     ThemeMode,
 };
 use eframe::egui;
-use mole_runtime::{RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene};
-use std::collections::BTreeMap;
+use mole_runtime::{
+    LegacySpriteCue, RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene,
+};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 pub fn render_app(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     apply_app_visuals(ui);
@@ -1074,12 +1079,16 @@ fn render_move_keyframes_viewport_panel(
                 .runtime_preview(rect.width().max(1.0) as u32, rect.height().max(1.0) as u32)
             {
                 let fit = move_keyframe_preview_fit(rect, &preview.scene);
+                let workspace_root = app.workspace_root().to_path_buf();
                 draw_move_keyframe_runtime_scene(
+                    ui.ctx(),
                     &painter,
                     rect,
                     &preview.scene,
                     &palette,
                     fit,
+                    &workspace_root,
+                    &mut app.move_keyframe_texture_cache,
                 );
             } else {
                 painter.rect_filled(rect, 6.0, palette.background);
@@ -1166,11 +1175,14 @@ fn move_keyframe_window_contains(window: &serde_json::Value, frame_number: usize
 }
 
 fn draw_move_keyframe_runtime_scene(
+    ctx: &egui::Context,
     painter: &egui::Painter,
     rect: egui::Rect,
     scene: &RenderScene,
     palette: &MoveKeyframePreviewPalette,
     fit: MoveKeyframePreviewFit,
+    asset_root: &Path,
+    texture_cache: &mut BTreeMap<String, egui::TextureHandle>,
 ) {
     painter.rect_filled(rect, 6.0, render_color(scene.background));
     painter.rect_stroke(
@@ -1181,7 +1193,23 @@ fn draw_move_keyframe_runtime_scene(
     );
 
     draw_render_rect(painter, scene.stage, fit, egui::Color32::TRANSPARENT);
-    draw_render_rect(painter, scene.players[0], fit, egui::Color32::TRANSPARENT);
+    let sprite_path = move_keyframe_sprite_asset_path(asset_root, scene.player_sprites[0]);
+    let sprite_drawn = sprite_path
+        .as_deref()
+        .and_then(|path| load_move_keyframe_texture(ctx, path, texture_cache))
+        .is_some_and(|texture| {
+            draw_render_texture(
+                painter,
+                &texture,
+                scene.players[0],
+                fit,
+                scene.player_sprites[0].flip_x,
+            );
+            true
+        });
+    if move_keyframe_draws_player_rect(scene, sprite_path.is_some() || sprite_drawn) {
+        draw_render_rect(painter, scene.players[0], fit, egui::Color32::TRANSPARENT);
+    }
     if let Some(hurtboxes) = scene.player_hurtbox_pills.first() {
         for hurtbox in hurtboxes.iter().copied() {
             draw_render_capsule(painter, hurtbox, fit);
@@ -1193,6 +1221,56 @@ fn draw_move_keyframe_runtime_scene(
         }
     }
     draw_render_polygon(painter, scene.player_ecbs[0], fit);
+}
+
+fn load_move_keyframe_texture(
+    ctx: &egui::Context,
+    path: &Path,
+    texture_cache: &mut BTreeMap<String, egui::TextureHandle>,
+) -> Option<egui::TextureHandle> {
+    let key = path.to_string_lossy().to_string();
+    if !texture_cache.contains_key(&key) {
+        let image = image::ImageReader::open(path)
+            .ok()?
+            .decode()
+            .ok()?
+            .to_rgba8();
+        let size = [image.width() as usize, image.height() as usize];
+        let pixels = image.into_raw();
+        let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
+        let texture = ctx.load_texture(
+            format!("move-keyframe-preview:{key}"),
+            color_image,
+            egui::TextureOptions::LINEAR,
+        );
+        texture_cache.insert(key.clone(), texture);
+    }
+    texture_cache.get(&key).cloned()
+}
+
+fn draw_render_texture(
+    painter: &egui::Painter,
+    texture: &egui::TextureHandle,
+    rect: RenderRect,
+    fit: MoveKeyframePreviewFit,
+    flip_x: bool,
+) {
+    let min = fit.apply(egui::pos2(rect.x as f32, rect.y as f32));
+    let max = fit.apply(egui::pos2(
+        (rect.x + rect.width as i32) as f32,
+        (rect.y + rect.height as i32) as f32,
+    ));
+    let uv = if flip_x {
+        egui::Rect::from_min_max(egui::pos2(1.0, 0.0), egui::pos2(0.0, 1.0))
+    } else {
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0))
+    };
+    painter.image(
+        texture.id(),
+        egui::Rect::from_two_pos(min, max),
+        uv,
+        egui::Color32::WHITE,
+    );
 }
 
 fn draw_render_rect(
@@ -1354,5 +1432,55 @@ fn move_keyframe_preview_palette(theme: ThemeMode) -> MoveKeyframePreviewPalette
             border: egui::Color32::from_rgb(191, 219, 254),
             hitbox: egui::Color32::from_rgb(220, 38, 38),
         },
+    }
+}
+
+fn move_keyframe_sprite_asset_path(root: &Path, cue: LegacySpriteCue) -> Option<PathBuf> {
+    let path = root.join(cue.relative_path());
+    path.is_file().then_some(path)
+}
+
+fn move_keyframe_draws_player_rect(scene: &RenderScene, sprite_asset_available: bool) -> bool {
+    !sprite_asset_available
+        && scene.player_hurtbox_pills.first().is_none_or(Vec::is_empty)
+        && scene.player_hitbox_pills.first().is_none_or(Vec::is_empty)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mole_core::MotionState;
+    use mole_runtime::RenderFrame;
+    use std::path::Path;
+
+    fn workspace_root() -> PathBuf {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("workspace root")
+            .to_path_buf()
+    }
+
+    #[test]
+    fn move_keyframe_preview_uses_sprite_asset_instead_of_player_rect_when_available() {
+        let mut frame = RenderFrame::from_world(&mole_core::World::for_two_players_on_stage(
+            mole_core::StageProfile::dev_flat_test(),
+        ));
+        frame.player_motion_states[0] = MotionState::Turn;
+        frame.player_animation_frames[0] = 1;
+        let scene = RenderScene::from_frame_on_stage(
+            &frame,
+            &mole_core::StageProfile::dev_flat_test(),
+            640,
+            360,
+        );
+
+        let asset_path =
+            move_keyframe_sprite_asset_path(&workspace_root(), scene.player_sprites[0])
+                .expect("turning sprite asset");
+
+        assert!(asset_path.ends_with(Path::new("DolphinMole/turning/Standing1.png")));
+        assert!(!move_keyframe_draws_player_rect(&scene, true));
     }
 }

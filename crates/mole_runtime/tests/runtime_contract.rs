@@ -1606,6 +1606,22 @@ fn render_scene_contains_battlefield_surfaces_and_diamond_ecb() {
 }
 
 #[test]
+fn render_scene_can_use_dev_flat_stage_without_battlefield_surfaces() {
+    let stage = StageProfile::dev_flat_test();
+    let world = World::for_two_players_on_stage(stage);
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame_on_stage(&frame, &stage, 640, 360);
+
+    assert_eq!(scene.background, RenderColor::DEV_BACKGROUND);
+    assert_eq!(scene.stage_surfaces.len(), 1);
+    assert_eq!(scene.stage.width, 480);
+    assert!(scene.players[0].height < 320);
+    assert!(scene.players[0].y >= 0);
+    assert!(scene.players[0].y + scene.players[0].height as i32 <= 360);
+    assert_eq!(scene.player_ecbs[0].points.len(), 4);
+}
+
+#[test]
 fn runtime_asset_root_contains_background_and_sprite_files() {
     let asset_root = project_asset_root();
 
