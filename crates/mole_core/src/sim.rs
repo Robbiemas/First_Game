@@ -15,9 +15,10 @@ use crate::{
         SOURCE_COLLISION_STATE_NORMAL, SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
     },
     units::{milli_to_source_units, source_units_to_milli},
-    Frame, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MeleeJumpInput, MotionState,
-    PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, StageProfile,
-    StageSurfaceKind, Vec2, World, PLAYER_COUNT, PLAYER_STATE_IN_GAME,
+    Frame, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MeleeInputTimers, MeleeJumpInput,
+    MotionState, PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, StageLedge,
+    StageLedgeSide, StageProfile, StageSurfaceKind, Vec2, World, PLAYER_COUNT,
+    PLAYER_STATE_IN_GAME,
 };
 
 const ATTACK_ACTIVE_TICKS: u8 = 12;
@@ -36,6 +37,7 @@ const FALCON_SPECIAL_S_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_SPECIAL_HI_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_SPECIAL_LW_FRAMES: u8 = FALCON_SPECIAL_N_FRAMES;
 const FALCON_CATCH_DASH_FRAMES: u8 = 40;
+const SOURCE_CLIFF_CATCH_FRAMES: u8 = 50;
 const FALCON_ATTACK_HI3_IASA: u8 = 38;
 const FALCON_ATTACK_LW3_IASA: u8 = 35;
 const FALCON_ATTACK_S4_IASA: u8 = 60;
@@ -91,6 +93,7 @@ pub fn step_world_with_source_runtime_data(
     let common_data = world.common_data();
     let engine_features = world.engine_features();
     compute_player_nudge_velocities(world.players_mut(), stage, common_data);
+    let mut source_ledge_owners = source_ledge_owners(world.players());
 
     for (player_index, ((player, input), previous_input)) in world
         .players_mut()
@@ -120,10 +123,20 @@ pub fn step_world_with_source_runtime_data(
         let trigger_timer = input_timers[player_index].trigger;
         advance_source_lr_digital_press_timers(player, input_facts);
         tick_source_collision_lifecycle(player);
+        tick_source_ledge_cooldown(player);
         tick_guard_shield_lifecycle(player, input_facts, common_data);
         if player.hitlag_frames > 0 {
             begin_ground_velocity_tick(player);
+            apply_source_damage_on_every_hitlag(
+                player,
+                input,
+                &mut input_timers[player_index],
+                common_data,
+            );
             player.hitlag_frames = player.hitlag_frames.saturating_sub(1);
+            if player.hitlag_frames == 0 {
+                apply_source_damage_on_exit_hitlag(player, input, common_data);
+            }
             continue;
         }
         tick_ecb_bottom_lock(player);
@@ -189,7 +202,7 @@ pub fn step_world_with_source_runtime_data(
             continue;
         }
         if is_source_rebirth_motion_state(player.motion_state) {
-            advance_source_rebirth_state(player, common_data);
+            advance_source_rebirth_state(player, input_facts, common_data);
             continue;
         }
 
@@ -831,6 +844,26 @@ pub fn step_world_with_source_runtime_data(
                 }
                 apply_airborne_iasa_or_drift(player, input_facts, stick_x, stick_y, common_data);
             }
+            MotionState::CliffCatch => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                if player.motion_frame >= SOURCE_CLIFF_CATCH_FRAMES {
+                    enter_source_cliff_wait(player, common_data);
+                }
+                if !apply_source_cliff_physics(player, stage) {
+                    enter_fall(player);
+                }
+                skip_position_update_this_tick = true;
+            }
+            MotionState::CliffWait => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                if apply_source_cliff_wait_iasa(player, stick_x, stick_y, common_data) {
+                } else if !apply_source_cliff_physics(player, stage) {
+                    enter_fall(player);
+                } else {
+                    tick_source_cliff_wait_timer(player);
+                }
+                skip_position_update_this_tick = true;
+            }
             MotionState::EscapeAir => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
                 if player.motion_frame.saturating_add(1)
@@ -1020,6 +1053,17 @@ pub fn step_world_with_source_runtime_data(
             if player.motion_state == MotionState::EscapeAir && player.motion_cmd_var0 == 0 {
                 add_source_position_y(player, player.source_self_velocity_y);
 
+                if try_source_cliff_catch(
+                    player,
+                    stage,
+                    input_facts,
+                    player_index,
+                    &source_ledge_owners,
+                ) {
+                    source_ledge_owners[player_index] = player.source_cliff_ledge_id;
+                    continue;
+                }
+
                 if let Some(contact) = airborne_landing_contact(
                     stage,
                     player,
@@ -1052,6 +1096,17 @@ pub fn step_world_with_source_runtime_data(
                     }
                 }
                 add_source_position_y(player, player.source_self_velocity_y);
+
+                if try_source_cliff_catch(
+                    player,
+                    stage,
+                    input_facts,
+                    player_index,
+                    &source_ledge_owners,
+                ) {
+                    source_ledge_owners[player_index] = player.source_cliff_ledge_id;
+                    continue;
+                }
 
                 let floor_skip_surface = (player.motion_state == MotionState::Pass)
                     .then_some(player.floor_skip_surface)
@@ -1097,6 +1152,7 @@ pub fn step_world_with_source_runtime_data(
         for player_index in 0..PLAYER_COUNT {
             world.resolve_stage_blast_zone_ko_for_player(player_index);
         }
+        world.sync_match_phase_from_players();
     }
 
     world.set_input_timers(input_timers);
@@ -1348,18 +1404,22 @@ fn advance_source_damage_state(
         }
     } else {
         apply_source_damage_air_physics(player, stick_x, common_data);
-        add_source_position_x(player, player.source_self_velocity_x);
+        add_source_position_x(
+            player,
+            player.source_self_velocity_x + player.source_knockback_velocity_x,
+        );
         clear_ground_accels(player);
-        add_source_position_y(player, player.source_self_velocity_y);
+        add_source_position_y(
+            player,
+            player.source_self_velocity_y + player.source_knockback_velocity_y,
+        );
         if let Some(contact) =
             airborne_landing_contact(stage, player, previous_ecb_bottom, None, false, common_data)
         {
-            let damage_velocity = player.velocity;
             snap_player_to_floor_contact(player, contact.y);
             apply_source_damage_floor_collision(
                 player,
                 common_data,
-                damage_velocity,
                 stick_x,
                 source_action_total_frames,
             );
@@ -1385,7 +1445,6 @@ fn source_action_animation_done(player: &PlayerState) -> bool {
 fn apply_source_damage_floor_collision(
     player: &mut PlayerState,
     common_data: MeleeCommonData,
-    damage_velocity: Vec2,
     stick_x: i32,
     source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) {
@@ -1394,7 +1453,7 @@ fn apply_source_damage_floor_collision(
     };
 
     if is_source_standard_damage_action_state_id(action_state_id) {
-        let magnitude = source_damage_velocity_magnitude(damage_velocity);
+        let magnitude = source_damage_knockback_velocity_magnitude(player);
         if player.source_force_damage_down_bound
             || magnitude >= common_data.damage_landing_down_bound_knockback_threshold
         {
@@ -1850,9 +1909,9 @@ fn advance_source_down_ground_physics(
     resolve_ground_support_after_move(stage, player, stick_x, floor_surface_before_ground_move)
 }
 
-fn source_damage_velocity_magnitude(velocity: Vec2) -> f32 {
-    let x = milli_to_source_units(velocity.x);
-    let y = milli_to_source_units(velocity.y);
+fn source_damage_knockback_velocity_magnitude(player: &PlayerState) -> f32 {
+    let x = player.source_knockback_velocity_x;
+    let y = player.source_knockback_velocity_y;
     (x * x + y * y).sqrt()
 }
 
@@ -1870,21 +1929,25 @@ fn apply_source_damage_air_physics(
 }
 
 fn apply_source_damage_locked_air_friction(player: &mut PlayerState) {
-    set_source_self_velocity_x(
-        player,
-        apply_friction_to_zero(
-            player.source_self_velocity_x,
-            player.profile.aerial_friction,
-        ),
+    player.source_knockback_velocity_x = apply_friction_to_zero(
+        player.source_knockback_velocity_x,
+        player.profile.aerial_friction,
     );
+    sync_damage_velocity_projection(player);
 }
 
 fn apply_source_damage_air_gravity(player: &mut PlayerState) {
     let profile = player.profile;
-    set_source_self_velocity_y(
-        player,
-        (player.source_self_velocity_y - profile.gravity).max(-profile.terminal_velocity),
-    );
+    player.source_knockback_velocity_y =
+        (player.source_knockback_velocity_y - profile.gravity).max(-profile.terminal_velocity);
+    sync_damage_velocity_projection(player);
+}
+
+fn sync_damage_velocity_projection(player: &mut PlayerState) {
+    player.velocity.x =
+        source_units_to_milli(player.source_self_velocity_x + player.source_knockback_velocity_x);
+    player.velocity.y =
+        source_units_to_milli(player.source_self_velocity_y + player.source_knockback_velocity_y);
 }
 
 fn advance_source_dead_state(
@@ -1969,7 +2032,11 @@ fn advance_source_dead_timer(player: &mut PlayerState) -> bool {
     }
 }
 
-fn advance_source_rebirth_state(player: &mut PlayerState, common_data: MeleeCommonData) {
+fn advance_source_rebirth_state(
+    player: &mut PlayerState,
+    input_facts: MeleeInputFacts,
+    common_data: MeleeCommonData,
+) {
     match player.motion_state {
         MotionState::Rebirth => {
             if player.source_common_timer > 0 {
@@ -1980,6 +2047,12 @@ fn advance_source_rebirth_state(player: &mut PlayerState, common_data: MeleeComm
             player.enter_source_rebirth_wait_state(common_data.rebirth_wait_ticks);
         }
         MotionState::RebirthWait => {
+            if source_rebirth_wait_fall_input(input_facts) {
+                player
+                    .apply_source_hurt_intangible_timer(common_data.rebirth_hurt_intangible_ticks);
+                enter_fall(player);
+                return;
+            }
             if player.source_common_timer > 0 {
                 player.source_common_timer = player.source_common_timer.saturating_sub(1);
                 player.motion_frame = player.motion_frame.saturating_add(1);
@@ -1990,6 +2063,10 @@ fn advance_source_rebirth_state(player: &mut PlayerState, common_data: MeleeComm
         }
         _ => {}
     }
+}
+
+fn source_rebirth_wait_fall_input(input_facts: MeleeInputFacts) -> bool {
+    input_facts.crouch
 }
 
 fn tick_source_collision_lifecycle(player: &mut PlayerState) {
@@ -2014,6 +2091,134 @@ fn tick_source_collision_lifecycle(player: &mut PlayerState) {
             };
         }
     }
+}
+
+fn apply_source_damage_on_every_hitlag(
+    player: &mut PlayerState,
+    input: PlayerInput,
+    input_timers: &mut MeleeInputTimers,
+    common_data: MeleeCommonData,
+) {
+    if !player.source_allow_sdi
+        || !source_stick_mag_meets_sdi_min(input.stick_x(), input.stick_y(), common_data)
+    {
+        return;
+    }
+    if input_timers.x_tap >= common_data.sdi_stick_window
+        && input_timers.y_tap >= common_data.sdi_stick_window
+    {
+        return;
+    }
+
+    add_source_position_x(
+        player,
+        fighter_stick_axis_to_f32(input.stick_x()) * common_data.sdi_pos_scale,
+    );
+    add_source_position_y(
+        player,
+        fighter_stick_axis_to_f32(input.stick_y()) * common_data.sdi_pos_scale,
+    );
+    input_timers.x_tap = EXPIRED_INPUT_TIMER;
+    input_timers.y_tap = EXPIRED_INPUT_TIMER;
+}
+
+fn apply_source_damage_on_exit_hitlag(
+    player: &mut PlayerState,
+    input: PlayerInput,
+    common_data: MeleeCommonData,
+) {
+    apply_source_asdi_on_exit_hitlag(player, input, common_data);
+    apply_source_di_on_exit_hitlag(player, input, common_data);
+    player.source_allow_sdi = false;
+}
+
+fn apply_source_asdi_on_exit_hitlag(
+    player: &mut PlayerState,
+    input: PlayerInput,
+    common_data: MeleeCommonData,
+) {
+    let main_stick = (input.stick_x(), input.stick_y());
+    let c_stick = (input.c_stick_x(), input.c_stick_y());
+    let stick = if source_stick_mag_meets_sdi_min(c_stick.0, c_stick.1, common_data) {
+        c_stick
+    } else if source_stick_mag_meets_sdi_min(main_stick.0, main_stick.1, common_data) {
+        main_stick
+    } else {
+        return;
+    };
+
+    add_source_position_x(
+        player,
+        fighter_stick_axis_to_f32(stick.0) * common_data.asdi_pos_scale,
+    );
+    add_source_position_y(
+        player,
+        fighter_stick_axis_to_f32(stick.1) * common_data.asdi_pos_scale,
+    );
+}
+
+fn apply_source_di_on_exit_hitlag(
+    player: &mut PlayerState,
+    input: PlayerInput,
+    common_data: MeleeCommonData,
+) {
+    let stick_x = fighter_stick_axis_to_f32(input.stick_x());
+    let stick_y = fighter_stick_axis_to_f32(input.stick_y());
+    if stick_x == 0.0 && stick_y == 0.0 {
+        apply_source_trigger_di_knockback_scale(player, input, common_data);
+        return;
+    }
+
+    let kb_x = player.source_knockback_velocity_x;
+    let kb_y = player.source_knockback_velocity_y;
+    let kb_vel_x_neg = -kb_x;
+    let kb_mag_sq = kb_vel_x_neg * kb_vel_x_neg + kb_y * kb_y;
+    if kb_mag_sq >= 0.00001 {
+        let f3 = kb_y * stick_x + kb_vel_x_neg * stick_y;
+        let mut f30 = f3 * f3 / kb_mag_sq;
+        let cross_z = kb_x * stick_y - kb_y * stick_x;
+        if cross_z < 0.0 {
+            f30 = -f30;
+        }
+        let kb_mag = (kb_x * kb_x + kb_y * kb_y).sqrt();
+        let angle = kb_y.atan2(kb_x) + common_data.di_angle_degrees.to_radians() * f30;
+        player.source_knockback_velocity_x = kb_mag * angle.cos();
+        player.source_knockback_velocity_y = kb_mag * angle.sin();
+    }
+
+    apply_source_trigger_di_knockback_scale(player, input, common_data);
+    sync_damage_velocity_projection(player);
+}
+
+fn apply_source_trigger_di_knockback_scale(
+    player: &mut PlayerState,
+    input: PlayerInput,
+    common_data: MeleeCommonData,
+) {
+    if !(input.left_trigger_digital() || input.right_trigger_digital()) {
+        return;
+    }
+    let kb_x = player.source_knockback_velocity_x;
+    let kb_y = player.source_knockback_velocity_y;
+    if kb_x == 0.0 && kb_y == 0.0 {
+        return;
+    }
+    let kb_angle = kb_y.atan2(kb_x);
+    let scaled_kb_mag =
+        (kb_x * kb_x + kb_y * kb_y).sqrt() * common_data.trigger_di_knockback_multiplier;
+    player.source_knockback_velocity_x = scaled_kb_mag * kb_angle.cos();
+    player.source_knockback_velocity_y = scaled_kb_mag * kb_angle.sin();
+    sync_damage_velocity_projection(player);
+}
+
+fn source_stick_mag_meets_sdi_min(stick_x: i8, stick_y: i8, common_data: MeleeCommonData) -> bool {
+    let x = fighter_stick_axis_to_f32(stick_x);
+    let y = fighter_stick_axis_to_f32(stick_y);
+    x * x + y * y >= common_data.sdi_min_stick_mag * common_data.sdi_min_stick_mag
+}
+
+fn tick_source_ledge_cooldown(player: &mut PlayerState) {
+    player.source_ledge_cooldown_timer = player.source_ledge_cooldown_timer.saturating_sub(1);
 }
 
 fn advance_entry(player: &mut PlayerState, common_data: MeleeCommonData) {
@@ -2144,6 +2349,187 @@ fn set_source_position_x_milli(player: &mut PlayerState, position_x: i32) {
 fn set_source_position_y_milli(player: &mut PlayerState, position_y: i32) {
     player.position.y = position_y;
     player.source_position.y = milli_to_source_units(position_y);
+}
+
+fn source_ledge_owners(players: &[PlayerState; PLAYER_COUNT]) -> [Option<u16>; PLAYER_COUNT] {
+    let mut owners = [None; PLAYER_COUNT];
+    for (index, player) in players.iter().enumerate() {
+        if player.player_state == PLAYER_STATE_IN_GAME
+            && matches!(
+                player.motion_state,
+                MotionState::CliffCatch | MotionState::CliffWait
+            )
+        {
+            owners[index] = player.source_cliff_ledge_id;
+        }
+    }
+    owners
+}
+
+fn try_source_cliff_catch(
+    player: &mut PlayerState,
+    stage: StageProfile,
+    input_facts: MeleeInputFacts,
+    player_index: usize,
+    source_ledge_owners: &[Option<u16>; PLAYER_COUNT],
+) -> bool {
+    if player.grounded || input_facts.crouch {
+        return false;
+    }
+    if player.source_ledge_cooldown_timer != 0 {
+        return false;
+    }
+    if player.source_self_velocity_y > 0.0 && player.velocity.y > 0 {
+        return false;
+    }
+
+    let Some(ledge) = stage.ledges.iter().copied().find(|ledge| {
+        source_cliff_catch_reaches_ledge(player, *ledge)
+            && !source_ledge_is_occupied(ledge.index, player_index, source_ledge_owners)
+    }) else {
+        return false;
+    };
+
+    enter_source_cliff_catch(player, ledge);
+    true
+}
+
+fn source_ledge_is_occupied(
+    ledge_id: u16,
+    player_index: usize,
+    source_ledge_owners: &[Option<u16>; PLAYER_COUNT],
+) -> bool {
+    source_ledge_owners
+        .iter()
+        .enumerate()
+        .any(|(owner_index, owner_ledge)| {
+            owner_index != player_index && *owner_ledge == Some(ledge_id)
+        })
+}
+
+fn source_cliff_catch_reaches_ledge(player: &PlayerState, ledge: StageLedge) -> bool {
+    let facing = ledge_facing(ledge.side);
+    let anchor_x = ledge.x_milli + i32::from(facing) * player.profile.ledge_snap_x_milli;
+    let anchor_y = ledge.y_milli + player.profile.ledge_snap_y_milli;
+    let x_reaches = (player.position.x - anchor_x).abs() <= player.profile.ledge_snap_x_milli;
+    let y_min = ledge.y_milli;
+    let y_max = anchor_y + player.profile.ledge_snap_height_milli;
+    x_reaches && player.position.y >= y_min && player.position.y <= y_max
+}
+
+fn ledge_facing(side: StageLedgeSide) -> i8 {
+    match side {
+        StageLedgeSide::Left => 1,
+        StageLedgeSide::Right => -1,
+    }
+}
+
+fn enter_source_cliff_catch(player: &mut PlayerState, ledge: StageLedge) {
+    let facing = ledge_facing(ledge.side);
+    player.set_motion_state_alias(MotionState::CliffCatch);
+    player.motion_frame = 0;
+    player.motion_anim_frame_milli = 0;
+    player.facing = facing;
+    player.grounded = false;
+    player.fast_falling = false;
+    player.velocity = Vec2 { x: 0, y: 0 };
+    set_source_self_velocity(player, 0.0, 0.0);
+    set_source_position_x_milli(
+        player,
+        ledge.x_milli + i32::from(facing) * player.profile.ledge_snap_x_milli,
+    );
+    set_source_position_y_milli(player, ledge.y_milli + player.profile.ledge_snap_y_milli);
+    player.source_cliff_ledge_id = Some(ledge.index);
+    player.source_cliff_stick_gate = false;
+    player.source_cliff_wait_timer = 0;
+}
+
+fn enter_source_cliff_wait(player: &mut PlayerState, common_data: MeleeCommonData) {
+    player.set_motion_state_alias(MotionState::CliffWait);
+    player.motion_frame = 0;
+    player.motion_anim_frame_milli = 0;
+    player.source_cliff_stick_gate = false;
+    player.source_cliff_wait_timer =
+        if player.damage_percent < common_data.cliff_quick_percent_threshold as f32 {
+            common_data.cliff_wait_low_percent_ticks
+        } else {
+            common_data.cliff_wait_high_percent_ticks
+        };
+    player.source_hurt_intangible_timer = common_data.cliff_wait_hurt_intangible_ticks;
+    player.grounded = false;
+    player.fast_falling = false;
+    player.velocity = Vec2 { x: 0, y: 0 };
+    set_source_self_velocity(player, 0.0, 0.0);
+}
+
+fn apply_source_cliff_wait_iasa(
+    player: &mut PlayerState,
+    stick_x: i32,
+    stick_y: i8,
+    common_data: MeleeCommonData,
+) -> bool {
+    let stick_y = i32::from(stick_y);
+    if source_cliff_stick_exceeds_option_threshold(stick_x, stick_y, common_data) {
+        let angle = (stick_y as f32).atan2(stick_x as f32);
+        let threshold = (common_data.aerial_vertical_angle_tan_milli as f32 / 1000.0).atan();
+        let away_or_down =
+            angle <= -threshold || (angle <= threshold && stick_x * i32::from(player.facing) < 0);
+        if away_or_down && player.source_cliff_stick_gate {
+            player.source_ledge_cooldown_timer = common_data.ledge_cooldown_ticks;
+            player.source_cliff_stick_gate = false;
+            player.source_cliff_wait_timer = 0;
+            enter_fall(player);
+            return true;
+        }
+        return false;
+    }
+
+    player.source_cliff_stick_gate = true;
+    if player.source_cliff_wait_timer == 0 {
+        player.source_ledge_cooldown_timer = common_data.ledge_cooldown_ticks;
+        player.source_cliff_stick_gate = false;
+        enter_fall(player);
+        return true;
+    }
+    false
+}
+
+fn tick_source_cliff_wait_timer(player: &mut PlayerState) {
+    player.source_cliff_wait_timer = player.source_cliff_wait_timer.saturating_sub(1);
+}
+
+fn source_cliff_stick_exceeds_option_threshold(
+    stick_x: i32,
+    stick_y: i32,
+    common_data: MeleeCommonData,
+) -> bool {
+    let threshold = i32::from(common_data.cliff_option_stick_threshold);
+    stick_x.abs() >= threshold || stick_y.abs() >= threshold
+}
+
+fn apply_source_cliff_physics(player: &mut PlayerState, stage: StageProfile) -> bool {
+    let Some(ledge_id) = player.source_cliff_ledge_id else {
+        return false;
+    };
+    let Some(ledge) = stage
+        .ledges
+        .iter()
+        .copied()
+        .find(|ledge| ledge.index == ledge_id)
+    else {
+        return false;
+    };
+
+    let facing = ledge_facing(ledge.side);
+    player.facing = facing;
+    set_source_position_x_milli(
+        player,
+        ledge.x_milli + i32::from(facing) * player.profile.ledge_snap_x_milli,
+    );
+    set_source_position_y_milli(player, ledge.y_milli + player.profile.ledge_snap_y_milli);
+    player.velocity = Vec2 { x: 0, y: 0 };
+    set_source_self_velocity(player, 0.0, 0.0);
+    true
 }
 
 fn commit_ground_velocity(player: &mut PlayerState) {
@@ -3636,6 +4022,11 @@ fn enter_fall(player: &mut PlayerState) {
     }
     player.ground_velocity_x = 0.0;
     player.escape_air_iasa_timer = 0;
+    player.source_knockback_velocity_x = 0.0;
+    player.source_knockback_velocity_y = 0.0;
+    player.source_cliff_ledge_id = None;
+    player.source_cliff_stick_gate = false;
+    player.source_cliff_wait_timer = 0;
     clear_ground_accels(player);
 }
 

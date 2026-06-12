@@ -1,6 +1,6 @@
 use mole_core::collision::{
     source_damage_result_for_victim, Capsule3, SourceCollisionCapsule, SourceCollisionFrame,
-    SourceDamageResultInput, SourceDamageStage, SourceHitboxAttributes, Vec3,
+    SourceDamageResult, SourceDamageResultInput, SourceDamageStage, SourceHitboxAttributes, Vec3,
 };
 use mole_core::{
     fighter_stick_axis_to_f32, has_source_ecb_samples_for_motion_state,
@@ -10,11 +10,11 @@ use mole_core::{
     step_world_with_source_runtime_data, CommonDataExtractError, CommonDataProvenance, EcbDiamond,
     EngineFeatureToggles, FighterActionFrames, FighterCameraBox, FighterEntryPlatformProfile,
     FighterProfile, FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus,
-    MeleeActionStateId, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
-    MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
-    SourceActionKey, SourceDownBoundPose, StageCollisionLineKind, StageLedgeSide, StageProfile,
-    StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World,
-    DEFAULT_STOCK_COUNT, PLAYER_STATE_IN_GAME, PLAYER_STATE_NONE,
+    MatchPhase, MeleeActionStateId, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor,
+    MeleeInputSnapshot, MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState,
+    PlayerInput, PlayerState, SourceActionKey, SourceDownBoundPose, StageCollisionLineKind,
+    StageLedgeSide, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2,
+    WalkSpeedBucket, World, DEFAULT_STOCK_COUNT, PLAYER_STATE_IN_GAME, PLAYER_STATE_NONE,
     SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_RATE_HZ,
 };
 use std::{fs, path::Path};
@@ -790,6 +790,243 @@ fn battlefield_melee_stage_profile_promotes_decomp_stage_runtime_metadata() {
     assert_eq!(stage.blast_zones.right_x, 224000);
     assert_eq!(stage.blast_zones.top_y, 200000);
     assert_eq!(stage.blast_zones.bottom_y, -108800);
+}
+
+#[test]
+fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let ledge = world.stage().ledges[0];
+    assert_eq!(ledge.side, StageLedgeSide::Left);
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Fall);
+    player.grounded = false;
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    player.velocity.y = -1_000;
+    player.source_self_velocity_y = -1.0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffCatch);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(252))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("CliffCatch"))
+    );
+    assert_eq!(player.facing, 1);
+    assert_eq!(player.source_cliff_ledge_id, Some(ledge.index));
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: ledge.x_milli + profile.ledge_snap_x_milli,
+            y: ledge.y_milli + profile.ledge_snap_y_milli,
+        }
+    );
+}
+
+#[test]
+fn source_cliff_catch_animation_end_enters_cliff_wait_on_same_ledge() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let ledge = world.stage().ledges[0];
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::CliffCatch);
+    player.grounded = false;
+    player.facing = 1;
+    player.source_cliff_ledge_id = Some(ledge.index);
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    for frame in 0..50 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffWait);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(253))
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("CliffWait"))
+    );
+    assert_eq!(player.source_cliff_ledge_id, Some(ledge.index));
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: ledge.x_milli + profile.ledge_snap_x_milli,
+            y: ledge.y_milli + profile.ledge_snap_y_milli,
+        }
+    );
+}
+
+#[test]
+fn source_cliff_catch_rejects_ledge_occupied_by_another_fighter() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let ledge = world.stage().ledges[0];
+    let profile = FighterProfile::FALCON_LIKE;
+
+    let mut owner = world.players()[0];
+    owner.set_motion_state_alias(MotionState::CliffWait);
+    owner.grounded = false;
+    owner.facing = 1;
+    owner.source_cliff_ledge_id = Some(ledge.index);
+    owner.source_cliff_wait_timer = 30;
+    owner.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    owner.source_position = mole_core::SourceVec2::from_milli(owner.position);
+    assert!(world.set_player_state_for_diagnostic(0, owner));
+
+    let mut challenger = world.players()[1];
+    challenger.set_motion_state_alias(MotionState::Fall);
+    challenger.grounded = false;
+    challenger.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    challenger.source_position = mole_core::SourceVec2::from_milli(challenger.position);
+    challenger.velocity.y = -1_000;
+    challenger.source_self_velocity_y = -1.0;
+    assert!(world.set_player_state_for_diagnostic(1, challenger));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let owner = world.players()[0];
+    assert_eq!(owner.motion_state, MotionState::CliffWait);
+    assert_eq!(owner.source_cliff_ledge_id, Some(ledge.index));
+    let challenger = world.players()[1];
+    assert_eq!(challenger.motion_state, MotionState::Fall);
+    assert_eq!(challenger.source_cliff_ledge_id, None);
+}
+
+#[test]
+fn source_ledge_cooldown_blocks_immediate_regrab_and_ticks_down() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let ledge = world.stage().ledges[0];
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Fall);
+    player.grounded = false;
+    player.source_ledge_cooldown_timer = 5;
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    player.velocity.y = -1_000;
+    player.source_self_velocity_y = -1.0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(player.source_cliff_ledge_id, None);
+    assert_eq!(player.source_ledge_cooldown_timer, 4);
+}
+
+#[test]
+fn source_cliff_wait_uses_plco_timer_and_hurt_intangibility() {
+    let common = MeleeCommonData {
+        cliff_quick_percent_threshold: 100,
+        cliff_wait_low_percent_ticks: 12,
+        cliff_wait_high_percent_ticks: 7,
+        cliff_wait_hurt_intangible_ticks: 5,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield(),
+        [FighterProfile::FALCON_LIKE; 2],
+        common,
+    );
+    let ledge = world.stage().ledges[0];
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::CliffCatch);
+    player.grounded = false;
+    player.facing = 1;
+    player.damage_percent = 99.0;
+    player.source_cliff_ledge_id = Some(ledge.index);
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    for frame in 0..50 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffWait);
+    assert_eq!(player.source_cliff_wait_timer, 12);
+    assert_eq!(player.source_hurt_intangible_timer, 5);
+}
+
+#[test]
+fn source_cliff_wait_arms_gate_then_away_down_releases_to_fall_with_cooldown() {
+    let common = MeleeCommonData {
+        cliff_option_stick_threshold: 32,
+        ledge_cooldown_ticks: 9,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield(),
+        [FighterProfile::FALCON_LIKE; 2],
+        common,
+    );
+    let ledge = world.stage().ledges[0];
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::CliffWait);
+    player.grounded = false;
+    player.facing = 1;
+    player.source_cliff_wait_timer = 30;
+    player.source_cliff_ledge_id = Some(ledge.index);
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffWait);
+    assert_eq!(player.source_cliff_wait_timer, 29);
+    assert_eq!(player.source_ledge_cooldown_timer, 0);
+
+    step_world(
+        &mut world,
+        Frame(1),
+        &[
+            PlayerInput::neutral().with_left_stick(-90, -80),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(player.source_cliff_ledge_id, None);
+    assert_eq!(player.source_ledge_cooldown_timer, 9);
 }
 
 #[test]
@@ -2230,6 +2467,8 @@ fn input_common_data_sources_track_melee_field_offsets() {
         ("hitlag_damage_scale", "x198", 0x198),
         ("hitlag_base_frames", "x19C", 0x19c),
         ("hitlag_crouch_multiplier", "x1A0", 0x1a0),
+        ("di_angle_degrees", "x1A8", 0x1a8),
+        ("trigger_di_knockback_multiplier", "x1AC", 0x1ac),
         ("passive_input_age_threshold", "x1C", 0x1c),
         (
             "damage_landing_down_bound_knockback_threshold",
@@ -2240,6 +2479,10 @@ fn input_common_data_sources_track_melee_field_offsets() {
         ("down_stand_stick_y", "x244", 0x244),
         ("passive_window_max", "x250", 0x250),
         ("passive_stand_stick_x", "x254", 0x254),
+        ("sdi_min_stick_mag", "sdi_min_stick_mag", 0x4b0),
+        ("sdi_stick_window", "sdi_stick_window", 0x4b4),
+        ("sdi_pos_scale", "sdi_pos_scale", 0x4b8),
+        ("asdi_pos_scale", "x4BC", 0x4bc),
         ("down_wait_timer", "x424", 0x424),
         ("rebirth_ticks", "x5D0", 0x5d0),
         ("rebirth_wait_ticks", "x5D4", 0x5d4),
@@ -2329,6 +2572,8 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x198, 0.25);
     put_f32_be(&mut bytes, 0x19c, 4.0);
     put_f32_be(&mut bytes, 0x1a0, 0.75);
+    put_f32_be(&mut bytes, 0x1a8, 19.0);
+    put_f32_be(&mut bytes, 0x1ac, 0.75);
     put_f32_be(&mut bytes, 0x1e0, 4.5);
     put_f32_be(&mut bytes, 0x1e4, 8.0);
     put_f32_be(&mut bytes, 0x244, 72.0 / 127.0);
@@ -2371,6 +2616,17 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
     put_f32_be(&mut bytes, 0x470, 6.0);
+    put_f32_be(&mut bytes, 0x480, 0.66);
+    put_i32_be(&mut bytes, 0x488, 101);
+    put_f32_be(&mut bytes, 0x48c, 642.0);
+    put_f32_be(&mut bytes, 0x490, 481.0);
+    put_f32_be(&mut bytes, 0x494, 0.26);
+    put_i32_be(&mut bytes, 0x498, 31);
+    put_i32_be(&mut bytes, 0x49c, 32);
+    put_f32_be(&mut bytes, 0x4b0, 0.8);
+    put_i32_be(&mut bytes, 0x4b4, 6);
+    put_f32_be(&mut bytes, 0x4b8, 7.0);
+    put_f32_be(&mut bytes, 0x4bc, 3.5);
     put_i32_be(&mut bytes, 0x504, 11);
     put_i32_be(&mut bytes, 0x508, 12);
     put_i32_be(&mut bytes, 0x50c, 13);
@@ -2524,6 +2780,11 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
         common.hitlag_crouch_multiplier.to_bits(),
         0.75_f32.to_bits()
     );
+    assert_eq!(common.di_angle_degrees.to_bits(), 19.0_f32.to_bits());
+    assert_eq!(
+        common.trigger_di_knockback_multiplier.to_bits(),
+        0.75_f32.to_bits()
+    );
     assert_eq!(common.passive_input_age_threshold, 6);
     assert_eq!(common.passive_window_max.to_bits(), 9.5_f32.to_bits());
     assert_eq!(common.passive_stand_stick_x.to_bits(), 1.25_f32.to_bits());
@@ -2561,6 +2822,17 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
         (-1.25_f32).to_bits()
     );
     assert_eq!(common.platform_drop_delay_ticks, 6);
+    assert_eq!(common.cliff_grab_block_stick_y, 84);
+    assert_eq!(common.cliff_quick_percent_threshold, 101);
+    assert_eq!(common.cliff_wait_low_percent_ticks, 642);
+    assert_eq!(common.cliff_wait_high_percent_ticks, 481);
+    assert_eq!(common.cliff_option_stick_threshold, 33);
+    assert_eq!(common.ledge_cooldown_ticks, 31);
+    assert_eq!(common.cliff_wait_hurt_intangible_ticks, 32);
+    assert_eq!(common.sdi_min_stick_mag.to_bits(), 0.8_f32.to_bits());
+    assert_eq!(common.sdi_stick_window, 6);
+    assert_eq!(common.sdi_pos_scale.to_bits(), 7.0_f32.to_bits());
+    assert_eq!(common.asdi_pos_scale.to_bits(), 3.5_f32.to_bits());
     assert_eq!(common.rebirth_ticks, 22);
     assert_eq!(common.rebirth_wait_ticks, 9);
     assert_eq!(common.rebirth_hurt_intangible_ticks, 123);
@@ -4271,6 +4543,146 @@ fn world_source_damage_results_include_current_frame_staged_percent_temp_like_ft
         with_current_stage.knockback.to_bits()
     );
     assert!(result.knockback > without_current_stage.knockback);
+}
+
+#[test]
+fn source_damage_application_stores_decomp_kb_velocity_separately_from_self_velocity() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.position.x = 1_000;
+    victim.source_position = mole_core::SourceVec2::from_milli(victim.position);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let result = SourceDamageResult {
+        stage: SourceDamageStage {
+            attacker_index: 0,
+            victim_index: 1,
+            hitbox_id: 1,
+            hurtbox_id: 10,
+            action_state_id: Some(MeleeActionStateId::new(72)),
+            source_action_key: Some(SourceActionKey::new("AttackAirLw")),
+            source_frame: Some(16),
+            damage: 12.0,
+            env_damage: 12,
+            unk_count: 12,
+            hitbox: SourceHitboxAttributes {
+                bone: 14,
+                hit_group: 0,
+                damage: 12,
+                angle: 270,
+                knockback_growth: 100,
+                weight_set_knockback: 40,
+                base_knockback: 0,
+                element: 0,
+                shield_damage: 0,
+                hit_grounded: true,
+                hit_aerial: true,
+            },
+        },
+        knockback: 80.0,
+        angle: 270,
+        element: 0,
+    };
+
+    assert_eq!(world.apply_source_damage_results(&[result]), 1);
+
+    let victim = world.players()[1];
+    assert_eq!(victim.source_self_velocity_x.to_bits(), 0.0_f32.to_bits());
+    assert_eq!(victim.source_self_velocity_y.to_bits(), 0.0_f32.to_bits());
+    assert!(victim.source_knockback_velocity_x.abs() < 0.00001);
+    assert!(victim.source_knockback_velocity_y < 0.0);
+    assert_eq!(
+        victim.velocity.y,
+        source_units_to_milli(victim.source_knockback_velocity_y)
+    );
+}
+
+#[test]
+fn source_damage_hitlag_applies_sdi_from_plco_window_like_ftco_damage_every_hitlag() {
+    let common = MeleeCommonData {
+        sdi_min_stick_mag: 0.7,
+        sdi_stick_window: 4,
+        sdi_pos_scale: 6.0,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield(),
+        [FighterProfile::FALCON_LIKE; 2],
+        common,
+    );
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.hitlag_frames = 2;
+    victim.source_allow_sdi = true;
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.source_position = mole_core::SourceVec2::from_milli(victim.position);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_stick(127, 0),
+        ],
+    );
+
+    let victim = world.players()[1];
+    assert_eq!(victim.hitlag_frames, 1);
+    assert_eq!(victim.position.x, 6_000);
+    assert_eq!(world.input_timers()[1].x_tap, 0xfe);
+}
+
+#[test]
+fn source_damage_exit_hitlag_applies_asdi_and_di_to_source_kb_velocity() {
+    let common = MeleeCommonData {
+        sdi_min_stick_mag: 0.7,
+        sdi_stick_window: 4,
+        sdi_pos_scale: 6.0,
+        asdi_pos_scale: 3.0,
+        di_angle_degrees: 18.0,
+        trigger_di_knockback_multiplier: 1.0,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield(),
+        [FighterProfile::FALCON_LIKE; 2],
+        common,
+    );
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::Fall;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(84));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    victim.hitlag_frames = 1;
+    victim.source_allow_sdi = true;
+    victim.source_knockback_velocity_x = 1.0;
+    victim.source_knockback_velocity_y = 0.0;
+    victim.velocity.x = source_units_to_milli(victim.source_knockback_velocity_x);
+    victim.source_position = mole_core::SourceVec2::from_milli(victim.position);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_stick(0, 127),
+        ],
+    );
+
+    let victim = world.players()[1];
+    assert_eq!(victim.hitlag_frames, 0);
+    assert!(!victim.source_allow_sdi);
+    assert_eq!(victim.position.y, 9_000);
+    assert!((victim.source_knockback_velocity_x - 18.0_f32.to_radians().cos()).abs() < 0.0001);
+    assert!((victim.source_knockback_velocity_y - 18.0_f32.to_radians().sin()).abs() < 0.0001);
 }
 
 #[test]
@@ -8593,6 +9005,7 @@ fn pass_floor_skip_targets_only_the_platform_that_was_dropped_through() {
                 friction_multiplier: 1.0,
             },
         ],
+        ledges: &[],
         blast_zones: World::for_two_players().stage().blast_zones,
         spawn_points: World::for_two_players().stage().spawn_points,
     };
@@ -15381,6 +15794,24 @@ fn slippi_match_start_uses_source_stock_and_player_state_shape() {
 }
 
 #[test]
+fn match_phase_is_rollback_owned_for_playtest_match_flow() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    assert_eq!(world.match_phase(), MatchPhase::Ready);
+    assert!(world.match_phase_timer() > 0);
+
+    let before = world.rollback_snapshot();
+    let before_checksum = world.checksum();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    step_world(&mut world, Frame(0), &neutral);
+
+    assert_ne!(world.checksum(), before_checksum);
+
+    world.restore_rollback_snapshot(&before);
+    assert_eq!(world.match_phase(), MatchPhase::Ready);
+    assert_eq!(world.checksum(), before_checksum);
+}
+
+#[test]
 fn hsd_randi_matches_baselib_random_sequence_and_rolls_back() {
     let mut world = World::for_slippi_battlefield_singles_match_start();
     let before = world.rollback_snapshot();
@@ -15560,6 +15991,39 @@ fn rebirth_wait_exit_installs_source_hurt_intangibility_from_x5d8_before_fall() 
     }
 
     let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(
+        player.source_hurt_intangible_timer,
+        world.common_data().rebirth_hurt_intangible_ticks
+    );
+    assert_eq!(
+        player.source_collision_state,
+        SOURCE_COLLISION_STATE_HURT_INTANGIBLE
+    );
+}
+
+#[test]
+fn rebirth_wait_down_input_exits_spawn_platform_into_fall_with_source_intangibility() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.x = stage.blast_zones.right_x + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+    for frame in 2..=62 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::RebirthWait);
+    let timer_before = world.players()[0].source_common_timer;
+
+    let down = PlayerInput::neutral().with_left_stick(0, -127);
+    step_world(&mut world, Frame(63), &[down, PlayerInput::neutral()]);
+
+    let player = world.players()[0];
+    assert!(timer_before > 1);
     assert_eq!(player.motion_state, MotionState::Fall);
     assert_eq!(
         player.source_hurt_intangible_timer,

@@ -25,15 +25,17 @@ Rust/project artifacts, not raw ISO, raw DAT, or decomp files.
 
 ## Immediate Human-Visible Gaps
 
-- No visible spawn-platform mesh/collision wireframe while fighters are on the
-  entry platform.
-- Entry/spawn platform behavior is not yet fully actionable: pass-through/drop,
-  platform collision, and invincibility timing need decomp-shaped runtime rules.
-- Match start has no proper Ready/Go countdown flow.
+- Entry/spawn platform behavior is not yet fully actionable: platform collision
+  and broad IASA options need decomp-shaped runtime rules. The source-backed
+  platform cue/wireframe now renders during Entry and RebirthWait, and hard-down
+  RebirthWait exit installs source `x5D8` intangibility before Fall.
+- Match phase is rollback-owned and renders Ready/Go labels, but the full
+  source countdown timing still needs the `gm` flow translated.
 - Falcon down-air style hits currently produce damage/animation feedback but do
   not yet apply full Melee knockback/DI/tumble/tech outcomes.
-- SDI/ASDI/DI, tumble, wall/ceiling/floor tech, ledge/cliff, KO/stock/respawn,
-  and full four-stock match flow are not yet complete.
+- SDI/ASDI/DI, tumble, wall/ceiling/floor tech, cliff attack/jump/climb/escape
+  options, KO/stock/respawn, and full four-stock match flow are not yet
+  complete.
 
 ## Priority Queue
 
@@ -91,6 +93,7 @@ Implementation notes:
 - Represent entry platform as a rollback-owned transient platform actor or a
   fighter-attached collision surface, whichever matches decomp after inspection.
 - Render source-space platform bounds/wireframe from the baked common accessory.
+  Current rendering exposes that cue during Entry and RebirthWait.
 - Ensure fighter ECB/hurtboxes are visible and source-correct while standing on
   the platform.
 - Implement pass/drop-through and disappearance timing from the Entry/Rebirth
@@ -101,7 +104,15 @@ Exit checks:
 - Fighter collision/ECB/hurtboxes remain visible while on it.
 - Player can pass through/drop through according to decomp timing and
   invincibility rules.
+- Source-owned intangibility/invincibility should tint the wireframe only after
+  the decomp visual/effect path is checked; renderer-only invincibility flags are
+  not authoritative.
 - No raw DAT read during gameplay.
+
+Related tracking:
+- `docs/research/iasa-state-transition-parity-ledger.md` now tracks
+  `Anim -> IASA -> Phys -> Coll` callback coverage for Entry/Rebirth, Pass,
+  Cliff/Ledge, Damage, and follow-up state families.
 
 ### P0 - Knockback, DI, Tumble, And Damage Response
 
@@ -123,21 +134,33 @@ Existing Rust/data:
 - Runtime already computes source hit confirms and staged source damage.
 - Core has partial source damage, hitlag, hitstun, DownBound, and PassiveStand
   slices.
+- `PlayerState` now carries source knockback velocity separately from self
+  velocity, matching the `x8c_kb_vel` role used by `ftCo_Damage.c`.
+- `PlCo.dat` fields for hitlag SDI/ASDI/DI are baked into `MeleeCommonData`:
+  `x1A8`, `x1AC`, `sdi_min_stick_mag`, `sdi_stick_window`,
+  `sdi_pos_scale`, and `x4BC`.
 
 Implementation notes:
 - Treat `x8c_kb_vel` / source knockback velocity as first-class rollback state,
   not a one-frame visual impulse.
 - Confirm whether stomp issue is missing knockback vector application,
   transition selection, hitstun/tumble thresholding, or collision-lockout.
-- Add DI/SDI/ASDI only from the decomp input timers and stick math. Do not
-  approximate from community formulas until source paths are cross-checked.
+- DI/SDI/ASDI are wired from `ftCo_Damage_OnEveryHitlag`,
+  `ftCo_Damage_OnExitHitlag`, and `ftCo_8008E5A4`: hitlag SDI moves source
+  position when the l-stick magnitude and tap timers pass source gates, exit
+  hitlag ASDI chooses c-stick over l-stick when its source magnitude passes,
+  and DI rotates `x8c_kb_vel` by the source cross-product formula.
 - Keep damage response fields as floats where the decomp uses floats.
 
 Exit checks:
 - Falcon down-air hit applies source damage, hitlag, hitstun, and a persistent
-  knockback velocity.
+  knockback velocity. Initial source `x8c_kb_vel` split is implemented and
+  covered by `source_damage_application_stores_decomp_kb_velocity_separately_from_self_velocity`.
 - Victim enters the correct Damage/DamageFly/DamageFlyRoll/DownBound branch.
-- DI changes the launch vector only through source-shaped math.
+- DI changes the launch vector only through source-shaped math. Initial
+  hitlag-exit DI/ASDI and per-hitlag SDI are covered by
+  `source_damage_hitlag_applies_sdi_from_plco_window_like_ftco_damage_every_hitlag`
+  and `source_damage_exit_hitlag_applies_asdi_and_di_to_source_kb_velocity`.
 - Rollback checksum changes when confirmed late inputs alter DI/tech decisions.
 
 ### P1 - Tech, Passive, Wall/Ceiling/Floor Responses
@@ -178,6 +201,16 @@ Decomp anchors:
 Existing Rust/data:
 - Competitive stage extraction carries ledges, dynamic collision ranges,
   map-head metadata, and callback metadata.
+- First ledge behavior slice exists: airborne fighters near Battlefield ledges
+  can enter source `CliffCatch`/252 using extracted ledges and Falcon source
+  ledge snap offsets, then transition into `CliffWait`/253 at the source
+  animation duration while cliff physics keeps the fighter pinned to the same
+  ledge.
+- Second ledge behavior slice exists: occupied ledges reject new grabs,
+  `x2064_ledgeCooldown` is rollback-owned and ticks down, `CliffWait` uses
+  extracted `PlCo.dat` fields `x488`/`x48C`/`x490`/`x494`/`ledge_cooldown`/
+  `x49C`, neutral input arms the source `mv.co.cliff.x8`-style gate, and
+  away/down release exits to Fall with source ledge cooldown.
 - `StageProfile` still has compatibility projections for older code paths; the
   variable extracted collision model should become the gameplay path.
 
@@ -245,9 +278,39 @@ playtest exposes.
 
 ## Active Slice
 
-- None yet. Next recommended slice is P0 Match Flow + Entry Platform.
+- 2026-06-12: P0/P1 bridge slice in progress. Completed rollback-owned match
+  phase metadata, source-backed entry/RebirthWait platform wireframes,
+  RebirthWait hard-down exit to Fall with source intangibility, first
+  `CliffCatch`/252 ledge grab slice, `CliffCatch -> CliffWait`/253 lifecycle,
+  occupied ledge rejection, source ledge cooldown, and source `CliffWait`
+  timer/gated away-down release. Next: cliff climb/attack/escape/jump option
+  states and deeper ledge collision callbacks from `ftcliffcommon.c` and
+  `ftCo_Cliff*.c`.
 
 ## Completed Notes
 
 - 2026-06-12: Friend Connect usability milestone completed separately in commit
   `978169a` (`Add Friend Connect lobby slots`).
+- 2026-06-12: Match phase, entry/RebirthWait platform rendering, RebirthWait
+  hard-down release, and first Battlefield ledge `CliffCatch` slice verified with
+  targeted `mole tests run` core/runtime checks.
+- 2026-06-12: `CliffCatch_Anim` lifecycle translated narrowly: source
+  animation duration enters `CliffWait`/253 and cliff physics pins to the
+  extracted Battlefield ledge each tick. Remaining cliff wait timers require
+  promoting the source common-data fields before implementation.
+- 2026-06-12: `PlCo.dat` cliff common-data fields promoted from the common
+  attributes block: `x480`, `x488`, `x48C`, `x490`, `x494`,
+  `ledge_cooldown`, and `x49C`. `CliffWait` now initializes source timer and
+  hurt intangibility from those fields, decrements a rollback-owned timer, arms
+  the source stick gate after neutral/no-option input, and releases to Fall
+  with ledge cooldown on away/down input.
+- 2026-06-12: Damage launch now keeps decomp-style knockback velocity separate
+  from self velocity, so source damage floor collision and air drift can reason
+  from `x8c_kb_vel` instead of a one-frame public velocity projection. Verified
+  with `cargo fmt --check` and focused `mole tests run -p mole_core` damage and
+  cliff tests.
+- 2026-06-12: Promoted PlCo hitlag-control fields for SDI, ASDI, and DI, then
+  translated the first `ftCo_Damage.c` callbacks: `OnEveryHitlag` SDI position
+  movement, `OnExitHitlag` ASDI position movement, DI rotation of `x8c_kb_vel`,
+  and held-L/R knockback scaling. Verified with `cargo fmt --check`, focused
+  `mole tests run -p mole_core`, and full `cargo test -p mole_core`.

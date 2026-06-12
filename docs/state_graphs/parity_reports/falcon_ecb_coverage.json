@@ -1,7 +1,7 @@
 {
   "id": "falcon_ecb_coverage",
-  "mapped_action_count": 67,
-  "mapped_motion_state_count": 72,
+  "mapped_action_count": 69,
+  "mapped_motion_state_count": 74,
   "mapped_motion_states": [
     {
       "action_state_id": 2,
@@ -414,6 +414,20 @@
       "motion_state": "CatchDash",
       "sample_frames": 40,
       "source_action": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 252,
+      "motion_state": "CliffCatch",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 253,
+      "motion_state": "CliffWait",
+      "sample_frames": 20,
+      "source_action": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
       "status": "mapped_exact_action_table"
     },
     {

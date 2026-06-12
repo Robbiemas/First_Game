@@ -130,6 +130,8 @@ pub struct MeleeCommonData {
     pub hitlag_damage_scale: f32,
     pub hitlag_base_frames: f32,
     pub hitlag_crouch_multiplier: f32,
+    pub di_angle_degrees: f32,
+    pub trigger_di_knockback_multiplier: f32,
     pub c_stick: i8,
     pub aerial_neutral_x: i8,
     pub aerial_neutral_y: i8,
@@ -179,6 +181,17 @@ pub struct MeleeCommonData {
     pub platform_pass_y_tap_window: u8,
     pub pass_initial_y_velocity: f32,
     pub platform_drop_delay_ticks: u8,
+    pub cliff_grab_block_stick_y: i8,
+    pub cliff_quick_percent_threshold: u16,
+    pub cliff_wait_low_percent_ticks: u16,
+    pub cliff_wait_high_percent_ticks: u16,
+    pub cliff_option_stick_threshold: i8,
+    pub ledge_cooldown_ticks: u16,
+    pub cliff_wait_hurt_intangible_ticks: u16,
+    pub sdi_min_stick_mag: f32,
+    pub sdi_stick_window: u8,
+    pub sdi_pos_scale: f32,
+    pub asdi_pos_scale: f32,
     pub rebirth_ticks: u8,
     pub rebirth_wait_ticks: u8,
     pub rebirth_hurt_intangible_ticks: u16,
@@ -265,6 +278,8 @@ impl MeleeCommonData {
         hitlag_damage_scale: 0.3333333432674408,
         hitlag_base_frames: 3.0,
         hitlag_crouch_multiplier: 0.6666666865348816,
+        di_angle_degrees: 18.0,
+        trigger_di_knockback_multiplier: 1.0,
         c_stick: 40,
         aerial_neutral_x: 32,
         aerial_neutral_y: 32,
@@ -314,6 +329,17 @@ impl MeleeCommonData {
         platform_pass_y_tap_window: 6,
         pass_initial_y_velocity: -0.5,
         platform_drop_delay_ticks: 2,
+        cliff_grab_block_stick_y: 84,
+        cliff_quick_percent_threshold: 100,
+        cliff_wait_low_percent_ticks: 640,
+        cliff_wait_high_percent_ticks: 480,
+        cliff_option_stick_threshold: 32,
+        ledge_cooldown_ticks: 30,
+        cliff_wait_hurt_intangible_ticks: 30,
+        sdi_min_stick_mag: 0.699999988079071,
+        sdi_stick_window: 4,
+        sdi_pos_scale: 6.0,
+        asdi_pos_scale: 3.0,
         rebirth_ticks: 60,
         rebirth_wait_ticks: 240,
         rebirth_hurt_intangible_ticks: 120,
@@ -411,6 +437,8 @@ impl MeleeCommonData {
         data.hitlag_damage_scale = read_f32(bytes, 0x198, "x198")?;
         data.hitlag_base_frames = read_f32(bytes, 0x19c, "x19C")?;
         data.hitlag_crouch_multiplier = read_f32(bytes, 0x1a0, "x1A0")?;
+        data.di_angle_degrees = read_f32(bytes, 0x1a8, "x1A8")?;
+        data.trigger_di_knockback_multiplier = read_f32(bytes, 0x1ac, "x1AC")?;
         data.damage_landing_down_bound_knockback_threshold = read_f32(bytes, 0x1e0, "x1E0")?;
         data.damage_landing_basic_knockback_threshold = read_f32(bytes, 0x1e4, "x1E4")?;
         data.down_stand_stick_y = read_stick_i8(bytes, 0x244, "x244")?;
@@ -456,6 +484,17 @@ impl MeleeCommonData {
         data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
         data.pass_initial_y_velocity = read_f32(bytes, 0x46c, "x46C")?;
         data.platform_drop_delay_ticks = read_u8_from_f32(bytes, 0x470, "x470")?;
+        data.cliff_grab_block_stick_y = read_stick_i8(bytes, 0x480, "x480")?;
+        data.cliff_quick_percent_threshold = read_u16_from_i32(bytes, 0x488, "x488")?;
+        data.cliff_wait_low_percent_ticks = read_u16_from_f32(bytes, 0x48c, "x48C")?;
+        data.cliff_wait_high_percent_ticks = read_u16_from_f32(bytes, 0x490, "x490")?;
+        data.cliff_option_stick_threshold = read_stick_i8(bytes, 0x494, "x494")?;
+        data.ledge_cooldown_ticks = read_u16_from_i32(bytes, 0x498, "ledge_cooldown")?;
+        data.cliff_wait_hurt_intangible_ticks = read_u16_from_i32(bytes, 0x49c, "x49C")?;
+        data.sdi_min_stick_mag = read_f32(bytes, 0x4b0, "sdi_min_stick_mag")?;
+        data.sdi_stick_window = read_u8_from_i32(bytes, 0x4b4, "sdi_stick_window")?;
+        data.sdi_pos_scale = read_f32(bytes, 0x4b8, "sdi_pos_scale")?;
+        data.asdi_pos_scale = read_f32(bytes, 0x4bc, "x4BC")?;
         data.rebirth_ticks = read_u8_from_i32(bytes, 0x5d0, "x5D0")?;
         data.rebirth_wait_ticks = read_u8_from_i32(bytes, 0x5d4, "x5D4")?;
         data.rebirth_hurt_intangible_ticks = read_u16_from_i32(bytes, 0x5d8, "x5D8")?;
@@ -618,6 +657,15 @@ fn read_u8_from_f32(
 ) -> Result<u8, CommonDataExtractError> {
     let value = round_f32_to_i32(read_f32(bytes, offset, field)?, field, offset)?;
     range_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
+}
+
+fn read_u16_from_f32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<u16, CommonDataExtractError> {
+    let value = round_f32_to_i32(read_f32(bytes, offset, field)?, field, offset)?;
+    range_i32(value, 0, u16::MAX as i32, field, offset).map(|value| value as u16)
 }
 
 fn round_f32_to_i32(
@@ -1136,6 +1184,18 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "di_angle_degrees",
+        source_name: "x1A8",
+        offset: 0x1a8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "trigger_di_knockback_multiplier",
+        source_name: "x1AC",
+        offset: 0x1ac,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "damage_landing_down_bound_knockback_threshold",
         source_name: "x1E0",
         offset: 0x1e0,
@@ -1332,6 +1392,72 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "x470",
         offset: 0x470,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_grab_block_stick_y",
+        source_name: "x480",
+        offset: 0x480,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_quick_percent_threshold",
+        source_name: "x488",
+        offset: 0x488,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_wait_low_percent_ticks",
+        source_name: "x48C",
+        offset: 0x48c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_wait_high_percent_ticks",
+        source_name: "x490",
+        offset: 0x490,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_option_stick_threshold",
+        source_name: "x494",
+        offset: 0x494,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "ledge_cooldown_ticks",
+        source_name: "ledge_cooldown",
+        offset: 0x498,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "cliff_wait_hurt_intangible_ticks",
+        source_name: "x49C",
+        offset: 0x49c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "sdi_min_stick_mag",
+        source_name: "sdi_min_stick_mag",
+        offset: 0x4b0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "sdi_stick_window",
+        source_name: "sdi_stick_window",
+        offset: 0x4b4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "sdi_pos_scale",
+        source_name: "sdi_pos_scale",
+        offset: 0x4b8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "asdi_pos_scale",
+        source_name: "x4BC",
+        offset: 0x4bc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "rebirth_ticks",

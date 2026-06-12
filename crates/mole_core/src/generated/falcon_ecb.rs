@@ -3,7 +3,7 @@ use super::{MotionState, Vec2};
 use crate::collision::EcbDiamond;
 
 #[allow(dead_code)]
-pub(crate) const FALCON_ECB_MAPPED_ACTION_COUNT: usize = 67;
+pub(crate) const FALCON_ECB_MAPPED_ACTION_COUNT: usize = 69;
 
 // action 2: PlyCaptain5K_Share_ACTION_Wait1_figatree
 const FALCON_ECB_ACTION_2: [EcbDiamond; 60] = [
@@ -12976,6 +12976,449 @@ const FALCON_ECB_ACTION_243: [EcbDiamond; 40] = [
     },
 ];
 
+// action 252: PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree
+const FALCON_ECB_ACTION_252: [EcbDiamond; 50] = [
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15390 },
+        right: Vec2 { x: 4610, y: 10131 },
+        bottom: Vec2 { x: 0, y: 4871 },
+        left: Vec2 { x: -4610, y: 10131 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15483 },
+        right: Vec2 { x: 4491, y: 10215 },
+        bottom: Vec2 { x: 0, y: 4947 },
+        left: Vec2 { x: -4491, y: 10215 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15563 },
+        right: Vec2 { x: 4245, y: 10273 },
+        bottom: Vec2 { x: 0, y: 4983 },
+        left: Vec2 { x: -4245, y: 10273 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15541 },
+        right: Vec2 { x: 3867, y: 10274 },
+        bottom: Vec2 { x: 0, y: 5007 },
+        left: Vec2 { x: -3867, y: 10274 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15348 },
+        right: Vec2 { x: 3380, y: 10202 },
+        bottom: Vec2 { x: 0, y: 5057 },
+        left: Vec2 { x: -3380, y: 10202 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14982 },
+        right: Vec2 { x: 2838, y: 10091 },
+        bottom: Vec2 { x: 0, y: 5201 },
+        left: Vec2 { x: -2838, y: 10091 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14603 },
+        right: Vec2 { x: 2661, y: 10065 },
+        bottom: Vec2 { x: 0, y: 5528 },
+        left: Vec2 { x: -2661, y: 10065 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14260 },
+        right: Vec2 { x: 2956, y: 9979 },
+        bottom: Vec2 { x: 0, y: 5698 },
+        left: Vec2 { x: -2956, y: 9979 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14093 },
+        right: Vec2 { x: 3177, y: 10002 },
+        bottom: Vec2 { x: 0, y: 5911 },
+        left: Vec2 { x: -3177, y: 10002 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14091 },
+        right: Vec2 { x: 3302, y: 10112 },
+        bottom: Vec2 { x: 0, y: 6133 },
+        left: Vec2 { x: -3302, y: 10112 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14135 },
+        right: Vec2 { x: 3404, y: 10193 },
+        bottom: Vec2 { x: 0, y: 6252 },
+        left: Vec2 { x: -3404, y: 10193 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14224 },
+        right: Vec2 { x: 3479, y: 10256 },
+        bottom: Vec2 { x: 0, y: 6288 },
+        left: Vec2 { x: -3479, y: 10256 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14344 },
+        right: Vec2 { x: 3514, y: 10307 },
+        bottom: Vec2 { x: 0, y: 6271 },
+        left: Vec2 { x: -3514, y: 10307 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14471 },
+        right: Vec2 { x: 3544, y: 10352 },
+        bottom: Vec2 { x: 0, y: 6232 },
+        left: Vec2 { x: -3544, y: 10352 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14591 },
+        right: Vec2 { x: 3621, y: 10395 },
+        bottom: Vec2 { x: 0, y: 6199 },
+        left: Vec2 { x: -3621, y: 10395 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14686 },
+        right: Vec2 { x: 3764, y: 10441 },
+        bottom: Vec2 { x: 0, y: 6196 },
+        left: Vec2 { x: -3764, y: 10441 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14738 },
+        right: Vec2 { x: 3864, y: 10493 },
+        bottom: Vec2 { x: 0, y: 6248 },
+        left: Vec2 { x: -3864, y: 10493 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14743 },
+        right: Vec2 { x: 3940, y: 10541 },
+        bottom: Vec2 { x: 0, y: 6339 },
+        left: Vec2 { x: -3940, y: 10541 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14763 },
+        right: Vec2 { x: 3984, y: 10596 },
+        bottom: Vec2 { x: 0, y: 6429 },
+        left: Vec2 { x: -3984, y: 10596 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14820 },
+        right: Vec2 { x: 3990, y: 10662 },
+        bottom: Vec2 { x: 0, y: 6503 },
+        left: Vec2 { x: -3990, y: 10662 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14880 },
+        right: Vec2 { x: 3957, y: 10714 },
+        bottom: Vec2 { x: 0, y: 6549 },
+        left: Vec2 { x: -3957, y: 10714 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14895 },
+        right: Vec2 { x: 3882, y: 10706 },
+        bottom: Vec2 { x: 0, y: 6517 },
+        left: Vec2 { x: -3882, y: 10706 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14842 },
+        right: Vec2 { x: 3759, y: 10614 },
+        bottom: Vec2 { x: 0, y: 6387 },
+        left: Vec2 { x: -3759, y: 10614 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14752 },
+        right: Vec2 { x: 3544, y: 10469 },
+        bottom: Vec2 { x: 0, y: 6185 },
+        left: Vec2 { x: -3544, y: 10469 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14667 },
+        right: Vec2 { x: 3186, y: 10316 },
+        bottom: Vec2 { x: 0, y: 5966 },
+        left: Vec2 { x: -3186, y: 10316 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14625 },
+        right: Vec2 { x: 2814, y: 10206 },
+        bottom: Vec2 { x: 0, y: 5787 },
+        left: Vec2 { x: -2814, y: 10206 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14659 },
+        right: Vec2 { x: 2665, y: 10179 },
+        bottom: Vec2 { x: 0, y: 5699 },
+        left: Vec2 { x: -2665, y: 10179 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14753 },
+        right: Vec2 { x: 2570, y: 10224 },
+        bottom: Vec2 { x: 0, y: 5695 },
+        left: Vec2 { x: -2570, y: 10224 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14864 },
+        right: Vec2 { x: 2464, y: 10296 },
+        bottom: Vec2 { x: 0, y: 5729 },
+        left: Vec2 { x: -2464, y: 10296 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14977 },
+        right: Vec2 { x: 2368, y: 10377 },
+        bottom: Vec2 { x: 0, y: 5777 },
+        left: Vec2 { x: -2368, y: 10377 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15074 },
+        right: Vec2 { x: 2365, y: 10443 },
+        bottom: Vec2 { x: 0, y: 5811 },
+        left: Vec2 { x: -2365, y: 10443 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15144 },
+        right: Vec2 { x: 2371, y: 10472 },
+        bottom: Vec2 { x: 0, y: 5801 },
+        left: Vec2 { x: -2371, y: 10472 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15191 },
+        right: Vec2 { x: 2385, y: 10477 },
+        bottom: Vec2 { x: 0, y: 5763 },
+        left: Vec2 { x: -2385, y: 10477 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15223 },
+        right: Vec2 { x: 2439, y: 10474 },
+        bottom: Vec2 { x: 0, y: 5726 },
+        left: Vec2 { x: -2439, y: 10474 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15240 },
+        right: Vec2 { x: 2413, y: 10463 },
+        bottom: Vec2 { x: 0, y: 5686 },
+        left: Vec2 { x: -2413, y: 10463 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15250 },
+        right: Vec2 { x: 2439, y: 10445 },
+        bottom: Vec2 { x: 0, y: 5640 },
+        left: Vec2 { x: -2439, y: 10445 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15256 },
+        right: Vec2 { x: 2578, y: 10422 },
+        bottom: Vec2 { x: 0, y: 5587 },
+        left: Vec2 { x: -2578, y: 10422 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15260 },
+        right: Vec2 { x: 3017, y: 10393 },
+        bottom: Vec2 { x: 0, y: 5525 },
+        left: Vec2 { x: -3017, y: 10393 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15264 },
+        right: Vec2 { x: 3405, y: 10359 },
+        bottom: Vec2 { x: 0, y: 5454 },
+        left: Vec2 { x: -3405, y: 10359 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15267 },
+        right: Vec2 { x: 3725, y: 10322 },
+        bottom: Vec2 { x: 0, y: 5376 },
+        left: Vec2 { x: -3725, y: 10322 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15269 },
+        right: Vec2 { x: 3973, y: 10283 },
+        bottom: Vec2 { x: 0, y: 5297 },
+        left: Vec2 { x: -3973, y: 10283 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15271 },
+        right: Vec2 { x: 4157, y: 10244 },
+        bottom: Vec2 { x: 0, y: 5218 },
+        left: Vec2 { x: -4157, y: 10244 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15274 },
+        right: Vec2 { x: 4289, y: 10209 },
+        bottom: Vec2 { x: 0, y: 5145 },
+        left: Vec2 { x: -4289, y: 10209 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15279 },
+        right: Vec2 { x: 4398, y: 10180 },
+        bottom: Vec2 { x: 0, y: 5081 },
+        left: Vec2 { x: -4398, y: 10180 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15287 },
+        right: Vec2 { x: 4499, y: 10157 },
+        bottom: Vec2 { x: 0, y: 5028 },
+        left: Vec2 { x: -4499, y: 10157 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15297 },
+        right: Vec2 { x: 4580, y: 10141 },
+        bottom: Vec2 { x: 0, y: 4985 },
+        left: Vec2 { x: -4580, y: 10141 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15310 },
+        right: Vec2 { x: 4632, y: 10131 },
+        bottom: Vec2 { x: 0, y: 4952 },
+        left: Vec2 { x: -4632, y: 10131 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15326 },
+        right: Vec2 { x: 4656, y: 10126 },
+        bottom: Vec2 { x: 0, y: 4927 },
+        left: Vec2 { x: -4656, y: 10126 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15344 },
+        right: Vec2 { x: 4656, y: 10125 },
+        bottom: Vec2 { x: 0, y: 4906 },
+        left: Vec2 { x: -4656, y: 10125 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 15365 },
+        right: Vec2 { x: 4639, y: 10127 },
+        bottom: Vec2 { x: 0, y: 4889 },
+        left: Vec2 { x: -4639, y: 10127 },
+    },
+];
+
+// action 253: PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree
+const FALCON_ECB_ACTION_253: [EcbDiamond; 20] = [
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14543 },
+        right: Vec2 { x: 3927, y: 10321 },
+        bottom: Vec2 { x: 0, y: 6099 },
+        left: Vec2 { x: -3927, y: 10321 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 13741 },
+        right: Vec2 { x: 3848, y: 9832 },
+        bottom: Vec2 { x: 0, y: 5924 },
+        left: Vec2 { x: -3848, y: 9832 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 13065 },
+        right: Vec2 { x: 3905, y: 9648 },
+        bottom: Vec2 { x: 0, y: 6232 },
+        left: Vec2 { x: -3905, y: 9648 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 13205 },
+        right: Vec2 { x: 4500, y: 10116 },
+        bottom: Vec2 { x: 0, y: 7027 },
+        left: Vec2 { x: -4500, y: 10116 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12823 },
+        right: Vec2 { x: 4668, y: 9904 },
+        bottom: Vec2 { x: 0, y: 6985 },
+        left: Vec2 { x: -4668, y: 9904 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12771 },
+        right: Vec2 { x: 4708, y: 9862 },
+        bottom: Vec2 { x: 0, y: 6953 },
+        left: Vec2 { x: -4708, y: 9862 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12732 },
+        right: Vec2 { x: 4703, y: 9833 },
+        bottom: Vec2 { x: 0, y: 6934 },
+        left: Vec2 { x: -4703, y: 9833 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12633 },
+        right: Vec2 { x: 2000, y: 9781 },
+        bottom: Vec2 { x: 0, y: 6929 },
+        left: Vec2 { x: -10963, y: 9781 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12589 },
+        right: Vec2 { x: 2000, y: 9760 },
+        bottom: Vec2 { x: 0, y: 6931 },
+        left: Vec2 { x: -12129, y: 9760 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 12671 },
+        right: Vec2 { x: 2000, y: 9803 },
+        bottom: Vec2 { x: 0, y: 6935 },
+        left: Vec2 { x: -13177, y: 9803 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 13103 },
+        right: Vec2 { x: 2000, y: 10019 },
+        bottom: Vec2 { x: 0, y: 6935 },
+        left: Vec2 {
+            x: -14180,
+            y: 10019,
+        },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14356 },
+        right: Vec2 { x: 2000, y: 10642 },
+        bottom: Vec2 { x: 0, y: 6928 },
+        left: Vec2 {
+            x: -14682,
+            y: 10642,
+        },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14846 },
+        right: Vec2 { x: 2000, y: 10876 },
+        bottom: Vec2 { x: 0, y: 6907 },
+        left: Vec2 {
+            x: -13444,
+            y: 10876,
+        },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14986 },
+        right: Vec2 { x: 2000, y: 10924 },
+        bottom: Vec2 { x: 0, y: 6863 },
+        left: Vec2 {
+            x: -12251,
+            y: 10924,
+        },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14928 },
+        right: Vec2 { x: 2000, y: 10626 },
+        bottom: Vec2 { x: 0, y: 6324 },
+        left: Vec2 {
+            x: -11027,
+            y: 10626,
+        },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14121 },
+        right: Vec2 { x: 2594, y: 9822 },
+        bottom: Vec2 { x: 0, y: 5523 },
+        left: Vec2 { x: -9359, y: 9822 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14132 },
+        right: Vec2 { x: 4244, y: 9477 },
+        bottom: Vec2 { x: 0, y: 4822 },
+        left: Vec2 { x: -8108, y: 9477 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14123 },
+        right: Vec2 { x: 4670, y: 9265 },
+        bottom: Vec2 { x: 0, y: 4408 },
+        left: Vec2 { x: -7131, y: 9265 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14233 },
+        right: Vec2 { x: 4650, y: 9244 },
+        bottom: Vec2 { x: 0, y: 4255 },
+        left: Vec2 { x: -6393, y: 9244 },
+    },
+    EcbDiamond {
+        top: Vec2 { x: 0, y: 14802 },
+        right: Vec2 { x: 4771, y: 9697 },
+        bottom: Vec2 { x: 0, y: 4592 },
+        left: Vec2 { x: -5446, y: 9697 },
+    },
+];
+
 // action 301: PlyCaptain5K_Share_ACTION_SpecialN_figatree
 const FALCON_ECB_ACTION_301: [EcbDiamond; 100] = [
     EcbDiamond {
@@ -16935,6 +17378,8 @@ pub(crate) fn falcon_ecb_samples_for_motion_state(
         MotionState::Pass => Some(&FALCON_ECB_ACTION_209),
         MotionState::Catch => Some(&FALCON_ECB_ACTION_242),
         MotionState::CatchDash => Some(&FALCON_ECB_ACTION_243),
+        MotionState::CliffCatch => Some(&FALCON_ECB_ACTION_252),
+        MotionState::CliffWait => Some(&FALCON_ECB_ACTION_253),
         MotionState::SpecialN => Some(&FALCON_ECB_ACTION_301),
         MotionState::SpecialAirN => Some(&FALCON_ECB_ACTION_302),
         MotionState::SpecialSStart => Some(&FALCON_ECB_ACTION_303),

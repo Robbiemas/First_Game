@@ -39,6 +39,7 @@ pub struct StageProfile {
     pub name: &'static str,
     pub main_floor: StageSurface,
     pub soft_platforms: [StageSurface; 3],
+    pub ledges: &'static [StageLedge],
     pub blast_zones: StageBlastZones,
     pub spawn_points: [StageSpawnPoint; 4],
 }
@@ -90,6 +91,8 @@ pub enum StageLedgeSide {
     Left,
     Right,
 }
+
+const EMPTY_STAGE_LEDGES: &[StageLedge] = &[];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StageDynamicCollisionProfile {
@@ -338,6 +341,7 @@ impl StageProfile {
                 friction_multiplier: 1.0,
             },
             soft_platforms: [hidden_platform; 3],
+            ledges: EMPTY_STAGE_LEDGES,
             blast_zones: StageBlastZones {
                 left_x: melee_units_f32(-224.0),
                 right_x: melee_units_f32(224.0),
@@ -387,6 +391,7 @@ impl MeleeStageProfile {
             name: self.id,
             main_floor: self.main_floor,
             soft_platforms: self.soft_platforms,
+            ledges: self.ledges,
             blast_zones: self.blast_zones,
             spawn_points: self.spawn_points,
         }

@@ -62,6 +62,8 @@ MOTION_STATE_ACTION_MAP: tuple[tuple[str, int], ...] = (
     ("Pass", 209),
     ("Catch", 242),
     ("CatchDash", 243),
+    ("CliffCatch", 252),
+    ("CliffWait", 253),
     ("SpecialN", 301),
     ("SpecialAirN", 302),
     ("SpecialSStart", 303),

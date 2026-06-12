@@ -3160,6 +3160,16 @@ fn draw_sdl_scene(
     for platform in scene.entry_platforms.into_iter().flatten() {
         draw_sdl_rect(canvas, platform)?;
     }
+    for line in scene.entry_platform_wireframes.iter().flatten() {
+        draw_sdl_line(
+            canvas,
+            line.start.x,
+            line.start.y,
+            line.end.x,
+            line.end.y,
+            line.color,
+        )?;
+    }
     if DRAW_LEGACY_PLAYER_SPRITES {
         if let Some(cache) = texture_cache.as_mut() {
             for (index, player) in scene.players.iter().copied().enumerate() {

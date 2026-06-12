@@ -34,6 +34,12 @@
       "raw": 1.2999999523162842,
       "source_name": "x440"
     },
+    "asdi_pos_scale": {
+      "kind": "source_f32",
+      "offset": 1212,
+      "raw": 3.0,
+      "source_name": "x4BC"
+    },
     "c_stick_deadzone_x": {
       "kind": "stick",
       "offset": 0,
@@ -47,6 +53,48 @@
       "raw": 0.2800000011920929,
       "source_name": "x4",
       "stick_byte": 36
+    },
+    "cliff_grab_block_stick_y": {
+      "kind": "stick",
+      "offset": 1152,
+      "raw": 0.6600000262260437,
+      "source_name": "x480",
+      "stick_byte": 84
+    },
+    "cliff_option_stick_threshold": {
+      "kind": "stick",
+      "offset": 1172,
+      "raw": 0.25,
+      "source_name": "x494",
+      "stick_byte": 32
+    },
+    "cliff_quick_percent_threshold": {
+      "kind": "i32_ticks",
+      "offset": 1160,
+      "raw": 100,
+      "source_name": "x488",
+      "ticks": 100
+    },
+    "cliff_wait_high_percent_ticks": {
+      "kind": "f32_ticks",
+      "offset": 1168,
+      "raw": 480.0,
+      "source_name": "x490",
+      "ticks": 480
+    },
+    "cliff_wait_hurt_intangible_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1180,
+      "raw": 30,
+      "source_name": "x49C",
+      "ticks": 30
+    },
+    "cliff_wait_low_percent_ticks": {
+      "kind": "f32_ticks",
+      "offset": 1164,
+      "raw": 640.0,
+      "source_name": "x48C",
+      "ticks": 640
     },
     "crouch_release_y": {
       "kind": "stick",
@@ -224,6 +272,12 @@
       "raw": 1,
       "source_name": "x504",
       "ticks": 1
+    },
+    "di_angle_degrees": {
+      "kind": "source_f32",
+      "offset": 424,
+      "raw": 18.0,
+      "source_name": "x1A8"
     },
     "down_stand_stick_y": {
       "kind": "stick",
@@ -471,6 +525,13 @@
       "source_name": "xE4",
       "ticks": 7
     },
+    "ledge_cooldown_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1176,
+      "raw": 30,
+      "source_name": "ledge_cooldown",
+      "ticks": 30
+    },
     "main_stick_deadzone_x": {
       "kind": "stick",
       "offset": 0,
@@ -583,6 +644,25 @@
       "raw": 0.625,
       "source_name": "x58_someLStickXThreshold",
       "stick_byte": 79
+    },
+    "sdi_min_stick_mag": {
+      "kind": "source_f32",
+      "offset": 1200,
+      "raw": 0.699999988079071,
+      "source_name": "sdi_min_stick_mag"
+    },
+    "sdi_pos_scale": {
+      "kind": "source_f32",
+      "offset": 1208,
+      "raw": 6.0,
+      "source_name": "sdi_pos_scale"
+    },
+    "sdi_stick_window": {
+      "kind": "i32_ticks",
+      "offset": 1204,
+      "raw": 4,
+      "source_name": "sdi_stick_window",
+      "ticks": 4
     },
     "shield_break_reset_health": {
       "kind": "source_f32",
@@ -713,6 +793,12 @@
       "raw": 0.30000001192092896,
       "source_name": "x10",
       "trigger_byte": 77
+    },
+    "trigger_di_knockback_multiplier": {
+      "kind": "source_f32",
+      "offset": 428,
+      "raw": 1.0,
+      "source_name": "x1AC"
     },
     "trigger_timer_threshold": {
       "kind": "trigger",

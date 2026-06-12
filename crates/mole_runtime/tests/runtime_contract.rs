@@ -6,7 +6,7 @@ use mole_core::collision::{
 };
 use mole_core::{
     source_units_to_milli, step_world, EcbDiamond, FighterEntryPlatformProfile, FighterProfile,
-    Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId, MeleeCommonData,
+    Frame, GameCubeButtonState, GameCubePadStatus, MatchPhase, MeleeActionStateId, MeleeCommonData,
     MotionState, PlayerInput, SourceActionKey, SourceVec3, StageProfile, Vec2, WalkSpeedBucket,
     World, PLAYER_STATE_NONE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_NANOS,
     UCF_DASHBACK_AMENDMENT_BIT,
@@ -1548,6 +1548,17 @@ fn render_scene_exposes_match_intro_and_entry_platform_cues() {
 }
 
 #[test]
+fn render_frame_exposes_core_match_phase_for_intro_ui() {
+    let world = mole_runtime::default_play_world();
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(frame.match_phase, MatchPhase::Ready);
+    assert!(frame.match_phase_timer > 0);
+    assert_eq!(scene.match_intro_label.as_deref(), Some("READY"));
+}
+
+#[test]
 fn render_entry_platform_lifecycle_matches_source_accessory_states() {
     let mut world = mole_runtime::default_play_world();
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -1629,6 +1640,57 @@ fn render_entry_platform_uses_source_accessory_profile_not_player_rect_width() {
     let shifted = RenderScene::from_frame(&render_frame, 960, 540).entry_platforms[0]
         .expect("EntryStart should still expose source platform cue");
     assert_eq!(shifted.width, expected_width);
+}
+
+#[test]
+fn render_entry_platform_exposes_source_bounds_wireframe() {
+    let mut world = mole_runtime::default_play_world();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    for frame in 0..6 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    let rect = scene.entry_platforms[0].expect("EntryStart should expose source platform cue");
+    let wireframe = &scene.entry_platform_wireframes[0];
+
+    assert_eq!(wireframe.len(), 4);
+    let min_x = wireframe
+        .iter()
+        .flat_map(|line| [line.start.x, line.end.x])
+        .min()
+        .unwrap();
+    let max_x = wireframe
+        .iter()
+        .flat_map(|line| [line.start.x, line.end.x])
+        .max()
+        .unwrap();
+    assert_eq!(max_x - min_x, rect.width as i32);
+    assert!(scene.entry_platform_wireframes[1].is_empty());
+}
+
+#[test]
+fn render_respawn_wait_exposes_source_platform_cue() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.x = stage.blast_zones.right_x + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    step_world(&mut world, Frame(0), &neutral);
+    step_world(&mut world, Frame(1), &neutral);
+    for frame in 2..=62 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::RebirthWait);
+
+    let scene = RenderScene::from_frame(&RenderFrame::from_world(&world), 960, 540);
+
+    assert!(scene.entry_platforms[0].is_some());
+    assert_eq!(scene.entry_platform_wireframes[0].len(), 4);
 }
 
 #[test]

@@ -297,6 +297,8 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::AttackAirB
         | MotionState::AttackAirHi
         | MotionState::AttackAirLw
+        | MotionState::CliffCatch
+        | MotionState::CliffWait
         | MotionState::SpecialAirN
         | MotionState::SpecialAirSStart
         | MotionState::SpecialAirS

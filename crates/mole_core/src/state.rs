@@ -350,6 +350,9 @@ pub struct FighterProfile {
     pub full_hop_height: i32,
     pub short_hop_height: i32,
     pub double_jump_height: i32,
+    pub ledge_snap_x_milli: i32,
+    pub ledge_snap_y_milli: i32,
+    pub ledge_snap_height_milli: i32,
     pub entry_platform: FighterEntryPlatformProfile,
     pub entry_platform_offset_y: i32,
     pub standing_height_units: i32,
@@ -406,6 +409,9 @@ impl FighterProfile {
         full_hop_height: 38_520,
         short_hop_height: 14_850,
         double_jump_height: 28_560,
+        ledge_snap_x_milli: 9_000,
+        ledge_snap_y_milli: 17_000,
+        ledge_snap_height_milli: 11_000,
         entry_platform: FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM,
         entry_platform_offset_y: 1_647,
         // Provisional visual scale: current 136 px standing sprite at the old 6 px/unit art calibration.
@@ -723,6 +729,8 @@ pub enum MotionState {
     LandingFallSpecial,
     Landing,
     Pass,
+    CliffCatch,
+    CliffWait,
 }
 
 pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
@@ -812,6 +820,8 @@ pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "LandingFallSpecial",
     "Landing",
     "Pass",
+    "CliffCatch",
+    "CliffWait",
 ];
 
 pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
@@ -902,6 +912,8 @@ pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
         "LandingFallSpecial" => MotionState::LandingFallSpecial,
         "Landing" => MotionState::Landing,
         "Pass" => MotionState::Pass,
+        "CliffCatch" => MotionState::CliffCatch,
+        "CliffWait" => MotionState::CliffWait,
         _ => return None,
     })
 }
@@ -1189,6 +1201,8 @@ pub const fn melee_action_state_id_for_motion_state(
         MotionState::LandingFallSpecial => 43,
         MotionState::Landing => 42,
         MotionState::Pass => 244,
+        MotionState::CliffCatch => 252,
+        MotionState::CliffWait => 253,
     })
 }
 
@@ -1480,6 +1494,16 @@ pub const fn source_binding_for_motion_state(
             209,
             "Pass",
         )),
+        MotionState::CliffCatch => Some(MotionStateSourceBinding::new(
+            MotionState::CliffCatch,
+            252,
+            "CliffCatch",
+        )),
+        MotionState::CliffWait => Some(MotionStateSourceBinding::new(
+            MotionState::CliffWait,
+            253,
+            "CliffWait",
+        )),
         MotionState::EntryStart => Some(MotionStateSourceBinding::new(
             MotionState::EntryStart,
             238,
@@ -1603,6 +1627,8 @@ pub struct PlayerState {
     pub velocity: Vec2,
     pub source_self_velocity_x: f32,
     pub source_self_velocity_y: f32,
+    pub source_knockback_velocity_x: f32,
+    pub source_knockback_velocity_y: f32,
     pub player_nudge_x: f32,
     pub player_nudge_z: f32,
     pub ecb_bottom_offset_y: i32,
@@ -1619,6 +1645,7 @@ pub struct PlayerState {
     pub damage_angle: u16,
     pub damage_element: u8,
     pub hitlag_frames: u8,
+    pub source_allow_sdi: bool,
     pub damage_hitstun_frames: u16,
     pub melee_action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
@@ -1680,6 +1707,10 @@ pub struct PlayerState {
     pub floor_skip_surface: Option<u8>,
     pub platform_pass_pending: bool,
     pub platform_pass_timer: u8,
+    pub source_cliff_ledge_id: Option<u16>,
+    pub source_cliff_stick_gate: bool,
+    pub source_cliff_wait_timer: u16,
+    pub source_ledge_cooldown_timer: u16,
     pub entry_base_y: i32,
     pub entry_platform_offset_y: i32,
     pub entry_timer: u8,
@@ -1703,6 +1734,8 @@ impl PlayerState {
             velocity: Vec2 { x: 0, y: 0 },
             source_self_velocity_x: 0.0,
             source_self_velocity_y: 0.0,
+            source_knockback_velocity_x: 0.0,
+            source_knockback_velocity_y: 0.0,
             player_nudge_x: 0.0,
             player_nudge_z: 0.0,
             ecb_bottom_offset_y: SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
@@ -1719,6 +1752,7 @@ impl PlayerState {
             damage_angle: 0,
             damage_element: 0,
             hitlag_frames: 0,
+            source_allow_sdi: false,
             damage_hitstun_frames: 0,
             melee_action_state_id: Some(melee_action_state_id_for_motion_state(MotionState::Wait)),
             source_action_key: Some(SourceActionKey::new("Wait1")),
@@ -1780,6 +1814,10 @@ impl PlayerState {
             floor_skip_surface: None,
             platform_pass_pending: false,
             platform_pass_timer: 0,
+            source_cliff_ledge_id: None,
+            source_cliff_stick_gate: false,
+            source_cliff_wait_timer: 0,
+            source_ledge_cooldown_timer: 0,
             entry_base_y: y,
             entry_platform_offset_y: profile.entry_platform_offset_y,
             entry_timer: 0,
@@ -1791,6 +1829,7 @@ impl PlayerState {
         self.motion_state_alias = Some(motion_state);
         self.melee_action_state_id = Some(melee_action_state_id_for_motion_state(motion_state));
         self.damage_hitstun_frames = 0;
+        self.source_allow_sdi = false;
         self.source_action_total_frames =
             action_sample_frame_count_for_motion_state(motion_state).unwrap_or(0);
         self.source_down_bound_pose = None;
@@ -1843,10 +1882,13 @@ impl PlayerState {
         self.velocity = Vec2 { x: 0, y: 0 };
         self.source_self_velocity_x = 0.0;
         self.source_self_velocity_y = 0.0;
+        self.source_knockback_velocity_x = 0.0;
+        self.source_knockback_velocity_y = 0.0;
         self.ground_velocity_x = 0.0;
         self.ground_accel_x = 0.0;
         self.ground_accel_x2 = 0.0;
         self.hitlag_frames = 0;
+        self.source_allow_sdi = false;
         self.damage_hitstun_frames = 0;
     }
 
@@ -1894,6 +1936,8 @@ impl PlayerState {
         self.velocity = Vec2 { x: 0, y: 0 };
         self.source_self_velocity_x = 0.0;
         self.source_self_velocity_y = 0.0;
+        self.source_knockback_velocity_x = 0.0;
+        self.source_knockback_velocity_y = 0.0;
         self.grounded = false;
     }
 
@@ -2350,6 +2394,8 @@ pub struct WorldSnapshot {
     pub frame: Frame,
     pub stage: StageProfile,
     pub common_data: MeleeCommonData,
+    pub match_phase: MatchPhase,
+    pub match_phase_timer: u16,
     pub players: [PlayerRenderSnapshot; PLAYER_COUNT],
     pub checksum: u64,
 }
@@ -2387,6 +2433,8 @@ macro_rules! player_rollback_snapshot_fields {
             velocity: Vec2,
             source_self_velocity_x: f32,
             source_self_velocity_y: f32,
+            source_knockback_velocity_x: f32,
+            source_knockback_velocity_y: f32,
             player_nudge_x: f32,
             player_nudge_z: f32,
             ecb_bottom_offset_y: i32,
@@ -2403,6 +2451,7 @@ macro_rules! player_rollback_snapshot_fields {
             damage_angle: u16,
             damage_element: u8,
             hitlag_frames: u8,
+            source_allow_sdi: bool,
             damage_hitstun_frames: u16,
             melee_action_state_id: Option<MeleeActionStateId>,
             source_action_key: Option<SourceActionKey>,
@@ -2464,6 +2513,10 @@ macro_rules! player_rollback_snapshot_fields {
             floor_skip_surface: Option<u8>,
             platform_pass_pending: bool,
             platform_pass_timer: u8,
+            source_cliff_ledge_id: Option<u16>,
+            source_cliff_stick_gate: bool,
+            source_cliff_wait_timer: u16,
+            source_ledge_cooldown_timer: u16,
             entry_base_y: i32,
             entry_platform_offset_y: i32,
             entry_timer: u8,
@@ -2500,6 +2553,8 @@ pub struct WorldRollbackSnapshot {
     hsd_rng_seed: u32,
     engine_features: EngineFeatureToggles,
     match_flow_enabled: bool,
+    match_phase: MatchPhase,
+    match_phase_timer: u16,
     players: [PlayerRollbackSnapshot; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
@@ -2531,12 +2586,35 @@ impl Default for EngineFeatureToggles {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchPhase {
+    Ready,
+    Go,
+    Playing,
+    StockPause,
+    GameEnd,
+}
+
+impl MatchPhase {
+    const fn checksum_id(self) -> u8 {
+        match self {
+            Self::Ready => 0,
+            Self::Go => 1,
+            Self::Playing => 2,
+            Self::StockPause => 3,
+            Self::GameEnd => 4,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct World {
     frame: Frame,
     hsd_rng_seed: u32,
     engine_features: EngineFeatureToggles,
     match_flow_enabled: bool,
+    match_phase: MatchPhase,
+    match_phase_timer: u16,
     stage: StageProfile,
     common_data: MeleeCommonData,
     players: [PlayerState; PLAYER_COUNT],
@@ -2599,6 +2677,8 @@ impl World {
             hsd_rng_seed: HSD_RAND_INITIAL_SEED,
             engine_features: EngineFeatureToggles::parity(),
             match_flow_enabled: false,
+            match_phase: MatchPhase::Playing,
+            match_phase_timer: 0,
             stage,
             common_data,
             players,
@@ -2630,6 +2710,7 @@ impl World {
         }
 
         world.match_flow_enabled = true;
+        world.sync_match_phase_from_players();
         world
     }
 
@@ -2671,6 +2752,74 @@ impl World {
 
     pub const fn match_flow_enabled(&self) -> bool {
         self.match_flow_enabled
+    }
+
+    pub const fn match_phase(&self) -> MatchPhase {
+        self.match_phase
+    }
+
+    pub const fn match_phase_timer(&self) -> u16 {
+        self.match_phase_timer
+    }
+
+    pub(crate) fn sync_match_phase_from_players(&mut self) {
+        if !self.match_flow_enabled {
+            self.match_phase = MatchPhase::Playing;
+            self.match_phase_timer = 0;
+            return;
+        }
+
+        if self
+            .players
+            .iter()
+            .all(|player| player.player_state == PLAYER_STATE_NONE)
+        {
+            self.match_phase = MatchPhase::GameEnd;
+            self.match_phase_timer = 0;
+            return;
+        }
+
+        if self.players.iter().any(|player| {
+            player.player_state == PLAYER_STATE_IN_GAME
+                && matches!(
+                    player.motion_state,
+                    MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
+                )
+        }) {
+            self.match_phase = MatchPhase::Ready;
+            self.match_phase_timer = self
+                .players
+                .iter()
+                .filter(|player| {
+                    player.player_state == PLAYER_STATE_IN_GAME
+                        && matches!(
+                            player.motion_state,
+                            MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
+                        )
+                })
+                .map(|player| u16::from(player.entry_timer))
+                .max()
+                .unwrap_or(0);
+            return;
+        }
+
+        if self.players.iter().any(|player| {
+            player.player_state == PLAYER_STATE_IN_GAME
+                && (is_source_dead_motion_state(player.motion_state)
+                    || is_source_rebirth_motion_state(player.motion_state))
+        }) {
+            self.match_phase = MatchPhase::StockPause;
+            self.match_phase_timer = self
+                .players
+                .iter()
+                .map(|player| u16::from(player.source_common_timer))
+                .max()
+                .unwrap_or(0);
+            return;
+        }
+
+        self.match_phase = MatchPhase::Playing;
+        self.match_phase_timer = 0;
     }
 
     pub fn set_engine_features(&mut self, features: EngineFeatureToggles) {
@@ -2825,6 +2974,8 @@ impl World {
             hsd_rng_seed: self.hsd_rng_seed,
             engine_features: self.engine_features,
             match_flow_enabled: self.match_flow_enabled,
+            match_phase: self.match_phase,
+            match_phase_timer: self.match_phase_timer,
             players: self.players.map(PlayerRollbackSnapshot::from_player),
             previous_inputs: self.previous_inputs,
             input_timers: self.input_timers,
@@ -2838,6 +2989,8 @@ impl World {
         self.hsd_rng_seed = snapshot.hsd_rng_seed;
         self.engine_features = snapshot.engine_features;
         self.match_flow_enabled = snapshot.match_flow_enabled;
+        self.match_phase = snapshot.match_phase;
+        self.match_phase_timer = snapshot.match_phase_timer;
         for (player, player_snapshot) in self.players.iter_mut().zip(snapshot.players) {
             player_snapshot.restore_into(player);
         }
@@ -2861,16 +3014,25 @@ impl World {
         if state.source_position.to_milli() != state.position {
             state.source_position = SourceVec2::from_milli(state.position);
         }
-        if !state.grounded
-            || state
-                .melee_action_state_id
-                .is_some_and(is_source_damage_action_state_id)
+        let is_source_damage_state = state
+            .melee_action_state_id
+            .is_some_and(is_source_damage_action_state_id);
+        if (!state.grounded || is_source_damage_state)
+            && state.source_knockback_velocity_x == 0.0
+            && state.source_knockback_velocity_y == 0.0
         {
-            if source_units_to_milli(state.source_self_velocity_x) != state.velocity.x {
-                state.source_self_velocity_x = milli_to_source_units(state.velocity.x);
-            }
-            if source_units_to_milli(state.source_self_velocity_y) != state.velocity.y {
-                state.source_self_velocity_y = milli_to_source_units(state.velocity.y);
+            if is_source_damage_state {
+                state.source_knockback_velocity_x = milli_to_source_units(state.velocity.x);
+                state.source_knockback_velocity_y = milli_to_source_units(state.velocity.y);
+                state.source_self_velocity_x = 0.0;
+                state.source_self_velocity_y = 0.0;
+            } else {
+                if source_units_to_milli(state.source_self_velocity_x) != state.velocity.x {
+                    state.source_self_velocity_x = milli_to_source_units(state.velocity.x);
+                }
+                if source_units_to_milli(state.source_self_velocity_y) != state.velocity.y {
+                    state.source_self_velocity_y = milli_to_source_units(state.velocity.y);
+                }
             }
         }
         *player = state;
@@ -3004,10 +3166,16 @@ impl World {
             let velocity_x = speed * angle.cos().abs() * direction;
             let velocity_y = speed * angle.sin();
 
-            victim.source_self_velocity_x = velocity_x;
-            victim.source_self_velocity_y = velocity_y;
-            victim.velocity.x = source_units_to_milli(velocity_x);
-            victim.velocity.y = source_units_to_milli(velocity_y);
+            victim.source_self_velocity_x = 0.0;
+            victim.source_self_velocity_y = 0.0;
+            victim.source_knockback_velocity_x = velocity_x;
+            victim.source_knockback_velocity_y = velocity_y;
+            victim.velocity.x = source_units_to_milli(
+                victim.source_self_velocity_x + victim.source_knockback_velocity_x,
+            );
+            victim.velocity.y = source_units_to_milli(
+                victim.source_self_velocity_y + victim.source_knockback_velocity_y,
+            );
             victim.ground_velocity_x = 0.0;
             victim.ground_accel_x = 0.0;
             victim.ground_accel_x2 = 0.0;
@@ -3018,6 +3186,7 @@ impl World {
             victim.damage_angle = result.angle;
             victim.damage_element = result.element;
             victim.hitlag_frames = source_damage_hitlag_frames(self.common_data, *result);
+            victim.source_allow_sdi = victim.hitlag_frames != 0;
             victim.damage_hitstun_frames = source_damage_hitstun_frames(self.common_data, *result);
             let damage_action_state_id =
                 source_damage_action_state_id(self.common_data, *result, victim.grounded);
@@ -3077,6 +3246,8 @@ impl World {
             frame: self.frame,
             stage: self.stage,
             common_data: self.common_data,
+            match_phase: self.match_phase,
+            match_phase_timer: self.match_phase_timer,
             players: [
                 PlayerRenderSnapshot::from_player(
                     self.players[0],
@@ -3102,6 +3273,8 @@ impl World {
             self.engine_features.shield_turnaround_during_guard as u8,
         );
         mix_u8(&mut hash, self.match_flow_enabled as u8);
+        mix_u8(&mut hash, self.match_phase.checksum_id());
+        mix_u32(&mut hash, u32::from(self.match_phase_timer));
         mix_stage_profile(&mut hash, self.stage);
         mix_common_data(&mut hash, self.common_data);
         for player in self.players {
@@ -3116,6 +3289,8 @@ impl World {
             mix_i32(&mut hash, player.velocity.y);
             mix_f32(&mut hash, player.source_self_velocity_x);
             mix_f32(&mut hash, player.source_self_velocity_y);
+            mix_f32(&mut hash, player.source_knockback_velocity_x);
+            mix_f32(&mut hash, player.source_knockback_velocity_y);
             mix_f32(&mut hash, player.player_nudge_x);
             mix_f32(&mut hash, player.player_nudge_z);
             mix_i32(&mut hash, player.ecb_bottom_offset_y);
@@ -3132,6 +3307,7 @@ impl World {
             mix_u32(&mut hash, player.damage_angle as u32);
             mix_u8(&mut hash, player.damage_element);
             mix_u8(&mut hash, player.hitlag_frames);
+            mix_u8(&mut hash, player.source_allow_sdi as u8);
             mix_u32(&mut hash, player.damage_hitstun_frames as u32);
             mix_u8(&mut hash, motion_state_id(player.motion_state));
             mix_optional_action_state_id(&mut hash, player.melee_action_state_id);
@@ -3193,6 +3369,16 @@ impl World {
             mix_u8(&mut hash, player.floor_skip_surface.unwrap_or(u8::MAX));
             mix_u8(&mut hash, player.platform_pass_pending as u8);
             mix_u8(&mut hash, player.platform_pass_timer);
+            mix_u32(
+                &mut hash,
+                player
+                    .source_cliff_ledge_id
+                    .map(u32::from)
+                    .unwrap_or(u32::MAX),
+            );
+            mix_u8(&mut hash, player.source_cliff_stick_gate as u8);
+            mix_u32(&mut hash, u32::from(player.source_cliff_wait_timer));
+            mix_u32(&mut hash, u32::from(player.source_ledge_cooldown_timer));
             mix_i32(&mut hash, player.entry_base_y);
             mix_i32(&mut hash, player.entry_platform_offset_y);
             mix_u8(&mut hash, player.entry_timer);
@@ -3415,6 +3601,8 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::JumpB => 47,
         MotionState::Landing => 48,
         MotionState::Pass => 49,
+        MotionState::CliffCatch => 50,
+        MotionState::CliffWait => 51,
     }
 }
 
@@ -3599,6 +3787,8 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.hitlag_damage_scale);
     mix_f32(hash, common.hitlag_base_frames);
     mix_f32(hash, common.hitlag_crouch_multiplier);
+    mix_f32(hash, common.di_angle_degrees);
+    mix_f32(hash, common.trigger_di_knockback_multiplier);
     mix_u8(hash, common.c_stick as u8);
     mix_u8(hash, common.aerial_neutral_x as u8);
     mix_u8(hash, common.aerial_neutral_y as u8);
@@ -3648,6 +3838,17 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.platform_pass_y_tap_window);
     mix_f32(hash, common.pass_initial_y_velocity);
     mix_u8(hash, common.platform_drop_delay_ticks);
+    mix_u8(hash, common.cliff_grab_block_stick_y as u8);
+    mix_u32(hash, u32::from(common.cliff_quick_percent_threshold));
+    mix_u32(hash, u32::from(common.cliff_wait_low_percent_ticks));
+    mix_u32(hash, u32::from(common.cliff_wait_high_percent_ticks));
+    mix_u8(hash, common.cliff_option_stick_threshold as u8);
+    mix_u32(hash, u32::from(common.ledge_cooldown_ticks));
+    mix_u32(hash, u32::from(common.cliff_wait_hurt_intangible_ticks));
+    mix_f32(hash, common.sdi_min_stick_mag);
+    mix_u8(hash, common.sdi_stick_window);
+    mix_f32(hash, common.sdi_pos_scale);
+    mix_f32(hash, common.asdi_pos_scale);
     mix_u8(hash, common.rebirth_ticks);
     mix_u8(hash, common.rebirth_wait_ticks);
     mix_u32(hash, common.rebirth_hurt_intangible_ticks as u32);
@@ -3716,6 +3917,9 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_i32(hash, profile.full_hop_height);
     mix_i32(hash, profile.short_hop_height);
     mix_i32(hash, profile.double_jump_height);
+    mix_i32(hash, profile.ledge_snap_x_milli);
+    mix_i32(hash, profile.ledge_snap_y_milli);
+    mix_i32(hash, profile.ledge_snap_height_milli);
     mix_i32(hash, profile.entry_platform_offset_y);
     mix_i32(hash, profile.standing_height_units);
     mix_f32(hash, profile.player_nudge_body_center_x);

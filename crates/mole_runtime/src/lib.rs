@@ -601,6 +601,8 @@ pub struct RenderFrame {
     pub frame: Frame,
     pub stage: StageProfile,
     pub common_data: MeleeCommonData,
+    pub match_phase: mole_core::MatchPhase,
+    pub match_phase_timer: u16,
     pub player_states: [u8; 2],
     pub player_stocks: [i8; 2],
     pub player_positions: [Vec2; 2],
@@ -669,6 +671,8 @@ impl RenderFrame {
             frame: snapshot.frame,
             stage: snapshot.stage,
             common_data: snapshot.common_data,
+            match_phase: snapshot.match_phase,
+            match_phase_timer: snapshot.match_phase_timer,
             player_states: [
                 snapshot.players[0].player_state,
                 snapshot.players[1].player_state,
@@ -1496,6 +1500,7 @@ pub struct RenderScene {
     pub player_hitbox_pills: [Vec<RenderCapsule>; 2],
     pub player_hurtbox_pills: [Vec<RenderCapsule>; 2],
     pub entry_platforms: [Option<RenderRect>; 2],
+    pub entry_platform_wireframes: [Vec<RenderLine>; 2],
     pub match_intro_label: Option<&'static str>,
 }
 
@@ -1606,6 +1611,15 @@ impl RenderScene {
             ),
         ];
 
+        let entry_platforms = [
+            entry_platform(frame, 0, transform, players[0]),
+            entry_platform(frame, 1, transform, players[1]),
+        ];
+        let entry_platform_wireframes = [
+            entry_platform_wireframe(entry_platforms[0]),
+            entry_platform_wireframe(entry_platforms[1]),
+        ];
+
         Self {
             background,
             background_image,
@@ -1632,10 +1646,8 @@ impl RenderScene {
                 player_hurtbox_pills(frame, 0, transform),
                 player_hurtbox_pills(frame, 1, transform),
             ],
-            entry_platforms: [
-                entry_platform(frame, 0, transform, players[0]),
-                entry_platform(frame, 1, transform, players[1]),
-            ],
+            entry_platforms,
+            entry_platform_wireframes,
             match_intro_label: match_intro_label(frame),
         }
     }
@@ -2391,18 +2403,11 @@ impl RuntimeSourceAction {
 }
 
 fn match_intro_label(frame: &RenderFrame) -> Option<&'static str> {
-    frame
-        .player_motion_states
-        .iter()
-        .enumerate()
-        .any(|(index, motion_state)| {
-            frame.player_participates(index)
-                && matches!(
-                    motion_state,
-                    MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
-                )
-        })
-        .then_some("READY")
+    match frame.match_phase {
+        mole_core::MatchPhase::Ready => Some("READY"),
+        mole_core::MatchPhase::Go => Some("GO"),
+        _ => None,
+    }
 }
 
 fn entry_platform(
@@ -2416,15 +2421,26 @@ fn entry_platform(
     }
     if !matches!(
         frame.player_motion_states[index],
-        MotionState::EntryStart | MotionState::EntryEnd
+        MotionState::EntryStart
+            | MotionState::EntryEnd
+            | MotionState::Rebirth
+            | MotionState::RebirthWait
     ) {
         return None;
     }
 
     let source_platform = frame.player_entry_platforms[index];
+    let base_y = if matches!(
+        frame.player_motion_states[index],
+        MotionState::Rebirth | MotionState::RebirthWait
+    ) {
+        frame.player_positions[index].y
+    } else {
+        frame.player_entry_base_y[index]
+    };
     let contact = transform.world_to_screen(Vec2 {
         x: frame.player_positions[index].x,
-        y: frame.player_entry_base_y[index],
+        y: base_y,
     });
     let width = transform
         .core_length_to_screen(source_units_to_milli(
@@ -2444,6 +2460,45 @@ fn entry_platform(
         height,
         color: RenderColor::ENTRY_PLATFORM,
     })
+}
+
+fn entry_platform_wireframe(platform: Option<RenderRect>) -> Vec<RenderLine> {
+    let Some(platform) = platform else {
+        return Vec::new();
+    };
+    let left = platform.x;
+    let right = platform.x + platform.width as i32;
+    let top = platform.y;
+    let bottom = platform.y + platform.height as i32;
+    let color = platform.color;
+    vec![
+        RenderLine {
+            start: RenderPoint { x: left, y: top },
+            end: RenderPoint { x: right, y: top },
+            color,
+        },
+        RenderLine {
+            start: RenderPoint { x: right, y: top },
+            end: RenderPoint {
+                x: right,
+                y: bottom,
+            },
+            color,
+        },
+        RenderLine {
+            start: RenderPoint {
+                x: right,
+                y: bottom,
+            },
+            end: RenderPoint { x: left, y: bottom },
+            color,
+        },
+        RenderLine {
+            start: RenderPoint { x: left, y: bottom },
+            end: RenderPoint { x: left, y: top },
+            color,
+        },
+    ]
 }
 
 fn render_stage_surfaces(
