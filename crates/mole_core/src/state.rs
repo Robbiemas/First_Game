@@ -16,6 +16,8 @@ use std::fmt;
 
 #[path = "generated/falcon_ecb.rs"]
 mod falcon_ecb;
+#[path = "generated/fighter_common.rs"]
+mod fighter_common;
 #[path = "generated/source_root_motion.rs"]
 mod source_root_motion;
 
@@ -54,6 +56,87 @@ impl SourceVec2 {
             y: source_units_to_milli(self.y),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SourceVec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SourceBounds3 {
+    pub min: SourceVec3,
+    pub max: SourceVec3,
+}
+
+impl SourceBounds3 {
+    pub const fn width_x(self) -> f32 {
+        self.max.x - self.min.x
+    }
+
+    pub const fn height_y(self) -> f32 {
+        self.max.y - self.min.y
+    }
+
+    pub const fn depth_z(self) -> f32 {
+        self.max.z - self.min.z
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FighterCommonAccessoryProfile {
+    pub symbol: &'static str,
+    pub source_dat: &'static str,
+    pub root_symbol: &'static str,
+    pub pointer_table_slot: usize,
+    pub joint_root_data_offset: u32,
+    pub joint_count: usize,
+    pub mesh_primitive_count: usize,
+    pub mesh_vertex_emit_count: usize,
+    pub mesh_unique_position_index_count: usize,
+    pub mesh_bounds: SourceBounds3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FighterCameraBox {
+    pub x0: SourceVec3,
+    pub xc: SourceVec3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FighterEntryPlatformProfile {
+    pub source_model_symbol: &'static str,
+    pub decomp_ref: &'static str,
+    pub vertical_offset_ratio: f32,
+    pub accessory: FighterCommonAccessoryProfile,
+}
+
+impl FighterEntryPlatformProfile {
+    pub const COMMON_TROPHY_PLATFORM: Self = Self {
+        source_model_symbol: "Fighter_804D6514",
+        decomp_ref: ".research/doldecomp-melee/src/melee/ft/ft_0C31.c::ftCo_800C6408",
+        vertical_offset_ratio: 1.497345,
+        accessory: fighter_common::COMMON_TROPHY_PLATFORM_ACCESSORY,
+    };
+}
+
+impl FighterCameraBox {
+    /// Captain Falcon `ftDataCaptain.x3C` -> `UnkFloat6_Camera`.
+    /// Decomp consumers: `ftCamera_80076018` and `ftCamera_UpdateCameraBox`.
+    pub const CAPTAIN_FALCON: Self = Self {
+        x0: SourceVec3 {
+            x: 10.0,
+            y: 22.0,
+            z: -9.0,
+        },
+        xc: SourceVec3 {
+            x: 16.0,
+            y: -9.0,
+            z: 13.699999809265137,
+        },
+    };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +289,7 @@ impl FighterActionFrames {
 pub struct FighterProfile {
     pub reference_character: &'static str,
     pub action_frames: FighterActionFrames,
+    pub camera_box: FighterCameraBox,
     pub walk_initial_velocity: f32,
     pub walk_accel: f32,
     pub walk_max_velocity: f32,
@@ -240,6 +324,7 @@ pub struct FighterProfile {
     pub full_hop_height: i32,
     pub short_hop_height: i32,
     pub double_jump_height: i32,
+    pub entry_platform: FighterEntryPlatformProfile,
     pub entry_platform_offset_y: i32,
     pub standing_height_units: i32,
     pub player_nudge_body_center_x: f32,
@@ -260,6 +345,7 @@ impl FighterProfile {
     pub const FALCON_LIKE: Self = Self {
         reference_character: "captain_falcon",
         action_frames: FighterActionFrames::FALCON_LIKE,
+        camera_box: FighterCameraBox::CAPTAIN_FALCON,
         walk_initial_velocity: 0.15000000596046448,
         walk_accel: 0.10000000149011612,
         walk_max_velocity: 0.8500000238418579,
@@ -294,6 +380,7 @@ impl FighterProfile {
         full_hop_height: 38_520,
         short_hop_height: 14_850,
         double_jump_height: 28_560,
+        entry_platform: FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM,
         entry_platform_offset_y: 1_647,
         // Provisional visual scale: current 136 px standing sprite at the old 6 px/unit art calibration.
         standing_height_units: 22_667,
@@ -323,6 +410,11 @@ impl FighterProfile {
         profile.player_nudge_body_center_x = center_x;
         profile.player_nudge_body_half_width = half_width;
         profile
+    }
+
+    pub const fn from_ftdata_x3c_camera_box(mut self, camera_box: FighterCameraBox) -> Self {
+        self.camera_box = camera_box;
+        self
     }
 
     pub const fn reusable_air_jumps(self) -> u8 {
@@ -396,7 +488,7 @@ impl FighterProfile {
             read_profile_u8_from_f32(bytes, 0x84, "frames_to_change_direction_on_standing_turn")?;
         let trophy_scale = read_profile_f32(bytes, 0x110, "trophy_scale")?;
         profile.entry_platform_offset_y = round_profile_f32_to_i32(
-            trophy_scale * 1.497_345 * 1000.0,
+            trophy_scale * profile.entry_platform.vertical_offset_ratio * 1000.0,
             "trophy_scale*entry_platform_offset",
             0x110,
         )?;
@@ -1597,6 +1689,10 @@ pub(crate) fn action_sample_frame_count_for_motion_state(motion_state: MotionSta
     u8::try_from(samples.len()).ok()
 }
 
+pub fn has_source_ecb_samples_for_motion_state(motion_state: MotionState) -> bool {
+    falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state).is_some()
+}
+
 pub fn source_root_motion_delta(
     motion_state: MotionState,
     source_frame: u8,
@@ -1819,6 +1915,7 @@ pub struct PlayerRenderSnapshot {
     pub position: Vec2,
     pub source_position: SourceVec2,
     pub velocity: Vec2,
+    pub camera_box: FighterCameraBox,
     pub active_ecb: EcbDiamond,
     pub grounded: bool,
     pub facing: i8,
@@ -1873,6 +1970,7 @@ pub struct PlayerRenderSnapshot {
     pub lightshield_amount: f32,
     pub shield_release_lockout_frames: u8,
     pub entry_base_y: i32,
+    pub entry_platform: FighterEntryPlatformProfile,
     pub entry_platform_offset_y: i32,
     pub entry_timer: u8,
     pub debug_input_facts: MeleeInputFacts,
@@ -1902,6 +2000,7 @@ impl PlayerRenderSnapshot {
             position: player.position,
             source_position: player.source_position,
             velocity: player.velocity,
+            camera_box: player.profile.camera_box,
             active_ecb: active_ecb_for_player(&player, common_data),
             grounded: player.grounded,
             facing: player.facing,
@@ -1956,6 +2055,7 @@ impl PlayerRenderSnapshot {
             lightshield_amount: player.lightshield_amount,
             shield_release_lockout_frames: player.shield_release_lockout_frames,
             entry_base_y: player.entry_base_y,
+            entry_platform: player.profile.entry_platform,
             entry_platform_offset_y: player.entry_platform_offset_y,
             entry_timer: player.entry_timer,
             debug_input_facts,
@@ -1982,6 +2082,7 @@ fn player_animation_pose_frame_milli(player: PlayerState) -> i32 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WorldSnapshot {
     pub frame: Frame,
+    pub stage: StageProfile,
     pub common_data: MeleeCommonData,
     pub players: [PlayerRenderSnapshot; PLAYER_COUNT],
     pub checksum: u64,
@@ -2560,6 +2661,7 @@ impl World {
     pub fn snapshot(&self) -> WorldSnapshot {
         WorldSnapshot {
             frame: self.frame,
+            stage: self.stage,
             common_data: self.common_data,
             players: [
                 PlayerRenderSnapshot::from_player(

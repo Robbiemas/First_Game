@@ -8,6 +8,7 @@ generic controller, and standalone smoke launchers live in `depreciated/`.
 - `Check WUP Native.cmd`: checks the WUP-028 adapter directly through WinUSB/libusb.
 - `Monitor WUP Native.cmd`: opens the native WUP input display with main stick, C-stick, D-pad, split L/R analog triggers, and split L/R digital trigger clicks.
 - `Run Rust Runtime.cmd`: runs the deterministic Rust core smoke test.
+- `Run Local SDL3 Runtime.cmd`: opens only the local SDL3 runtime with native WUP controller input; it does not open the dev tool or Friend Connect.
 - `Run SDL3 Runtime.cmd`: opens the optimized native SDL3/WUP local game window and starts gameplay immediately; it does not require Friend Connect or a secondary client.
 - `Run SDL3 Runtime Vanilla No UCF.cmd`: opens the same optimized local SDL3/WUP runtime with UCF disabled, leaving the WUP/native pre-UCF path exposed for controller feel testing.
 - `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.

@@ -150,7 +150,6 @@ fn verify_playtest_exe(playtest_exe: &Path) -> Vec<Value> {
     let required = [
         "mole_runtime.exe",
         "SDL3.dll",
-        "background.png",
         "DolphinMole",
         "Run Mole Game.cmd",
         "Run Mole Game Vanilla No UCF.cmd",

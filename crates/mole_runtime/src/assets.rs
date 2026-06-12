@@ -168,8 +168,40 @@ impl LegacySpriteCue {
         legacy_sprite_source_size(self)
     }
 
-    pub fn relative_path(self) -> String {
-        format!("{}/{}", self.directory, self.frame)
+    pub fn relative_path(self) -> &'static str {
+        match (self.directory, self.frame) {
+            ("DolphinMole/standing", "Standing1.png") => "DolphinMole/standing/Standing1.png",
+            ("DolphinMole/standing", "Standing2.png") => "DolphinMole/standing/Standing2.png",
+            ("DolphinMole/running", "running1 - Copy.png") => {
+                "DolphinMole/running/running1 - Copy.png"
+            }
+            ("DolphinMole/running", "running1.png") => "DolphinMole/running/running1.png",
+            ("DolphinMole/dashing", "running1 - Copy.png") => {
+                "DolphinMole/dashing/running1 - Copy.png"
+            }
+            ("DolphinMole/dashing", "running1.png") => "DolphinMole/dashing/running1.png",
+            ("DolphinMole/walking", "Standing1.png") => "DolphinMole/walking/Standing1.png",
+            ("DolphinMole/walking", "Standing2.png") => "DolphinMole/walking/Standing2.png",
+            ("DolphinMole/air", "Air1 - Copy.png") => "DolphinMole/air/Air1 - Copy.png",
+            ("DolphinMole/air", "Air1.png") => "DolphinMole/air/Air1.png",
+            ("DolphinMole/landingLag", "running1 - Copy.png") => {
+                "DolphinMole/landingLag/running1 - Copy.png"
+            }
+            ("DolphinMole/landingLag", "running1.png") => "DolphinMole/landingLag/running1.png",
+            ("DolphinMole/airDodge", "running1 - Copy.png") => {
+                "DolphinMole/airDodge/running1 - Copy.png"
+            }
+            ("DolphinMole/jumpSquat", "Standing1.png") => "DolphinMole/jumpSquat/Standing1.png",
+            ("DolphinMole/jumpSquat", "Standing2.png") => "DolphinMole/jumpSquat/Standing2.png",
+            ("DolphinMole/freeFall", "running1 - Copy.png") => {
+                "DolphinMole/freeFall/running1 - Copy.png"
+            }
+            ("DolphinMole/turning", "Standing1.png") => "DolphinMole/turning/Standing1.png",
+            ("DolphinMole/runTurn", "Standing1.png") => "DolphinMole/runTurn/Standing1.png",
+            ("DolphinMole/blocking", "Standing1.png") => "DolphinMole/blocking/Standing1.png",
+            ("DolphinMole/shield", "shield.png") => "DolphinMole/shield/shield.png",
+            _ => "DolphinMole/standing/Standing1.png",
+        }
     }
 }
 

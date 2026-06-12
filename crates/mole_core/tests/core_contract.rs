@@ -3,17 +3,27 @@ use mole_core::collision::{
     SourceDamageResultInput, SourceDamageStage, SourceHitboxAttributes, Vec3,
 };
 use mole_core::{
-    fighter_stick_axis_to_f32, input_common_data_field_sources,
-    landing_contact_for_bottom_with_floor_skip, melee_units, melee_units_f32,
-    milli_to_source_units, motion_state_for_runtime_variant, runtime_motion_state_for_source_key,
-    source_units_to_milli, step_world, step_world_with_source_runtime_data, CommonDataExtractError,
-    CommonDataProvenance, EcbDiamond, EngineFeatureToggles, FighterActionFrames, FighterProfile,
-    FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
-    MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
+    fighter_stick_axis_to_f32, has_source_ecb_samples_for_motion_state,
+    input_common_data_field_sources, landing_contact_for_bottom_with_floor_skip, melee_units,
+    melee_units_f32, milli_to_source_units, motion_state_for_runtime_variant,
+    runtime_motion_state_for_source_key, source_units_to_milli, step_world,
+    step_world_with_source_runtime_data, CommonDataExtractError, CommonDataProvenance, EcbDiamond,
+    EngineFeatureToggles, FighterActionFrames, FighterCameraBox, FighterEntryPlatformProfile,
+    FighterProfile, FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus,
+    MeleeActionStateId, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
-    SourceActionKey, SourceDownBoundPose, StageCollisionLineKind, StageProfile, StageSpawnPoint,
-    StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
+    SourceActionKey, SourceDownBoundPose, StageCollisionLineKind, StageLedgeSide, StageProfile,
+    StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
 };
+use std::{fs, path::Path};
+
+fn read_be_u32(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap())
+}
+
+fn read_be_f32(bytes: &[u8], offset: usize) -> f32 {
+    f32::from_bits(read_be_u32(bytes, offset))
+}
 
 fn squared_magnitude(velocity: Vec2) -> i32 {
     velocity.x * velocity.x + velocity.y * velocity.y
@@ -21,6 +31,35 @@ fn squared_magnitude(velocity: Vec2) -> i32 {
 
 fn close_to(left: i32, right: i32, tolerance: i32) -> bool {
     (left - right).abs() <= tolerance
+}
+
+#[test]
+fn falcon_camera_box_matches_ftdata_x3c_source_values() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let raw_path = manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .expect("crate should live under workspace/crates/mole_core")
+        .join("resources/melee/raw/PlCa.dat");
+    let raw =
+        fs::read(raw_path).expect("Captain Falcon DAT should be available for extraction parity");
+    let ft_data_offset = 39_428usize;
+    let camera_box_offset = read_be_u32(&raw, 0x20 + ft_data_offset + 0x3c) as usize;
+    let extracted = FighterCameraBox {
+        x0: mole_core::SourceVec3 {
+            x: read_be_f32(&raw, 0x20 + camera_box_offset),
+            y: read_be_f32(&raw, 0x20 + camera_box_offset + 0x04),
+            z: read_be_f32(&raw, 0x20 + camera_box_offset + 0x08),
+        },
+        xc: mole_core::SourceVec3 {
+            x: read_be_f32(&raw, 0x20 + camera_box_offset + 0x0c),
+            y: read_be_f32(&raw, 0x20 + camera_box_offset + 0x10),
+            z: read_be_f32(&raw, 0x20 + camera_box_offset + 0x14),
+        },
+    };
+
+    assert_eq!(camera_box_offset, 30_920);
+    assert_eq!(FighterProfile::FALCON_LIKE.camera_box, extracted);
 }
 
 fn enable_custom_shield_turn(world: &mut World) {
@@ -629,6 +668,45 @@ fn extracted_battlefield_stage_preserves_decomp_map_collision_data() {
 }
 
 #[test]
+fn extracted_battlefield_stage_promotes_map_head_runtime_objects() {
+    let stage = mole_core::MeleeStageProfile::battlefield();
+    let map_head = stage.map_head;
+
+    assert_eq!(map_head.stage_dat_offset, 0x27C);
+    assert_eq!(map_head.entries_offset, 0x78);
+    assert_eq!(map_head.entry_count, 7);
+    assert_eq!(map_head.entries.len(), 7);
+    assert_eq!(map_head.joints.len(), 73);
+    assert_eq!(map_head.internal_count, 4);
+
+    let first_entry = map_head.entries[0];
+    assert_eq!(first_entry.joint_root_offset, 0x34270);
+    assert_eq!(first_entry.joint_root_index, Some(0));
+    assert_eq!(first_entry.camera_desc_offset, 0x341C4);
+
+    let root = map_head.joints[first_entry.joint_root_index.unwrap() as usize];
+    assert_eq!(root.node_offset, first_entry.joint_root_offset);
+    assert_eq!(root.child_index, Some(1));
+    assert_eq!(root.next_index, None);
+    assert_eq!(root.scale.x.to_bits(), 1.0_f32.to_bits());
+    assert_eq!(root.scale.y.to_bits(), 1.0_f32.to_bits());
+    assert_eq!(root.scale.z.to_bits(), 1.0_f32.to_bits());
+
+    let first_child = map_head.joints[root.child_index.unwrap() as usize];
+    assert_eq!(first_child.node_offset, 0x342B0);
+    assert_eq!(first_child.next_index, Some(2));
+    assert_eq!(first_child.position.x.to_bits(), 0.0_f32.to_bits());
+
+    let visible_stage_node = map_head.joints[first_child.next_index.unwrap() as usize];
+    assert_eq!(visible_stage_node.node_offset, 0x342F0);
+    assert_eq!(
+        visible_stage_node.position.x.to_bits(),
+        (-200.0_f32).to_bits()
+    );
+    assert_eq!(visible_stage_node.position.y.to_bits(), 170.0_f32.to_bits());
+}
+
+#[test]
 fn battlefield_compat_stage_profile_is_projected_from_extracted_collision() {
     let extracted = mole_core::MeleeStageProfile::battlefield();
     let projected = extracted.compat_stage_profile();
@@ -638,6 +716,78 @@ fn battlefield_compat_stage_profile_is_projected_from_extracted_collision() {
     assert_eq!(projected.soft_platforms, extracted.soft_platforms);
     assert_eq!(projected.blast_zones, extracted.blast_zones);
     assert_eq!(projected.spawn_points, extracted.spawn_points);
+}
+
+#[test]
+fn battlefield_melee_stage_profile_promotes_decomp_stage_runtime_metadata() {
+    let stage = mole_core::MeleeStageProfile::battlefield();
+
+    assert_eq!(stage.ledges.len(), 2);
+    assert_eq!(stage.ledges[0].line_index, 0);
+    assert_eq!(stage.ledges[0].side, StageLedgeSide::Left);
+    assert_eq!(stage.ledges[0].x_milli, -68400);
+    assert_eq!(stage.ledges[1].line_index, 5);
+    assert_eq!(stage.ledges[1].side, StageLedgeSide::Right);
+    assert_eq!(stage.ledges[1].x_milli, 68400);
+    assert_eq!(stage.dynamic_collision.line_count, 0);
+    assert_eq!(stage.callbacks.stage_data_symbol, "grNBa_803E7E38");
+    assert_eq!(stage.callbacks.callback_table_symbol, "grNBa_803E7DA0");
+    assert_eq!(stage.callbacks.object_callbacks.len(), 7);
+    assert_eq!(stage.callbacks.on_touch_line, "grBattle_OnTouchLine");
+    assert_eq!(
+        stage.callbacks.on_check_shadow_render,
+        "grBattle_OnCheckShadowRender"
+    );
+    assert!(close_to(
+        source_units_to_milli(stage.camera.cam_bounds.left),
+        -160000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.camera.cam_bounds.right),
+        160000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.camera.cam_bounds.top),
+        136000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.camera.cam_bounds.bottom),
+        -47200,
+        1
+    ));
+    assert_eq!(stage.camera.cam_vertical_tilt.to_bits(), 30.0_f32.to_bits());
+    assert_eq!(
+        stage.camera.cam_pan_degrees.to_bits(),
+        (-10.0_f32).to_bits()
+    );
+    assert_eq!(stage.camera.cam_zoom_rate.to_bits(), 83.0_f32.to_bits());
+    assert!(close_to(
+        source_units_to_milli(stage.source_blast_zones.left),
+        -224000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.source_blast_zones.right),
+        224000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.source_blast_zones.top),
+        200000,
+        1
+    ));
+    assert!(close_to(
+        source_units_to_milli(stage.source_blast_zones.bottom),
+        -108800,
+        1
+    ));
+    assert_eq!(stage.blast_zones.left_x, -224000);
+    assert_eq!(stage.blast_zones.right_x, 224000);
+    assert_eq!(stage.blast_zones.top_y, 200000);
+    assert_eq!(stage.blast_zones.bottom_y, -108800);
 }
 
 #[test]
@@ -1036,6 +1186,42 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.full_hop_height, 38_520);
     assert_eq!(profile.short_hop_height, 14_850);
     assert_eq!(profile.double_jump_height, 28_560);
+    assert_eq!(
+        profile.entry_platform,
+        FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM
+    );
+    assert_eq!(
+        profile.entry_platform.source_model_symbol,
+        "Fighter_804D6514"
+    );
+    assert_eq!(
+        profile.entry_platform.decomp_ref,
+        ".research/doldecomp-melee/src/melee/ft/ft_0C31.c::ftCo_800C6408"
+    );
+    assert_eq!(
+        profile.entry_platform.vertical_offset_ratio.to_bits(),
+        1.497345_f32.to_bits()
+    );
+    assert_eq!(profile.entry_platform.accessory.symbol, "Fighter_804D6514");
+    assert_eq!(profile.entry_platform.accessory.source_dat, "PlCo.dat");
+    assert_eq!(
+        profile.entry_platform.accessory.root_symbol,
+        "ftLoadCommonData"
+    );
+    assert_eq!(profile.entry_platform.accessory.pointer_table_slot, 16);
+    assert_eq!(
+        profile.entry_platform.accessory.joint_root_data_offset,
+        0x15528
+    );
+    assert_eq!(profile.entry_platform.accessory.joint_count, 1);
+    assert_eq!(
+        profile.entry_platform.accessory.mesh_bounds.min.x.to_bits(),
+        (-6.96875_f32).to_bits()
+    );
+    assert_eq!(
+        profile.entry_platform.accessory.mesh_bounds.max.x.to_bits(),
+        6.96875_f32.to_bits()
+    );
     assert_eq!(profile.entry_platform_offset_y, 1_647);
     assert_eq!(profile.standing_height_units, 22_667);
     assert_eq!(profile.jumpsquat_frames, 4);
@@ -1050,6 +1236,20 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
     assert_eq!(profile.landing_air_b_lag_ticks, 18);
     assert_eq!(profile.landing_air_hi_lag_ticks, 15);
     assert_eq!(profile.landing_air_lw_lag_ticks, 24);
+}
+
+#[test]
+fn rust_motion_states_all_have_source_ecb_samples() {
+    for source_key in mole_core::RUST_MOTION_STATE_VARIANTS {
+        let runtime_variant = runtime_motion_state_for_source_key(source_key)
+            .unwrap_or_else(|| panic!("{source_key} should resolve to a Rust motion state"));
+        let motion_state = motion_state_for_runtime_variant(runtime_variant)
+            .unwrap_or_else(|| panic!("{runtime_variant} should parse as MotionState"));
+        assert!(
+            has_source_ecb_samples_for_motion_state(motion_state),
+            "{source_key} should use generated ftData.x44 + JObj ECB samples, not fallback ECB"
+        );
+    }
 }
 
 #[test]

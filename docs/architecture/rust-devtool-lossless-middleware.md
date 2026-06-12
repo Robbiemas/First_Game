@@ -23,6 +23,8 @@ Melee decomp/reference data
 
 The middleware must be lossless. If source data is extracted from the decomp, edited in the GUI, validated through the CLI, and imported into the engine, the artifact must preserve enough data to explain exactly where every runtime value came from and what was changed.
 
+For the runtime side of this boundary, also read `docs/architecture/runtime-baked-data-performance-contract.md`. Middleware artifacts may be rich and provenance-heavy, but generated engine artifacts must remain compact, rollback-friendly, portable, and close in size to the source data the runtime actually needs.
+
 ## Four-Way Parity Rule
 
 Every parity feature must satisfy all four surfaces:

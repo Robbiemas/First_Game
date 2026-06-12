@@ -23,19 +23,24 @@ pub use input::{
 };
 pub use sim::{step_world, step_world_with_source_runtime_data};
 pub use stage::{
-    MeleeStageProfile, StageBlastZones, StageCollisionJoint, StageCollisionLine,
-    StageCollisionLineKind, StageCollisionProfile, StageCollisionVertex, StageProfile,
-    StageScaledCollisionLine, StageSource, StageSpawnPoint, StageSurface, StageSurfaceKind,
+    MeleeStageProfile, StageBlastZones, StageCallbackProfile, StageCameraInfo, StageCollisionJoint,
+    StageCollisionLine, StageCollisionLineKind, StageCollisionProfile, StageCollisionVertex,
+    StageDynamicCollisionProfile, StageFloatBounds, StageLedge, StageLedgeSide, StageMapHeadEntry,
+    StageMapHeadJoint, StageMapHeadProfile, StageObjectCallbacks, StageProfile,
+    StageScaledCollisionLine, StageSource, StageSpawnMapping, StageSpawnPoint, StageSurface,
+    StageSurfaceKind, StageVec3,
 };
 pub use state::{
-    canonical_source_action_binding_for_source_table_id, melee_action_state_id_for_motion_state,
-    motion_state_for_runtime_variant, runtime_motion_state_for_source_key,
-    source_binding_for_motion_state, source_root_motion_delta, source_root_motion_position,
-    CanonicalSourceActionBinding, EngineFeatureToggles, FighterActionFrames, FighterProfile,
-    FighterProfileExtractError, MeleeActionStateId, MotionState, MotionStateSourceBinding,
-    PlayerRenderSnapshot, PlayerState, SourceActionKey, SourceActionPoseMetadata,
-    SourceCollisionStep, SourceDownBoundPose, SourceVec2, Vec2, World, WorldRollbackSnapshot,
-    WorldSnapshot, CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, PLAYER_COUNT, RUST_MOTION_STATE_VARIANTS,
+    canonical_source_action_binding_for_source_table_id, has_source_ecb_samples_for_motion_state,
+    melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
+    runtime_motion_state_for_source_key, source_binding_for_motion_state, source_root_motion_delta,
+    source_root_motion_position, CanonicalSourceActionBinding, EngineFeatureToggles,
+    FighterActionFrames, FighterCameraBox, FighterCommonAccessoryProfile,
+    FighterEntryPlatformProfile, FighterProfile, FighterProfileExtractError, MeleeActionStateId,
+    MotionState, MotionStateSourceBinding, PlayerRenderSnapshot, PlayerState, SourceActionKey,
+    SourceActionPoseMetadata, SourceBounds3, SourceCollisionStep, SourceDownBoundPose, SourceVec2,
+    SourceVec3, Vec2, World, WorldRollbackSnapshot, WorldSnapshot,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, PLAYER_COUNT, RUST_MOTION_STATE_VARIANTS,
 };
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};
 pub use units::{

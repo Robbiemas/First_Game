@@ -129,6 +129,30 @@ not be modeled by adding more compatibility enum variants.
 source key `Entry` for runtime pose, ECB, and capsule coverage. Do not treat
 the Entry family as missing source data during export or render preload.
 
+Entry spawn platforms are not Battlefield-specific stage rectangles. The decomp
+loads the common fighter accessory model `Fighter_804D6514` from `PlCo.dat`
+(`fighter.c`, `pData[16]`) and attaches it in `ftCo_800C6408` while the fighter
+is in `EntryStart`/`EntryEnd`. The platform/fighter vertical relation is
+`fighter.y_scale * ftCo_DatAttrs.trophy_scale * 1.497345`, and collision updates
+feed that value into the Entry ECB bottom. Stage extraction supplies the spawn
+positions/facing; the common fighter entry path supplies the platform accessory
+and timing. Runtime rendering may draw a lightweight cue, but gameplay must use
+the decomp-sourced Entry timers, spawn positions, and profile offset rather than
+a renderer-sized rectangle.
+
+Refresh the baked common accessory profile with:
+
+```powershell
+cargo run -p mole_cli -- fighter-common extract --write --json
+```
+
+The extractor is root/slot driven, not Captain-Falcon-only: the current default
+reads `PlCo.dat` root `ftLoadCommonData`, pointer slot `16`, symbol
+`Fighter_804D6514`, then writes
+`resources/melee/extracted/fighter_common_accessories.json` and
+`crates/mole_core/src/generated/fighter_common.rs`. Runtime consumes the baked
+Rust profile so the game does not depend on raw DAT files after extraction.
+
 Decomp-sourced fighter motion values should stay in their native float shape
 through gameplay, collision, replay diagnostics, and render-root state. Melee's
 fighter update path keeps `cur_pos`, `prev_pos`, `pos_delta`, `gr_vel`,

@@ -56,6 +56,12 @@ pub struct MeleeStageProfile {
     pub name: &'static str,
     pub source: StageSource,
     pub collision: StageCollisionProfile,
+    pub ledges: &'static [StageLedge],
+    pub dynamic_collision: StageDynamicCollisionProfile,
+    pub camera: StageCameraInfo,
+    pub source_blast_zones: StageFloatBounds,
+    pub map_head: StageMapHeadProfile,
+    pub callbacks: StageCallbackProfile,
     pub main_floor: StageSurface,
     pub soft_platforms: [StageSurface; 3],
     pub blast_zones: StageBlastZones,
@@ -68,6 +74,159 @@ pub struct StageCollisionProfile {
     pub vertices: &'static [StageCollisionVertex],
     pub lines: &'static [StageCollisionLine],
     pub joints: &'static [StageCollisionJoint],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageLedge {
+    pub index: u16,
+    pub line_index: u16,
+    pub side: StageLedgeSide,
+    pub x_milli: i32,
+    pub y_milli: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StageLedgeSide {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageDynamicCollisionProfile {
+    pub line_start: i16,
+    pub line_count: i16,
+    pub joint_count_with_dynamic_lines: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageFloatBounds {
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageCameraInfo {
+    pub cam_bounds: StageFloatBounds,
+    pub cam_x_offset: f32,
+    pub cam_y_offset: f32,
+    pub cam_vertical_tilt: f32,
+    pub cam_pan_degrees: f32,
+    pub x20: f32,
+    pub x24: f32,
+    pub cam_track_ratio: f32,
+    pub cam_fixed_zoom: f32,
+    pub cam_track_smooth: f32,
+    pub cam_zoom_rate: f32,
+    pub cam_max_depth: f32,
+    pub x3c: f32,
+    pub pausecam_zpos_min: f32,
+    pub pausecam_zpos_init: f32,
+    pub pausecam_zpos_max: f32,
+    pub cam_angle_up: f32,
+    pub cam_angle_down: f32,
+    pub cam_angle_left: f32,
+    pub cam_angle_right: f32,
+    pub fixed_cam_pos: StageVec3,
+    pub fixed_cam_fov: f32,
+    pub fixed_cam_vert_angle: f32,
+    pub fixed_cam_horz_angle: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageCallbackProfile {
+    pub stage_data_symbol: &'static str,
+    pub callback_table_symbol: &'static str,
+    pub object_callbacks: &'static [StageObjectCallbacks],
+    pub on_init: &'static str,
+    pub on_demo_init: &'static str,
+    pub on_load: &'static str,
+    pub on_start: &'static str,
+    pub callback4: &'static str,
+    pub on_touch_line: &'static str,
+    pub on_check_shadow_render: &'static str,
+    pub flags2: u32,
+    pub spawn_table_symbol: &'static str,
+    pub spawn_table: &'static [StageSpawnMapping],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageObjectCallbacks {
+    pub object_id: u16,
+    pub callback0: &'static str,
+    pub callback1: &'static str,
+    pub callback2: &'static str,
+    pub callback3: &'static str,
+    pub flags: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageSpawnMapping {
+    pub index: u16,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageMapHeadProfile {
+    pub stage_dat_offset: u32,
+    pub unk0_offset: u32,
+    pub unk4: i32,
+    pub entries_offset: u32,
+    pub entry_count: i32,
+    pub splines_offset: u32,
+    pub spline_count: i32,
+    pub unk18_offset: u32,
+    pub unk1c: i32,
+    pub unk20_offset: u32,
+    pub unk24: i32,
+    pub internals_offset: u32,
+    pub internal_count: i32,
+    pub entries: &'static [StageMapHeadEntry],
+    pub joints: &'static [StageMapHeadJoint],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageMapHeadEntry {
+    pub index: u16,
+    pub joint_root_offset: u32,
+    pub joint_root_index: Option<u16>,
+    pub camera_desc_offset: u32,
+    pub x14_offset: u32,
+    pub x18_offset: u32,
+    pub fog_desc_offset: u32,
+    pub vector_offset: u32,
+    pub vector_count: i32,
+    pub x28_offset: u32,
+    pub x2c_offset: u32,
+    pub x30: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageMapHeadJoint {
+    pub index: u16,
+    pub node_offset: u32,
+    pub class_name_offset: u32,
+    pub flags: u32,
+    pub child_offset: u32,
+    pub next_offset: u32,
+    pub child_index: Option<u16>,
+    pub next_index: Option<u16>,
+    pub dobjdesc_offset: u32,
+    pub rotation: StageVec3,
+    pub scale: StageVec3,
+    pub position: StageVec3,
+    pub mtx_offset: u32,
+    pub robjdesc_offset: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageVec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -207,6 +366,13 @@ impl StageProfile {
                     facing: -1,
                 },
             ],
+        }
+    }
+
+    pub fn melee_stage_profile(self) -> Option<MeleeStageProfile> {
+        match self.name {
+            "battlefield" | "battlefield_test" => Some(MeleeStageProfile::battlefield()),
+            _ => None,
         }
     }
 }

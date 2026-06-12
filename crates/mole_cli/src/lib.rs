@@ -13,6 +13,7 @@ use mole_devtool::ParityLedgerViewModel;
 use mole_ledger::LedgerMap;
 
 mod decomp;
+mod fighter_common;
 mod formatting;
 mod frame_data;
 mod frame_data_sampler;
@@ -59,6 +60,7 @@ enum CliCommand {
     FrameData(FrameDataCommand),
     Package(PackageCommand),
     FriendConnect(FriendConnectCommand),
+    FighterCommon(FighterCommonCommand),
     Doctor,
     Tests,
     Handoff,
@@ -109,6 +111,20 @@ pub(crate) enum StageCommand {
     Inspect { stage: String },
     Extract(StageExtractOptions),
     ExtractIso(StageExtractIsoOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FighterCommonCommand {
+    Extract(FighterCommonExtractOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FighterCommonExtractOptions {
+    pub dat: Option<String>,
+    pub root_symbol: String,
+    pub slot: usize,
+    pub symbol: String,
+    pub write: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -443,6 +459,9 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
         "frame-data" => parse_frame_data_command(&positional[1..]).map(CliCommand::FrameData),
         "package" => parse_package_command(&positional[1..]).map(CliCommand::Package),
+        "fighter-common" => {
+            parse_fighter_common_command(&positional[1..]).map(CliCommand::FighterCommon)
+        }
         "friend-connect" => {
             parse_friend_connect_command(&positional[1..]).map(CliCommand::FriendConnect)
         }
@@ -456,6 +475,51 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
         other => Err(format!("unknown mole command: {other}")),
     }
+}
+
+fn parse_fighter_common_command(args: &[String]) -> Result<FighterCommonCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("extract");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "extract" => parse_fighter_common_extract(rest).map(FighterCommonCommand::Extract),
+        other => Err(format!("unknown mole fighter-common command: {other}")),
+    }
+}
+
+fn parse_fighter_common_extract(args: &[String]) -> Result<FighterCommonExtractOptions, String> {
+    let mut dat = None;
+    let mut root_symbol = "ftLoadCommonData".to_string();
+    let mut slot = 16_usize;
+    let mut symbol = "Fighter_804D6514".to_string();
+    let mut write = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--dat" => dat = Some(take_flag_value(args, &mut index, "--dat")?),
+            "--root-symbol" => root_symbol = take_flag_value(args, &mut index, "--root-symbol")?,
+            "--slot" => {
+                let value = take_flag_value(args, &mut index, "--slot")?;
+                slot = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("--slot must be a non-negative integer: {error}"))?;
+            }
+            "--symbol" => symbol = take_flag_value(args, &mut index, "--symbol")?,
+            "--write" => write = true,
+            other => {
+                return Err(format!(
+                    "unexpected argument for fighter-common extract: {other}"
+                ))
+            }
+        }
+        index += 1;
+    }
+    Ok(FighterCommonExtractOptions {
+        dat,
+        root_symbol,
+        slot,
+        symbol,
+        write,
+    })
 }
 
 fn parse_friend_connect_command(args: &[String]) -> Result<FriendConnectCommand, String> {
@@ -1292,6 +1356,9 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
         CliCommand::FrameData(command) => frame_data::frame_data_report(&options.root, command),
         CliCommand::Package(command) => package::package_report(&options.root, command),
+        CliCommand::FighterCommon(command) => {
+            fighter_common::fighter_common_report(&options.root, command)
+        }
         CliCommand::FriendConnect(command) => friend_connect_report(&options.root, command),
         CliCommand::Doctor => doctor_report(&options.root),
         CliCommand::Tests => tests_report(&options.root),

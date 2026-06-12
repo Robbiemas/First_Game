@@ -1,5 +1,145 @@
 {
-  "blast_zones": null,
+  "blast_zones": {
+    "bottom_y": -123000,
+    "left_x": -255000,
+    "right_x": 255000,
+    "source": "map_head_marker_nodes_Ground_801C39C0",
+    "top_y": 250000
+  },
+  "callbacks": {
+    "callback4": "grOldPupupu_802108AC",
+    "callback_table_symbol": "grOp_803E6688",
+    "flags2": 1,
+    "object_callbacks": [
+      {
+        "callback0": "grOldPupupu_8021099C",
+        "callback1": "grOldPupupu_802109C8",
+        "callback2": "grOldPupupu_802109D0",
+        "callback3": "grOldPupupu_802109D4",
+        "flags": 0,
+        "object_id": 0
+      },
+      {
+        "callback0": "grOldPupupu_802109D8",
+        "callback1": "grOldPupupu_80210A1C",
+        "callback2": "grOldPupupu_80210A24",
+        "callback3": "grOldPupupu_80210B00",
+        "flags": 0,
+        "object_id": 1
+      },
+      {
+        "callback0": "grOldPupupu_80210BE4",
+        "callback1": "grOldPupupu_80210C2C",
+        "callback2": "grOldPupupu_80210C34",
+        "callback3": "grOldPupupu_80210C78",
+        "flags": 0,
+        "object_id": 2
+      },
+      {
+        "callback0": "grOldPupupu_80211110",
+        "callback1": "grOldPupupu_8021118C",
+        "callback2": "grOldPupupu_80211194",
+        "callback3": "grOldPupupu_80211198",
+        "flags": 0,
+        "object_id": 3
+      },
+      {
+        "callback0": "grOldPupupu_80210B04",
+        "callback1": "grOldPupupu_80210B48",
+        "callback2": "grOldPupupu_80210B50",
+        "callback3": "grOldPupupu_80210B54",
+        "flags": 0,
+        "object_id": 4
+      },
+      {
+        "callback0": "grOldPupupu_80210B58",
+        "callback1": "grOldPupupu_80210BB8",
+        "callback2": "grOldPupupu_80210BC0",
+        "callback3": "grOldPupupu_80210BE0",
+        "flags": 3221225472,
+        "object_id": 5
+      },
+      {
+        "callback0": "grOldPupupu_80211C10",
+        "callback1": "grOldPupupu_80211C14",
+        "callback2": "grOldPupupu_80211C1C",
+        "callback3": "grOldPupupu_80211C9C",
+        "flags": 0,
+        "object_id": 6
+      },
+      {
+        "callback0": "grOldPupupu_8021119C",
+        "callback1": "grOldPupupu_80211284",
+        "callback2": "grOldPupupu_802113E0",
+        "callback3": "grOldPupupu_80211C0C",
+        "flags": 0,
+        "object_id": 7
+      },
+      {
+        "callback0": "grOldPupupu_80210C7C",
+        "callback1": "grOldPupupu_80210D08",
+        "callback2": "grOldPupupu_80210D10",
+        "callback3": "grOldPupupu_8021110C",
+        "flags": 0,
+        "object_id": 8
+      }
+    ],
+    "on_check_shadow_render": "grOldPupupu_80211CA8",
+    "on_demo_init": "grOldPupupu_802107DC",
+    "on_init": "grOldPupupu_802107E0",
+    "on_load": "grOldPupupu_80210884",
+    "on_start": "grOldPupupu_80210888",
+    "on_touch_line": "grOldPupupu_80211CA0",
+    "spawn_table": [],
+    "spawn_table_symbol": "",
+    "stage_data_symbol": "grOp_803E6748",
+    "struct_refs": [
+      ".research/doldecomp-melee/src/melee/gr/types.h::StageCallbacks",
+      ".research/doldecomp-melee/src/melee/gr/types.h::StageData"
+    ]
+  },
+  "camera": {
+    "cam_angle_down": 45.0,
+    "cam_angle_left": 72.0,
+    "cam_angle_right": 72.0,
+    "cam_angle_up": 18.0,
+    "cam_bounds": {
+      "bottom": -81.0,
+      "left": -165.0,
+      "right": 165.0,
+      "top": 190.0
+    },
+    "cam_fixed_zoom": 1.0,
+    "cam_max_depth": 1000.0,
+    "cam_pan_degrees": -10.0,
+    "cam_track_ratio": 1.0,
+    "cam_track_smooth": 1.0,
+    "cam_vertical_tilt": 30.0,
+    "cam_x_offset": 0.0,
+    "cam_y_offset": 0.0,
+    "cam_zoom_rate": 83.0,
+    "fixed_cam_fov": 30.0,
+    "fixed_cam_horz_angle": 0.0,
+    "fixed_cam_pos": {
+      "x": 0.0,
+      "y": 100.0,
+      "z": 400.0
+    },
+    "fixed_cam_vert_angle": -10.0,
+    "pausecam_zpos_init": 100.0,
+    "pausecam_zpos_max": 200.0,
+    "pausecam_zpos_min": 40.0,
+    "struct_refs": [
+      ".research/doldecomp-melee/src/melee/gr/types.h::StageCameraInfo",
+      ".research/doldecomp-melee/src/melee/gr/types.h::UnkStage6B0",
+      ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C0800",
+      ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C39C0",
+      ".research/doldecomp-melee/src/melee/gr/stage.c"
+    ],
+    "x20": 0.20000000298023224,
+    "x24": 0.15000000596046448,
+    "x3c": 60.0
+  },
   "collision": {
     "coll_data_offset": 75776,
     "joint_count": 4,
@@ -430,7 +570,38 @@
     ],
     "x2c": 0
   },
+  "dynamic_collision": {
+    "joint_count_with_dynamic_lines": 0,
+    "line_count": 0,
+    "line_start": 0,
+    "requires_stage_callbacks": false,
+    "source_root": "coll_data"
+  },
   "engine_boundary": "rust_core_authority",
+  "ledges": [
+    {
+      "index": 0,
+      "line_index": 3,
+      "side": "left",
+      "source": {
+        "root": "coll_data",
+        "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+      },
+      "x_milli": -77271,
+      "y_milli": 9
+    },
+    {
+      "index": 1,
+      "line_index": 5,
+      "side": "right",
+      "source": {
+        "root": "coll_data",
+        "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+      },
+      "x_milli": 77271,
+      "y_milli": 9
+    }
+  ],
   "main_floor": {
     "friction_multiplier": 1.0,
     "kind": "solid",
@@ -439,12 +610,4246 @@
     "right_x": 77271,
     "y": 9
   },
+  "map_head_object_tree": {
+    "entries": [
+      {
+        "camera_desc_offset": 78904,
+        "fog_desc_offset": 0,
+        "index": 0,
+        "joint_root_index": 0,
+        "joint_root_offset": 79084,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 0,
+        "x18_offset": 79072,
+        "x28_offset": 0,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 70732,
+        "fog_desc_offset": 0,
+        "index": 1,
+        "joint_root_index": 30,
+        "joint_root_offset": 70912,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 0,
+        "x18_offset": 70900,
+        "x28_offset": 128,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 28328,
+        "fog_desc_offset": 0,
+        "index": 2,
+        "joint_root_index": 35,
+        "joint_root_offset": 32296,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 27072,
+        "x18_offset": 28564,
+        "x28_offset": 136,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 27016,
+        "fog_desc_offset": 0,
+        "index": 3,
+        "joint_root_index": 56,
+        "joint_root_offset": 28136,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 27072,
+        "x18_offset": 27252,
+        "x28_offset": 0,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 59380,
+        "fog_desc_offset": 0,
+        "index": 4,
+        "joint_root_index": 58,
+        "joint_root_offset": 68168,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 27072,
+        "x18_offset": 59616,
+        "x28_offset": 140,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 924,
+        "fog_desc_offset": 0,
+        "index": 5,
+        "joint_root_index": 71,
+        "joint_root_offset": 8424,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 0,
+        "x18_offset": 1092,
+        "x28_offset": 0,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 55596,
+        "fog_desc_offset": 0,
+        "index": 6,
+        "joint_root_index": 91,
+        "joint_root_offset": 57288,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 9824,
+        "x18_offset": 55832,
+        "x28_offset": 144,
+        "x2c_offset": 0,
+        "x30": 0
+      },
+      {
+        "camera_desc_offset": 9768,
+        "fog_desc_offset": 0,
+        "index": 7,
+        "joint_root_index": 101,
+        "joint_root_offset": 13224,
+        "vector_count": 0,
+        "vector_offset": 0,
+        "x14_offset": 9824,
+        "x18_offset": 10004,
+        "x28_offset": 148,
+        "x2c_offset": 0,
+        "x30": 0
+      }
+    ],
+    "entries_offset": 156,
+    "entry_count": 8,
+    "entry_count_decoded": 8,
+    "internal_count": 8,
+    "internals_offset": 804,
+    "joint_count_decoded": 117,
+    "joints": [
+      {
+        "child_index": 1,
+        "child_offset": 79148,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 0,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 79084,
+        "node_offset_hex": "0x000134ec",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 1,
+        "mtx_offset": 0,
+        "next_index": 2,
+        "next_offset": 79212,
+        "node_offset": 79148,
+        "node_offset_hex": "0x0001352c",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 9.0,
+          "y_milli": 9000,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 2,
+        "mtx_offset": 0,
+        "next_index": 3,
+        "next_offset": 79276,
+        "node_offset": 79212,
+        "node_offset_hex": "0x0001356c",
+        "position": {
+          "x": -165.0,
+          "x_milli": -165000,
+          "y": 190.0,
+          "y_milli": 190000,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 439.8478698730469,
+          "x_milli": 439848,
+          "y": 439.8478698730469,
+          "y_milli": 439848,
+          "z": 439.8478698730469,
+          "z_milli": 439848
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 3,
+        "mtx_offset": 0,
+        "next_index": 4,
+        "next_offset": 79340,
+        "node_offset": 79276,
+        "node_offset_hex": "0x000135ac",
+        "position": {
+          "x": 165.0,
+          "x_milli": 165000,
+          "y": -81.0,
+          "y_milli": -81000,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 439.8478698730469,
+          "x_milli": 439848,
+          "y": 439.8478698730469,
+          "y_milli": 439848,
+          "z": 439.8478698730469,
+          "z_milli": 439848
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 4,
+        "mtx_offset": 0,
+        "next_index": 5,
+        "next_offset": 79404,
+        "node_offset": 79340,
+        "node_offset_hex": "0x000135ec",
+        "position": {
+          "x": -255.0,
+          "x_milli": -255000,
+          "y": 250.0,
+          "y_milli": 250000,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 439.8478698730469,
+          "x_milli": 439848,
+          "y": 439.8478698730469,
+          "y_milli": 439848,
+          "z": 439.8478698730469,
+          "z_milli": 439848
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 5,
+        "mtx_offset": 0,
+        "next_index": 6,
+        "next_offset": 79468,
+        "node_offset": 79404,
+        "node_offset_hex": "0x0001362c",
+        "position": {
+          "x": 255.0,
+          "x_milli": 255000,
+          "y": -123.0,
+          "y_milli": -123000,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 439.8478698730469,
+          "x_milli": 439848,
+          "y": 439.8478698730469,
+          "y_milli": 439848,
+          "z": 439.8478698730469,
+          "z_milli": 439848
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 6,
+        "mtx_offset": 0,
+        "next_index": 7,
+        "next_offset": 79532,
+        "node_offset": 79468,
+        "node_offset_hex": "0x0001366c",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 7,
+        "mtx_offset": 0,
+        "next_index": 8,
+        "next_offset": 79596,
+        "node_offset": 79532,
+        "node_offset_hex": "0x000136ac",
+        "position": {
+          "x": -16.5,
+          "x_milli": -16500,
+          "y": 40.32149887084961,
+          "y_milli": 40322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 8,
+        "mtx_offset": 0,
+        "next_index": 9,
+        "next_offset": 79660,
+        "node_offset": 79596,
+        "node_offset_hex": "0x000136ec",
+        "position": {
+          "x": 16.5,
+          "x_milli": 16500,
+          "y": 40.32149887084961,
+          "y_milli": 40322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 9,
+        "mtx_offset": 0,
+        "next_index": 10,
+        "next_offset": 79724,
+        "node_offset": 79660,
+        "node_offset_hex": "0x0001372c",
+        "position": {
+          "x": 5.5,
+          "x_milli": 5500,
+          "y": 40.32149887084961,
+          "y_milli": 40322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 10,
+        "mtx_offset": 0,
+        "next_index": 11,
+        "next_offset": 79788,
+        "node_offset": 79724,
+        "node_offset_hex": "0x0001376c",
+        "position": {
+          "x": 36.5,
+          "x_milli": 36500,
+          "y": 20.221500396728516,
+          "y_milli": 20222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 11,
+        "mtx_offset": 0,
+        "next_index": 12,
+        "next_offset": 79852,
+        "node_offset": 79788,
+        "node_offset_hex": "0x000137ac",
+        "position": {
+          "x": -56.5,
+          "x_milli": -56500,
+          "y": 20.221500396728516,
+          "y_milli": 20222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 12,
+        "mtx_offset": 0,
+        "next_index": 13,
+        "next_offset": 79916,
+        "node_offset": 79852,
+        "node_offset_hex": "0x000137ec",
+        "position": {
+          "x": -36.5,
+          "x_milli": -36500,
+          "y": 20.221500396728516,
+          "y_milli": 20222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 13,
+        "mtx_offset": 0,
+        "next_index": 14,
+        "next_offset": 79980,
+        "node_offset": 79916,
+        "node_offset_hex": "0x0001382c",
+        "position": {
+          "x": 58.5,
+          "x_milli": 58500,
+          "y": 20.221500396728516,
+          "y_milli": 20222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 14,
+        "mtx_offset": 0,
+        "next_index": 15,
+        "next_offset": 80044,
+        "node_offset": 79980,
+        "node_offset_hex": "0x0001386c",
+        "position": {
+          "x": -71.5,
+          "x_milli": -71500,
+          "y": 49.32149887084961,
+          "y_milli": 49322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 15,
+        "mtx_offset": 0,
+        "next_index": 16,
+        "next_offset": 80108,
+        "node_offset": 80044,
+        "node_offset_hex": "0x000138ac",
+        "position": {
+          "x": 71.5,
+          "x_milli": 71500,
+          "y": 49.32149887084961,
+          "y_milli": 49322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 16,
+        "mtx_offset": 0,
+        "next_index": 17,
+        "next_offset": 80172,
+        "node_offset": 80108,
+        "node_offset_hex": "0x000138ec",
+        "position": {
+          "x": -12.0,
+          "x_milli": -12000,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 17,
+        "mtx_offset": 0,
+        "next_index": 18,
+        "next_offset": 80236,
+        "node_offset": 80172,
+        "node_offset_hex": "0x0001392c",
+        "position": {
+          "x": 12.0,
+          "x_milli": 12000,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 18,
+        "mtx_offset": 0,
+        "next_index": 19,
+        "next_offset": 80300,
+        "node_offset": 80236,
+        "node_offset_hex": "0x0001396c",
+        "position": {
+          "x": -46.599998474121094,
+          "x_milli": -46600,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 19,
+        "mtx_offset": 0,
+        "next_index": 20,
+        "next_offset": 80364,
+        "node_offset": 80300,
+        "node_offset_hex": "0x000139ac",
+        "position": {
+          "x": -58.599998474121094,
+          "x_milli": -58600,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 20,
+        "mtx_offset": 0,
+        "next_index": 21,
+        "next_offset": 80428,
+        "node_offset": 80364,
+        "node_offset_hex": "0x000139ec",
+        "position": {
+          "x": -34.599998474121094,
+          "x_milli": -34600,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 21,
+        "mtx_offset": 0,
+        "next_index": 22,
+        "next_offset": 80492,
+        "node_offset": 80428,
+        "node_offset_hex": "0x00013a2c",
+        "position": {
+          "x": 35.29999923706055,
+          "x_milli": 35300,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 22,
+        "mtx_offset": 0,
+        "next_index": 23,
+        "next_offset": 80556,
+        "node_offset": 80492,
+        "node_offset_hex": "0x00013a6c",
+        "position": {
+          "x": 47.400001525878906,
+          "x_milli": 47400,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 23,
+        "mtx_offset": 0,
+        "next_index": 24,
+        "next_offset": 80620,
+        "node_offset": 80556,
+        "node_offset_hex": "0x00013aac",
+        "position": {
+          "x": 59.29999923706055,
+          "x_milli": 59300,
+          "y": 200.2216033935547,
+          "y_milli": 200222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 24,
+        "mtx_offset": 0,
+        "next_index": 25,
+        "next_offset": 80684,
+        "node_offset": 80620,
+        "node_offset_hex": "0x00013aec",
+        "position": {
+          "x": -5.5,
+          "x_milli": -5500,
+          "y": 40.32149887084961,
+          "y_milli": 40322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 25,
+        "mtx_offset": 0,
+        "next_index": 26,
+        "next_offset": 80748,
+        "node_offset": 80684,
+        "node_offset_hex": "0x00013b2c",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 7.095304012298584,
+          "y_milli": 7095,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 26,
+        "mtx_offset": 0,
+        "next_index": 27,
+        "next_offset": 80812,
+        "node_offset": 80748,
+        "node_offset_hex": "0x00013b6c",
+        "position": {
+          "x": -46.599998474121094,
+          "x_milli": -46600,
+          "y": 37.221500396728516,
+          "y_milli": 37222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 27,
+        "mtx_offset": 0,
+        "next_index": 28,
+        "next_offset": 80876,
+        "node_offset": 80812,
+        "node_offset_hex": "0x00013bac",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 58.52149963378906,
+          "y_milli": 58522,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 28,
+        "mtx_offset": 0,
+        "next_index": 29,
+        "next_offset": 80940,
+        "node_offset": 80876,
+        "node_offset_hex": "0x00013bec",
+        "position": {
+          "x": 47.38909912109375,
+          "x_milli": 47389,
+          "y": 37.321502685546875,
+          "y_milli": 37322,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 29,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 80940,
+        "node_offset_hex": "0x00013c2c",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 84.22149658203125,
+          "y_milli": 84222,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 31,
+        "child_offset": 70976,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 30,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 70912,
+        "node_offset_hex": "0x00011500",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 31,
+        "mtx_offset": 0,
+        "next_index": 32,
+        "next_offset": 71040,
+        "node_offset": 70976,
+        "node_offset_hex": "0x00011540",
+        "position": {
+          "x": -8.466169357299805,
+          "x_milli": -8466,
+          "y": 15.929486274719238,
+          "y_milli": 15929,
+          "z": -27.744855880737305,
+          "z_milli": -27745
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.6108649969100952,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 32,
+        "mtx_offset": 0,
+        "next_index": 33,
+        "next_offset": 71104,
+        "node_offset": 71040,
+        "node_offset_hex": "0x00011580",
+        "position": {
+          "x": -17.965471267700195,
+          "x_milli": -17965,
+          "y": 20.0,
+          "y_milli": 20000,
+          "z": -35.94325637817383,
+          "z_milli": -35943
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 1.570796012878418,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 34,
+        "child_offset": 71168,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 33,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 71104,
+        "node_offset_hex": "0x000115c0",
+        "position": {
+          "x": -16.59999656677246,
+          "x_milli": -16600,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -11.114992141723633,
+          "z_milli": -11115
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 1.570796012878418,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 0,
+        "index": 34,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 71168,
+        "node_offset_hex": "0x00011600",
+        "position": {
+          "x": 9.999999974752427e-7,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 29.28001594543457,
+          "z_milli": 29280
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 36,
+        "child_offset": 32360,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 35,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32296,
+        "node_offset_hex": "0x00007e28",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 37,
+        "child_offset": 32424,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 36,
+        "mtx_offset": 0,
+        "next_index": 38,
+        "next_offset": 32488,
+        "node_offset": 32360,
+        "node_offset_hex": "0x00007e68",
+        "position": {
+          "x": 0.15625,
+          "x_milli": 156,
+          "y": -0.6107360124588013,
+          "y_milli": -611,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31416,
+        "flags": 1050632,
+        "index": 37,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32424,
+        "node_offset_hex": "0x00007ea8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 39,
+        "child_offset": 32552,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 38,
+        "mtx_offset": 0,
+        "next_index": 40,
+        "next_offset": 32616,
+        "node_offset": 32488,
+        "node_offset_hex": "0x00007ee8",
+        "position": {
+          "x": -0.15625,
+          "x_milli": -156,
+          "y": -0.6107360124588013,
+          "y_milli": -611,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31512,
+        "flags": 1050632,
+        "index": 39,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32552,
+        "node_offset_hex": "0x00007f28",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 41,
+        "child_offset": 32680,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 40,
+        "mtx_offset": 0,
+        "next_index": 42,
+        "next_offset": 32744,
+        "node_offset": 32616,
+        "node_offset_hex": "0x00007f68",
+        "position": {
+          "x": -0.0006500000017695129,
+          "x_milli": -1,
+          "y": -0.0012789999600499868,
+          "y_milli": -1,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31608,
+        "flags": 1050632,
+        "index": 41,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32680,
+        "node_offset_hex": "0x00007fa8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 43,
+        "child_offset": 32808,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 42,
+        "mtx_offset": 0,
+        "next_index": 44,
+        "next_offset": 32872,
+        "node_offset": 32744,
+        "node_offset_hex": "0x00007fe8",
+        "position": {
+          "x": 0.0006500000017695129,
+          "x_milli": 1,
+          "y": -0.0012789999600499868,
+          "y_milli": -1,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31704,
+        "flags": 1050632,
+        "index": 43,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32808,
+        "node_offset_hex": "0x00008028",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 45,
+        "child_offset": 32936,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 44,
+        "mtx_offset": 0,
+        "next_index": 46,
+        "next_offset": 33000,
+        "node_offset": 32872,
+        "node_offset_hex": "0x00008068",
+        "position": {
+          "x": 0.14648400247097015,
+          "x_milli": 146,
+          "y": -0.16223999857902527,
+          "y_milli": -162,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31800,
+        "flags": 1050632,
+        "index": 45,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 32936,
+        "node_offset_hex": "0x000080a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 47,
+        "child_offset": 33064,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 46,
+        "mtx_offset": 0,
+        "next_index": 48,
+        "next_offset": 33128,
+        "node_offset": 33000,
+        "node_offset_hex": "0x000080e8",
+        "position": {
+          "x": -0.14648400247097015,
+          "x_milli": -146,
+          "y": -0.16223999857902527,
+          "y_milli": -162,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31896,
+        "flags": 1050632,
+        "index": 47,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33064,
+        "node_offset_hex": "0x00008128",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 49,
+        "child_offset": 33192,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 48,
+        "mtx_offset": 0,
+        "next_index": 50,
+        "next_offset": 33256,
+        "node_offset": 33128,
+        "node_offset_hex": "0x00008168",
+        "position": {
+          "x": 0.14648400247097015,
+          "x_milli": 146,
+          "y": -0.08352299779653549,
+          "y_milli": -84,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 31992,
+        "flags": 1050632,
+        "index": 49,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33192,
+        "node_offset_hex": "0x000081a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 51,
+        "child_offset": 33320,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 50,
+        "mtx_offset": 0,
+        "next_index": 52,
+        "next_offset": 33384,
+        "node_offset": 33256,
+        "node_offset_hex": "0x000081e8",
+        "position": {
+          "x": -0.14648400247097015,
+          "x_milli": -146,
+          "y": -0.08352299779653549,
+          "y_milli": -84,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 32088,
+        "flags": 1050632,
+        "index": 51,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33320,
+        "node_offset_hex": "0x00008228",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 53,
+        "child_offset": 33448,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 52,
+        "mtx_offset": 0,
+        "next_index": 54,
+        "next_offset": 33512,
+        "node_offset": 33384,
+        "node_offset_hex": "0x00008268",
+        "position": {
+          "x": 0.1466670036315918,
+          "x_milli": 147,
+          "y": 0.00072900002123788,
+          "y_milli": 1,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 32184,
+        "flags": 1050632,
+        "index": 53,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33448,
+        "node_offset_hex": "0x000082a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 55,
+        "child_offset": 33576,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1073741832,
+        "index": 54,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33512,
+        "node_offset_hex": "0x000082e8",
+        "position": {
+          "x": -0.1466670036315918,
+          "x_milli": -147,
+          "y": 0.00072900002123788,
+          "y_milli": 1,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9978880286216736,
+          "x_milli": 998,
+          "y": 1.0023000240325928,
+          "y_milli": 1002,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 32280,
+        "flags": 1050632,
+        "index": 55,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 33576,
+        "node_offset_hex": "0x00008328",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -0.006345000118017197,
+          "y_milli": -6,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 57,
+        "child_offset": 28200,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 268435456,
+        "index": 56,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 28136,
+        "node_offset_hex": "0x00006de8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 28120,
+        "flags": 264192,
+        "index": 57,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 28200,
+        "node_offset_hex": "0x00006e28",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -100.0,
+          "z_milli": -100000
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 59,
+        "child_offset": 68232,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 65368,
+        "flags": 1342439424,
+        "index": 58,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 68168,
+        "node_offset_hex": "0x00010a48",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 60,
+        "child_offset": 68296,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 65464,
+        "flags": 269746176,
+        "index": 59,
+        "mtx_offset": 0,
+        "next_index": 63,
+        "next_offset": 68488,
+        "node_offset": 68232,
+        "node_offset_hex": "0x00010a88",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 65848,
+        "flags": 262144,
+        "index": 60,
+        "mtx_offset": 0,
+        "next_index": 61,
+        "next_offset": 68360,
+        "node_offset": 68296,
+        "node_offset_hex": "0x00010ac8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 29.707975387573242,
+          "y_milli": 29708,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 66328,
+        "flags": 262144,
+        "index": 61,
+        "mtx_offset": 0,
+        "next_index": 62,
+        "next_offset": 68424,
+        "node_offset": 68360,
+        "node_offset_hex": "0x00010b08",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 51.23796463012695,
+          "y_milli": 51238,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 66808,
+        "flags": 262144,
+        "index": 62,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 68424,
+        "node_offset_hex": "0x00010b48",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 29.707975387573242,
+          "y_milli": 29708,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 64,
+        "child_offset": 68552,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1342177280,
+        "index": 63,
+        "mtx_offset": 0,
+        "next_index": 67,
+        "next_offset": 68744,
+        "node_offset": 68488,
+        "node_offset_hex": "0x00010b88",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 67288,
+        "flags": 262144,
+        "index": 64,
+        "mtx_offset": 0,
+        "next_index": 65,
+        "next_offset": 68616,
+        "node_offset": 68552,
+        "node_offset_hex": "0x00010bc8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 67384,
+        "flags": 1310720,
+        "index": 65,
+        "mtx_offset": 0,
+        "next_index": 66,
+        "next_offset": 68680,
+        "node_offset": 68616,
+        "node_offset_hex": "0x00010c08",
+        "position": {
+          "x": -14.5,
+          "x_milli": -14500,
+          "y": 0.06850899755954742,
+          "y_milli": 69,
+          "z": 29.5,
+          "z_milli": 29500
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 67576,
+        "flags": 1310720,
+        "index": 66,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 68680,
+        "node_offset_hex": "0x00010c48",
+        "position": {
+          "x": 26.5,
+          "x_milli": 26500,
+          "y": 0.06850899755954742,
+          "y_milli": 69,
+          "z": 36.0,
+          "z_milli": 36000
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 68,
+        "child_offset": 68808,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1342177280,
+        "index": 67,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 68744,
+        "node_offset_hex": "0x00010c88",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 67768,
+        "flags": 1048576,
+        "index": 68,
+        "mtx_offset": 0,
+        "next_index": 69,
+        "next_offset": 68872,
+        "node_offset": 68808,
+        "node_offset_hex": "0x00010cc8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -1.285217046737671,
+          "y_milli": -1285,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 67864,
+        "flags": 1048576,
+        "index": 69,
+        "mtx_offset": 0,
+        "next_index": 70,
+        "next_offset": 68936,
+        "node_offset": 68872,
+        "node_offset_hex": "0x00010d08",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -1.285217046737671,
+          "y_milli": -1285,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 68024,
+        "flags": 1310720,
+        "index": 70,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 68936,
+        "node_offset_hex": "0x00010d48",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 72,
+        "child_offset": 8488,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1879048192,
+        "index": 71,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 8424,
+        "node_offset_hex": "0x000020e8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 73,
+        "child_offset": 8552,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6040,
+        "flags": 1880358912,
+        "index": 72,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 8488,
+        "node_offset_hex": "0x00002128",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6264,
+        "flags": 262144,
+        "index": 73,
+        "mtx_offset": 0,
+        "next_index": 74,
+        "next_offset": 8616,
+        "node_offset": 8552,
+        "node_offset_hex": "0x00002168",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6360,
+        "flags": 1048576,
+        "index": 74,
+        "mtx_offset": 0,
+        "next_index": 75,
+        "next_offset": 8680,
+        "node_offset": 8616,
+        "node_offset_hex": "0x000021a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 51.0,
+          "y_milli": 51000,
+          "z": -60.0,
+          "z_milli": -60000
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6456,
+        "flags": 1057792,
+        "index": 75,
+        "mtx_offset": 0,
+        "next_index": 76,
+        "next_offset": 8744,
+        "node_offset": 8680,
+        "node_offset_hex": "0x000021e8",
+        "position": {
+          "x": -40.5,
+          "x_milli": -40500,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -52.64653778076172,
+          "z_milli": -52647
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6552,
+        "flags": 1057792,
+        "index": 76,
+        "mtx_offset": 0,
+        "next_index": 77,
+        "next_offset": 8808,
+        "node_offset": 8744,
+        "node_offset_hex": "0x00002228",
+        "position": {
+          "x": 39.75,
+          "x_milli": 39750,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -49.14653778076172,
+          "z_milli": -49147
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 78,
+        "child_offset": 8872,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 1342177280,
+        "index": 77,
+        "mtx_offset": 0,
+        "next_index": 83,
+        "next_offset": 9192,
+        "node_offset": 8808,
+        "node_offset_hex": "0x00002268",
+        "position": {
+          "x": -17.5,
+          "x_milli": -17500,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -40.64653778076172,
+          "z_milli": -40647
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6648,
+        "flags": 1057792,
+        "index": 78,
+        "mtx_offset": 0,
+        "next_index": 79,
+        "next_offset": 8936,
+        "node_offset": 8872,
+        "node_offset_hex": "0x000022a8",
+        "position": {
+          "x": -0.003806999884545803,
+          "x_milli": -4,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -0.002644000109285116,
+          "z_milli": -3
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6744,
+        "flags": 262144,
+        "index": 79,
+        "mtx_offset": 0,
+        "next_index": 80,
+        "next_offset": 9000,
+        "node_offset": 8936,
+        "node_offset_hex": "0x000022e8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6840,
+        "flags": 262144,
+        "index": 80,
+        "mtx_offset": 0,
+        "next_index": 81,
+        "next_offset": 9064,
+        "node_offset": 9000,
+        "node_offset_hex": "0x00002328",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 6936,
+        "flags": 262144,
+        "index": 81,
+        "mtx_offset": 0,
+        "next_index": 82,
+        "next_offset": 9128,
+        "node_offset": 9064,
+        "node_offset_hex": "0x00002368",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 7032,
+        "flags": 262144,
+        "index": 82,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 9128,
+        "node_offset_hex": "0x000023a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 7160,
+        "flags": 1310720,
+        "index": 83,
+        "mtx_offset": 0,
+        "next_index": 84,
+        "next_offset": 9256,
+        "node_offset": 9192,
+        "node_offset_hex": "0x000023e8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 7448,
+        "flags": 524288,
+        "index": 84,
+        "mtx_offset": 0,
+        "next_index": 85,
+        "next_offset": 9320,
+        "node_offset": 9256,
+        "node_offset_hex": "0x00002428",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 7928,
+        "flags": 534528,
+        "index": 85,
+        "mtx_offset": 0,
+        "next_index": 86,
+        "next_offset": 9384,
+        "node_offset": 9320,
+        "node_offset_hex": "0x00002468",
+        "position": {
+          "x": -83.88838958740234,
+          "x_milli": -83888,
+          "y": 80.72147369384766,
+          "y_milli": 80721,
+          "z": -34.13339614868164,
+          "z_milli": -34133
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 8024,
+        "flags": 534528,
+        "index": 86,
+        "mtx_offset": 0,
+        "next_index": 87,
+        "next_offset": 9448,
+        "node_offset": 9384,
+        "node_offset_hex": "0x000024a8",
+        "position": {
+          "x": 78.76670837402344,
+          "x_milli": 78767,
+          "y": 69.70437622070312,
+          "y_milli": 69704,
+          "z": -25.950483322143555,
+          "z_milli": -25950
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 8120,
+        "flags": 534528,
+        "index": 87,
+        "mtx_offset": 0,
+        "next_index": 88,
+        "next_offset": 9512,
+        "node_offset": 9448,
+        "node_offset_hex": "0x000024e8",
+        "position": {
+          "x": -49.101837158203125,
+          "x_milli": -49102,
+          "y": 90.84626770019531,
+          "y_milli": 90846,
+          "z": -22.336023330688477,
+          "z_milli": -22336
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 8216,
+        "flags": 534528,
+        "index": 88,
+        "mtx_offset": 0,
+        "next_index": 89,
+        "next_offset": 9576,
+        "node_offset": 9512,
+        "node_offset_hex": "0x00002528",
+        "position": {
+          "x": 52.83510208129883,
+          "x_milli": 52835,
+          "y": 97.1701889038086,
+          "y_milli": 97170,
+          "z": -25.481216430664062,
+          "z_milli": -25481
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 8312,
+        "flags": 534528,
+        "index": 89,
+        "mtx_offset": 0,
+        "next_index": 90,
+        "next_offset": 9640,
+        "node_offset": 9576,
+        "node_offset_hex": "0x00002568",
+        "position": {
+          "x": -32.34099578857422,
+          "x_milli": -32341,
+          "y": 62.20439529418945,
+          "y_milli": 62204,
+          "z": -15.355735778808594,
+          "z_milli": -15356
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 8408,
+        "flags": 534528,
+        "index": 90,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 9640,
+        "node_offset_hex": "0x000025a8",
+        "position": {
+          "x": 3.4888510704040527,
+          "x_milli": 3489,
+          "y": 79.6701889038086,
+          "y_milli": 79670,
+          "z": -17.447919845581055,
+          "z_milli": -17448
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 92,
+        "child_offset": 57352,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 91,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57288,
+        "node_offset_hex": "0x0000dfc8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 93,
+        "child_offset": 57416,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 92,
+        "mtx_offset": 0,
+        "next_index": 95,
+        "next_offset": 57544,
+        "node_offset": 57352,
+        "node_offset_hex": "0x0000e008",
+        "position": {
+          "x": 32.24998474121094,
+          "x_milli": 32250,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 13.603446006774902,
+          "z_milli": 13603
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9999989867210388,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 94,
+        "child_offset": 57480,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 56792,
+        "flags": 537133056,
+        "index": 93,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57416,
+        "node_offset_hex": "0x0000e048",
+        "position": {
+          "x": 9.999999974752427e-7,
+          "x_milli": 0,
+          "y": -1.25,
+          "y_milli": -1250,
+          "z": -9.999999974752427e-7,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 56888,
+        "flags": 524288,
+        "index": 94,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57480,
+        "node_offset_hex": "0x0000e088",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 5.75,
+          "y_milli": 5750,
+          "z": -9.999999974752427e-7,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 96,
+        "child_offset": 57608,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 95,
+        "mtx_offset": 0,
+        "next_index": 98,
+        "next_offset": 57736,
+        "node_offset": 57544,
+        "node_offset_hex": "0x0000e0c8",
+        "position": {
+          "x": -51.49996566772461,
+          "x_milli": -51500,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 16.353473663330078,
+          "z_milli": 16353
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9999989867210388,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 97,
+        "child_offset": 57672,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 56984,
+        "flags": 537133056,
+        "index": 96,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57608,
+        "node_offset_hex": "0x0000e108",
+        "position": {
+          "x": -0.0,
+          "x_milli": 0,
+          "y": -1.25,
+          "y_milli": -1250,
+          "z": -0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 57080,
+        "flags": 524288,
+        "index": 97,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57672,
+        "node_offset_hex": "0x0000e148",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 5.75,
+          "y_milli": 5750,
+          "z": -0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 99,
+        "child_offset": 57800,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 98,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57736,
+        "node_offset_hex": "0x0000e188",
+        "position": {
+          "x": 43.74998092651367,
+          "x_milli": 43750,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 26.853439331054688,
+          "z_milli": 26853
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 0.9999989867210388,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 100,
+        "child_offset": 57864,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 57176,
+        "flags": 537133056,
+        "index": 99,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57800,
+        "node_offset_hex": "0x0000e1c8",
+        "position": {
+          "x": -0.0,
+          "x_milli": 0,
+          "y": -1.25,
+          "y_milli": -1250,
+          "z": -1.9999999949504854e-6,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 57272,
+        "flags": 524288,
+        "index": 100,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 57864,
+        "node_offset_hex": "0x0000e208",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 5.75,
+          "y_milli": 5750,
+          "z": -3.000000106112566e-6,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 102,
+        "child_offset": 13288,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 101,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 13224,
+        "node_offset_hex": "0x000033a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 103,
+        "child_offset": 13352,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 536870912,
+        "index": 102,
+        "mtx_offset": 0,
+        "next_index": 108,
+        "next_offset": 13672,
+        "node_offset": 13288,
+        "node_offset_hex": "0x000033e8",
+        "position": {
+          "x": -17.5,
+          "x_milli": -17500,
+          "y": 6.25,
+          "y_milli": 6250,
+          "z": -40.64649963378906,
+          "z_milli": -40647
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.6108649969100952,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12248,
+        "flags": 524288,
+        "index": 103,
+        "mtx_offset": 0,
+        "next_index": 104,
+        "next_offset": 13416,
+        "node_offset": 13352,
+        "node_offset_hex": "0x00003428",
+        "position": {
+          "x": 7.999999979801942e-6,
+          "x_milli": 0,
+          "y": 25.0,
+          "y_milli": 25000,
+          "z": 14.25000286102295,
+          "z_milli": 14250
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12344,
+        "flags": 524288,
+        "index": 104,
+        "mtx_offset": 0,
+        "next_index": 105,
+        "next_offset": 13480,
+        "node_offset": 13416,
+        "node_offset_hex": "0x00003468",
+        "position": {
+          "x": 6.75,
+          "x_milli": 6750,
+          "y": 10.5,
+          "y_milli": 10500,
+          "z": 14.0,
+          "z_milli": 14000
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 9.999999747378752e-6,
+          "x_milli": 0,
+          "y": 9.999999747378752e-6,
+          "y_milli": 0,
+          "z": 9.999999747378752e-6,
+          "z_milli": 0
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12440,
+        "flags": 524288,
+        "index": 105,
+        "mtx_offset": 0,
+        "next_index": 106,
+        "next_offset": 13544,
+        "node_offset": 13480,
+        "node_offset_hex": "0x000034a8",
+        "position": {
+          "x": -6.75,
+          "x_milli": -6750,
+          "y": 10.5,
+          "y_milli": 10500,
+          "z": 14.0,
+          "z_milli": 14000
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 9.999999747378752e-6,
+          "x_milli": 0,
+          "y": 9.999999747378752e-6,
+          "y_milli": 0,
+          "z": 9.999999747378752e-6,
+          "z_milli": 0
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12536,
+        "flags": 524288,
+        "index": 106,
+        "mtx_offset": 0,
+        "next_index": 107,
+        "next_offset": 13608,
+        "node_offset": 13544,
+        "node_offset_hex": "0x000034e8",
+        "position": {
+          "x": 9.999999974752427e-7,
+          "x_milli": 0,
+          "y": 8.75,
+          "y_milli": 8750,
+          "z": 15.75,
+          "z_milli": 15750
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12632,
+        "flags": 524288,
+        "index": 107,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 13608,
+        "node_offset_hex": "0x00003528",
+        "position": {
+          "x": 9.999999974752427e-7,
+          "x_milli": 0,
+          "y": 17.0,
+          "y_milli": 17000,
+          "z": 16.25,
+          "z_milli": 16250
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 109,
+        "child_offset": 13736,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 108,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 13672,
+        "node_offset_hex": "0x00003568",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12728,
+        "flags": 533504,
+        "index": 109,
+        "mtx_offset": 0,
+        "next_index": 110,
+        "next_offset": 13800,
+        "node_offset": 13736,
+        "node_offset_hex": "0x000035a8",
+        "position": {
+          "x": -55.01971435546875,
+          "x_milli": -55020,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -22.35573959350586,
+          "z_milli": -22356
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12824,
+        "flags": 533504,
+        "index": 110,
+        "mtx_offset": 0,
+        "next_index": 111,
+        "next_offset": 13864,
+        "node_offset": 13800,
+        "node_offset_hex": "0x000035e8",
+        "position": {
+          "x": 55.00657272338867,
+          "x_milli": 55007,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -18.747854232788086,
+          "z_milli": -18748
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 112,
+        "child_offset": 13928,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 111,
+        "mtx_offset": 0,
+        "next_index": 114,
+        "next_offset": 14056,
+        "node_offset": 13864,
+        "node_offset_hex": "0x00003628",
+        "position": {
+          "x": -39.5,
+          "x_milli": -39500,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -10.146539688110352,
+          "z_milli": -10147
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 113,
+        "child_offset": 13992,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 12920,
+        "flags": 537133056,
+        "index": 112,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 13928,
+        "node_offset_hex": "0x00003668",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": -1.25,
+          "y_milli": -1250,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 13016,
+        "flags": 524288,
+        "index": 113,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 13992,
+        "node_offset_hex": "0x000036a8",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 5.75,
+          "y_milli": 5750,
+          "z": 0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 115,
+        "child_offset": 14120,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 0,
+        "flags": 805306368,
+        "index": 114,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 14056,
+        "node_offset_hex": "0x000036e8",
+        "position": {
+          "x": 20.0,
+          "x_milli": 20000,
+          "y": 0.0,
+          "y_milli": 0,
+          "z": -8.396538734436035,
+          "z_milli": -8397
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": 116,
+        "child_offset": 14184,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 13112,
+        "flags": 537133056,
+        "index": 115,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 14120,
+        "node_offset_hex": "0x00003728",
+        "position": {
+          "x": -0.0,
+          "x_milli": 0,
+          "y": -1.25,
+          "y_milli": -1250,
+          "z": -0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      },
+      {
+        "child_index": null,
+        "child_offset": 0,
+        "class_name_offset": 0,
+        "dobjdesc_offset": 13208,
+        "flags": 524288,
+        "index": 116,
+        "mtx_offset": 0,
+        "next_index": null,
+        "next_offset": 0,
+        "node_offset": 14184,
+        "node_offset_hex": "0x00003768",
+        "position": {
+          "x": 0.0,
+          "x_milli": 0,
+          "y": 5.75,
+          "y_milli": 5750,
+          "z": -0.0,
+          "z_milli": 0
+        },
+        "robjdesc_offset": 0,
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "x_milli": 1000,
+          "y": 1.0,
+          "y_milli": 1000,
+          "z": 1.0,
+          "z_milli": 1000
+        }
+      }
+    ],
+    "source_root": "map_head",
+    "spline_count": 0,
+    "splines_offset": 0,
+    "stage_dat_offset": 836,
+    "stage_dat_offset_hex": "0x00000344",
+    "struct_refs": [
+      ".research/doldecomp-melee/src/melee/gr/grdatfiles.c::grDatFiles_801C6038",
+      ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat",
+      ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat_x8_t",
+      ".research/doldecomp-melee/src/sysdolphin/baselib/jobj.h::HSD_Joint",
+      ".research/doldecomp-melee/src/melee/gr/types.h::StageInfo"
+    ],
+    "unk0_offset": 116,
+    "unk18_offset": 572,
+    "unk1c": 38,
+    "unk20_offset": 724,
+    "unk24": 10,
+    "unk4": 1
+  },
   "pending_stage_layers": [
-    "map_head_object_tree",
     "map_plit_spawn_points",
-    "itemdata",
-    "camera_bounds",
-    "blast_zones"
+    "itemdata"
   ],
   "schema_version": 1,
   "soft_platforms": [
@@ -570,6 +4975,12 @@
       ".research/doldecomp-melee/src/melee/mp/types.h::MapJoint",
       ".research/doldecomp-melee/src/melee/mp/mplib.c::mpLibLoad"
     ]
+  },
+  "source_blast_zones": {
+    "bottom": -123.0,
+    "left": -255.0,
+    "right": 255.0,
+    "top": 250.0
   },
   "spawn_points": null,
   "stage_id": "dream-land-64",

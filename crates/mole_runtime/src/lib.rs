@@ -18,7 +18,8 @@ use mole_core::collision::{
     SourceHitboxLifecycleId, Vec3,
 };
 use mole_core::{
-    source_root_motion_position, step_world, step_world_with_source_runtime_data, EcbDiamond,
+    source_root_motion_position, source_units_to_milli, step_world,
+    step_world_with_source_runtime_data, EcbDiamond, FighterCameraBox, FighterEntryPlatformProfile,
     Frame, GameCubePadStatus, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MotionState,
     PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, SourceCollisionStep,
     SourceDownBoundPose, StageProfile, StageSurface, StageSurfaceKind, Vec2, World, WorldSnapshot,
@@ -72,6 +73,8 @@ pub use wup_input::WupInputSource;
 const DEFAULT_MAX_TICKS_PER_UPDATE: u32 = 5;
 const AXIS_DEADZONE: i16 = 8_000;
 const CORE_TO_SCREEN_SCALE_DENOMINATOR: i64 = 1_000_000;
+const MELEE_GAMEPLAY_CAMERA_FOV_DEGREES: f32 = 38.0;
+const MELEE_GAMEPLAY_CAMERA_FOV_SMOOTH: f32 = 0.1;
 const SOURCE_SPACE_MELEE_XYZ: &str = "melee_xyz";
 const PROJECTED_VIEW_DERIVED_DEBUG: &str = "derived_debug_view";
 
@@ -377,8 +380,12 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
         let source_action_key = source_action_key_for_player(frame, player_index);
         let action_state_id = frame.player_source_pose_action_state_ids[player_index];
         let source_root_z = source_render_root_motion_z(frame, player_index);
-        let source_capsules = runtime_source_frame_capsules(source_action_key, source_frame);
-        hits.extend(source_capsules.hit_capsules.into_iter().map(|capsule| {
+        let Some(source_capsules) =
+            runtime_source_frame_capsules_ref(source_action_key, source_frame)
+        else {
+            continue;
+        };
+        hits.extend(source_capsules.hit_capsules.iter().copied().map(|capsule| {
             SourceCollisionCapsule::new(
                 player_index,
                 capsule.id,
@@ -394,20 +401,30 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
             .with_optional_hitbox_lifecycle(capsule.hitbox_lifecycle_id)
             .with_optional_hitbox_attributes(capsule.hitbox)
         }));
-        hurts.extend(source_capsules.hurt_capsules.into_iter().map(|capsule| {
-            SourceCollisionCapsule::new(
-                player_index,
-                capsule.id,
-                source_capsule_to_world_3d(
-                    capsule,
-                    frame.player_positions[player_index],
-                    frame.player_model_facing(player_index),
-                    source_root_z,
-                ),
-            )
-            .with_owner_grounded(frame.player_grounded[player_index])
-            .with_source_pose(action_state_id, source_action_key, source_frame)
-        }));
+        hurts.extend(
+            source_capsules
+                .hurt_capsules
+                .iter()
+                .copied()
+                .map(|capsule| {
+                    SourceCollisionCapsule::new(
+                        player_index,
+                        capsule.id,
+                        source_capsule_to_world_3d(
+                            capsule,
+                            frame.player_positions[player_index],
+                            frame.player_model_facing(player_index),
+                            source_root_z,
+                        ),
+                    )
+                    .with_owner_grounded(frame.player_grounded[player_index])
+                    .with_source_pose(
+                        action_state_id,
+                        source_action_key,
+                        source_frame,
+                    )
+                }),
+        );
     }
     SourceCollisionFrame { hits, hurts }
 }
@@ -577,9 +594,11 @@ fn axis_to_i8(value: i16) -> i8 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderFrame {
     pub frame: Frame,
+    pub stage: StageProfile,
     pub common_data: MeleeCommonData,
     pub player_positions: [Vec2; 2],
     pub player_velocities: [Vec2; 2],
+    pub player_camera_boxes: [FighterCameraBox; 2],
     pub player_ecbs: [EcbDiamond; 2],
     pub player_grounded: [bool; 2],
     pub player_facings: [i8; 2],
@@ -625,6 +644,7 @@ pub struct RenderFrame {
     pub player_turn_run_x14: [bool; 2],
     pub player_motion_anim_rate_milli: [i32; 2],
     pub player_entry_base_y: [i32; 2],
+    pub player_entry_platforms: [FighterEntryPlatformProfile; 2],
     pub player_entry_platform_offset_y: [i32; 2],
     pub player_entry_timers: [u8; 2],
     pub player_debug_input_facts: [MeleeInputFacts; 2],
@@ -639,9 +659,14 @@ impl RenderFrame {
     pub fn from_snapshot(snapshot: WorldSnapshot) -> Self {
         Self {
             frame: snapshot.frame,
+            stage: snapshot.stage,
             common_data: snapshot.common_data,
             player_positions: [snapshot.players[0].position, snapshot.players[1].position],
             player_velocities: [snapshot.players[0].velocity, snapshot.players[1].velocity],
+            player_camera_boxes: [
+                snapshot.players[0].camera_box,
+                snapshot.players[1].camera_box,
+            ],
             player_ecbs: [
                 snapshot.players[0].active_ecb,
                 snapshot.players[1].active_ecb,
@@ -813,6 +838,10 @@ impl RenderFrame {
                 snapshot.players[0].entry_base_y,
                 snapshot.players[1].entry_base_y,
             ],
+            player_entry_platforms: [
+                snapshot.players[0].entry_platform,
+                snapshot.players[1].entry_platform,
+            ],
             player_entry_platform_offset_y: [
                 snapshot.players[0].entry_platform_offset_y,
                 snapshot.players[1].entry_platform_offset_y,
@@ -849,6 +878,93 @@ pub struct RenderTransform {
     pub pixels_per_core_unit_milli: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RenderCameraTransformState {
+    pub interest_x: f32,
+    pub interest_y: f32,
+    pub position_x: f32,
+    pub position_y: f32,
+    pub position_z: f32,
+    pub target_interest_x: f32,
+    pub target_interest_y: f32,
+    pub target_position_x: f32,
+    pub target_position_y: f32,
+    pub target_position_z: f32,
+    pub fov_degrees: f32,
+    pub target_fov_degrees: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RenderCameraSubjectBounds {
+    pub x_min: f32,
+    pub y_min: f32,
+    pub x_max: f32,
+    pub y_max: f32,
+    pub total_subjects: u8,
+    pub z_pos: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RenderCameraState {
+    pub transform: RenderCameraTransformState,
+}
+
+impl RenderCameraState {
+    pub fn new_for_stage(stage: &StageProfile) -> Self {
+        let transform = initial_camera_transform(stage);
+        Self { transform }
+    }
+
+    pub fn battlefield() -> Self {
+        let stage = StageProfile::battlefield();
+        Self::new_for_stage(&stage)
+    }
+
+    pub fn update_from_frame(
+        &mut self,
+        frame: &RenderFrame,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> RenderTransform {
+        if frame.stage.melee_stage_profile().is_some() {
+            self.step_melee_camera(frame, viewport_width, viewport_height)
+        } else {
+            RenderTransform::stage_camera(&frame.stage, viewport_width, viewport_height)
+        }
+    }
+
+    fn step_melee_camera(
+        &mut self,
+        frame: &RenderFrame,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> RenderTransform {
+        if frame.stage.melee_stage_profile().is_none() {
+            return RenderTransform::stage_camera(&frame.stage, viewport_width, viewport_height);
+        }
+        let mut bounds = melee_camera_subject_bounds(frame, self.transform.position_z);
+        self.transform.target_fov_degrees = MELEE_GAMEPLAY_CAMERA_FOV_DEGREES;
+        self.transform.fov_degrees += (self.transform.target_fov_degrees
+            - self.transform.fov_degrees)
+            * MELEE_GAMEPLAY_CAMERA_FOV_SMOOTH;
+        melee_camera_target_from_bounds(
+            &frame.stage,
+            &mut bounds,
+            &mut self.transform,
+            viewport_width,
+            viewport_height,
+        );
+        melee_camera_smooth_interest(&bounds, &mut self.transform);
+        melee_camera_smooth_position(&mut self.transform);
+        RenderTransform::from_camera_transform(
+            &frame.stage,
+            self.transform,
+            viewport_width,
+            viewport_height,
+        )
+    }
+}
+
 impl RenderTransform {
     pub fn battlefield_camera(viewport_width: u32, viewport_height: u32) -> Self {
         let stage = StageProfile::battlefield();
@@ -856,6 +972,33 @@ impl RenderTransform {
     }
 
     pub fn stage_camera(stage: &StageProfile, viewport_width: u32, viewport_height: u32) -> Self {
+        if let Some(melee_stage) = stage.melee_stage_profile() {
+            let bounds = melee_stage.camera.cam_bounds;
+            let left = source_units_to_milli(bounds.left);
+            let right = source_units_to_milli(bounds.right);
+            let top = source_units_to_milli(bounds.top);
+            let bottom = source_units_to_milli(bounds.bottom);
+            let width = (right - left).abs().max(1) as i64;
+            let height = (top - bottom).abs().max(1) as i64;
+            let fit_width = viewport_width as i64 * CORE_TO_SCREEN_SCALE_DENOMINATOR * 9 / 10;
+            let fit_height = viewport_height as i64 * CORE_TO_SCREEN_SCALE_DENOMINATOR * 9 / 10;
+            let pixels_per_core_unit_milli =
+                (fit_width / width).min(fit_height / height).max(1) as i32;
+            let center_x_milli = (left + right) / 2;
+            let center_y_milli = (top + bottom) / 2;
+            let center_x = viewport_width as i32 / 2
+                - scale_core_delta_with(pixels_per_core_unit_milli, center_x_milli);
+            let ground_y = viewport_height as i32 / 2
+                + scale_core_delta_with(pixels_per_core_unit_milli, center_y_milli);
+            return Self {
+                viewport_width,
+                viewport_height,
+                center_x,
+                ground_y,
+                pixels_per_core_unit_milli,
+            };
+        }
+
         let stage_width_units = stage.main_floor.right_x - stage.main_floor.left_x;
         let target_stage_width = viewport_width as i32 * 3 / 4;
         let pixels_per_core_unit_milli = (target_stage_width as i64
@@ -867,6 +1010,56 @@ impl RenderTransform {
             viewport_height,
             center_x: viewport_width as i32 / 2,
             ground_y: viewport_height as i32 * 3 / 4,
+            pixels_per_core_unit_milli,
+        }
+    }
+
+    pub fn from_camera_state(
+        camera: &RenderCameraState,
+        stage: &StageProfile,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> Self {
+        Self::from_camera_transform(stage, camera.transform, viewport_width, viewport_height)
+    }
+
+    fn from_camera_transform(
+        stage: &StageProfile,
+        camera: RenderCameraTransformState,
+        viewport_width: u32,
+        viewport_height: u32,
+    ) -> Self {
+        let Some(melee_stage) = stage.melee_stage_profile() else {
+            return Self::stage_camera(stage, viewport_width, viewport_height);
+        };
+        let aspect = viewport_width as f32 / viewport_height.max(1) as f32;
+        let half_fov = (camera.fov_degrees.max(1.0) * 0.5).to_radians();
+        let half_height = (camera
+            .position_z
+            .abs()
+            .max(melee_stage.camera.cam_zoom_rate)
+            * half_fov.tan())
+        .max(1.0);
+        let half_width = (half_height * aspect).max(1.0);
+        let scale_x = viewport_width as f32 / (half_width * 2.0);
+        let scale_y = viewport_height as f32 / (half_height * 2.0);
+        let pixels_per_core_unit_milli = ((scale_x.min(scale_y) * 1000.0).round() as i32).max(1);
+        let center_x = viewport_width as i32 / 2
+            - scale_core_delta_with(
+                pixels_per_core_unit_milli,
+                source_units_to_milli(camera.interest_x),
+            );
+        let ground_y = viewport_height as i32 / 2
+            + scale_core_delta_with(
+                pixels_per_core_unit_milli,
+                source_units_to_milli(camera.interest_y),
+            );
+
+        Self {
+            viewport_width,
+            viewport_height,
+            center_x,
+            ground_y,
             pixels_per_core_unit_milli,
         }
     }
@@ -883,14 +1076,206 @@ impl RenderTransform {
     }
 
     fn scale_core_delta(self, value: i32) -> i32 {
-        let numerator = value as i64 * self.pixels_per_core_unit_milli as i64;
-        if numerator >= 0 {
-            ((numerator + CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
-                as i32
+        scale_core_delta_with(self.pixels_per_core_unit_milli, value)
+    }
+}
+
+fn initial_camera_transform(stage: &StageProfile) -> RenderCameraTransformState {
+    if let Some(melee_stage) = stage.melee_stage_profile() {
+        let bounds = melee_stage.camera.cam_bounds;
+        let interest_x = (bounds.left + bounds.right) * 0.5 + melee_stage.camera.cam_x_offset;
+        let interest_y = (bounds.top + bounds.bottom) * 0.5 + melee_stage.camera.cam_y_offset;
+        let fov = melee_stage.camera.fixed_cam_fov.max(1.0);
+        let position_z = melee_stage
+            .camera
+            .fixed_cam_pos
+            .z
+            .abs()
+            .max(melee_stage.camera.cam_zoom_rate);
+        return RenderCameraTransformState {
+            interest_x,
+            interest_y,
+            position_x: interest_x,
+            position_y: interest_y,
+            position_z,
+            target_interest_x: interest_x,
+            target_interest_y: interest_y,
+            target_position_x: interest_x,
+            target_position_y: interest_y,
+            target_position_z: position_z,
+            fov_degrees: fov,
+            target_fov_degrees: fov,
+        };
+    }
+
+    RenderCameraTransformState {
+        interest_x: 0.0,
+        interest_y: 0.0,
+        position_x: 0.0,
+        position_y: 0.0,
+        position_z: 300.0,
+        target_interest_x: 0.0,
+        target_interest_y: 0.0,
+        target_position_x: 0.0,
+        target_position_y: 0.0,
+        target_position_z: 300.0,
+        fov_degrees: 30.0,
+        target_fov_degrees: 30.0,
+    }
+}
+
+fn melee_camera_subject_bounds(frame: &RenderFrame, current_z: f32) -> RenderCameraSubjectBounds {
+    let stage = frame
+        .stage
+        .melee_stage_profile()
+        .expect("melee_camera_subject_bounds requires a Melee stage profile");
+    let cam = stage.camera;
+    let subject_weight = [0.0_f32, 1.5, 1.32, 1.16, 1.0][2];
+    let tracking_multiplier = subject_weight * cam.cam_track_ratio;
+    let mut x_min = f32::MAX;
+    let mut y_min = f32::MAX;
+    let mut x_max = -f32::MAX;
+    let mut y_max = -f32::MAX;
+    let mut total_subjects = 0_u8;
+
+    for index in 0..frame.player_positions.len() {
+        let root = frame.player_positions[index];
+        let camera_box = frame.player_camera_boxes[index];
+        let root_x = milli_to_source_for_camera(root.x);
+        let root_y = milli_to_source_for_camera(root.y);
+        let facing_right = frame.player_facings[index] == 1;
+        let (subject_x2c_x, subject_x2c_y) = if facing_right {
+            (camera_box.x0.z, camera_box.x0.y * cam.cam_fixed_zoom)
         } else {
-            ((numerator - CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
-                as i32
-        }
+            (-camera_box.x0.y * cam.cam_fixed_zoom, -camera_box.x0.z)
+        };
+        let subject_x10_x = root_x;
+        let subject_x10_y = root_y + camera_box.x0.x;
+        let x_a = (subject_x10_x + subject_x2c_x * tracking_multiplier)
+            .clamp(cam.cam_bounds.left, cam.cam_bounds.right);
+        let x_b = (subject_x10_x + subject_x2c_y * tracking_multiplier)
+            .clamp(cam.cam_bounds.left, cam.cam_bounds.right);
+        let y_a = (subject_x10_y + camera_box.xc.y * tracking_multiplier)
+            .clamp(cam.cam_bounds.bottom, cam.cam_bounds.top);
+        let y_b = (subject_x10_y + camera_box.xc.x * tracking_multiplier)
+            .clamp(cam.cam_bounds.bottom, cam.cam_bounds.top);
+        x_min = x_min.min(x_a).min(x_b);
+        x_max = x_max.max(x_a).max(x_b);
+        y_min = y_min.min(y_a).min(y_b);
+        y_max = y_max.max(y_a).max(y_b);
+        total_subjects += 1;
+    }
+
+    let z_pos = current_z.abs();
+    let z_factor = if z_pos < 80.0 {
+        0.0
+    } else if z_pos > 5000.0 {
+        1.0
+    } else {
+        (z_pos - 80.0) / 4920.0
+    };
+    y_min -= (390.0 * z_factor) + 10.0;
+    y_min = y_min.max(cam.cam_bounds.bottom);
+
+    RenderCameraSubjectBounds {
+        x_min,
+        y_min,
+        x_max,
+        y_max,
+        total_subjects,
+        z_pos,
+    }
+}
+
+fn melee_camera_target_from_bounds(
+    stage: &StageProfile,
+    bounds: &mut RenderCameraSubjectBounds,
+    transform: &mut RenderCameraTransformState,
+    viewport_width: u32,
+    viewport_height: u32,
+) {
+    let melee_stage = stage
+        .melee_stage_profile()
+        .expect("Melee camera target requires stage metadata");
+    let cam = melee_stage.camera;
+    let aspect = viewport_width as f32 / viewport_height.max(1) as f32;
+    let half_fov = (transform.target_fov_degrees.max(1.0) * 0.5).to_radians();
+    let vertical_dist = (bounds.y_max - bounds.y_min).max(1.0) / (2.0 * half_fov.tan());
+    let horizontal_dist =
+        (bounds.x_max - bounds.x_min).max(1.0) / (2.0 * aspect.max(0.001) * half_fov.tan());
+    let target_z = vertical_dist
+        .max(horizontal_dist)
+        .max(cam.cam_zoom_rate)
+        .min(cam.cam_max_depth);
+    let visible_half_height = target_z * half_fov.tan();
+    let visible_half_width = visible_half_height * aspect;
+    let mut target_x = (bounds.x_min + bounds.x_max) * 0.5 + cam.cam_x_offset;
+    let mut target_y = (bounds.y_min + bounds.y_max) * 0.5 + cam.cam_y_offset;
+
+    target_x = clamp_visible_center(
+        target_x,
+        visible_half_width,
+        cam.cam_bounds.left,
+        cam.cam_bounds.right,
+    );
+    target_y = clamp_visible_center(
+        target_y,
+        visible_half_height,
+        cam.cam_bounds.bottom,
+        cam.cam_bounds.top,
+    );
+
+    transform.target_interest_x = target_x;
+    transform.target_interest_y = target_y;
+    transform.target_position_x = target_x;
+    transform.target_position_y = target_y;
+    transform.target_position_z = target_z;
+    bounds.z_pos = target_z;
+}
+
+fn melee_camera_smooth_interest(
+    bounds: &RenderCameraSubjectBounds,
+    transform: &mut RenderCameraTransformState,
+) {
+    let spread = (bounds.x_max - bounds.x_min).max(bounds.y_max - bounds.y_min);
+    let follow_speed = if spread > 900.0 {
+        0.1
+    } else if spread < 120.0 {
+        0.05
+    } else {
+        ((spread - 120.0) / (900.0 - 120.0)) * (0.1 - 0.05) + 0.05
+    };
+    let lerp = follow_speed.clamp(0.0001, 1.0);
+    transform.interest_x += (transform.target_interest_x - transform.interest_x) * lerp;
+    transform.interest_y += (transform.target_interest_y - transform.interest_y) * lerp;
+}
+
+fn melee_camera_smooth_position(transform: &mut RenderCameraTransformState) {
+    let lerp = 0.15_f32;
+    transform.position_x += (transform.target_position_x - transform.position_x) * lerp;
+    transform.position_y += (transform.target_position_y - transform.position_y) * lerp;
+    transform.position_z += (transform.target_position_z - transform.position_z) * lerp;
+}
+
+fn clamp_visible_center(center: f32, half_extent: f32, min: f32, max: f32) -> f32 {
+    if (max - min) <= half_extent * 2.0 {
+        return (min + max) * 0.5;
+    }
+    center.clamp(min + half_extent, max - half_extent)
+}
+
+fn milli_to_source_for_camera(value: i32) -> f32 {
+    value as f32 / 1000.0
+}
+
+fn scale_core_delta_with(pixels_per_core_unit_milli: i32, value: i32) -> i32 {
+    let numerator = value as i64 * pixels_per_core_unit_milli as i64;
+    if numerator >= 0 {
+        ((numerator + CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
+            as i32
+    } else {
+        ((numerator - CORE_TO_SCREEN_SCALE_DENOMINATOR / 2) / CORE_TO_SCREEN_SCALE_DENOMINATOR)
+            as i32
     }
 }
 
@@ -1043,13 +1428,21 @@ pub struct RenderPolygon {
     pub color: RenderColor,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderLine {
+    pub start: RenderPoint,
+    pub end: RenderPoint,
+    pub color: RenderColor,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RenderScene {
     pub background: RenderColor,
-    pub background_image: RenderImage,
+    pub background_image: Option<RenderImage>,
     pub transform: RenderTransform,
     pub stage: RenderRect,
     pub stage_surfaces: Vec<RenderRect>,
+    pub stage_collision_lines: Vec<RenderLine>,
     pub players: [RenderRect; 2],
     /// Screen-space projection of the fighter's simulation/root position.
     /// Visual assets stay anchored here while the active ECB polygon is drawn
@@ -1066,11 +1459,22 @@ pub struct RenderScene {
 
 impl RenderScene {
     pub fn from_frame(frame: &RenderFrame, viewport_width: u32, viewport_height: u32) -> Self {
-        Self::from_frame_on_stage(
+        Self::from_frame_on_stage(frame, &frame.stage, viewport_width, viewport_height)
+    }
+
+    pub fn from_frame_with_camera(
+        frame: &RenderFrame,
+        viewport_width: u32,
+        viewport_height: u32,
+        camera: &mut RenderCameraState,
+    ) -> Self {
+        let transform = camera.update_from_frame(frame, viewport_width, viewport_height);
+        Self::from_frame_on_stage_with_transform(
             frame,
-            &StageProfile::battlefield(),
+            &frame.stage,
             viewport_width,
             viewport_height,
+            transform,
         )
     }
 
@@ -1082,12 +1486,45 @@ impl RenderScene {
     ) -> Self {
         let transform =
             RenderTransform::stage_camera(stage_profile, viewport_width, viewport_height);
+        Self::from_frame_on_stage_with_transform(
+            frame,
+            stage_profile,
+            viewport_width,
+            viewport_height,
+            transform,
+        )
+    }
+
+    fn from_frame_on_stage_with_transform(
+        frame: &RenderFrame,
+        stage_profile: &StageProfile,
+        viewport_width: u32,
+        viewport_height: u32,
+        transform: RenderTransform,
+    ) -> Self {
         let player_colors = [RenderColor::PLAYER_ONE, RenderColor::PLAYER_TWO];
         let stage_surfaces = render_stage_surfaces(stage_profile, transform);
-        let background = if stage_profile.name == "dev_flat_test" {
+        let stage_collision_lines = render_stage_collision_lines(stage_profile, transform);
+        let background = if stage_profile.melee_stage_profile().is_some()
+            || stage_profile.name == "dev_flat_test"
+        {
             RenderColor::DEV_BACKGROUND
         } else {
             RenderColor::BACKGROUND
+        };
+        let background_image = if stage_profile.melee_stage_profile().is_some() {
+            None
+        } else {
+            Some(RenderImage {
+                relative_path: "background.png",
+                rect: RenderRect {
+                    x: 0,
+                    y: 0,
+                    width: viewport_width,
+                    height: viewport_height,
+                    color: background,
+                },
+            })
         };
         let player_sprites = [
             LegacySpriteCue::for_player(
@@ -1125,19 +1562,11 @@ impl RenderScene {
 
         Self {
             background,
-            background_image: RenderImage {
-                relative_path: "background.png",
-                rect: RenderRect {
-                    x: 0,
-                    y: 0,
-                    width: viewport_width,
-                    height: viewport_height,
-                    color: background,
-                },
-            },
+            background_image,
             transform,
             stage: stage_surfaces[0],
             stage_surfaces,
+            stage_collision_lines,
             players,
             player_contact_points,
             player_ecbs: [
@@ -1192,7 +1621,7 @@ fn source_asset_root() -> PathBuf {
 }
 
 fn has_runtime_assets(root: &Path) -> bool {
-    root.join("background.png").is_file() && root.join("DolphinMole").is_dir()
+    root.join("DolphinMole").is_dir()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1528,9 +1957,11 @@ fn player_hitbox_pills(
 ) -> Vec<RenderCapsule> {
     let source_frame = source_frame_for_player(frame, index);
     let source_root_z = source_render_root_motion_z(frame, index);
-    runtime_source_frame_capsules(source_action_key_for_player(frame, index), source_frame)
-        .hit_capsules
-        .into_iter()
+    runtime_source_frame_capsules_ref(source_action_key_for_player(frame, index), source_frame)
+        .map(|source_capsules| source_capsules.hit_capsules.as_slice())
+        .unwrap_or(&[])
+        .iter()
+        .copied()
         .map(|hitbox| {
             render_source_capsule(
                 hitbox,
@@ -1552,9 +1983,11 @@ fn player_hurtbox_pills(
 ) -> Vec<RenderCapsule> {
     let source_frame = source_frame_for_player(frame, index);
     let source_root_z = source_render_root_motion_z(frame, index);
-    runtime_source_frame_capsules(source_action_key_for_player(frame, index), source_frame)
-        .hurt_capsules
-        .into_iter()
+    runtime_source_frame_capsules_ref(source_action_key_for_player(frame, index), source_frame)
+        .map(|source_capsules| source_capsules.hurt_capsules.as_slice())
+        .unwrap_or(&[])
+        .iter()
+        .copied()
         .map(|hurtbox| {
             render_source_capsule(
                 hurtbox,
@@ -1724,21 +2157,20 @@ struct RuntimeSourceAction {
 static RUNTIME_SOURCE_ACTION_CACHE: OnceLock<Result<Vec<RuntimeSourceAction>, String>> =
     OnceLock::new();
 
-fn runtime_source_frame_capsules(
+fn runtime_source_frame_capsules_ref(
     source_action_key: Option<SourceActionKey>,
     source_frame: u8,
-) -> RuntimeSourceFrameCapsules {
+) -> Option<&'static RuntimeSourceFrameCapsules> {
     let Some(source_action_key) = source_action_key else {
-        return RuntimeSourceFrameCapsules::empty(source_frame);
+        return None;
     };
     let Ok(cache) = runtime_source_actions() else {
-        return RuntimeSourceFrameCapsules::empty(source_frame);
+        return None;
     };
     cache
         .iter()
         .find(|action| action.source_action_key == source_action_key)
-        .and_then(|action| action.frame(source_frame).cloned())
-        .unwrap_or_else(|| RuntimeSourceFrameCapsules::empty(source_frame))
+        .and_then(|action| action.frame(source_frame))
 }
 
 fn runtime_source_action_total_frames_for_action_state_id(
@@ -1874,22 +2306,6 @@ fn runtime_source_capsule_from_sample(sample: RuntimeSourceCapsuleSample) -> Run
     }
 }
 
-impl RuntimeSourceFrameCapsules {
-    fn empty(source_frame: u8) -> Self {
-        Self {
-            source_frame,
-            down_bound_pose: SourceDownBoundPose {
-                hip_mtx_0_1: 0.0,
-                hip_mtx_0_2: 0.0,
-                hip_mtx_1_1: 0.0,
-                hip_mtx_1_2: 0.0,
-            },
-            hit_capsules: Vec::new(),
-            hurt_capsules: Vec::new(),
-        }
-    }
-}
-
 impl RuntimeSourceAction {
     fn frame(&self, source_frame: u8) -> Option<&RuntimeSourceFrameCapsules> {
         let index = usize::from(source_frame.checked_sub(1)?);
@@ -1914,7 +2330,7 @@ fn entry_platform(
     frame: &RenderFrame,
     index: usize,
     transform: RenderTransform,
-    player: RenderRect,
+    _player: RenderRect,
 ) -> Option<RenderRect> {
     if !matches!(
         frame.player_motion_states[index],
@@ -1923,13 +2339,25 @@ fn entry_platform(
         return None;
     }
 
-    let contact = transform.world_to_screen(frame.player_positions[index]);
-    let width = (player.width * 2).max(96);
-    let height = transform.core_length_to_screen(1_000).max(8);
+    let source_platform = frame.player_entry_platforms[index];
+    let contact = transform.world_to_screen(Vec2 {
+        x: frame.player_positions[index].x,
+        y: frame.player_entry_base_y[index],
+    });
+    let width = transform
+        .core_length_to_screen(source_units_to_milli(
+            source_platform.accessory.mesh_bounds.width_x(),
+        ))
+        .max(1);
+    let height = transform
+        .core_length_to_screen(source_units_to_milli(
+            source_platform.accessory.mesh_bounds.height_y().abs(),
+        ))
+        .max(4);
 
     Some(RenderRect {
         x: contact.x - width as i32 / 2,
-        y: contact.y,
+        y: contact.y - height as i32,
         width,
         height,
         color: RenderColor::ENTRY_PLATFORM,
@@ -1950,6 +2378,54 @@ fn render_stage_surfaces(
             .map(|surface| render_stage_surface(surface, transform)),
     );
     surfaces
+}
+
+fn render_stage_collision_lines(
+    stage_profile: &StageProfile,
+    transform: RenderTransform,
+) -> Vec<RenderLine> {
+    let Some(stage) = stage_profile.melee_stage_profile() else {
+        return Vec::new();
+    };
+
+    (0..stage.collision.lines.len())
+        .filter_map(|index| {
+            let line = stage.collision.scaled_line(index)?;
+            Some(RenderLine {
+                start: transform.world_to_screen(Vec2 {
+                    x: line.x0_milli,
+                    y: line.y0_milli,
+                }),
+                end: transform.world_to_screen(Vec2 {
+                    x: line.x1_milli,
+                    y: line.y1_milli,
+                }),
+                color: match line.kind {
+                    mole_core::StageCollisionLineKind::Floor => RenderColor::STAGE,
+                    mole_core::StageCollisionLineKind::SoftFloor => RenderColor::SOFT_PLATFORM,
+                    mole_core::StageCollisionLineKind::Ceiling => RenderColor {
+                        r: 132,
+                        g: 145,
+                        b: 168,
+                        a: 255,
+                    },
+                    mole_core::StageCollisionLineKind::RightWall
+                    | mole_core::StageCollisionLineKind::LeftWall => RenderColor {
+                        r: 156,
+                        g: 168,
+                        b: 184,
+                        a: 255,
+                    },
+                    mole_core::StageCollisionLineKind::Dynamic => RenderColor {
+                        r: 208,
+                        g: 130,
+                        b: 130,
+                        a: 255,
+                    },
+                },
+            })
+        })
+        .collect()
 }
 
 fn render_stage_surface(surface: &StageSurface, transform: RenderTransform) -> RenderRect {

@@ -30,8 +30,8 @@ use mole_transport::discover_public_udp_endpoint;
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use mole_runtime::{
-    BoundedNetplayLogger, DebugOverlay, NetplayLogEvent, NetplayLogRole, RenderCapsule,
-    RenderColor, RenderPolygon, RenderRect, RenderScene, SdlInputSource,
+    BoundedNetplayLogger, DebugOverlay, NetplayLogEvent, NetplayLogRole, RenderCameraState,
+    RenderCapsule, RenderColor, RenderPolygon, RenderRect, RenderScene, SdlInputSource,
 };
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -61,6 +61,8 @@ fn main() {
     let input_trace = has_flag(&args, "--input-trace");
     #[cfg(feature = "sdl")]
     let timing = has_flag(&args, "--timing");
+    #[cfg(feature = "sdl")]
+    let debug_overlay = has_flag(&args, "--debug-overlay");
     #[cfg(feature = "sdl")]
     let frame_cap_enabled = !has_flag(&args, "--no-frame-cap");
     #[cfg(feature = "wup")]
@@ -306,6 +308,7 @@ fn main() {
             frame_log,
             input_trace,
             timing,
+            debug_overlay,
             frame_cap_enabled,
             #[cfg(feature = "wup")]
             ucf_enabled,
@@ -1310,6 +1313,7 @@ fn run_friend_connect_sdl(
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
     let mut next_frame_deadline = Instant::now() + frame_budget;
+    let mut render_camera = RenderCameraState::battlefield();
 
     for frame_number in 0..frames {
         let frame_start = Instant::now();
@@ -1477,7 +1481,8 @@ fn run_friend_connect_sdl(
             _ => DebugOverlay::from_frame(&render_frame),
         };
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
-        let scene = RenderScene::from_frame(&render_frame, width, height);
+        let scene =
+            RenderScene::from_frame_with_camera(&render_frame, width, height, &mut render_camera);
         draw_sdl_scene(
             &mut canvas,
             &scene,
@@ -2435,8 +2440,7 @@ fn run_udp_sdl(
     let mut texture_cache =
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
-    let mut local_input_source =
-        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
+    let mut local_input_source = open_optional_wup_input_source(ucf_enabled, "UDP SDL");
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
     let transport = UdpTransport::bind(config.local_addr, config.peer_addr)
         .map_err(|error| error.to_string())?;
@@ -2449,6 +2453,7 @@ fn run_udp_sdl(
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
     let mut next_frame_deadline = Instant::now() + frame_budget;
+    let mut render_camera = RenderCameraState::battlefield();
 
     for frame_number in 0..frames {
         let frame = Frame(frame_number);
@@ -2457,10 +2462,10 @@ fn run_udp_sdl(
             .as_ref()
             .map(|_| mole_runtime::RenderFrame::from_world(&world));
         let (polled_inputs, local_trace) = if input_trace_writer.is_some() {
-            poll_traced_wup_inputs(&mut local_input_source)
+            poll_traced_wup_inputs(&mut local_input_source, ucf_enabled, frame)
         } else {
             (
-                mole_runtime::InputSource::poll_inputs(&mut local_input_source, frame),
+                poll_optional_wup_inputs(&mut local_input_source, ucf_enabled, frame),
                 None,
             )
         };
@@ -2509,7 +2514,8 @@ fn run_udp_sdl(
         }
         let overlay = DebugOverlay::from_frame_with_udp_stats(&render_frame, &stats);
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
-        let scene = RenderScene::from_frame(&render_frame, width, height);
+        let scene =
+            RenderScene::from_frame_with_camera(&render_frame, width, height, &mut render_camera);
         if frame_log {
             println!(
                 "{}",
@@ -2578,6 +2584,7 @@ fn run_sdl_smoke(
     frame_log: bool,
     input_trace: bool,
     timing: bool,
+    debug_overlay: bool,
     frame_cap_enabled: bool,
     ucf_enabled: bool,
 ) -> Result<(), String> {
@@ -2597,8 +2604,7 @@ fn run_sdl_smoke(
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
 
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
-    let mut gameplay_input_source =
-        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
+    let mut gameplay_input_source = open_optional_wup_input_source(ucf_enabled, "local SDL");
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
     let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
@@ -2607,6 +2613,7 @@ fn run_sdl_smoke(
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
     let mut next_frame_deadline = Instant::now() + frame_budget;
+    let mut render_camera = RenderCameraState::battlefield();
 
     for frame in 0..frames {
         let frame_started = Instant::now();
@@ -2617,10 +2624,10 @@ fn run_sdl_smoke(
             .as_ref()
             .map(|_| mole_runtime::RenderFrame::from_world(&world));
         let (inputs, wup_trace) = if input_trace_writer.is_some() {
-            poll_traced_wup_inputs(&mut gameplay_input_source)
+            poll_traced_wup_inputs(&mut gameplay_input_source, ucf_enabled, frame)
         } else {
             (
-                mole_runtime::InputSource::poll_inputs(&mut gameplay_input_source, frame),
+                poll_optional_wup_inputs(&mut gameplay_input_source, ucf_enabled, frame),
                 None,
             )
         };
@@ -2647,9 +2654,10 @@ fn run_sdl_smoke(
                 ))
                 .map_err(|error| error.to_string())?;
         }
-        let overlay = DebugOverlay::from_frame(&render_frame);
+        let overlay = debug_overlay.then(|| DebugOverlay::from_frame(&render_frame));
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
-        let scene = RenderScene::from_frame(&render_frame, width, height);
+        let scene =
+            RenderScene::from_frame_with_camera(&render_frame, width, height, &mut render_camera);
         let scene_elapsed = scene_started.elapsed();
         if frame_log {
             println!(
@@ -2662,7 +2670,7 @@ fn run_sdl_smoke(
         draw_sdl_scene(
             &mut canvas,
             &scene,
-            Some(&overlay),
+            overlay.as_ref(),
             Some(&mut texture_cache),
         )?;
         let draw_elapsed = draw_started.elapsed();
@@ -2710,6 +2718,7 @@ fn run_sdl_smoke(
     _frame_log: bool,
     _input_trace: bool,
     _timing: bool,
+    _debug_overlay: bool,
     _frame_cap_enabled: bool,
     #[cfg(feature = "wup")] _ucf_enabled: bool,
 ) -> Result<(), String> {
@@ -2734,14 +2743,77 @@ fn create_input_trace_writer(
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
-fn poll_traced_wup_inputs(
-    input_source: &mut WupInputSource,
-) -> ([PlayerInput; 2], Option<mole_runtime::WupInputTrace>) {
-    match input_source.poll_traced_adapter() {
-        Ok(trace) => (trace.inputs, Some(trace)),
-        Err(rusb::Error::Timeout) => (input_source.latest_inputs(), input_source.latest_trace()),
+fn open_optional_wup_input_source(ucf_enabled: bool, context: &str) -> Option<WupInputSource> {
+    match WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled }) {
+        Ok(source) => Some(source),
         Err(error) => {
-            eprintln!("WUP read failed; neutralizing gameplay input for this frame: {error}");
+            eprintln!("{context} WUP input is not ready; launching with neutral input: {error}");
+            None
+        }
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn retry_optional_wup_input_source(
+    input_source: &mut Option<WupInputSource>,
+    ucf_enabled: bool,
+    frame: Frame,
+) {
+    if input_source.is_some() || frame.0 % 60 != 0 {
+        return;
+    }
+
+    match WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled }) {
+        Ok(source) => {
+            eprintln!("WUP input connected; using native GameCube adapter input.");
+            *input_source = Some(source);
+        }
+        Err(error) if frame.0 == 0 => {
+            eprintln!("WUP input still unavailable; continuing with neutral input: {error}");
+        }
+        Err(_) => {}
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn poll_optional_wup_inputs(
+    input_source: &mut Option<WupInputSource>,
+    ucf_enabled: bool,
+    frame: Frame,
+) -> [PlayerInput; 2] {
+    retry_optional_wup_input_source(input_source, ucf_enabled, frame);
+    let Some(source) = input_source.as_mut() else {
+        return [PlayerInput::neutral(), PlayerInput::neutral()];
+    };
+
+    match source.poll_adapter() {
+        Ok(inputs) => inputs,
+        Err(rusb::Error::Timeout) => source.latest_inputs(),
+        Err(error) => {
+            eprintln!("WUP read failed; releasing adapter and using neutral input: {error}");
+            *input_source = None;
+            [PlayerInput::neutral(), PlayerInput::neutral()]
+        }
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn poll_traced_wup_inputs(
+    input_source: &mut Option<WupInputSource>,
+    ucf_enabled: bool,
+    frame: Frame,
+) -> ([PlayerInput; 2], Option<mole_runtime::WupInputTrace>) {
+    retry_optional_wup_input_source(input_source, ucf_enabled, frame);
+    let Some(source) = input_source.as_mut() else {
+        return ([PlayerInput::neutral(), PlayerInput::neutral()], None);
+    };
+
+    match source.poll_traced_adapter() {
+        Ok(trace) => (trace.inputs, Some(trace)),
+        Err(rusb::Error::Timeout) => (source.latest_inputs(), source.latest_trace()),
+        Err(error) => {
+            eprintln!("WUP read failed; releasing adapter and using neutral input: {error}");
+            *input_source = None;
             ([PlayerInput::neutral(), PlayerInput::neutral()], None)
         }
     }
@@ -2758,17 +2830,31 @@ fn draw_sdl_scene(
 
     canvas.set_draw_color(sdl_color(scene.background));
     canvas.clear();
-    if let Some(cache) = texture_cache.as_mut() {
+    if let (Some(cache), Some(background_image)) = (texture_cache.as_mut(), scene.background_image)
+    {
         draw_sdl_image(
             canvas,
             cache,
-            scene.background_image.relative_path,
-            scene.background_image.rect,
+            background_image.relative_path,
+            background_image.rect,
             false,
         )?;
     }
-    for surface in &scene.stage_surfaces {
-        draw_sdl_rect(canvas, *surface)?;
+    if scene.stage_collision_lines.is_empty() {
+        for surface in &scene.stage_surfaces {
+            draw_sdl_rect(canvas, *surface)?;
+        }
+    } else {
+        for line in &scene.stage_collision_lines {
+            draw_sdl_line(
+                canvas,
+                line.start.x,
+                line.start.y,
+                line.end.x,
+                line.end.y,
+                line.color,
+            )?;
+        }
     }
     for platform in scene.entry_platforms.into_iter().flatten() {
         draw_sdl_rect(canvas, platform)?;
@@ -2779,7 +2865,7 @@ fn draw_sdl_scene(
                 draw_sdl_image(
                     canvas,
                     cache,
-                    &scene.player_sprites[index].relative_path(),
+                    scene.player_sprites[index].relative_path(),
                     player,
                     scene.player_sprites[index].flip_x,
                 )?;
@@ -3318,8 +3404,7 @@ fn stream_wup_native(frames: u32) -> Result<(), String> {
 
 #[cfg(feature = "wup")]
 fn run_wup_smoke(frames: u32, replay_path: Option<&Path>, ucf_enabled: bool) -> Result<(), String> {
-    let mut input_source =
-        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;
+    let mut input_source = open_optional_wup_input_source(ucf_enabled, "WUP smoke");
     let initial = mole_runtime::default_play_world();
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
@@ -3329,8 +3414,8 @@ fn run_wup_smoke(frames: u32, replay_path: Option<&Path>, ucf_enabled: bool) -> 
 
     for frame in 0..frames {
         let frame = Frame(frame);
-        let inputs =
-            mole_runtime::step_world_from_input_source(&mut world, &mut input_source, frame);
+        let inputs = poll_optional_wup_inputs(&mut input_source, ucf_enabled, frame);
+        mole_runtime::step_world_with_source_collisions(&mut world, frame, &inputs);
         if let Some(capture) = replay_capture.as_mut() {
             capture.record_frame(frame, inputs, world.checksum());
         }

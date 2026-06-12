@@ -3029,6 +3029,54 @@ fn generated_write_stage_asset_prefers_raw_dat_extraction_when_available() {
     assert_eq!(stage_asset["source"]["kind"], "melee_stage_dat");
     assert_eq!(stage_asset["collision"]["scale"], 0.5);
     assert_eq!(stage_asset["collision"]["line_count"], 2);
+    assert_eq!(stage_asset["ledges"].as_array().unwrap().len(), 2);
+    assert_eq!(stage_asset["ledges"][0]["line_index"], 0);
+    assert_eq!(stage_asset["ledges"][0]["side"], "left");
+    assert_eq!(stage_asset["ledges"][1]["side"], "right");
+    assert_eq!(stage_asset["dynamic_collision"]["line_count"], 0);
+    assert_eq!(stage_asset["camera"]["cam_bounds"]["left"], -170.0);
+    assert_eq!(stage_asset["camera"]["cam_zoom_rate"], 0.0);
+    assert_eq!(stage_asset["blast_zones"]["source"], "stage_info_default");
+    assert_eq!(stage_asset["callbacks"]["stage_data_symbol"], "");
+    assert_eq!(stage_asset["callbacks"]["callback_table_symbol"], "");
+    assert_eq!(
+        stage_asset["callbacks"]["struct_refs"][0],
+        ".research/doldecomp-melee/src/melee/gr/types.h::StageCallbacks"
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["source_root"],
+        "map_head"
+    );
+    assert_eq!(stage_asset["map_head_object_tree"]["entry_count"], 1);
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["entry_count_decoded"],
+        1
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["joint_count_decoded"],
+        2
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["entries"][0]["index"],
+        0
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["entries"][0]["joint_root_index"],
+        0
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["joints"][0]["position"]["x"],
+        10.0
+    );
+    assert_eq!(
+        stage_asset["map_head_object_tree"]["joints"][1]["position"]["x"],
+        4.0
+    );
+    assert!(!stage_asset["pending_stage_layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry == "map_head_object_tree"));
 }
 
 #[test]
@@ -3127,6 +3175,7 @@ fn stage_extract_emits_map_coll_data_stage_blob_from_registered_raw_dat() {
     assert_eq!(asset["collision"]["vertices"][0]["source_x"], -10.0);
     assert_eq!(asset["collision"]["vertices"][0]["x"], -5000);
     assert_eq!(asset["collision"]["lines"][1]["kind"], "soft_floor");
+    assert_eq!(asset["map_head_object_tree"]["entry_count_decoded"], 1);
     assert_eq!(asset["main_floor"]["left_x"], -5000);
     assert_eq!(asset["main_floor"]["right_x"], 5000);
     assert_eq!(asset["soft_platforms"][0]["left_x"], -2500);
@@ -3137,6 +3186,59 @@ fn stage_extract_emits_map_coll_data_stage_blob_from_registered_raw_dat() {
     assert!(engine_stage_blob.contains("BATTLEFIELD_COLLISION_VERTICES: [StageCollisionVertex; 4]"));
     assert!(engine_stage_blob.contains("StageCollisionLineKind::SoftFloor"));
     assert!(!engine_stage_blob.contains("serde_json"));
+}
+
+#[test]
+fn fighter_common_extract_writes_slot_backed_accessory_profile() {
+    let root = temp_project_root("fighter_common_extract");
+    let raw_dir = root.join("resources/melee/raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    fs::write(raw_dir.join("PlCo.dat"), make_fighter_common_dat_fixture()).unwrap();
+
+    let output = run_cli(&[
+        "fighter-common".to_string(),
+        "extract".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let asset_path = root.join("resources/melee/extracted/fighter_common_accessories.json");
+    let asset: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(asset_path).unwrap()).unwrap();
+    let engine_path = root.join("crates/mole_core/src/generated/fighter_common.rs");
+    let engine_blob = fs::read_to_string(&engine_path).unwrap();
+
+    assert_eq!(parsed["command"], "fighter-common extract");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["mutated"], true);
+    assert_eq!(parsed["source"]["root_symbol"], "ftLoadCommonData");
+    assert_eq!(parsed["source"]["pointer_table_slot"], 16);
+    assert_eq!(parsed["accessory"]["symbol"], "Fighter_804D6514");
+    assert_eq!(
+        parsed["accessory"]["joint_root_data_offset_hex"],
+        "0x00015528"
+    );
+    assert!(parsed["written_paths"].as_array().unwrap().contains(&json!(
+        "resources/melee/extracted/fighter_common_accessories.json"
+    )));
+    assert!(parsed["written_paths"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("crates/mole_core/src/generated/fighter_common.rs")));
+
+    assert_eq!(asset["source"]["raw_dat"], "resources/melee/raw/PlCo.dat");
+    assert_eq!(asset["accessory"]["joint_count"], 1);
+    assert_eq!(asset["accessory"]["mesh"]["primitive_count"], 1);
+    assert_eq!(asset["accessory"]["mesh"]["vertex_emit_count"], 3);
+    assert_eq!(asset["accessory"]["mesh"]["bounds"]["min"]["x"], -1.0);
+    assert_eq!(asset["accessory"]["mesh"]["bounds"]["max"]["x"], 2.0);
+    assert!(engine_blob.contains("@generated by mole_cli fighter-common extract"));
+    assert!(engine_blob.contains("symbol: \"Fighter_804D6514\""));
+    assert!(engine_blob.contains("joint_root_data_offset: 0x15528"));
+    assert!(engine_blob.contains("x: -1.0_f32"));
+    assert!(engine_blob.contains("x: 2.0_f32"));
 }
 
 #[test]
@@ -4558,12 +4660,16 @@ fn write_message_board(root: &Path, text: &str) {
 }
 
 fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
-    let mut data_block = vec![0_u8; 0x140];
+    let mut data_block = vec![0_u8; 0x1C0];
     let coll_offset = 0x00;
     let vertices_offset = 0x40;
     let lines_offset = 0x60;
     let joints_offset = 0x90;
     let ground_param_offset = 0xC0;
+    let map_head_offset = 0xD0;
+    let map_head_models_offset = 0xE0;
+    let map_head_root_node_offset = 0x110;
+    let map_head_child_node_offset = 0x150;
 
     put_u32_be(&mut data_block, coll_offset, vertices_offset as u32);
     put_u32_be(&mut data_block, coll_offset + 0x04, 4);
@@ -4592,14 +4698,108 @@ fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
     put_i16_be(&mut data_block, joints_offset + 0x26, 4);
 
     put_f32_be(&mut data_block, ground_param_offset, scale);
+    put_u32_be(
+        &mut data_block,
+        map_head_offset,
+        map_head_models_offset as u32,
+    );
+    put_u32_be(
+        &mut data_block,
+        map_head_offset + 0x08,
+        map_head_models_offset as u32,
+    );
+    put_u32_be(&mut data_block, map_head_offset + 0x0C, 1);
+    put_u32_be(
+        &mut data_block,
+        map_head_models_offset,
+        map_head_root_node_offset as u32,
+    );
+
+    put_u32_be(&mut data_block, map_head_root_node_offset + 0x04, 1);
+    put_u32_be(
+        &mut data_block,
+        map_head_root_node_offset + 0x08,
+        map_head_child_node_offset as u32,
+    );
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x20, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x24, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x28, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x2C, 10.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x30, 20.0);
+
+    put_u32_be(&mut data_block, map_head_child_node_offset + 0x04, 2);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x20, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x24, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x28, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x2C, 4.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x30, 8.0);
 
     make_stage_dat_with_roots(
         &[
             ("coll_data", coll_offset as u32),
             ("grGroundParam", ground_param_offset as u32),
+            ("map_head", map_head_offset as u32),
         ],
         data_block,
     )
+}
+
+fn make_fighter_common_dat_fixture() -> Vec<u8> {
+    let mut data_block = vec![0_u8; 0x15600];
+    let root_offset = 0xECD8;
+    let vertices_offset = 0x11700;
+    let vtx_desc_offset = 0x14590;
+    let display_offset = 0x14600;
+    let pobj_offset = 0x15500;
+    let dobj_offset = 0x15518;
+    let joint_offset = 0x15528;
+
+    put_u32_be(&mut data_block, root_offset + 16 * 4, joint_offset as u32);
+
+    put_i16_be(&mut data_block, vertices_offset, -4096);
+    put_i16_be(&mut data_block, vertices_offset + 2, -8192);
+    put_i16_be(&mut data_block, vertices_offset + 4, 0);
+    put_i16_be(&mut data_block, vertices_offset + 6, 0);
+    put_i16_be(&mut data_block, vertices_offset + 8, 0);
+    put_i16_be(&mut data_block, vertices_offset + 10, 0);
+    put_i16_be(&mut data_block, vertices_offset + 12, 8192);
+    put_i16_be(&mut data_block, vertices_offset + 14, 4096);
+    put_i16_be(&mut data_block, vertices_offset + 16, 4096);
+
+    put_u32_be(&mut data_block, vtx_desc_offset, 9);
+    put_u32_be(&mut data_block, vtx_desc_offset + 0x04, 2);
+    put_u32_be(&mut data_block, vtx_desc_offset + 0x08, 1);
+    put_u32_be(&mut data_block, vtx_desc_offset + 0x0C, 3);
+    data_block[vtx_desc_offset + 0x10] = 12;
+    put_u16_be(&mut data_block, vtx_desc_offset + 0x12, 6);
+    put_u32_be(
+        &mut data_block,
+        vtx_desc_offset + 0x14,
+        vertices_offset as u32,
+    );
+    put_u32_be(&mut data_block, vtx_desc_offset + 0x18, 0xFF);
+
+    data_block[display_offset] = 0x90;
+    put_u16_be(&mut data_block, display_offset + 1, 3);
+    data_block[display_offset + 3] = 0;
+    data_block[display_offset + 4] = 1;
+    data_block[display_offset + 5] = 2;
+
+    put_u32_be(&mut data_block, pobj_offset + 0x08, vtx_desc_offset as u32);
+    put_u16_be(&mut data_block, pobj_offset + 0x0C, 0x8000);
+    put_u16_be(&mut data_block, pobj_offset + 0x0E, 1);
+    put_u32_be(&mut data_block, pobj_offset + 0x10, display_offset as u32);
+
+    put_u32_be(&mut data_block, dobj_offset + 0x0C, pobj_offset as u32);
+
+    put_u32_be(&mut data_block, joint_offset + 0x04, 0x10050188);
+    put_u32_be(&mut data_block, joint_offset + 0x10, dobj_offset as u32);
+    put_f32_be(&mut data_block, joint_offset + 0x20, 1.0);
+    put_f32_be(&mut data_block, joint_offset + 0x24, 1.0);
+    put_f32_be(&mut data_block, joint_offset + 0x28, 1.0);
+    put_f32_be(&mut data_block, joint_offset + 0x30, 1.515542984008789);
+
+    make_stage_dat_with_roots(&[("ftLoadCommonData", root_offset as u32)], data_block)
 }
 
 fn make_stage_dat_with_roots(roots: &[(&str, u32)], data_block: Vec<u8>) -> Vec<u8> {

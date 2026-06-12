@@ -60,7 +60,6 @@ if (-not (Test-Path -LiteralPath $sdlDll)) {
 
 Copy-Item -LiteralPath $runtimeExe -Destination (Join-Path $packageRoot "mole_runtime.exe") -Force
 Copy-Item -LiteralPath $sdlDll -Destination (Join-Path $packageRoot "SDL3.dll") -Force
-Copy-Item -LiteralPath (Join-Path $repoRoot "background.png") -Destination $packageRoot -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "DolphinMole") -Destination $packageRoot -Recurse -Force
 
 @'

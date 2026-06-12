@@ -581,3 +581,54 @@ Purpose: a short working note for the current parity investigation so I can resu
 - `generated write-stage-asset` now prefers raw DAT extraction when `resources/melee/raw/GrNBa.dat` exists, preventing the legacy generated command from overwriting the extracted Battlefield blob with the old baked placeholder.
 - `stage inspect --stage battlefield` now checks the generated engine blob as part of parity readiness, so the CLI can verify that the extraction result is actually implemented into the game and not only parked in research/middleware.
 - Verification for this slice included `cargo test -p mole_core`, `cargo test -p mole_runtime`, focused `mole_cli` stage generator/extractor tests, and the Python resource/value-sheet tests.
+
+## 2026-06-11 stage runtime metadata parity slice
+
+- Promoted stage-agnostic runtime metadata into `MeleeStageProfile`: ledges, dynamic collision ranges, `map_head`, and decomp `StageData`/`StageCallbacks` metadata now sit beside collision instead of living only in extracted JSON.
+- Updated `mole stage extract --stage <id> --write` so registered stages derive ledges from `coll_data` topology and parse stage callback tables/moving-object mapping tables from the decomp source when available.
+- Re-extracted the competitive stage set through the same CLI path. Current compact audit:
+  - Battlefield: 2 ledges, 0 dynamic lines, 7 object callbacks.
+  - Final Destination: 2 ledges, 0 dynamic lines, 3 object callbacks, 1 spawn/mapping entry.
+  - Yoshi's Story: 2 ledges, 0 dynamic lines, 4 object callbacks.
+  - Fountain of Dreams: 2 ledges, 0 dynamic lines, 11 object callbacks, 3 spawn/mapping entries.
+  - Dream Land 64: 2 ledges, 0 dynamic lines, 9 object callbacks.
+  - Pokemon Stadium: 30 ledges, 24 dynamic lines starting at line 112, 10 object callbacks, 6 spawn/mapping entries.
+- The CLI path remains DAT/decomp driven, not Battlefield-specific. Arbitrary DAT extraction still works without decomp metadata; registered stages enrich the blob when the matching decomp source is present.
+- Future stage editing in the Rust devtool/middleware should be built as typed edits or deltas over these extracted stage primitives after parity is trusted. Do not mix editor-authored stage assumptions into the lossless extraction path.
+- Verification for this slice: `cargo fmt --check`, `cargo test -p mole_core`, `cargo test -p mole_cli`, and `cargo test -p mole_runtime`.
+
+## 2026-06-11 stage camera and blast-zone parity slice
+
+- Promoted decomp-shaped `StageCameraInfo` and source-float `StageFloatBounds` into `MeleeStageProfile`, preserving the camera/blast data separately from the older milli-unit compatibility `StageProfile`.
+- Updated `mole stage extract --stage <id> --write` to derive Battlefield camera bounds and blast zones from the map-head marker chain used by `Ground_801C39C0`, with `grGroundParam.x0` scale applied. Battlefield now extracts camera bounds `(-160, 160, 136, -47.2)` and blast zones `(-224, 224, 200, -108.8)` from source data instead of relying on hand-authored constants.
+- Parsed decomp `grGroundParam` camera fields into the generated stage blob: camera tilt/pan, tracking ratio, fixed zoom, smooth factor, zoom rate, max depth, pause camera Z positions, camera angle clamps, and fixed camera position/FOV/angles.
+- Re-extracted the competitive stage set so each compact stage JSON carries the new camera and source blast-zone objects. Registered stages use the shared extractor path; arbitrary DAT extraction still falls back to StageInfo defaults if the marker/ground-param sources are unavailable.
+- Updated runtime viewport framing to use extracted Melee camera bounds when a stage has a `MeleeStageProfile`. This makes the SDL/runtime/devtool visual frame follow stage-owned camera metadata instead of the old floor-width fit.
+- Boundary for the next slice: this implements stage-dependent camera inputs and render framing. Full dynamic Melee camera tracking from `cm/camera.c` remains a separate parity layer and should build on these extracted fields rather than replacing them.
+- Verification for this slice: `cargo fmt --check`, `cargo test -p mole_core`, `cargo test -p mole_cli`, and `cargo test -p mole_runtime`.
+
+## 2026-06-11 dynamic gameplay camera runtime slice
+
+- Root cause of the static camera: every SDL frame called `RenderScene::from_frame`, which rebuilt a transform from stage constants and discarded all live camera state. That made smoothing and target tracking impossible even though the stage camera constants were extracted.
+- Added `RenderCameraState`, `RenderCameraTransformState`, and subject-bounds primitives in `mole_runtime` following the decomp shape from `cm/camera.c`: subject bounds, target interest/position/FOV, smoothed interest, smoothed camera position, and projection-derived screen transform.
+- Visible SDL runtime paths now keep a persistent `RenderCameraState` and call `RenderScene::from_frame_with_camera(...)`, so running around shifts the camera interest and fighter spread adjusts camera depth instead of using a static stage-center view.
+- Superseded boundary: the initial implementation used runtime ECB/collision poses as the engine-owned stand-in for `ftCamera_UpdateCameraBox`. The 2026-06-11 fighter camera-box parity slice below replaces that stand-in with source `ftData.x3C` values.
+- Boundary: standard gameplay camera tracking is live in the runtime. Special camera modes, quake, debug/pause camera, item/event camera pushes, and exact CObj frustum correction remain future layers over this state primitive.
+- Verification for this slice: `cargo fmt --check`, `cargo test -p mole_core`, `cargo test -p mole_cli`, and `cargo test -p mole_runtime`.
+
+## 2026-06-11 dynamic camera FOV correction
+
+- User tested the SDL runtime and found the dynamic camera was tracking but slightly too zoomed in.
+- Root cause: the gameplay camera update was using the extracted stage fixed-camera FOV (`Stage_GetCamFixedFov`, Battlefield `30.0`) as the standard gameplay target. Decomp `Camera_8002B3D4` instead targets `cm_803BCCA0.x40`, which is `38.0`, and lerps toward it with `cm_803BCCA0.x44 = 0.1`.
+- Updated `RenderCameraState` so the standard gameplay camera targets the decomp gameplay FOV constant while preserving fixed-camera stage data for future fixed/pause/debug camera modes.
+- Added a regression proving the dynamic camera target FOV is `38.0` and the first gameplay camera step moves above the `30.0` startup FOV.
+- Verification for this slice: `cargo fmt --check` and `cargo test -p mole_runtime`.
+
+## 2026-06-11 fighter camera-box parity slice
+
+- User clarified that camera scale must not be tuned visually. The remaining zoom mismatch was treated as a source-data parity problem, not as a renderer preference.
+- Promoted Captain Falcon `ftDataCaptain.x3C` into `mole_core::FighterCameraBox` on `FighterProfile`. The embedded values are the two `UnkFloat6_Camera` vectors read from `resources/melee/raw/PlCa.dat` via the source `ftData` pointer: `x0 = (10.0, 22.0, -9.0)` and `xC = (16.0, -9.0, 13.699999809265137)`.
+- `PlayerRenderSnapshot` and `RenderFrame` now carry the profile camera box to the runtime renderer. This keeps the camera path character-agnostic for later extracted profiles rather than special-casing Dolphin Mole or Captain Falcon in the camera.
+- Replaced the dynamic camera's ECB-derived subject bounds with the decomp mapping from `ftCamera_UpdateCameraBox` into `CmSubject`, then the signed min/max shape used by `Camera_8002958C`: `base + x2C.x`, `base + x2C.y`, `base + x34.y`, and `base + x34.x`, with stage `cam_fixed_zoom` and tracking ratio preserved from extraction.
+- Added tests proving the embedded Falcon camera box still matches `PlCa.dat` and that gameplay camera spread is driven by fighter profile camera boxes instead of active ECB geometry.
+- Verification for this slice: `cargo fmt --check`, `cargo test -p mole_core`, and `cargo test -p mole_runtime`.

@@ -2,8 +2,8 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path, time::UNIX_EPOCH};
 
 use crate::{
-    generated_artifact_statuses, ledger_map, stage_assets, value_sheets, GeneratedArtifactStatus,
-    GeneratedCommand, SCHEMA_VERSION,
+    fighter_common, generated_artifact_statuses, ledger_map, stage_assets, value_sheets,
+    GeneratedArtifactStatus, GeneratedCommand, SCHEMA_VERSION,
 };
 
 struct ArtifactGroup {
@@ -190,6 +190,14 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
             recommended_command: stage_assets::STAGE_ASSETS_COMMAND,
             inputs: stage_assets::STAGE_ASSET_INPUTS,
             outputs: stage_assets::STAGE_ASSET_OUTPUTS,
+        },
+        ArtifactGroup {
+            id: "fighter_common_accessories",
+            name: "Fighter Common Accessories",
+            generator: fighter_common::FIGHTER_COMMON_GENERATOR,
+            recommended_command: fighter_common::FIGHTER_COMMON_COMMAND,
+            inputs: fighter_common::FIGHTER_COMMON_INPUTS,
+            outputs: fighter_common::FIGHTER_COMMON_OUTPUTS,
         },
         ArtifactGroup {
             id: "parity_ledger_map",

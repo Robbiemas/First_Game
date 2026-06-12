@@ -5,9 +5,10 @@ use mole_core::collision::{
     SourceHitboxAttributes,
 };
 use mole_core::{
-    step_world, FighterProfile, Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId,
-    MeleeCommonData, MotionState, PlayerInput, SourceActionKey, StageProfile, Vec2,
-    WalkSpeedBucket, World, TICK_NANOS, UCF_DASHBACK_AMENDMENT_BIT,
+    source_units_to_milli, step_world, EcbDiamond, FighterEntryPlatformProfile, FighterProfile,
+    Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId, MeleeCommonData,
+    MotionState, PlayerInput, SourceActionKey, SourceVec3, StageProfile, Vec2, WalkSpeedBucket,
+    World, TICK_NANOS, UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
     apply_source_collisions_for_world, compare_slippi_export_from_match_start_with_core,
@@ -22,10 +23,10 @@ use mole_runtime::{
     trace_slippi_export_from_match_start_with_core, write_slippi_core_trace_report,
     ControllerInputTraceLog, DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog,
     InputReadout, InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue,
-    NetplayLogEvent, NetplayLogRole, PhysicalInput, RenderColor, RenderFrame, RenderRect,
-    RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreTraceConfig,
-    UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort,
-    LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    NetplayLogEvent, NetplayLogRole, PhysicalInput, RenderCameraState, RenderColor, RenderFrame,
+    RenderRect, RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig,
+    SlippiCoreTraceConfig, UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig, WupInputMapper,
+    WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -159,8 +160,8 @@ fn runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay(
     let generated_rs = fs::read_to_string(manifest_dir.join("src/generated/source_frame_data.rs"))
         .expect("generated runtime source frame data module should exist");
     let lookup_start = lib_rs
-        .find("fn runtime_source_frame_capsules")
-        .expect("runtime source capsule lookup should exist");
+        .find("fn runtime_source_frame_capsules_ref")
+        .expect("runtime source borrowed capsule lookup should exist");
     let lookup_end = lib_rs[lookup_start..]
         .find("fn runtime_source_actions")
         .map(|offset| lookup_start + offset)
@@ -170,7 +171,7 @@ fn runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay(
         .find("fn load_all_runtime_source_actions")
         .expect("runtime source action preload should exist");
     let load_end = lib_rs[load_start..]
-        .find("impl RuntimeSourceFrameCapsules")
+        .find("impl RuntimeSourceAction")
         .map(|offset| load_start + offset)
         .expect("runtime source frame helpers should follow preload");
     let load_body = &lib_rs[load_start..load_end];
@@ -187,6 +188,10 @@ fn runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay(
         !load_body.contains("RuntimeSourceExportEvaluator")
             && !load_body.contains("action_frame_evaluator"),
         "player runtime preload must not construct source action-frame evaluators"
+    );
+    assert!(
+        !lib_rs.contains("fn runtime_source_frame_capsules("),
+        "runtime capsule lookup should borrow baked frame data instead of cloning capsule vectors per frame"
     );
     assert!(
         generated_rs.contains("SOURCE_FRAME_CAPSULES_BYTES")
@@ -1426,18 +1431,18 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.background,
         RenderColor {
-            r: 17,
-            g: 19,
-            b: 24,
+            r: 247,
+            g: 250,
+            b: 252,
             a: 255
         }
     );
     assert_eq!(
         scene.stage,
         RenderRect {
-            x: 120,
-            y: 405,
-            width: 720,
+            x: 299,
+            y: 388,
+            width: 362,
             height: 8,
             color: RenderColor {
                 r: 180,
@@ -1450,10 +1455,10 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[0],
         RenderRect {
-            x: 348,
-            y: 286,
-            width: 54,
-            height: 119,
+            x: 414,
+            y: 328,
+            width: 27,
+            height: 60,
             color: RenderColor {
                 r: 74,
                 g: 138,
@@ -1465,10 +1470,10 @@ fn render_scene_places_players_deterministically_from_render_frame() {
     assert_eq!(
         scene.players[1],
         RenderRect {
-            x: 558,
-            y: 286,
-            width: 54,
-            height: 119,
+            x: 520,
+            y: 328,
+            width: 27,
+            height: 60,
             color: RenderColor {
                 r: 255,
                 g: 198,
@@ -1524,7 +1529,18 @@ fn render_scene_exposes_match_intro_and_entry_platform_cues() {
             y: world.players()[0].entry_base_y,
         })
         .y;
-    assert!(platform.width >= scene.players[0].width * 2);
+    assert_eq!(
+        platform.width,
+        scene
+            .transform
+            .core_length_to_screen(source_units_to_milli(
+                FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM
+                    .accessory
+                    .mesh_bounds
+                    .width_x(),
+            ))
+            .max(1)
+    );
     assert!(platform.height >= 1);
     assert!(platform.y <= base_y);
     assert!(scene.entry_platforms[1].is_none());
@@ -1583,6 +1599,38 @@ fn render_entry_platform_lifecycle_matches_source_accessory_states() {
 }
 
 #[test]
+fn render_entry_platform_uses_source_accessory_profile_not_player_rect_width() {
+    let mut world = mole_runtime::default_play_world();
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+    for frame in 0..6 {
+        step_world(&mut world, Frame(frame), &neutral);
+    }
+    let mut render_frame = RenderFrame::from_world(&world);
+    assert_eq!(
+        render_frame.player_entry_platforms[0],
+        FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM
+    );
+
+    let scene = RenderScene::from_frame(&render_frame, 960, 540);
+    let platform = scene.entry_platforms[0].expect("EntryStart should expose source platform cue");
+    let expected_width = scene
+        .transform
+        .core_length_to_screen(source_units_to_milli(
+            FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM
+                .accessory
+                .mesh_bounds
+                .width_x(),
+        ))
+        .max(1);
+    assert_eq!(platform.width, expected_width);
+
+    render_frame.player_positions[0].x += 20_000;
+    let shifted = RenderScene::from_frame(&render_frame, 960, 540).entry_platforms[0]
+        .expect("EntryStart should still expose source platform cue");
+    assert_eq!(shifted.width, expected_width);
+}
+
+#[test]
 fn render_transform_maps_core_units_to_screen_without_hidden_gameplay_scale() {
     let transform = RenderTransform::battlefield_camera(960, 540);
     let origin = transform.world_to_screen(Vec2 { x: 0, y: 0 });
@@ -1592,12 +1640,132 @@ fn render_transform_maps_core_units_to_screen_without_hidden_gameplay_scale() {
 }
 
 #[test]
+fn battlefield_render_transform_fits_extracted_decomp_camera_bounds() {
+    let transform = RenderTransform::battlefield_camera(960, 540);
+    let left_top = transform.world_to_screen(Vec2 {
+        x: source_units_to_milli(-160.0),
+        y: source_units_to_milli(136.0),
+    });
+    let right_bottom = transform.world_to_screen(Vec2 {
+        x: source_units_to_milli(160.0),
+        y: source_units_to_milli(-47.2),
+    });
+
+    assert!(left_top.x >= 0);
+    assert!(left_top.y >= 0);
+    assert!(right_bottom.x <= 960);
+    assert!(right_bottom.y <= 540);
+    assert!(right_bottom.x - left_top.x > 800);
+    assert!(right_bottom.y - left_top.y > 450);
+}
+
+#[test]
+fn dynamic_melee_camera_interest_tracks_fighter_camera_boxes() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    let mut camera = RenderCameraState::battlefield();
+    let initial_scene = RenderScene::from_frame_with_camera(&frame, 960, 540, &mut camera);
+    let initial_interest_x = camera.transform.interest_x;
+    let initial_center_x = initial_scene.transform.center_x;
+
+    frame.player_positions = [Vec2 { x: 80_000, y: 0 }, Vec2 { x: 120_000, y: 0 }];
+    frame.player_ecbs = [
+        EcbDiamond::from_bottom_center_and_size(frame.player_positions[0], 12_000, 28_000),
+        EcbDiamond::from_bottom_center_and_size(frame.player_positions[1], 12_000, 28_000),
+    ];
+
+    let mut moved_scene = initial_scene;
+    for _ in 0..30 {
+        moved_scene = RenderScene::from_frame_with_camera(&frame, 960, 540, &mut camera);
+    }
+
+    assert!(camera.transform.interest_x > initial_interest_x + 10.0);
+    assert!(moved_scene.transform.center_x < initial_center_x);
+}
+
+#[test]
+fn dynamic_melee_camera_depth_tracks_fighter_spread() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    let mut camera = RenderCameraState::battlefield();
+    let _ = RenderScene::from_frame_with_camera(&frame, 960, 540, &mut camera);
+    let initial_target_z = camera.transform.target_position_z;
+
+    frame.player_positions = [Vec2 { x: -150_000, y: 0 }, Vec2 { x: 150_000, y: 0 }];
+    frame.player_ecbs = [
+        EcbDiamond::from_bottom_center_and_size(frame.player_positions[0], 12_000, 28_000),
+        EcbDiamond::from_bottom_center_and_size(frame.player_positions[1], 12_000, 28_000),
+    ];
+
+    let _ = RenderScene::from_frame_with_camera(&frame, 960, 540, &mut camera);
+
+    assert!(camera.transform.target_position_z > initial_target_z);
+}
+
+#[test]
+fn dynamic_melee_camera_subjects_use_fighter_profile_camera_boxes() {
+    let base_world = World::for_two_players();
+    let mut base_frame = RenderFrame::from_world(&base_world);
+    base_frame.player_positions = [Vec2 { x: 0, y: 0 }, Vec2 { x: 20_000, y: 0 }];
+    base_frame.player_ecbs = [
+        EcbDiamond::from_bottom_center_and_size(base_frame.player_positions[0], 4_000, 8_000),
+        EcbDiamond::from_bottom_center_and_size(base_frame.player_positions[1], 4_000, 8_000),
+    ];
+    let mut base_camera = RenderCameraState::battlefield();
+    let _ = RenderScene::from_frame_with_camera(&base_frame, 960, 540, &mut base_camera);
+
+    let wide_box = mole_core::FighterCameraBox {
+        x0: SourceVec3 {
+            x: 10.0,
+            y: 80.0,
+            z: -80.0,
+        },
+        xc: SourceVec3 {
+            x: 80.0,
+            y: -80.0,
+            z: 13.699999809265137,
+        },
+    };
+    let wide_profile = FighterProfile::FALCON_LIKE.from_ftdata_x3c_camera_box(wide_box);
+    let wide_world = World::for_two_players_with_profiles([wide_profile; 2]);
+    let mut wide_frame = RenderFrame::from_world(&wide_world);
+    wide_frame.player_positions = base_frame.player_positions;
+    wide_frame.player_ecbs = base_frame.player_ecbs;
+    let mut wide_camera = RenderCameraState::battlefield();
+    let _ = RenderScene::from_frame_with_camera(&wide_frame, 960, 540, &mut wide_camera);
+
+    assert!(
+        wide_camera.transform.target_position_z > base_camera.transform.target_position_z,
+        "Camera_8002958C should derive subject spread from ftData.x3C camera boxes, not active ECB extents"
+    );
+}
+
+#[test]
+fn dynamic_melee_camera_uses_decomp_gameplay_fov_not_fixed_stage_fov() {
+    let world = World::for_two_players();
+    let frame = RenderFrame::from_world(&world);
+    let mut camera = RenderCameraState::battlefield();
+
+    let _ = RenderScene::from_frame_with_camera(&frame, 960, 540, &mut camera);
+
+    assert_eq!(
+        camera.transform.target_fov_degrees.to_bits(),
+        38.0_f32.to_bits()
+    );
+    assert!(
+        camera.transform.fov_degrees > 30.0,
+        "Camera_8002B3D4 lerps the 30 degree startup FOV toward cm_803BCCA0.x40=38 during gameplay"
+    );
+}
+
+#[test]
 fn render_scene_contains_battlefield_surfaces_and_diamond_ecb() {
     let world = World::for_two_players();
     let frame = RenderFrame::from_world(&world);
     let scene = RenderScene::from_frame(&frame, 960, 540);
 
     assert_eq!(scene.stage_surfaces.len(), 4);
+    assert_eq!(scene.stage_collision_lines.len(), 23);
     assert_eq!(scene.player_ecbs[0].points.len(), 4);
     assert_eq!(
         scene.player_ecbs[0].points[0].x,
@@ -1610,10 +1778,11 @@ fn render_scene_can_use_dev_flat_stage_without_battlefield_surfaces() {
     let stage = StageProfile::dev_flat_test();
     let world = World::for_two_players_on_stage(stage);
     let frame = RenderFrame::from_world(&world);
-    let scene = RenderScene::from_frame_on_stage(&frame, &stage, 640, 360);
+    let scene = RenderScene::from_frame(&frame, 640, 360);
 
     assert_eq!(scene.background, RenderColor::DEV_BACKGROUND);
     assert_eq!(scene.stage_surfaces.len(), 1);
+    assert_eq!(scene.stage_collision_lines.len(), 0);
     assert_eq!(scene.stage.width, 480);
     assert!(scene.players[0].height < 320);
     assert!(scene.players[0].y >= 0);
@@ -1622,10 +1791,9 @@ fn render_scene_can_use_dev_flat_stage_without_battlefield_surfaces() {
 }
 
 #[test]
-fn runtime_asset_root_contains_background_and_sprite_files() {
+fn runtime_asset_root_contains_sprite_files() {
     let asset_root = project_asset_root();
 
-    assert!(asset_root.join("background.png").is_file());
     assert!(asset_root
         .join("DolphinMole")
         .join("standing")
@@ -1644,7 +1812,6 @@ fn packaged_asset_root_detects_extracted_playtest_assets_next_to_runtime_exe() {
     ));
     let package = root.join("package");
     fs::create_dir_all(package.join("DolphinMole").join("standing")).unwrap();
-    fs::write(package.join("background.png"), []).unwrap();
 
     assert_eq!(
         packaged_asset_root_for_exe(&package.join("mole_runtime.exe")),
@@ -1658,9 +1825,7 @@ fn render_scene_references_background_and_sprite_asset_paths() {
     let frame = RenderFrame::from_world(&world);
     let scene = RenderScene::from_frame(&frame, 960, 540);
 
-    assert_eq!(scene.background_image.relative_path, "background.png");
-    assert_eq!(scene.background_image.rect.width, 960);
-    assert_eq!(scene.background_image.rect.height, 540);
+    assert!(scene.background_image.is_none());
     assert_eq!(
         scene.player_sprites[0].relative_path(),
         "DolphinMole/standing/Standing1.png"
@@ -3098,6 +3263,31 @@ fn sdl_runtime_launcher_uses_local_sdl_play_mode() {
 }
 
 #[test]
+fn gameplay_launch_paths_do_not_require_wup_adapter_at_startup() {
+    let source =
+        std::fs::read_to_string(project_asset_root().join("crates/mole_runtime/src/main.rs"))
+            .expect("runtime main source should be readable");
+
+    assert!(source.contains("fn open_optional_wup_input_source("));
+    assert!(source.contains("fn retry_optional_wup_input_source("));
+    assert!(source.contains("fn poll_optional_wup_inputs("));
+    assert!(source
+        .contains("fn poll_traced_wup_inputs(\n    input_source: &mut Option<WupInputSource>"));
+    assert!(
+        !source.contains(
+            "let mut gameplay_input_source =\n        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;"
+        ),
+        "local SDL gameplay startup must not fail just because WUP is absent"
+    );
+    assert!(
+        !source.contains(
+            "let mut local_input_source =\n        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;"
+        ),
+        "UDP SDL gameplay startup must not fail just because WUP is absent"
+    );
+}
+
+#[test]
 fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
     let launcher = project_asset_root()
         .join("execs")
@@ -3152,8 +3342,8 @@ fn render_scene_exposes_legacy_sprite_cues_without_replacing_rect_fallback() {
         LegacyAnimationKey::Standing
     );
     assert!(scene.player_sprites[1].flip_x);
-    assert_eq!(scene.players[0].width, 54);
-    assert_eq!(scene.players[0].height, 119);
+    assert_eq!(scene.players[0].width, 27);
+    assert_eq!(scene.players[0].height, 60);
 }
 
 #[test]

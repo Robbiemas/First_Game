@@ -1,0 +1,124 @@
+{
+  "accessory": {
+    "dobj": {
+      "data_offset": 87320,
+      "data_offset_hex": "0x00015518",
+      "mobj_offset": 83320,
+      "next_offset": 0,
+      "pobj_offset": 87296
+    },
+    "joint": {
+      "child_offset": 0,
+      "data_offset": 87336,
+      "data_offset_hex": "0x00015528",
+      "dobj_offset": 87320,
+      "flags": 268763528,
+      "flags_hex": "0x10050188",
+      "next_offset": 0,
+      "position": {
+        "x": 0.0,
+        "y": 1.515542984008789,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      }
+    },
+    "joint_count": 1,
+    "joint_root_data_offset": 87336,
+    "joint_root_data_offset_hex": "0x00015528",
+    "mesh": {
+      "bounds": {
+        "max": {
+          "x": 6.96875,
+          "y": 0.0,
+          "z": 6.96875
+        },
+        "min": {
+          "x": -6.96875,
+          "y": -1.515625,
+          "z": -6.96875
+        }
+      },
+      "position_index_max": 201,
+      "position_index_min": 0,
+      "primitive_count": 9,
+      "unique_position_index_count": 202,
+      "vertex_emit_count": 953
+    },
+    "pobj": {
+      "data_offset": 87296,
+      "data_offset_hex": "0x00015500",
+      "display_offset": 83456,
+      "display_offset_hex": "0x00014600",
+      "flags": 32768,
+      "flags_hex": "0x00008000",
+      "n_display": 120,
+      "next_offset": 0,
+      "union_offset": 0,
+      "verts_offset": 83344
+    },
+    "symbol": "Fighter_804D6514",
+    "vertex_descriptors": [
+      {
+        "attr": 9,
+        "attr_type": 2,
+        "comp_cnt": 1,
+        "comp_type": 3,
+        "data_offset": 83344,
+        "data_offset_hex": "0x00014590",
+        "frac": 12,
+        "stride": 6,
+        "vertex_offset": 71424,
+        "vertex_offset_hex": "0x00011700"
+      },
+      {
+        "attr": 25,
+        "attr_type": 3,
+        "comp_cnt": 1,
+        "comp_type": 3,
+        "data_offset": 83368,
+        "data_offset_hex": "0x000145a8",
+        "frac": 14,
+        "stride": 18,
+        "vertex_offset": 72640,
+        "vertex_offset_hex": "0x00011bc0"
+      },
+      {
+        "attr": 13,
+        "attr_type": 2,
+        "comp_cnt": 1,
+        "comp_type": 0,
+        "data_offset": 83392,
+        "data_offset_hex": "0x000145c0",
+        "frac": 7,
+        "stride": 2,
+        "vertex_offset": 82784,
+        "vertex_offset_hex": "0x00014360"
+      }
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "dat_file": "PlCo.dat",
+    "decomp_refs": [
+      ".research/doldecomp-melee/src/melee/ft/fighter.c::Fighter_LoadCommonData",
+      ".research/doldecomp-melee/src/melee/ft/ft_0C31.c::ftCo_800C6408",
+      ".research/doldecomp-melee/src/sysdolphin/baselib/jobj.h::HSD_Joint",
+      ".research/doldecomp-melee/src/sysdolphin/baselib/pobj.h::HSD_PObjDesc"
+    ],
+    "kind": "melee_fighter_common_dat",
+    "pointer_table_offset": 60696,
+    "pointer_table_offset_hex": "0x0000ed18",
+    "pointer_table_slot": 16,
+    "raw_dat": "resources/melee/raw/PlCo.dat",
+    "root_symbol": "ftLoadCommonData"
+  }
+}

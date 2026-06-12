@@ -764,6 +764,15 @@ struct ExtractedStageAsset {
     stage_name: String,
     source: ExtractedStageSource,
     collision: ExtractedStageCollision,
+    #[serde(default)]
+    ledges: Vec<ExtractedStageLedge>,
+    #[serde(default)]
+    dynamic_collision: ExtractedStageDynamicCollision,
+    camera: ExtractedStageCameraInfo,
+    source_blast_zones: ExtractedStageFloatBounds,
+    map_head_object_tree: Option<ExtractedStageMapHead>,
+    #[serde(default)]
+    callbacks: ExtractedStageCallbackProfile,
     main_floor: Option<ExtractedStageSurface>,
     soft_platforms: Vec<ExtractedStageSurface>,
     blast_zones: Option<ExtractedStageBlastZones>,
@@ -826,6 +835,118 @@ struct ExtractedStageJoint {
 }
 
 #[derive(Debug, Deserialize)]
+struct ExtractedStageLedge {
+    index: u16,
+    line_index: u16,
+    side: String,
+    x_milli: i32,
+    y_milli: i32,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ExtractedStageDynamicCollision {
+    line_start: i16,
+    line_count: i16,
+    joint_count_with_dynamic_lines: u16,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageFloatBounds {
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageCameraInfo {
+    cam_bounds: ExtractedStageFloatBounds,
+    cam_x_offset: f32,
+    cam_y_offset: f32,
+    cam_vertical_tilt: f32,
+    cam_pan_degrees: f32,
+    x20: f32,
+    x24: f32,
+    cam_track_ratio: f32,
+    cam_fixed_zoom: f32,
+    cam_track_smooth: f32,
+    cam_zoom_rate: f32,
+    cam_max_depth: f32,
+    x3c: f32,
+    pausecam_zpos_min: f32,
+    pausecam_zpos_init: f32,
+    pausecam_zpos_max: f32,
+    cam_angle_up: f32,
+    cam_angle_down: f32,
+    cam_angle_left: f32,
+    cam_angle_right: f32,
+    fixed_cam_pos: ExtractedStageVec3,
+    fixed_cam_fov: f32,
+    fixed_cam_vert_angle: f32,
+    fixed_cam_horz_angle: f32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageMapHead {
+    stage_dat_offset: u32,
+    unk0_offset: u32,
+    unk4: i32,
+    entries_offset: u32,
+    entry_count: i32,
+    splines_offset: u32,
+    spline_count: i32,
+    unk18_offset: u32,
+    unk1c: i32,
+    unk20_offset: u32,
+    unk24: i32,
+    internals_offset: u32,
+    internal_count: i32,
+    entries: Vec<ExtractedStageMapHeadEntry>,
+    joints: Vec<ExtractedStageMapHeadJoint>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageMapHeadEntry {
+    index: u16,
+    joint_root_offset: u32,
+    joint_root_index: Option<u16>,
+    camera_desc_offset: u32,
+    x14_offset: u32,
+    x18_offset: u32,
+    fog_desc_offset: u32,
+    vector_offset: u32,
+    vector_count: i32,
+    x28_offset: u32,
+    x2c_offset: u32,
+    x30: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageMapHeadJoint {
+    index: u16,
+    node_offset: u32,
+    class_name_offset: u32,
+    flags: u32,
+    child_offset: u32,
+    next_offset: u32,
+    child_index: Option<u16>,
+    next_index: Option<u16>,
+    dobjdesc_offset: u32,
+    rotation: ExtractedStageVec3,
+    scale: ExtractedStageVec3,
+    position: ExtractedStageVec3,
+    mtx_offset: u32,
+    robjdesc_offset: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageVec3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Debug, Deserialize)]
 struct ExtractedStageBounds {
     left: i32,
     bottom: i32,
@@ -858,6 +979,59 @@ struct ExtractedStageSpawnPoint {
     facing: i8,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct ExtractedStageCallbackProfile {
+    #[serde(default)]
+    stage_data_symbol: String,
+    #[serde(default)]
+    callback_table_symbol: String,
+    #[serde(default)]
+    object_callbacks: Vec<ExtractedStageObjectCallbacks>,
+    #[serde(default)]
+    on_init: String,
+    #[serde(default)]
+    on_demo_init: String,
+    #[serde(default)]
+    on_load: String,
+    #[serde(default)]
+    on_start: String,
+    #[serde(default)]
+    callback4: String,
+    #[serde(default)]
+    on_touch_line: String,
+    #[serde(default)]
+    on_check_shadow_render: String,
+    #[serde(default)]
+    flags2: u32,
+    #[serde(default)]
+    spawn_table_symbol: String,
+    #[serde(default)]
+    spawn_table: Vec<ExtractedStageSpawnMapping>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageObjectCallbacks {
+    object_id: u16,
+    #[serde(default)]
+    callback0: String,
+    #[serde(default)]
+    callback1: String,
+    #[serde(default)]
+    callback2: String,
+    #[serde(default)]
+    callback3: String,
+    #[serde(default)]
+    flags: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageSpawnMapping {
+    index: u16,
+    x: i16,
+    y: i16,
+    z: i16,
+}
+
 fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, String> {
     let stage_id = asset
         .get("stage_id")
@@ -887,17 +1061,30 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
         .spawn_points
         .as_ref()
         .ok_or_else(|| "Battlefield engine blob requires spawn_points".to_string())?;
+    let map_head = stage
+        .map_head_object_tree
+        .as_ref()
+        .ok_or_else(|| "Battlefield engine blob requires map_head_object_tree".to_string())?;
 
     let mut text = String::new();
     text.push_str("// @generated by mole_cli stage extract; do not edit by hand.\n");
     text.push_str("use crate::stage::{\n");
     text.push_str(
-        "    MeleeStageProfile, StageBlastZones, StageCollisionJoint, StageCollisionLine,\n",
+        "    MeleeStageProfile, StageBlastZones, StageCallbackProfile, StageCollisionJoint,\n",
     );
     text.push_str(
-        "    StageCollisionLineKind, StageCollisionProfile, StageCollisionVertex, StageSource,\n",
+        "    StageCollisionLine, StageCollisionLineKind, StageCollisionProfile, StageCollisionVertex,\n",
     );
-    text.push_str("    StageSpawnPoint, StageSurface, StageSurfaceKind,\n");
+    text.push_str(
+        "    StageCameraInfo, StageDynamicCollisionProfile, StageFloatBounds, StageLedge,\n",
+    );
+    text.push_str("    StageLedgeSide, StageMapHeadEntry,\n");
+    text.push_str(
+        "    StageMapHeadJoint, StageMapHeadProfile, StageObjectCallbacks, StageSource,\n",
+    );
+    text.push_str(
+        "    StageSpawnMapping, StageSpawnPoint, StageSurface, StageSurfaceKind, StageVec3,\n",
+    );
     text.push_str("};\n\n");
 
     writeln!(
@@ -935,6 +1122,123 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
     writeln!(text, "        vertices: &BATTLEFIELD_COLLISION_VERTICES,").unwrap();
     writeln!(text, "        lines: &BATTLEFIELD_COLLISION_LINES,").unwrap();
     writeln!(text, "        joints: &BATTLEFIELD_COLLISION_JOINTS,").unwrap();
+    writeln!(text, "    }},").unwrap();
+    writeln!(text, "    ledges: &BATTLEFIELD_LEDGES,").unwrap();
+    writeln!(
+        text,
+        "    dynamic_collision: StageDynamicCollisionProfile {{ line_start: {}, line_count: {}, joint_count_with_dynamic_lines: {} }},",
+        stage.dynamic_collision.line_start,
+        stage.dynamic_collision.line_count,
+        stage.dynamic_collision.joint_count_with_dynamic_lines
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "    camera: {},",
+        stage_camera_info_literal(&stage.camera)?
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "    source_blast_zones: {},",
+        stage_float_bounds_literal(&stage.source_blast_zones)?
+    )
+    .unwrap();
+    writeln!(text, "    map_head: StageMapHeadProfile {{").unwrap();
+    writeln!(
+        text,
+        "        stage_dat_offset: {},",
+        map_head.stage_dat_offset
+    )
+    .unwrap();
+    writeln!(text, "        unk0_offset: {},", map_head.unk0_offset).unwrap();
+    writeln!(text, "        unk4: {},", map_head.unk4).unwrap();
+    writeln!(text, "        entries_offset: {},", map_head.entries_offset).unwrap();
+    writeln!(text, "        entry_count: {},", map_head.entry_count).unwrap();
+    writeln!(text, "        splines_offset: {},", map_head.splines_offset).unwrap();
+    writeln!(text, "        spline_count: {},", map_head.spline_count).unwrap();
+    writeln!(text, "        unk18_offset: {},", map_head.unk18_offset).unwrap();
+    writeln!(text, "        unk1c: {},", map_head.unk1c).unwrap();
+    writeln!(text, "        unk20_offset: {},", map_head.unk20_offset).unwrap();
+    writeln!(text, "        unk24: {},", map_head.unk24).unwrap();
+    writeln!(
+        text,
+        "        internals_offset: {},",
+        map_head.internals_offset
+    )
+    .unwrap();
+    writeln!(text, "        internal_count: {},", map_head.internal_count).unwrap();
+    writeln!(text, "        entries: &BATTLEFIELD_MAP_HEAD_ENTRIES,").unwrap();
+    writeln!(text, "        joints: &BATTLEFIELD_MAP_HEAD_JOINTS,").unwrap();
+    writeln!(text, "    }},").unwrap();
+    writeln!(text, "    callbacks: StageCallbackProfile {{").unwrap();
+    writeln!(
+        text,
+        "        stage_data_symbol: {},",
+        rust_str(&stage.callbacks.stage_data_symbol)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        callback_table_symbol: {},",
+        rust_str(&stage.callbacks.callback_table_symbol)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        object_callbacks: &BATTLEFIELD_OBJECT_CALLBACKS,"
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_init: {},",
+        rust_str(&stage.callbacks.on_init)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_demo_init: {},",
+        rust_str(&stage.callbacks.on_demo_init)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_load: {},",
+        rust_str(&stage.callbacks.on_load)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_start: {},",
+        rust_str(&stage.callbacks.on_start)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        callback4: {},",
+        rust_str(&stage.callbacks.callback4)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_touch_line: {},",
+        rust_str(&stage.callbacks.on_touch_line)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "        on_check_shadow_render: {},",
+        rust_str(&stage.callbacks.on_check_shadow_render)
+    )
+    .unwrap();
+    writeln!(text, "        flags2: {},", stage.callbacks.flags2).unwrap();
+    writeln!(
+        text,
+        "        spawn_table_symbol: {},",
+        rust_str(&stage.callbacks.spawn_table_symbol)
+    )
+    .unwrap();
+    writeln!(text, "        spawn_table: &BATTLEFIELD_SPAWN_MAPPINGS,").unwrap();
     writeln!(text, "    }},").unwrap();
     writeln!(
         text,
@@ -992,6 +1296,26 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
             vertex.index,
             rust_f32(vertex.source_x)?,
             rust_f32(vertex.source_y)?
+        )
+        .unwrap();
+    }
+    writeln!(text, "];\n").unwrap();
+
+    writeln!(
+        text,
+        "const BATTLEFIELD_LEDGES: [StageLedge; {}] = [",
+        stage.ledges.len()
+    )
+    .unwrap();
+    for ledge in &stage.ledges {
+        writeln!(
+            text,
+            "    StageLedge {{ index: {}, line_index: {}, side: {}, x_milli: {}, y_milli: {} }},",
+            ledge.index,
+            ledge.line_index,
+            stage_ledge_side_literal(&ledge.side)?,
+            ledge.x_milli,
+            ledge.y_milli
         )
         .unwrap();
     }
@@ -1064,6 +1388,138 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
     }
     writeln!(text, "];").unwrap();
 
+    writeln!(
+        text,
+        "\nconst BATTLEFIELD_MAP_HEAD_ENTRIES: [StageMapHeadEntry; {}] = [",
+        map_head.entries.len()
+    )
+    .unwrap();
+    for entry in &map_head.entries {
+        writeln!(text, "    StageMapHeadEntry {{").unwrap();
+        writeln!(text, "        index: {},", entry.index).unwrap();
+        writeln!(
+            text,
+            "        joint_root_offset: {},",
+            entry.joint_root_offset
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        joint_root_index: {},",
+            rust_option_u16(entry.joint_root_index)
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        camera_desc_offset: {},",
+            entry.camera_desc_offset
+        )
+        .unwrap();
+        writeln!(text, "        x14_offset: {},", entry.x14_offset).unwrap();
+        writeln!(text, "        x18_offset: {},", entry.x18_offset).unwrap();
+        writeln!(text, "        fog_desc_offset: {},", entry.fog_desc_offset).unwrap();
+        writeln!(text, "        vector_offset: {},", entry.vector_offset).unwrap();
+        writeln!(text, "        vector_count: {},", entry.vector_count).unwrap();
+        writeln!(text, "        x28_offset: {},", entry.x28_offset).unwrap();
+        writeln!(text, "        x2c_offset: {},", entry.x2c_offset).unwrap();
+        writeln!(text, "        x30: {},", entry.x30).unwrap();
+        writeln!(text, "    }},").unwrap();
+    }
+    writeln!(text, "];").unwrap();
+
+    writeln!(
+        text,
+        "\nconst BATTLEFIELD_MAP_HEAD_JOINTS: [StageMapHeadJoint; {}] = [",
+        map_head.joints.len()
+    )
+    .unwrap();
+    for joint in &map_head.joints {
+        writeln!(text, "    StageMapHeadJoint {{").unwrap();
+        writeln!(text, "        index: {},", joint.index).unwrap();
+        writeln!(text, "        node_offset: {},", joint.node_offset).unwrap();
+        writeln!(
+            text,
+            "        class_name_offset: {},",
+            joint.class_name_offset
+        )
+        .unwrap();
+        writeln!(text, "        flags: {},", joint.flags).unwrap();
+        writeln!(text, "        child_offset: {},", joint.child_offset).unwrap();
+        writeln!(text, "        next_offset: {},", joint.next_offset).unwrap();
+        writeln!(
+            text,
+            "        child_index: {},",
+            rust_option_u16(joint.child_index)
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        next_index: {},",
+            rust_option_u16(joint.next_index)
+        )
+        .unwrap();
+        writeln!(text, "        dobjdesc_offset: {},", joint.dobjdesc_offset).unwrap();
+        writeln!(
+            text,
+            "        rotation: {},",
+            stage_vec3_literal(&joint.rotation)?
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        scale: {},",
+            stage_vec3_literal(&joint.scale)?
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        position: {},",
+            stage_vec3_literal(&joint.position)?
+        )
+        .unwrap();
+        writeln!(text, "        mtx_offset: {},", joint.mtx_offset).unwrap();
+        writeln!(text, "        robjdesc_offset: {},", joint.robjdesc_offset).unwrap();
+        writeln!(text, "    }},").unwrap();
+    }
+    writeln!(text, "];").unwrap();
+
+    writeln!(
+        text,
+        "\nconst BATTLEFIELD_OBJECT_CALLBACKS: [StageObjectCallbacks; {}] = [",
+        stage.callbacks.object_callbacks.len()
+    )
+    .unwrap();
+    for callback in &stage.callbacks.object_callbacks {
+        writeln!(
+            text,
+            "    StageObjectCallbacks {{ object_id: {}, callback0: {}, callback1: {}, callback2: {}, callback3: {}, flags: {} }},",
+            callback.object_id,
+            rust_str(&callback.callback0),
+            rust_str(&callback.callback1),
+            rust_str(&callback.callback2),
+            rust_str(&callback.callback3),
+            callback.flags
+        )
+        .unwrap();
+    }
+    writeln!(text, "];").unwrap();
+
+    writeln!(
+        text,
+        "\nconst BATTLEFIELD_SPAWN_MAPPINGS: [StageSpawnMapping; {}] = [",
+        stage.callbacks.spawn_table.len()
+    )
+    .unwrap();
+    for spawn in &stage.callbacks.spawn_table {
+        writeln!(
+            text,
+            "    StageSpawnMapping {{ index: {}, x: {}, y: {}, z: {} }},",
+            spawn.index, spawn.x, spawn.y, spawn.z
+        )
+        .unwrap();
+    }
+    writeln!(text, "];").unwrap();
+
     Ok(Some(text))
 }
 
@@ -1077,6 +1533,70 @@ fn rust_f32(value: f32) -> Result<String, String> {
     } else {
         Err("stage engine blob cannot contain non-finite f32 values".to_string())
     }
+}
+
+fn rust_option_u16(value: Option<u16>) -> String {
+    value
+        .map(|value| format!("Some({value})"))
+        .unwrap_or_else(|| "None".to_string())
+}
+
+fn stage_vec3_literal(value: &ExtractedStageVec3) -> Result<String, String> {
+    Ok(format!(
+        "StageVec3 {{ x: {}, y: {}, z: {} }}",
+        rust_f32(value.x)?,
+        rust_f32(value.y)?,
+        rust_f32(value.z)?
+    ))
+}
+
+fn stage_float_bounds_literal(value: &ExtractedStageFloatBounds) -> Result<String, String> {
+    Ok(format!(
+        "StageFloatBounds {{ left: {}, right: {}, top: {}, bottom: {} }}",
+        rust_f32(value.left)?,
+        rust_f32(value.right)?,
+        rust_f32(value.top)?,
+        rust_f32(value.bottom)?
+    ))
+}
+
+fn stage_camera_info_literal(value: &ExtractedStageCameraInfo) -> Result<String, String> {
+    Ok(format!(
+        concat!(
+            "StageCameraInfo {{ cam_bounds: {}, cam_x_offset: {}, cam_y_offset: {}, ",
+            "cam_vertical_tilt: {}, cam_pan_degrees: {}, x20: {}, x24: {}, ",
+            "cam_track_ratio: {}, cam_fixed_zoom: {}, cam_track_smooth: {}, ",
+            "cam_zoom_rate: {}, cam_max_depth: {}, x3c: {}, pausecam_zpos_min: {}, ",
+            "pausecam_zpos_init: {}, pausecam_zpos_max: {}, cam_angle_up: {}, ",
+            "cam_angle_down: {}, cam_angle_left: {}, cam_angle_right: {}, ",
+            "fixed_cam_pos: {}, fixed_cam_fov: {}, fixed_cam_vert_angle: {}, ",
+            "fixed_cam_horz_angle: {} }}"
+        ),
+        stage_float_bounds_literal(&value.cam_bounds)?,
+        rust_f32(value.cam_x_offset)?,
+        rust_f32(value.cam_y_offset)?,
+        rust_f32(value.cam_vertical_tilt)?,
+        rust_f32(value.cam_pan_degrees)?,
+        rust_f32(value.x20)?,
+        rust_f32(value.x24)?,
+        rust_f32(value.cam_track_ratio)?,
+        rust_f32(value.cam_fixed_zoom)?,
+        rust_f32(value.cam_track_smooth)?,
+        rust_f32(value.cam_zoom_rate)?,
+        rust_f32(value.cam_max_depth)?,
+        rust_f32(value.x3c)?,
+        rust_f32(value.pausecam_zpos_min)?,
+        rust_f32(value.pausecam_zpos_init)?,
+        rust_f32(value.pausecam_zpos_max)?,
+        rust_f32(value.cam_angle_up)?,
+        rust_f32(value.cam_angle_down)?,
+        rust_f32(value.cam_angle_left)?,
+        rust_f32(value.cam_angle_right)?,
+        stage_vec3_literal(&value.fixed_cam_pos)?,
+        rust_f32(value.fixed_cam_fov)?,
+        rust_f32(value.fixed_cam_vert_angle)?,
+        rust_f32(value.fixed_cam_horz_angle)?
+    ))
 }
 
 fn stage_surface_literal(surface: &ExtractedStageSurface) -> Result<String, String> {
@@ -1119,6 +1639,14 @@ fn stage_line_kind_literal(kind: &str) -> Result<&'static str, String> {
         other => Err(format!(
             "unknown stage collision line kind for engine blob: {other}"
         )),
+    }
+}
+
+fn stage_ledge_side_literal(side: &str) -> Result<&'static str, String> {
+    match side {
+        "left" => Ok("StageLedgeSide::Left"),
+        "right" => Ok("StageLedgeSide::Right"),
+        other => Err(format!("unknown stage ledge side for engine blob: {other}")),
     }
 }
 
@@ -1198,6 +1726,159 @@ struct DerivedSurface {
     left_x: i32,
     right_x: i32,
     y: i32,
+}
+
+#[derive(Debug, Clone)]
+struct DerivedLedge {
+    line_index: usize,
+    side: &'static str,
+    x_milli: i32,
+    y_milli: i32,
+}
+
+#[derive(Debug, Clone)]
+struct StageCallbackMetadata {
+    stage_data_symbol: String,
+    callback_table_symbol: String,
+    object_callbacks: Vec<StageObjectCallbackMetadata>,
+    on_init: String,
+    on_demo_init: String,
+    on_load: String,
+    on_start: String,
+    callback4: String,
+    on_touch_line: String,
+    on_check_shadow_render: String,
+    flags2: u32,
+    spawn_table_symbol: String,
+    spawn_table: Vec<StageSpawnMappingMetadata>,
+}
+
+#[derive(Debug, Clone)]
+struct StageObjectCallbackMetadata {
+    object_id: u16,
+    callback0: String,
+    callback1: String,
+    callback2: String,
+    callback3: String,
+    flags: u32,
+}
+
+#[derive(Debug, Clone)]
+struct StageSpawnMappingMetadata {
+    index: u16,
+    x: i16,
+    y: i16,
+    z: i16,
+}
+
+#[derive(Debug, Clone)]
+struct StageCameraMetadata {
+    cam_bounds: StageFloatBoundsMetadata,
+    cam_x_offset: f32,
+    cam_y_offset: f32,
+    cam_vertical_tilt: f32,
+    cam_pan_degrees: f32,
+    x20: f32,
+    x24: f32,
+    cam_track_ratio: f32,
+    cam_fixed_zoom: f32,
+    cam_track_smooth: f32,
+    cam_zoom_rate: f32,
+    cam_max_depth: f32,
+    x3c: f32,
+    pausecam_zpos_min: f32,
+    pausecam_zpos_init: f32,
+    pausecam_zpos_max: f32,
+    cam_angle_up: f32,
+    cam_angle_down: f32,
+    cam_angle_left: f32,
+    cam_angle_right: f32,
+    fixed_cam_pos: StageVec3Metadata,
+    fixed_cam_fov: f32,
+    fixed_cam_vert_angle: f32,
+    fixed_cam_horz_angle: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StageFloatBoundsMetadata {
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StageVec3Metadata {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Debug, Clone)]
+struct StageBoundsMetadata {
+    camera: StageFloatBoundsMetadata,
+    blast: StageFloatBoundsMetadata,
+    cam_x_offset: f32,
+    cam_y_offset: f32,
+    source: &'static str,
+}
+
+#[derive(Debug, Clone)]
+struct MapHeadScene {
+    stage_dat_offset: u32,
+    unk0_offset: u32,
+    unk4: i32,
+    entries_offset: u32,
+    entry_count: i32,
+    splines_offset: u32,
+    spline_count: i32,
+    unk18_offset: u32,
+    unk1c: i32,
+    unk20_offset: u32,
+    unk24: i32,
+    internals_offset: u32,
+    internal_count: i32,
+    entries: Vec<MapHeadModelGroup>,
+    joints: Vec<MapHeadNode>,
+}
+
+#[derive(Debug, Clone)]
+struct MapHeadModelGroup {
+    joint_root_offset: u32,
+    joint_root_index: Option<usize>,
+    camera_desc_offset: u32,
+    x14_offset: u32,
+    x18_offset: u32,
+    fog_desc_offset: u32,
+    vector_offset: u32,
+    vector_count: i32,
+    x28_offset: u32,
+    x2c_offset: u32,
+    x30: i32,
+}
+
+#[derive(Debug, Clone)]
+struct MapHeadNode {
+    index: usize,
+    node_offset: u32,
+    class_name_offset: u32,
+    flags: u32,
+    child_offset: u32,
+    next_offset: u32,
+    child_index: Option<usize>,
+    next_index: Option<usize>,
+    dobjdesc_offset: u32,
+    rotation_x: f32,
+    rotation_y: f32,
+    rotation_z: f32,
+    scale_x: f32,
+    scale_y: f32,
+    scale_z: f32,
+    position_x: f32,
+    position_y: f32,
+    position_z: f32,
+    mtx_offset: u32,
+    robjdesc_offset: u32,
 }
 
 fn resolve_stage_input(
@@ -1538,14 +2219,13 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         .roots
         .get("coll_data")
         .ok_or_else(|| "stage DAT is missing public root coll_data".to_string())?;
-    let scale = roots
-        .roots
-        .get("grGroundParam")
+    let ground_param_offset = roots.roots.get("grGroundParam").copied();
+    let scale = ground_param_offset
         .map(|offset| {
             read_data_f32(
                 dat,
                 roots.data_block_size,
-                *offset as usize,
+                offset as usize,
                 "grGroundParam.x0",
             )
         })
@@ -1557,6 +2237,28 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
     let joints = parse_joints(dat, &roots, &coll, scale)?;
     let mut surfaces = derive_surfaces(&lines, &vertices, &coll);
     canonicalize_stage_surfaces(&stage.stage_id, &mut surfaces);
+    let ledges = derive_ledges(&lines, &vertices, &coll);
+    let dynamic_joint_count = joints
+        .iter()
+        .filter(|joint| joint.dynamic_count > 0)
+        .count() as u16;
+    let map_head_object_tree = parse_map_head_object_tree(dat, &roots)?;
+    let stage_bounds = map_head_object_tree
+        .as_ref()
+        .and_then(|scene| derive_stage_bounds_from_map_head(scene, scale));
+    let camera =
+        parse_stage_camera_metadata(dat, &roots, ground_param_offset, stage_bounds.as_ref())?;
+    let source_blast_zones =
+        stage_bounds
+            .as_ref()
+            .map(|bounds| bounds.blast)
+            .unwrap_or(StageFloatBoundsMetadata {
+                left: -99999.0,
+                right: 99999.0,
+                top: 99999.0,
+                bottom: -99999.0,
+            });
+    let callbacks = decomp_stage_metadata(stage).unwrap_or_else(empty_stage_callback_metadata);
     let main_floor = surfaces
         .iter()
         .filter(|surface| surface.kind == "solid")
@@ -1572,6 +2274,14 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         .filter(|surface| surface.kind == "soft")
         .cloned()
         .collect::<Vec<_>>();
+    let mut pending_stage_layers = vec!["map_plit_spawn_points", "itemdata"];
+    if map_head_object_tree.is_none() {
+        pending_stage_layers.insert(0, "map_head_object_tree");
+    }
+    if stage_bounds.is_none() {
+        pending_stage_layers.push("camera_bounds");
+        pending_stage_layers.push("blast_zones");
+    }
 
     Ok(json!({
         "schema_version": SCHEMA_VERSION,
@@ -1624,25 +2334,45 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
             "lines": lines.iter().enumerate().map(|(index, line)| line_to_json(index, line, &vertices, &coll)).collect::<Vec<_>>(),
             "joints": joints.iter().enumerate().map(|(index, joint)| joint_to_json(index, joint, scale)).collect::<Vec<_>>(),
         },
+        "ledges": ledges.iter().enumerate().map(|(index, ledge)| json!({
+            "index": index,
+            "line_index": ledge.line_index,
+            "side": ledge.side,
+            "x_milli": ledge.x_milli,
+            "y_milli": ledge.y_milli,
+            "source": {
+                "root": "coll_data",
+                "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+            }
+        })).collect::<Vec<_>>(),
+        "dynamic_collision": {
+            "source_root": "coll_data",
+            "line_start": coll.dynamic_start,
+            "line_count": coll.dynamic_count,
+            "joint_count_with_dynamic_lines": dynamic_joint_count,
+            "requires_stage_callbacks": coll.dynamic_count > 0,
+        },
+        "map_head_object_tree": map_head_object_tree
+            .as_ref()
+            .map(|groups| map_head_object_tree_to_json(groups)),
+        "camera": stage_camera_metadata_to_json(&camera),
+        "source_blast_zones": stage_float_bounds_to_json(&source_blast_zones),
+        "callbacks": stage_callback_metadata_to_json(&callbacks),
         "main_floor": main_floor.as_ref().map(surface_to_value),
         "soft_platforms": soft_platforms.iter().map(surface_to_value).collect::<Vec<_>>(),
-        "blast_zones": if stage.stage_id == "battlefield" {
-            Some(build_battlefield_stage_asset()["blast_zones"].clone())
-        } else {
-            None
+        "blast_zones": {
+            "left_x": source_units_to_milli(source_blast_zones.left),
+            "right_x": source_units_to_milli(source_blast_zones.right),
+            "top_y": source_units_to_milli(source_blast_zones.top),
+            "bottom_y": source_units_to_milli(source_blast_zones.bottom),
+            "source": stage_bounds.as_ref().map(|bounds| bounds.source).unwrap_or("stage_info_default"),
         },
         "spawn_points": if stage.stage_id == "battlefield" {
             Some(build_battlefield_stage_asset()["spawn_points"].clone())
         } else {
             None
         },
-        "pending_stage_layers": [
-            "map_head_object_tree",
-            "map_plit_spawn_points",
-            "itemdata",
-            "camera_bounds",
-            "blast_zones"
-        ],
+        "pending_stage_layers": pending_stage_layers,
     }))
 }
 
@@ -1949,6 +2679,324 @@ fn parse_joints(
     Ok(joints)
 }
 
+fn parse_map_head_object_tree(
+    dat: &[u8],
+    roots: &DatRoots,
+) -> Result<Option<MapHeadScene>, String> {
+    let Some(map_head_offset) = roots.roots.get("map_head").copied() else {
+        return Ok(None);
+    };
+    let stage_dat_offset = map_head_offset as usize;
+    let unk0_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset,
+        "map_head.unk0",
+    )?;
+    let unk4 = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x04,
+        "map_head.unk4",
+    )?;
+    let entries_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x08,
+        "map_head.entries",
+    )?;
+    let entry_count = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x0C,
+        "map_head.entry_count",
+    )?;
+    let splines_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x10,
+        "map_head.splines",
+    )?;
+    let spline_count = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x14,
+        "map_head.spline_count",
+    )?;
+    let unk18_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x18,
+        "map_head.unk18",
+    )?;
+    let unk1c = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x1C,
+        "map_head.unk1c",
+    )?;
+    let unk20_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x20,
+        "map_head.unk20",
+    )?;
+    let unk24 = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x24,
+        "map_head.unk24",
+    )?;
+    let internals_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x28,
+        "map_head.internals",
+    )?;
+    let internal_count = read_data_i32(
+        dat,
+        roots.data_block_size,
+        stage_dat_offset + 0x2C,
+        "map_head.internal_count",
+    )?;
+
+    let mut entries = Vec::new();
+    let mut joints = Vec::new();
+    let mut joint_indices = BTreeMap::new();
+    if entry_count > 0 && is_data_offset_in_range(roots.data_block_size, entries_offset, 0x34) {
+        for index in 0..entry_count as usize {
+            let entry_offset = entries_offset as usize + index * 0x34;
+            if entry_offset + 0x34 > roots.data_block_size {
+                break;
+            }
+            let joint_root_offset = read_data_u32(
+                dat,
+                roots.data_block_size,
+                entry_offset,
+                "map_head.entry.joint_root",
+            )?;
+            let joint_root_index = parse_map_head_joint_index(
+                dat,
+                roots,
+                joint_root_offset,
+                &mut joint_indices,
+                &mut joints,
+            )
+            .ok()
+            .flatten();
+            entries.push(MapHeadModelGroup {
+                joint_root_offset,
+                joint_root_index,
+                camera_desc_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x10,
+                    "map_head.entry.camera_desc",
+                )?,
+                x14_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x14,
+                    "map_head.entry.x14",
+                )?,
+                x18_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x18,
+                    "map_head.entry.x18",
+                )?,
+                fog_desc_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x1C,
+                    "map_head.entry.fog_desc",
+                )?,
+                vector_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x20,
+                    "map_head.entry.vector",
+                )?,
+                vector_count: read_data_i32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x24,
+                    "map_head.entry.vector_count",
+                )?,
+                x28_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x28,
+                    "map_head.entry.x28",
+                )?,
+                x2c_offset: read_data_u32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x2C,
+                    "map_head.entry.x2c",
+                )?,
+                x30: read_data_i32(
+                    dat,
+                    roots.data_block_size,
+                    entry_offset + 0x30,
+                    "map_head.entry.x30",
+                )?,
+            });
+        }
+    }
+    Ok(Some(MapHeadScene {
+        stage_dat_offset: map_head_offset,
+        unk0_offset,
+        unk4,
+        entries_offset,
+        entry_count,
+        splines_offset,
+        spline_count,
+        unk18_offset,
+        unk1c,
+        unk20_offset,
+        unk24,
+        internals_offset,
+        internal_count,
+        entries,
+        joints,
+    }))
+}
+
+fn parse_map_head_joint_index(
+    dat: &[u8],
+    roots: &DatRoots,
+    node_offset: u32,
+    joint_indices: &mut BTreeMap<u32, usize>,
+    joints: &mut Vec<MapHeadNode>,
+) -> Result<Option<usize>, String> {
+    if node_offset == 0 || !is_data_offset_in_range(roots.data_block_size, node_offset, 0x40) {
+        return Ok(None);
+    }
+    if let Some(index) = joint_indices.get(&node_offset).copied() {
+        return Ok(Some(index));
+    }
+    let offset = node_offset as usize;
+    let index = joints.len();
+    joint_indices.insert(node_offset, index);
+    let class_name_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset,
+        "map_head.node.class_name",
+    )?;
+    let flags = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 4,
+        "map_head.node.flags",
+    )?;
+    let child_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 8,
+        "map_head.node.child_offset",
+    )?;
+    let next_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 0x0C,
+        "map_head.node.next_offset",
+    )?;
+    let data_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 0x10,
+        "map_head.node.dobjdesc_offset",
+    )?;
+    let mtx_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 0x38,
+        "map_head.node.mtx_offset",
+    )?;
+    let robjdesc_offset = read_data_u32(
+        dat,
+        roots.data_block_size,
+        offset + 0x3C,
+        "map_head.node.robjdesc_offset",
+    )?;
+    joints.push(MapHeadNode {
+        index,
+        node_offset,
+        class_name_offset,
+        flags,
+        child_offset,
+        next_offset,
+        child_index: None,
+        next_index: None,
+        dobjdesc_offset: data_offset,
+        rotation_x: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x14,
+            "map_head.node.rotation_x",
+        )?,
+        rotation_y: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x18,
+            "map_head.node.rotation_y",
+        )?,
+        rotation_z: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x1C,
+            "map_head.node.rotation_z",
+        )?,
+        scale_x: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x20,
+            "map_head.node.scale_x",
+        )?,
+        scale_y: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x24,
+            "map_head.node.scale_y",
+        )?,
+        scale_z: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x28,
+            "map_head.node.scale_z",
+        )?,
+        position_x: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x2C,
+            "map_head.node.position_x",
+        )?,
+        position_y: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x30,
+            "map_head.node.position_y",
+        )?,
+        position_z: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x34,
+            "map_head.node.position_z",
+        )?,
+        mtx_offset,
+        robjdesc_offset,
+    });
+    let child_index = parse_map_head_joint_index(dat, roots, child_offset, joint_indices, joints)?;
+    let next_index = parse_map_head_joint_index(dat, roots, next_offset, joint_indices, joints)?;
+    if let Some(joint) = joints.get_mut(index) {
+        joint.child_index = child_index;
+        joint.next_index = next_index;
+    }
+    Ok(Some(index))
+}
+
 fn derive_surfaces(
     lines: &[MapLine],
     vertices: &[CollVertex],
@@ -2019,6 +3067,54 @@ fn derive_surfaces(
             }
         })
         .collect()
+}
+
+fn derive_ledges(
+    lines: &[MapLine],
+    vertices: &[CollVertex],
+    coll: &MapCollData,
+) -> Vec<DerivedLedge> {
+    let mut ledges = Vec::new();
+    for (index, line) in lines.iter().enumerate() {
+        if line_kind(index, line, coll) != "floor" || (line.lo_flags & COLL_LINE_SOFT_FLOOR) != 0 {
+            continue;
+        }
+        let Some(v0) = vertices.get(line.v0_idx as usize) else {
+            continue;
+        };
+        let Some(v1) = vertices.get(line.v1_idx as usize) else {
+            continue;
+        };
+        if !is_floor_line(lines, coll, line.prev_id0) {
+            ledges.push(DerivedLedge {
+                line_index: index,
+                side: "left",
+                x_milli: v0.x,
+                y_milli: v0.y,
+            });
+        }
+        if !is_floor_line(lines, coll, line.next_id0) {
+            ledges.push(DerivedLedge {
+                line_index: index,
+                side: "right",
+                x_milli: v1.x,
+                y_milli: v1.y,
+            });
+        }
+    }
+    ledges.sort_by_key(|ledge| (ledge.x_milli, ledge.line_index, ledge.y_milli));
+    ledges.dedup_by_key(|ledge| (ledge.x_milli, ledge.y_milli, ledge.side));
+    ledges
+}
+
+fn is_floor_line(lines: &[MapLine], coll: &MapCollData, line_index: i16) -> bool {
+    if line_index < 0 {
+        return false;
+    }
+    let index = line_index as usize;
+    lines
+        .get(index)
+        .is_some_and(|line| matches!(line_kind(index, line, coll), "floor" | "soft_floor"))
 }
 
 fn canonicalize_stage_surfaces(stage_id: &str, surfaces: &mut [DerivedSurface]) {
@@ -2096,6 +3192,463 @@ fn joint_to_json(index: usize, joint: &MapJoint, scale: f32) -> Value {
     })
 }
 
+fn map_head_object_tree_to_json(scene: &MapHeadScene) -> Value {
+    json!({
+        "source_root": "map_head",
+        "stage_dat_offset": scene.stage_dat_offset,
+        "stage_dat_offset_hex": format!("0x{:08x}", scene.stage_dat_offset),
+        "unk0_offset": scene.unk0_offset,
+        "unk4": scene.unk4,
+        "entries_offset": scene.entries_offset,
+        "entry_count": scene.entry_count,
+        "splines_offset": scene.splines_offset,
+        "spline_count": scene.spline_count,
+        "unk18_offset": scene.unk18_offset,
+        "unk1c": scene.unk1c,
+        "unk20_offset": scene.unk20_offset,
+        "unk24": scene.unk24,
+        "internals_offset": scene.internals_offset,
+        "internal_count": scene.internal_count,
+        "entry_count_decoded": scene.entries.len(),
+        "joint_count_decoded": scene.joints.len(),
+        "entries": scene.entries.iter().enumerate().map(|(index, entry)| json!({
+            "index": index,
+            "joint_root_offset": entry.joint_root_offset,
+            "joint_root_index": entry.joint_root_index,
+            "camera_desc_offset": entry.camera_desc_offset,
+            "x14_offset": entry.x14_offset,
+            "x18_offset": entry.x18_offset,
+            "fog_desc_offset": entry.fog_desc_offset,
+            "vector_offset": entry.vector_offset,
+            "vector_count": entry.vector_count,
+            "x28_offset": entry.x28_offset,
+            "x2c_offset": entry.x2c_offset,
+            "x30": entry.x30,
+        })).collect::<Vec<_>>(),
+        "joints": scene.joints.iter().map(map_head_node_to_json).collect::<Vec<_>>(),
+        "struct_refs": [
+            ".research/doldecomp-melee/src/melee/gr/grdatfiles.c::grDatFiles_801C6038",
+            ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat",
+            ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat_x8_t",
+            ".research/doldecomp-melee/src/sysdolphin/baselib/jobj.h::HSD_Joint",
+            ".research/doldecomp-melee/src/melee/gr/types.h::StageInfo",
+        ],
+    })
+}
+
+fn map_head_node_to_json(node: &MapHeadNode) -> Value {
+    json!({
+        "index": node.index,
+        "node_offset": node.node_offset,
+        "node_offset_hex": format!("0x{:08x}", node.node_offset),
+        "class_name_offset": node.class_name_offset,
+        "flags": node.flags,
+        "child_offset": node.child_offset,
+        "next_offset": node.next_offset,
+        "child_index": node.child_index,
+        "next_index": node.next_index,
+        "dobjdesc_offset": node.dobjdesc_offset,
+        "mtx_offset": node.mtx_offset,
+        "robjdesc_offset": node.robjdesc_offset,
+        "rotation": {
+            "x": node.rotation_x,
+            "y": node.rotation_y,
+            "z": node.rotation_z,
+        },
+        "scale": {
+            "x": node.scale_x,
+            "y": node.scale_y,
+            "z": node.scale_z,
+            "x_milli": source_units_to_milli(node.scale_x),
+            "y_milli": source_units_to_milli(node.scale_y),
+            "z_milli": source_units_to_milli(node.scale_z),
+        },
+        "position": {
+            "x": node.position_x,
+            "y": node.position_y,
+            "z": node.position_z,
+            "x_milli": source_units_to_milli(node.position_x),
+            "y_milli": source_units_to_milli(node.position_y),
+            "z_milli": source_units_to_milli(node.position_z),
+        },
+    })
+}
+
+fn parse_stage_camera_metadata(
+    dat: &[u8],
+    roots: &DatRoots,
+    ground_param_offset: Option<u32>,
+    bounds: Option<&StageBoundsMetadata>,
+) -> Result<StageCameraMetadata, String> {
+    let default_bounds = StageFloatBoundsMetadata {
+        left: -170.0,
+        right: 170.0,
+        top: 120.0,
+        bottom: -60.0,
+    };
+    let Some(offset) = ground_param_offset.map(|offset| offset as usize) else {
+        return Ok(StageCameraMetadata {
+            cam_bounds: bounds.map_or(default_bounds, |bounds| bounds.camera),
+            cam_x_offset: bounds.map_or(0.0, |bounds| bounds.cam_x_offset),
+            cam_y_offset: bounds.map_or(0.0, |bounds| bounds.cam_y_offset),
+            cam_vertical_tilt: 30.0,
+            cam_pan_degrees: -10.0,
+            x20: 0.2,
+            x24: 0.2,
+            cam_track_ratio: 0.0,
+            cam_fixed_zoom: 0.0,
+            cam_track_smooth: 0.0,
+            cam_zoom_rate: 82.0,
+            cam_max_depth: 1000.0,
+            x3c: 0.0,
+            pausecam_zpos_min: 0.0,
+            pausecam_zpos_init: 0.0,
+            pausecam_zpos_max: 0.0,
+            cam_angle_up: 0.0,
+            cam_angle_down: 0.0,
+            cam_angle_left: 0.0,
+            cam_angle_right: 0.0,
+            fixed_cam_pos: StageVec3Metadata {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            fixed_cam_fov: 0.0,
+            fixed_cam_vert_angle: 0.0,
+            fixed_cam_horz_angle: 0.0,
+        });
+    };
+
+    Ok(StageCameraMetadata {
+        cam_bounds: bounds.map_or(default_bounds, |bounds| bounds.camera),
+        cam_x_offset: bounds.map_or(0.0, |bounds| bounds.cam_x_offset),
+        cam_y_offset: bounds.map_or(0.0, |bounds| bounds.cam_y_offset),
+        cam_vertical_tilt: read_data_i16(
+            dat,
+            roots.data_block_size,
+            offset + 0x08,
+            "grGroundParam.x8",
+        )? as f32,
+        cam_pan_degrees: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x14,
+            "grGroundParam.x14",
+        )? as f32,
+        x20: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x1C,
+            "grGroundParam.x1C",
+        )?,
+        x24: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x18,
+            "grGroundParam.x18",
+        )?,
+        cam_track_ratio: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x20,
+            "grGroundParam.x20",
+        )?,
+        cam_fixed_zoom: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x24,
+            "grGroundParam.x24",
+        )?,
+        cam_track_smooth: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x28,
+            "grGroundParam.x28",
+        )?,
+        cam_zoom_rate: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x0C,
+            "grGroundParam.xC",
+        )? as f32,
+        cam_max_depth: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x10,
+            "grGroundParam.x10",
+        )? as f32,
+        x3c: read_data_i16(
+            dat,
+            roots.data_block_size,
+            offset + 0x2E,
+            "grGroundParam.x2E",
+        )? as f32,
+        pausecam_zpos_min: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x30,
+            "grGroundParam.x30",
+        )? as f32,
+        pausecam_zpos_init: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x34,
+            "grGroundParam.x34",
+        )? as f32,
+        pausecam_zpos_max: read_data_i32(
+            dat,
+            roots.data_block_size,
+            offset + 0x38,
+            "grGroundParam.x38",
+        )? as f32,
+        cam_angle_up: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x3C,
+            "grGroundParam.x3C",
+        )?,
+        cam_angle_down: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x40,
+            "grGroundParam.x40",
+        )?,
+        cam_angle_left: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x44,
+            "grGroundParam.x44",
+        )?,
+        cam_angle_right: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x48,
+            "grGroundParam.x48",
+        )?,
+        fixed_cam_pos: StageVec3Metadata {
+            x: read_data_f32(
+                dat,
+                roots.data_block_size,
+                offset + 0x50,
+                "grGroundParam.x50",
+            )?,
+            y: read_data_f32(
+                dat,
+                roots.data_block_size,
+                offset + 0x54,
+                "grGroundParam.x54",
+            )?,
+            z: read_data_f32(
+                dat,
+                roots.data_block_size,
+                offset + 0x58,
+                "grGroundParam.x58",
+            )?,
+        },
+        fixed_cam_fov: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x5C,
+            "grGroundParam.x5C",
+        )?,
+        fixed_cam_vert_angle: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x60,
+            "grGroundParam.x60",
+        )?,
+        fixed_cam_horz_angle: read_data_f32(
+            dat,
+            roots.data_block_size,
+            offset + 0x64,
+            "grGroundParam.x64",
+        )?,
+    })
+}
+
+fn derive_stage_bounds_from_map_head(
+    scene: &MapHeadScene,
+    scale: f32,
+) -> Option<StageBoundsMetadata> {
+    let world_positions = map_head_world_positions(scene);
+    let root = scene.entries.first()?.joint_root_index?;
+    let mut chain = Vec::new();
+    let mut current = scene.joints.get(root)?;
+    chain.push(current.index);
+    while let Some(child) = current.child_index {
+        current = scene.joints.get(child)?;
+        chain.push(current.index);
+        let mut sibling = current;
+        while let Some(next) = sibling.next_index {
+            sibling = scene.joints.get(next)?;
+            chain.push(sibling.index);
+        }
+        break;
+    }
+    if chain.len() < 5 {
+        return None;
+    }
+    let start = if let (Some(left), Some(right)) =
+        (world_positions.get(chain[1]), world_positions.get(chain[2]))
+    {
+        if left.x < 0.0 && right.x > 0.0 {
+            1
+        } else {
+            2
+        }
+    } else {
+        2
+    };
+    if chain.len() <= start + 3 {
+        return None;
+    }
+    let cam_a = *world_positions.get(chain[start])?;
+    let cam_b = *world_positions.get(chain[start + 1])?;
+    let blast_a = *world_positions.get(chain[start + 2])?;
+    let blast_b = *world_positions.get(chain[start + 3])?;
+    Some(StageBoundsMetadata {
+        camera: scale_bounds(bounds_from_points(cam_a, cam_b), scale),
+        blast: scale_bounds(bounds_from_points(blast_a, blast_b), scale),
+        cam_x_offset: 0.0,
+        cam_y_offset: 0.0,
+        source: "map_head_marker_nodes_Ground_801C39C0",
+    })
+}
+
+fn map_head_world_positions(scene: &MapHeadScene) -> Vec<StageVec3Metadata> {
+    let mut positions = vec![
+        StageVec3Metadata {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        scene.joints.len()
+    ];
+    let mut visited = vec![false; scene.joints.len()];
+    for entry in &scene.entries {
+        if let Some(root) = entry.joint_root_index {
+            map_head_world_positions_walk(
+                scene,
+                root,
+                StageVec3Metadata {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                StageVec3Metadata {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0,
+                },
+                &mut positions,
+                &mut visited,
+            );
+        }
+    }
+    positions
+}
+
+fn map_head_world_positions_walk(
+    scene: &MapHeadScene,
+    index: usize,
+    parent_pos: StageVec3Metadata,
+    parent_scale: StageVec3Metadata,
+    positions: &mut [StageVec3Metadata],
+    visited: &mut [bool],
+) {
+    if visited.get(index).copied().unwrap_or(true) {
+        return;
+    }
+    let Some(node) = scene.joints.get(index) else {
+        return;
+    };
+    visited[index] = true;
+    let pos = StageVec3Metadata {
+        x: parent_pos.x + node.position_x * parent_scale.x,
+        y: parent_pos.y + node.position_y * parent_scale.y,
+        z: parent_pos.z + node.position_z * parent_scale.z,
+    };
+    let scale = StageVec3Metadata {
+        x: parent_scale.x * node.scale_x,
+        y: parent_scale.y * node.scale_y,
+        z: parent_scale.z * node.scale_z,
+    };
+    positions[index] = pos;
+    if let Some(child) = node.child_index {
+        map_head_world_positions_walk(scene, child, pos, scale, positions, visited);
+    }
+    if let Some(next) = node.next_index {
+        map_head_world_positions_walk(scene, next, parent_pos, parent_scale, positions, visited);
+    }
+}
+
+fn bounds_from_points(a: StageVec3Metadata, b: StageVec3Metadata) -> StageFloatBoundsMetadata {
+    StageFloatBoundsMetadata {
+        left: a.x.min(b.x),
+        right: a.x.max(b.x),
+        top: a.y.max(b.y),
+        bottom: a.y.min(b.y),
+    }
+}
+
+fn scale_bounds(bounds: StageFloatBoundsMetadata, scale: f32) -> StageFloatBoundsMetadata {
+    StageFloatBoundsMetadata {
+        left: bounds.left * scale,
+        right: bounds.right * scale,
+        top: bounds.top * scale,
+        bottom: bounds.bottom * scale,
+    }
+}
+
+fn stage_float_bounds_to_json(bounds: &StageFloatBoundsMetadata) -> Value {
+    json!({
+        "left": bounds.left,
+        "right": bounds.right,
+        "top": bounds.top,
+        "bottom": bounds.bottom,
+    })
+}
+
+fn stage_camera_metadata_to_json(camera: &StageCameraMetadata) -> Value {
+    json!({
+        "cam_bounds": stage_float_bounds_to_json(&camera.cam_bounds),
+        "cam_x_offset": camera.cam_x_offset,
+        "cam_y_offset": camera.cam_y_offset,
+        "cam_vertical_tilt": camera.cam_vertical_tilt,
+        "cam_pan_degrees": camera.cam_pan_degrees,
+        "x20": camera.x20,
+        "x24": camera.x24,
+        "cam_track_ratio": camera.cam_track_ratio,
+        "cam_fixed_zoom": camera.cam_fixed_zoom,
+        "cam_track_smooth": camera.cam_track_smooth,
+        "cam_zoom_rate": camera.cam_zoom_rate,
+        "cam_max_depth": camera.cam_max_depth,
+        "x3c": camera.x3c,
+        "pausecam_zpos_min": camera.pausecam_zpos_min,
+        "pausecam_zpos_init": camera.pausecam_zpos_init,
+        "pausecam_zpos_max": camera.pausecam_zpos_max,
+        "cam_angle_up": camera.cam_angle_up,
+        "cam_angle_down": camera.cam_angle_down,
+        "cam_angle_left": camera.cam_angle_left,
+        "cam_angle_right": camera.cam_angle_right,
+        "fixed_cam_pos": {
+            "x": camera.fixed_cam_pos.x,
+            "y": camera.fixed_cam_pos.y,
+            "z": camera.fixed_cam_pos.z,
+        },
+        "fixed_cam_fov": camera.fixed_cam_fov,
+        "fixed_cam_vert_angle": camera.fixed_cam_vert_angle,
+        "fixed_cam_horz_angle": camera.fixed_cam_horz_angle,
+        "struct_refs": [
+            ".research/doldecomp-melee/src/melee/gr/types.h::StageCameraInfo",
+            ".research/doldecomp-melee/src/melee/gr/types.h::UnkStage6B0",
+            ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C0800",
+            ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C39C0",
+            ".research/doldecomp-melee/src/melee/gr/stage.c",
+        ],
+    })
+}
+
 fn line_kind(index: usize, line: &MapLine, coll: &MapCollData) -> &'static str {
     if in_range(index, coll.floor_start, coll.floor_count) || (line.hi_flags & COLL_LINE_FLOOR) != 0
     {
@@ -2170,6 +3723,274 @@ fn decomp_refs(stage: &ResolvedStageInput) -> Vec<&'static str> {
         refs.insert(0, stage_ref);
     }
     refs
+}
+
+fn empty_stage_callback_metadata() -> StageCallbackMetadata {
+    StageCallbackMetadata {
+        stage_data_symbol: String::new(),
+        callback_table_symbol: String::new(),
+        object_callbacks: Vec::new(),
+        on_init: String::new(),
+        on_demo_init: String::new(),
+        on_load: String::new(),
+        on_start: String::new(),
+        callback4: String::new(),
+        on_touch_line: String::new(),
+        on_check_shadow_render: String::new(),
+        flags2: 0,
+        spawn_table_symbol: String::new(),
+        spawn_table: Vec::new(),
+    }
+}
+
+fn decomp_stage_metadata(stage: &ResolvedStageInput) -> Option<StageCallbackMetadata> {
+    let decomp_ref = stage.decomp_ref?;
+    let text = fs::read_to_string(decomp_ref).ok()?;
+    let (stage_data_symbol, stage_data_fields) =
+        parse_named_initializer_fields(&text, "StageData")?;
+    let callback_table_symbol = normalize_c_token(stage_data_fields.get(1)?);
+    let object_callbacks = parse_stage_callback_table(&text, &callback_table_symbol);
+    let spawn_table_symbol =
+        normalize_c_token(stage_data_fields.get(11).map_or("", String::as_str));
+    let spawn_table = if spawn_table_symbol.is_empty() {
+        Vec::new()
+    } else {
+        parse_s16vec3_table(&text, &spawn_table_symbol)
+    };
+    Some(StageCallbackMetadata {
+        stage_data_symbol,
+        callback_table_symbol,
+        object_callbacks,
+        on_init: normalize_c_token(stage_data_fields.get(3).map_or("", String::as_str)),
+        on_demo_init: normalize_c_token(stage_data_fields.get(4).map_or("", String::as_str)),
+        on_load: normalize_c_token(stage_data_fields.get(5).map_or("", String::as_str)),
+        on_start: normalize_c_token(stage_data_fields.get(6).map_or("", String::as_str)),
+        callback4: normalize_c_token(stage_data_fields.get(7).map_or("", String::as_str)),
+        on_touch_line: normalize_c_token(stage_data_fields.get(8).map_or("", String::as_str)),
+        on_check_shadow_render: normalize_c_token(
+            stage_data_fields.get(9).map_or("", String::as_str),
+        ),
+        flags2: parse_c_u32(stage_data_fields.get(10).map_or("0", String::as_str)),
+        spawn_table_symbol,
+        spawn_table,
+    })
+}
+
+fn parse_named_initializer_fields(text: &str, type_name: &str) -> Option<(String, Vec<String>)> {
+    let marker = format!("{type_name} ");
+    let start = text.find(&marker)? + marker.len();
+    let after_type = &text[start..];
+    let symbol = after_type
+        .trim_start()
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+        .collect::<String>();
+    if symbol.is_empty() {
+        return None;
+    }
+    let initializer_start = text[start..].find('{')? + start;
+    let initializer = balanced_brace_block(text, initializer_start)?;
+    Some((symbol, split_top_level_commas(initializer)))
+}
+
+fn parse_stage_callback_table(text: &str, symbol: &str) -> Vec<StageObjectCallbackMetadata> {
+    if symbol.is_empty() {
+        return Vec::new();
+    }
+    let Some(symbol_pos) = text.find(symbol) else {
+        return Vec::new();
+    };
+    let Some(open) = text[symbol_pos..]
+        .find('{')
+        .map(|relative| symbol_pos + relative)
+    else {
+        return Vec::new();
+    };
+    let Some(block) = balanced_brace_block(text, open) else {
+        return Vec::new();
+    };
+    top_level_brace_entries(&block)
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, entry)| {
+            let fields = split_top_level_commas(&entry);
+            if fields.len() < 5 {
+                return None;
+            }
+            Some(StageObjectCallbackMetadata {
+                object_id: index as u16,
+                callback0: normalize_c_token(&fields[0]),
+                callback1: normalize_c_token(&fields[1]),
+                callback2: normalize_c_token(&fields[2]),
+                callback3: normalize_c_token(&fields[3]),
+                flags: parse_c_u32(&fields[4]),
+            })
+        })
+        .collect()
+}
+
+fn parse_s16vec3_table(text: &str, symbol: &str) -> Vec<StageSpawnMappingMetadata> {
+    let Some(symbol_pos) = text.find(symbol) else {
+        return Vec::new();
+    };
+    let Some(open) = text[symbol_pos..]
+        .find('{')
+        .map(|relative| symbol_pos + relative)
+    else {
+        return Vec::new();
+    };
+    let Some(block) = balanced_brace_block(text, open) else {
+        return Vec::new();
+    };
+    top_level_brace_entries(&block)
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, entry)| {
+            let fields = split_top_level_commas(&entry);
+            if fields.len() < 3 {
+                return None;
+            }
+            Some(StageSpawnMappingMetadata {
+                index: index as u16,
+                x: parse_c_i16(&fields[0]),
+                y: parse_c_i16(&fields[1]),
+                z: parse_c_i16(&fields[2]),
+            })
+        })
+        .collect()
+}
+
+fn balanced_brace_block(text: &str, open_brace: usize) -> Option<&str> {
+    let mut depth = 0_i32;
+    let mut start = None;
+    for (relative, ch) in text[open_brace..].char_indices() {
+        match ch {
+            '{' => {
+                if depth == 0 {
+                    start = Some(open_brace + relative + 1);
+                }
+                depth += 1;
+            }
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return start.map(|start| &text[start..open_brace + relative]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn top_level_brace_entries(block: &str) -> Vec<String> {
+    let mut entries = Vec::new();
+    let mut depth = 0_i32;
+    let mut start = None;
+    for (index, ch) in block.char_indices() {
+        match ch {
+            '{' => {
+                if depth == 0 {
+                    start = Some(index + 1);
+                }
+                depth += 1;
+            }
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    if let Some(start) = start.take() {
+                        entries.push(block[start..index].to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    entries
+}
+
+fn split_top_level_commas(block: &str) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut depth = 0_i32;
+    let mut start = 0;
+    for (index, ch) in block.char_indices() {
+        match ch {
+            '{' | '(' | '[' => depth += 1,
+            '}' | ')' | ']' => depth -= 1,
+            ',' if depth == 0 => {
+                let value = block[start..index].trim();
+                if !value.is_empty() {
+                    fields.push(value.to_string());
+                }
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    let value = block[start..].trim();
+    if !value.is_empty() {
+        fields.push(value.to_string());
+    }
+    fields
+}
+
+fn normalize_c_token(value: &str) -> String {
+    let value = value.trim().trim_matches('"');
+    if value == "NULL" || value == "0" {
+        String::new()
+    } else {
+        value.to_string()
+    }
+}
+
+fn parse_c_u32(value: &str) -> u32 {
+    let value = value.trim().trim_end_matches('U').trim_end_matches('u');
+    if let Some(hex) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
+        u32::from_str_radix(hex, 16).unwrap_or(0)
+    } else {
+        value.parse().unwrap_or(0)
+    }
+}
+
+fn parse_c_i16(value: &str) -> i16 {
+    parse_c_u32(value) as i16
+}
+
+fn stage_callback_metadata_to_json(callbacks: &StageCallbackMetadata) -> Value {
+    json!({
+        "stage_data_symbol": callbacks.stage_data_symbol,
+        "callback_table_symbol": callbacks.callback_table_symbol,
+        "object_callbacks": callbacks.object_callbacks.iter().map(|callback| json!({
+            "object_id": callback.object_id,
+            "callback0": callback.callback0,
+            "callback1": callback.callback1,
+            "callback2": callback.callback2,
+            "callback3": callback.callback3,
+            "flags": callback.flags,
+        })).collect::<Vec<_>>(),
+        "on_init": callbacks.on_init,
+        "on_demo_init": callbacks.on_demo_init,
+        "on_load": callbacks.on_load,
+        "on_start": callbacks.on_start,
+        "callback4": callbacks.callback4,
+        "on_touch_line": callbacks.on_touch_line,
+        "on_check_shadow_render": callbacks.on_check_shadow_render,
+        "flags2": callbacks.flags2,
+        "spawn_table_symbol": callbacks.spawn_table_symbol,
+        "spawn_table": callbacks.spawn_table.iter().map(|spawn| json!({
+            "index": spawn.index,
+            "x": spawn.x,
+            "y": spawn.y,
+            "z": spawn.z,
+        })).collect::<Vec<_>>(),
+        "struct_refs": [
+            ".research/doldecomp-melee/src/melee/gr/types.h::StageCallbacks",
+            ".research/doldecomp-melee/src/melee/gr/types.h::StageData",
+        ],
+    })
 }
 
 fn read_data_u32(
@@ -2253,6 +4074,12 @@ fn checked_data_offset(
             "{field} at data offset 0x{offset:x} is outside the DAT data block"
         ))
     }
+}
+
+fn is_data_offset_in_range(data_block_size: usize, offset: u32, size: usize) -> bool {
+    (offset as usize)
+        .checked_add(size)
+        .is_some_and(|end| end <= data_block_size)
 }
 
 fn read_u32(bytes: &[u8], offset: usize, field: &str) -> Result<u32, String> {
