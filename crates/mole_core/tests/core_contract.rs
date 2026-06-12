@@ -13,7 +13,9 @@ use mole_core::{
     MeleeActionStateId, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot,
     MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState,
     SourceActionKey, SourceDownBoundPose, StageCollisionLineKind, StageLedgeSide, StageProfile,
-    StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World, TICK_RATE_HZ,
+    StageSpawnPoint, StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World,
+    DEFAULT_STOCK_COUNT, PLAYER_STATE_IN_GAME, PLAYER_STATE_NONE,
+    SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_RATE_HZ,
 };
 use std::{fs, path::Path};
 
@@ -1241,8 +1243,17 @@ fn falcon_like_profile_exposes_public_falcon_gameplay_values() {
 #[test]
 fn rust_motion_states_all_have_source_ecb_samples() {
     for source_key in mole_core::RUST_MOTION_STATE_VARIANTS {
-        let runtime_variant = runtime_motion_state_for_source_key(source_key)
-            .unwrap_or_else(|| panic!("{source_key} should resolve to a Rust motion state"));
+        let Some(runtime_variant) = runtime_motion_state_for_source_key(source_key) else {
+            let motion_state = motion_state_for_runtime_variant(source_key)
+                .unwrap_or_else(|| panic!("{source_key} should parse as MotionState"));
+            assert!(
+                mole_core::is_source_dead_motion_state(motion_state)
+                    || mole_core::is_source_rebirth_motion_state(motion_state)
+                    || motion_state == MotionState::Sleep,
+                "{source_key} should either resolve to sampled source ECB or be a documented source common lifecycle state"
+            );
+            continue;
+        };
         let motion_state = motion_state_for_runtime_variant(runtime_variant)
             .unwrap_or_else(|| panic!("{runtime_variant} should parse as MotionState"));
         assert!(
@@ -1638,6 +1649,18 @@ fn input_threshold_defaults_match_extracted_plco_common_data() {
         (-0.5_f32).to_bits()
     );
     assert_eq!(common.platform_drop_delay_ticks, 2);
+    assert_eq!(common.rebirth_ticks, 60);
+    assert_eq!(common.rebirth_wait_ticks, 240);
+    assert_eq!(common.rebirth_hurt_intangible_ticks, 120);
+    assert_eq!(common.top_blast_fall_ko_chance, 16);
+    assert_eq!(common.dead_up_star_wait_ticks, 1);
+    assert_eq!(common.dead_up_star_rise_ticks, 130);
+    assert_eq!(common.dead_up_star_exit_ticks, 45);
+    assert_eq!(common.dead_up_fall_wait_ticks, 1);
+    assert_eq!(common.dead_up_fall_anim_ticks, 50);
+    assert_eq!(common.dead_up_fall_hit_camera_ticks, 3);
+    assert_eq!(common.dead_up_fall_drift_ticks, 40);
+    assert_eq!(common.dead_up_fall_exit_ticks, 35);
     assert_eq!(common.entry_start_ticks, 30);
     assert_eq!(common.entry_end_ticks, 30);
     assert_eq!(
@@ -2218,6 +2241,18 @@ fn input_common_data_sources_track_melee_field_offsets() {
         ("passive_window_max", "x250", 0x250),
         ("passive_stand_stick_x", "x254", 0x254),
         ("down_wait_timer", "x424", 0x424),
+        ("rebirth_ticks", "x5D0", 0x5d0),
+        ("rebirth_wait_ticks", "x5D4", 0x5d4),
+        ("rebirth_hurt_intangible_ticks", "x5D8", 0x5d8),
+        ("dead_up_star_wait_ticks", "x504", 0x504),
+        ("dead_up_star_rise_ticks", "x508", 0x508),
+        ("dead_up_star_exit_ticks", "x50C", 0x50c),
+        ("top_blast_fall_ko_chance", "x520", 0x520),
+        ("dead_up_fall_wait_ticks", "x524", 0x524),
+        ("dead_up_fall_anim_ticks", "x528", 0x528),
+        ("dead_up_fall_hit_camera_ticks", "x52C", 0x52c),
+        ("dead_up_fall_drift_ticks", "x530", 0x530),
+        ("dead_up_fall_exit_ticks", "x534", 0x534),
     ] {
         let source = sources
             .iter()
@@ -2336,6 +2371,18 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
     put_f32_be(&mut bytes, 0x470, 6.0);
+    put_i32_be(&mut bytes, 0x504, 11);
+    put_i32_be(&mut bytes, 0x508, 12);
+    put_i32_be(&mut bytes, 0x50c, 13);
+    put_i32_be(&mut bytes, 0x520, 77);
+    put_i32_be(&mut bytes, 0x524, 14);
+    put_i32_be(&mut bytes, 0x528, 15);
+    put_i32_be(&mut bytes, 0x52c, 16);
+    put_i32_be(&mut bytes, 0x530, 17);
+    put_i32_be(&mut bytes, 0x534, 18);
+    put_i32_be(&mut bytes, 0x5d0, 22);
+    put_i32_be(&mut bytes, 0x5d4, 9);
+    put_i32_be(&mut bytes, 0x5d8, 123);
     put_i32_be(&mut bytes, 0x6bc, 31);
     put_i32_be(&mut bytes, 0x6c0, 32);
     put_f32_be(&mut bytes, 0x6c4, 0.02);
@@ -2514,6 +2561,18 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
         (-1.25_f32).to_bits()
     );
     assert_eq!(common.platform_drop_delay_ticks, 6);
+    assert_eq!(common.rebirth_ticks, 22);
+    assert_eq!(common.rebirth_wait_ticks, 9);
+    assert_eq!(common.rebirth_hurt_intangible_ticks, 123);
+    assert_eq!(common.top_blast_fall_ko_chance, 77);
+    assert_eq!(common.dead_up_star_wait_ticks, 11);
+    assert_eq!(common.dead_up_star_rise_ticks, 12);
+    assert_eq!(common.dead_up_star_exit_ticks, 13);
+    assert_eq!(common.dead_up_fall_wait_ticks, 14);
+    assert_eq!(common.dead_up_fall_anim_ticks, 15);
+    assert_eq!(common.dead_up_fall_hit_camera_ticks, 16);
+    assert_eq!(common.dead_up_fall_drift_ticks, 17);
+    assert_eq!(common.dead_up_fall_exit_ticks, 18);
     assert_eq!(common.entry_start_ticks, 31);
     assert_eq!(common.entry_end_ticks, 32);
     assert_eq!(
@@ -2680,6 +2739,10 @@ fn synthetic_plco_common_data_bytes() -> Vec<u8> {
     put_f32_be(&mut bytes, 0x468, 5.0);
     put_f32_be(&mut bytes, 0x46c, -1.25);
     put_f32_be(&mut bytes, 0x470, 6.0);
+    put_i32_be(&mut bytes, 0x5d0, 22);
+    put_i32_be(&mut bytes, 0x5d4, 9);
+    put_i32_be(&mut bytes, 0x5d8, 123);
+    put_i32_be(&mut bytes, 0x520, 77);
     put_i32_be(&mut bytes, 0x6bc, 31);
     put_i32_be(&mut bytes, 0x6c0, 32);
     put_f32_be(&mut bytes, 0x6c4, 0.02);
@@ -4948,6 +5011,56 @@ fn world_applies_source_collision_frame_through_decomp_damage_pipeline() {
     assert_eq!(world.players()[1].damage_percent, 0.0);
     assert_eq!(world.players()[1].damage_percent_temp, 10.0);
     assert_eq!(world.players()[1].damage_applied, 10);
+}
+
+#[test]
+fn source_hurt_intangible_state_suppresses_hit_confirms_like_ftcoll_x198c() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.apply_source_hurt_intangible_timer(12);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 10,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let collision_frame = SourceCollisionFrame {
+        hits: vec![SourceCollisionCapsule::new(
+            0,
+            1,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(true)
+        .with_source_pose(
+            Some(MeleeActionStateId::new(65)),
+            Some(SourceActionKey::new("AttackAirN")),
+            7,
+        )
+        .with_hitbox_attributes(hitbox)],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.5, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(false)],
+    };
+
+    let step = world.apply_source_collision_frame(&collision_frame);
+
+    assert_eq!(step.confirms.len(), 0);
+    assert_eq!(step.stages.len(), 0);
+    assert_eq!(step.results.len(), 0);
+    assert_eq!(step.applied_stage_count, 0);
+    assert_eq!(world.players()[1].damage_percent_temp, 0.0);
 }
 
 #[test]
@@ -15255,4 +15368,278 @@ fn runtime_motion_state_lookup_handles_source_action_aliases() {
         Some("Attack1")
     );
     assert_eq!(motion_state_for_runtime_variant("AttackS3S"), None);
+}
+
+#[test]
+fn slippi_match_start_uses_source_stock_and_player_state_shape() {
+    let world = World::for_slippi_battlefield_singles_match_start();
+
+    assert_eq!(world.players()[0].player_state, PLAYER_STATE_IN_GAME);
+    assert_eq!(world.players()[1].player_state, PLAYER_STATE_IN_GAME);
+    assert_eq!(world.players()[0].stocks, DEFAULT_STOCK_COUNT);
+    assert_eq!(world.players()[1].stocks, DEFAULT_STOCK_COUNT);
+}
+
+#[test]
+fn hsd_randi_matches_baselib_random_sequence_and_rolls_back() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let before = world.rollback_snapshot();
+    let before_checksum = world.checksum();
+
+    assert_eq!(world.hsd_randi_for_diagnostic(100), 0);
+    assert_eq!(world.hsd_rng_seed(), 2_745_024);
+    assert_ne!(world.checksum(), before_checksum);
+
+    world.restore_rollback_snapshot(&before);
+    assert_eq!(world.hsd_rng_seed(), 1);
+    assert_eq!(world.checksum(), before_checksum);
+}
+
+#[test]
+fn stage_blast_zone_ko_loses_stock_and_enters_source_dead_state_before_rebirth() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.x = stage.blast_zones.right_x + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    player.damage_percent = 137.0;
+    player.velocity = Vec2 {
+        x: 42_000,
+        y: 12_000,
+    };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.stocks, DEFAULT_STOCK_COUNT - 1);
+    assert_eq!(player.player_state, PLAYER_STATE_IN_GAME);
+    assert_eq!(player.motion_state, MotionState::DeadRight);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(2))
+    );
+    assert_eq!(player.damage_percent, 137.0);
+    assert_eq!(player.velocity, Vec2 { x: 0, y: 0 });
+
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+    let player = world.players()[0];
+    let spawn = stage.spawn_points[0];
+    assert_eq!(player.motion_state, MotionState::Rebirth);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(12))
+    );
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: spawn.x,
+            y: spawn.y
+        }
+    );
+    assert_eq!(player.facing, spawn.facing);
+    assert_eq!(player.damage_percent, 0.0);
+    assert_eq!(player.velocity, Vec2 { x: 0, y: 0 });
+    assert!(!player.grounded);
+}
+
+#[test]
+fn upward_blast_zone_ko_uses_source_rng_and_x520_fall_chance() {
+    let mut fall = World::for_slippi_battlefield_singles_match_start();
+    let mut player = fall.players()[0];
+    player.position.y = fall.stage().blast_zones.top_y + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(fall.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut fall, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    assert_eq!(fall.players()[0].motion_state, MotionState::DeadUpFall);
+    assert_eq!(fall.players()[0].stocks, DEFAULT_STOCK_COUNT - 1);
+    assert_eq!(fall.hsd_rng_seed(), 2_745_024);
+
+    let mut star = World::for_slippi_battlefield_singles_match_start();
+    star.set_hsd_rng_seed_for_diagnostic(12_030);
+    let mut player = star.players()[0];
+    player.position.y = star.stage().blast_zones.top_y + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(star.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut star, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    assert_eq!(star.players()[0].motion_state, MotionState::DeadUpStar);
+    assert_eq!(star.players()[0].stocks, DEFAULT_STOCK_COUNT - 1);
+    assert_eq!(star.hsd_rng_seed(), 2_577_107_401);
+}
+
+#[test]
+fn dead_up_fall_preserves_source_phase_timers_before_rebirth() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.y = stage.blast_zones.top_y + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::DeadUpFall);
+
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::DeadUpFall);
+
+    for frame in 2..=129 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+
+    let player = world.players()[0];
+    let spawn = stage.spawn_points[0];
+    assert_eq!(player.motion_state, MotionState::Rebirth);
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: spawn.x,
+            y: spawn.y
+        }
+    );
+    assert_eq!(player.damage_percent, 0.0);
+}
+
+#[test]
+fn dead_up_star_preserves_source_phase_timers_before_rebirth() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    world.set_hsd_rng_seed_for_diagnostic(12_030);
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.y = stage.blast_zones.top_y + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::DeadUpStar);
+
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::DeadUpStar);
+
+    for frame in 2..=176 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+
+    let player = world.players()[0];
+    let spawn = stage.spawn_points[0];
+    assert_eq!(player.motion_state, MotionState::Rebirth);
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: spawn.x,
+            y: spawn.y
+        }
+    );
+    assert_eq!(player.damage_percent, 0.0);
+}
+
+#[test]
+fn rebirth_wait_exit_installs_source_hurt_intangibility_from_x5d8_before_fall() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let stage = world.stage();
+    let mut player = world.players()[0];
+    player.position.x = stage.blast_zones.right_x + 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::DeadRight);
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+    assert_eq!(world.players()[0].motion_state, MotionState::Rebirth);
+
+    for frame in 2..=62 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::RebirthWait);
+
+    for frame in 63..=303 {
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+    }
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(
+        player.source_hurt_intangible_timer,
+        world.common_data().rebirth_hurt_intangible_ticks
+    );
+    assert_eq!(
+        player.source_collision_state,
+        SOURCE_COLLISION_STATE_HURT_INTANGIBLE
+    );
+}
+
+#[test]
+fn four_stock_battlefield_match_flow_smoke_reaches_player_eliminated() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame = 0;
+
+    for expected_remaining_stocks in (0..DEFAULT_STOCK_COUNT).rev() {
+        let stage = world.stage();
+        let mut victim = world.players()[1];
+        victim.position.x = stage.blast_zones.right_x + 1_000;
+        victim.source_position = mole_core::SourceVec2::from_milli(victim.position);
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+        frame += 1;
+
+        let victim = world.players()[1];
+        assert_eq!(victim.stocks, expected_remaining_stocks);
+
+        if expected_remaining_stocks == 0 {
+            assert_eq!(victim.player_state, PLAYER_STATE_NONE);
+            break;
+        }
+
+        assert_eq!(victim.player_state, PLAYER_STATE_IN_GAME);
+        assert_eq!(victim.motion_state, MotionState::DeadRight);
+
+        step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+        frame += 1;
+        assert_eq!(world.players()[1].motion_state, MotionState::Rebirth);
+
+        for _ in 0..61 {
+            step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+            frame += 1;
+        }
+        assert_eq!(world.players()[1].motion_state, MotionState::RebirthWait);
+
+        for _ in 0..241 {
+            step_world(&mut world, Frame(frame), &[PlayerInput::neutral(); 2]);
+            frame += 1;
+        }
+        assert_eq!(world.players()[1].motion_state, MotionState::Fall);
+    }
+
+    assert_eq!(world.players()[0].player_state, PLAYER_STATE_IN_GAME);
+    assert_eq!(world.players()[0].stocks, DEFAULT_STOCK_COUNT);
+    assert_eq!(world.players()[1].player_state, PLAYER_STATE_NONE);
+    assert_eq!(world.players()[1].stocks, 0);
+}
+
+#[test]
+fn final_blast_zone_ko_clears_player_state_and_restores_through_rollback() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut player = world.players()[0];
+    player.stocks = 1;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let before = world.rollback_snapshot();
+    let before_checksum = world.checksum();
+
+    player.position.y = world.stage().blast_zones.bottom_y - 1_000;
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    assert_eq!(world.players()[0].stocks, 0);
+    assert_eq!(world.players()[0].player_state, PLAYER_STATE_NONE);
+    assert_ne!(world.checksum(), before_checksum);
+
+    world.restore_rollback_snapshot(&before);
+    assert_eq!(world.players()[0].stocks, 1);
+    assert_eq!(world.players()[0].player_state, PLAYER_STATE_IN_GAME);
+    assert_eq!(world.checksum(), before_checksum);
 }

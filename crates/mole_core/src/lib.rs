@@ -32,6 +32,7 @@ pub use stage::{
 };
 pub use state::{
     canonical_source_action_binding_for_source_table_id, has_source_ecb_samples_for_motion_state,
+    is_source_dead_motion_state, is_source_rebirth_motion_state,
     melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
     runtime_motion_state_for_source_key, source_binding_for_motion_state, source_root_motion_delta,
     source_root_motion_position, CanonicalSourceActionBinding, EngineFeatureToggles,
@@ -40,7 +41,9 @@ pub use state::{
     MotionState, MotionStateSourceBinding, PlayerRenderSnapshot, PlayerState, SourceActionKey,
     SourceActionPoseMetadata, SourceBounds3, SourceCollisionStep, SourceDownBoundPose, SourceVec2,
     SourceVec3, Vec2, World, WorldRollbackSnapshot, WorldSnapshot,
-    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, PLAYER_COUNT, RUST_MOTION_STATE_VARIANTS,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, DEFAULT_STOCK_COUNT, PLAYER_COUNT, PLAYER_STATE_IN_GAME,
+    PLAYER_STATE_NONE, RUST_MOTION_STATE_VARIANTS, SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE,
+    SOURCE_COLLISION_STATE_HURT_INTANGIBLE, SOURCE_COLLISION_STATE_NORMAL,
 };
 pub use time::{Frame, TICK_NANOS, TICK_RATE_HZ};
 pub use units::{

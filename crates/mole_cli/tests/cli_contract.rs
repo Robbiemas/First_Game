@@ -940,8 +940,8 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert_eq!(parsed["wrote_output"], true);
     assert!(parsed["figatree_chunk_count"].as_u64().unwrap() >= 65);
     assert!(parsed["figatree_chunk_bytes"].as_u64().unwrap() > 0);
-    assert!(generated.contains("RuntimeSourceExport"));
-    assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(!generated.contains("RuntimeSourceExport"));
+    assert!(!generated.contains("RuntimeFigatreeChunk"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("MeleeActionStateId::new(75)"));
@@ -1048,12 +1048,12 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
         "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(324), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryEnd) }"
     ));
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
-    assert!(generated.contains("SOURCE_MANIFEST_JSON"));
-    assert!(generated.contains("SOURCE_EXPORT"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
-    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
     assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
-    assert!(generated.contains("include_bytes!(\"source_frame_data/"));
+    assert!(!generated.contains("SOURCE_MANIFEST_JSON"));
+    assert!(!generated.contains("SOURCE_EXPORT"));
+    assert!(!generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(!generated.contains(".figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
@@ -1061,11 +1061,6 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(!generated.contains("_HIT_FRAME_"));
     assert!(!generated.contains("_HURT_FRAME_"));
     assert!(generated.len() < 200_000);
-    assert!(output_path
-        .parent()
-        .unwrap()
-        .join("source_frame_data/source_manifest.json")
-        .exists());
     assert!(output_path
         .parent()
         .unwrap()
@@ -1157,30 +1152,20 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
         PathBuf::from(parsed["source_manifest_path"].as_str().unwrap()),
         manifest_path
     );
-    assert!(generated.contains("RuntimeSourceExport"));
-    assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(!generated.contains("RuntimeSourceExport"));
+    assert!(!generated.contains("RuntimeFigatreeChunk"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("source_action_key: \"AttackAirN\""));
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
-    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
     assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
-    assert!(generated.contains("include_bytes!(\"source_frame_data/attack_air_n.figatree.bin\")"));
+    assert!(!generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(!generated.contains(".figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
     assert!(!generated.contains("SourceHurtCapsule"));
-    assert!(output_path
-        .parent()
-        .unwrap()
-        .join("source_frame_data/source_manifest.json")
-        .exists());
-    assert!(output_path
-        .parent()
-        .unwrap()
-        .join("source_frame_data/attack_air_n.figatree.bin")
-        .exists());
     assert!(output_path
         .parent()
         .unwrap()
@@ -2759,6 +2744,10 @@ fn help_command_exposes_full_agent_command_catalog() {
         .as_str()
         .unwrap()
         .contains("one test-name filter"));
+    assert!(tests_command["usage"]
+        .as_str()
+        .unwrap()
+        .contains("tests run"));
     assert_eq!(parsed["global_flags"]["--root"], "Project root override.");
 }
 
@@ -2767,6 +2756,38 @@ fn tests_command_notes_cargo_filter_limit() {
     let output = run_cli(&["tests".to_string()]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
 
+    assert!(parsed["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|note| note.as_str().unwrap().contains("one test-name filter")));
+}
+
+#[test]
+fn tests_run_dry_run_expands_multiple_filters_into_separate_cargo_invocations() {
+    let output = run_cli(&[
+        "tests".to_string(),
+        "run".to_string(),
+        "-p".to_string(),
+        "mole_core".to_string(),
+        "--dry-run".to_string(),
+        "stage_blast_zone_ko_loses_stock_and_respawns_from_stage_spawn".to_string(),
+        "final_blast_zone_ko_clears_player_state_and_restores_through_rollback".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "tests run");
+    assert_eq!(parsed["dry_run"], true);
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(
+        parsed["commands"][0],
+        "cargo test --target-dir target/mole-cli-test-runner -p mole_core stage_blast_zone_ko_loses_stock_and_respawns_from_stage_spawn"
+    );
+    assert_eq!(
+        parsed["commands"][1],
+        "cargo test --target-dir target/mole-cli-test-runner -p mole_core final_blast_zone_ko_clears_player_state_and_restores_through_rollback"
+    );
     assert!(parsed["notes"]
         .as_array()
         .unwrap()

@@ -236,6 +236,20 @@ pub fn legacy_sprite_source_size(cue: LegacySpriteCue) -> SpriteSourceSize {
 pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAnimationKey {
     match motion_state {
         MotionState::Wait
+        | MotionState::DeadDown
+        | MotionState::DeadLeft
+        | MotionState::DeadRight
+        | MotionState::DeadUp
+        | MotionState::DeadUpStar
+        | MotionState::DeadUpStarIce
+        | MotionState::DeadUpFall
+        | MotionState::DeadUpFallHitCamera
+        | MotionState::DeadUpFallHitCameraFlat
+        | MotionState::DeadUpFallIce
+        | MotionState::DeadUpFallHitCameraIce
+        | MotionState::Sleep
+        | MotionState::Rebirth
+        | MotionState::RebirthWait
         | MotionState::Entry
         | MotionState::EntryStart
         | MotionState::EntryEnd

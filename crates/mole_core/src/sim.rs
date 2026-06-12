@@ -8,14 +8,16 @@ use crate::{
     fighter_stick_axis_to_f32,
     state::{
         action_sample_frame_count_for_motion_state, active_ecb_bottom_offset_y,
-        is_source_damage_action_state_id, melee_action_state_id_for_motion_state,
+        is_source_damage_action_state_id, is_source_dead_motion_state,
+        is_source_rebirth_motion_state, melee_action_state_id_for_motion_state,
         source_motion_change_clamps_ground_velocity, source_root_motion_delta, EXPIRED_INPUT_TIMER,
-        SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
+        SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE,
+        SOURCE_COLLISION_STATE_NORMAL, SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
     },
     units::{milli_to_source_units, source_units_to_milli},
     Frame, MeleeActionStateId, MeleeCommonData, MeleeInputFacts, MeleeJumpInput, MotionState,
     PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, StageProfile,
-    StageSurfaceKind, Vec2, World,
+    StageSurfaceKind, Vec2, World, PLAYER_COUNT, PLAYER_STATE_IN_GAME,
 };
 
 const ATTACK_ACTIVE_TICKS: u8 = 12;
@@ -97,6 +99,9 @@ pub fn step_world_with_source_runtime_data(
         .zip(previous_inputs.iter().copied())
         .enumerate()
     {
+        if player.player_state != PLAYER_STATE_IN_GAME {
+            continue;
+        }
         let input_snapshot = input.melee_snapshot_with_config(
             previous_input,
             input_timers[player_index],
@@ -114,6 +119,7 @@ pub fn step_world_with_source_runtime_data(
         let y_tap_timer = input_timers[player_index].y_tap;
         let trigger_timer = input_timers[player_index].trigger;
         advance_source_lr_digital_press_timers(player, input_facts);
+        tick_source_collision_lifecycle(player);
         tick_guard_shield_lifecycle(player, input_facts, common_data);
         if player.hitlag_frames > 0 {
             begin_ground_velocity_tick(player);
@@ -176,6 +182,14 @@ pub fn step_world_with_source_runtime_data(
         }
         if is_source_down_attack_player(player) {
             advance_source_down_attack_state(player, stage, common_data, stick_x);
+            continue;
+        }
+        if is_source_dead_motion_state(player.motion_state) {
+            advance_source_dead_state(player, player_index, stage, common_data);
+            continue;
+        }
+        if is_source_rebirth_motion_state(player.motion_state) {
+            advance_source_rebirth_state(player, common_data);
             continue;
         }
 
@@ -900,6 +914,20 @@ pub fn step_world_with_source_runtime_data(
                 apply_ground_traction(player, stage, common_data);
                 player.velocity.y = 0;
             }
+            MotionState::DeadDown
+            | MotionState::DeadLeft
+            | MotionState::DeadRight
+            | MotionState::DeadUp
+            | MotionState::DeadUpStar
+            | MotionState::DeadUpStarIce
+            | MotionState::DeadUpFall
+            | MotionState::DeadUpFallHitCamera
+            | MotionState::DeadUpFallHitCameraFlat
+            | MotionState::DeadUpFallIce
+            | MotionState::DeadUpFallHitCameraIce
+            | MotionState::Sleep
+            | MotionState::Rebirth
+            | MotionState::RebirthWait => {}
         }
 
         if input.attack() {
@@ -1062,6 +1090,12 @@ pub fn step_world_with_source_runtime_data(
                     }
                 }
             }
+        }
+    }
+
+    if world.match_flow_enabled() {
+        for player_index in 0..PLAYER_COUNT {
+            world.resolve_stage_blast_zone_ko_for_player(player_index);
         }
     }
 
@@ -1851,6 +1885,135 @@ fn apply_source_damage_air_gravity(player: &mut PlayerState) {
         player,
         (player.source_self_velocity_y - profile.gravity).max(-profile.terminal_velocity),
     );
+}
+
+fn advance_source_dead_state(
+    player: &mut PlayerState,
+    player_index: usize,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
+    match player.motion_state {
+        MotionState::DeadUpStar | MotionState::DeadUpStarIce => {
+            if advance_source_dead_timer(player) {
+                return;
+            }
+            match player.source_dead_phase {
+                0 => {
+                    player.source_common_timer = common_data.dead_up_star_rise_ticks;
+                    player.source_dead_phase = 1;
+                    return;
+                }
+                1 => {
+                    player.source_common_timer = common_data.dead_up_star_exit_ticks;
+                    player.source_dead_phase = 2;
+                    return;
+                }
+                _ => {}
+            }
+        }
+        MotionState::DeadUpFall
+        | MotionState::DeadUpFallHitCamera
+        | MotionState::DeadUpFallHitCameraFlat
+        | MotionState::DeadUpFallIce
+        | MotionState::DeadUpFallHitCameraIce => {
+            if advance_source_dead_timer(player) {
+                return;
+            }
+            match player.source_dead_phase {
+                0 => {
+                    player.source_common_timer = common_data.dead_up_fall_anim_ticks;
+                    player.source_dead_phase = 1;
+                    return;
+                }
+                1 => {
+                    player.source_common_timer = common_data.dead_up_fall_hit_camera_ticks;
+                    player.source_dead_phase = 2;
+                    return;
+                }
+                2 => {
+                    player.source_common_timer = common_data.dead_up_fall_drift_ticks;
+                    player.source_dead_phase = 3;
+                    return;
+                }
+                3 => {
+                    player.source_common_timer = common_data.dead_up_fall_exit_ticks;
+                    player.source_dead_phase = 4;
+                    return;
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+
+    let Some(spawn) = stage.spawn_points.get(player_index).copied() else {
+        return;
+    };
+    player.enter_source_rebirth_state(
+        spawn.x,
+        spawn.y,
+        spawn.facing,
+        common_data.shield_start_health,
+        common_data.rebirth_ticks,
+    );
+}
+
+fn advance_source_dead_timer(player: &mut PlayerState) -> bool {
+    if player.source_common_timer > 0 {
+        player.source_common_timer = player.source_common_timer.saturating_sub(1);
+        player.motion_frame = player.motion_frame.saturating_add(1);
+        player.source_common_timer > 0
+    } else {
+        false
+    }
+}
+
+fn advance_source_rebirth_state(player: &mut PlayerState, common_data: MeleeCommonData) {
+    match player.motion_state {
+        MotionState::Rebirth => {
+            if player.source_common_timer > 0 {
+                player.source_common_timer = player.source_common_timer.saturating_sub(1);
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                return;
+            }
+            player.enter_source_rebirth_wait_state(common_data.rebirth_wait_ticks);
+        }
+        MotionState::RebirthWait => {
+            if player.source_common_timer > 0 {
+                player.source_common_timer = player.source_common_timer.saturating_sub(1);
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                return;
+            }
+            player.apply_source_hurt_intangible_timer(common_data.rebirth_hurt_intangible_ticks);
+            enter_fall(player);
+        }
+        _ => {}
+    }
+}
+
+fn tick_source_collision_lifecycle(player: &mut PlayerState) {
+    if player.source_hit_intangible_timer > 0 {
+        player.source_hit_intangible_timer = player.source_hit_intangible_timer.saturating_sub(1);
+        if player.source_hit_intangible_timer == 0 {
+            player.source_collision_state = if player.source_hurt_intangible_timer != 0 {
+                SOURCE_COLLISION_STATE_HURT_INTANGIBLE
+            } else {
+                SOURCE_COLLISION_STATE_NORMAL
+            };
+        }
+    }
+
+    if player.source_hurt_intangible_timer > 0 {
+        player.source_hurt_intangible_timer = player.source_hurt_intangible_timer.saturating_sub(1);
+        if player.source_hurt_intangible_timer == 0 {
+            player.source_collision_state = if player.source_hit_intangible_timer != 0 {
+                SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE
+            } else {
+                SOURCE_COLLISION_STATE_NORMAL
+            };
+        }
+    }
 }
 
 fn advance_entry(player: &mut PlayerState, common_data: MeleeCommonData) {

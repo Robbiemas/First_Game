@@ -22,6 +22,12 @@ mod fighter_common;
 mod source_root_motion;
 
 pub const PLAYER_COUNT: usize = 2;
+pub const DEFAULT_STOCK_COUNT: i8 = 4;
+pub const PLAYER_STATE_NONE: u8 = 0;
+pub const PLAYER_STATE_IN_GAME: u8 = 2;
+pub const SOURCE_COLLISION_STATE_NORMAL: u8 = 0;
+pub const SOURCE_COLLISION_STATE_HURT_INTANGIBLE: u8 = 1;
+pub const SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE: u8 = 2;
 pub(crate) const EXPIRED_INPUT_TIMER: u8 = 0xfe;
 // Fallback for Melee's JObj-sourced ECB path while non-sampled actions are
 // still being migrated from extracted per-frame data.
@@ -29,6 +35,26 @@ pub(crate) const SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y: i32 = 2_790;
 const FALLBACK_ECB_WIDTH_UNITS: i32 = 4_000;
 const PLAYER_ONE_DEFAULT_SPAWN_X: i32 = -20_000;
 const PLAYER_TWO_DEFAULT_SPAWN_X: i32 = 20_000;
+const HSD_RAND_INITIAL_SEED: u32 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceDeathDirection {
+    Down,
+    Left,
+    Right,
+    Up,
+}
+
+impl SourceDeathDirection {
+    pub const fn motion_state(self) -> MotionState {
+        match self {
+            Self::Down => MotionState::DeadDown,
+            Self::Left => MotionState::DeadLeft,
+            Self::Right => MotionState::DeadRight,
+            Self::Up => MotionState::DeadUp,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Vec2 {
@@ -612,6 +638,20 @@ impl Default for FighterProfile {
 pub enum MotionState {
     #[default]
     Wait,
+    DeadDown,
+    DeadLeft,
+    DeadRight,
+    DeadUp,
+    DeadUpStar,
+    DeadUpStarIce,
+    DeadUpFall,
+    DeadUpFallHitCamera,
+    DeadUpFallHitCameraFlat,
+    DeadUpFallIce,
+    DeadUpFallHitCameraIce,
+    Sleep,
+    Rebirth,
+    RebirthWait,
     Entry,
     EntryStart,
     EntryEnd,
@@ -687,6 +727,20 @@ pub enum MotionState {
 
 pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "Wait",
+    "DeadDown",
+    "DeadLeft",
+    "DeadRight",
+    "DeadUp",
+    "DeadUpStar",
+    "DeadUpStarIce",
+    "DeadUpFall",
+    "DeadUpFallHitCamera",
+    "DeadUpFallHitCameraFlat",
+    "DeadUpFallIce",
+    "DeadUpFallHitCameraIce",
+    "Sleep",
+    "Rebirth",
+    "RebirthWait",
     "Entry",
     "EntryStart",
     "EntryEnd",
@@ -763,6 +817,20 @@ pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
 pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
     Some(match state {
         "Wait" => MotionState::Wait,
+        "DeadDown" => MotionState::DeadDown,
+        "DeadLeft" => MotionState::DeadLeft,
+        "DeadRight" => MotionState::DeadRight,
+        "DeadUp" => MotionState::DeadUp,
+        "DeadUpStar" => MotionState::DeadUpStar,
+        "DeadUpStarIce" => MotionState::DeadUpStarIce,
+        "DeadUpFall" => MotionState::DeadUpFall,
+        "DeadUpFallHitCamera" => MotionState::DeadUpFallHitCamera,
+        "DeadUpFallHitCameraFlat" => MotionState::DeadUpFallHitCameraFlat,
+        "DeadUpFallIce" => MotionState::DeadUpFallIce,
+        "DeadUpFallHitCameraIce" => MotionState::DeadUpFallHitCameraIce,
+        "Sleep" => MotionState::Sleep,
+        "Rebirth" => MotionState::Rebirth,
+        "RebirthWait" => MotionState::RebirthWait,
         "Entry" => MotionState::Entry,
         "EntryStart" => MotionState::EntryStart,
         "EntryEnd" => MotionState::EntryEnd,
@@ -839,6 +907,25 @@ pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
 }
 
 pub fn runtime_motion_state_for_source_key(source_action_key: &str) -> Option<&'static str> {
+    if matches!(
+        source_action_key,
+        "DeadDown"
+            | "DeadLeft"
+            | "DeadRight"
+            | "DeadUp"
+            | "DeadUpStar"
+            | "DeadUpStarIce"
+            | "DeadUpFall"
+            | "DeadUpFallHitCamera"
+            | "DeadUpFallHitCameraFlat"
+            | "DeadUpFallIce"
+            | "DeadUpFallHitCameraIce"
+            | "Sleep"
+            | "Rebirth"
+            | "RebirthWait"
+    ) {
+        return None;
+    }
     if RUST_MOTION_STATE_VARIANTS.contains(&source_action_key) {
         return RUST_MOTION_STATE_VARIANTS
             .iter()
@@ -871,6 +958,30 @@ impl MeleeActionStateId {
 pub const fn is_source_damage_action_state_id(action_state_id: MeleeActionStateId) -> bool {
     let id = action_state_id.get();
     id >= 75 && id <= 91
+}
+
+pub const fn is_source_dead_motion_state(motion_state: MotionState) -> bool {
+    matches!(
+        motion_state,
+        MotionState::DeadDown
+            | MotionState::DeadLeft
+            | MotionState::DeadRight
+            | MotionState::DeadUp
+            | MotionState::DeadUpStar
+            | MotionState::DeadUpStarIce
+            | MotionState::DeadUpFall
+            | MotionState::DeadUpFallHitCamera
+            | MotionState::DeadUpFallHitCameraFlat
+            | MotionState::DeadUpFallIce
+            | MotionState::DeadUpFallHitCameraIce
+    )
+}
+
+pub const fn is_source_rebirth_motion_state(motion_state: MotionState) -> bool {
+    matches!(
+        motion_state,
+        MotionState::Rebirth | MotionState::RebirthWait
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -992,6 +1103,20 @@ pub const fn melee_action_state_id_for_motion_state(
     motion_state: MotionState,
 ) -> MeleeActionStateId {
     MeleeActionStateId::new(match motion_state {
+        MotionState::DeadDown => 0,
+        MotionState::DeadLeft => 1,
+        MotionState::DeadRight => 2,
+        MotionState::DeadUp => 3,
+        MotionState::DeadUpStar => 4,
+        MotionState::DeadUpStarIce => 5,
+        MotionState::DeadUpFall => 6,
+        MotionState::DeadUpFallHitCamera => 7,
+        MotionState::DeadUpFallHitCameraFlat => 8,
+        MotionState::DeadUpFallIce => 9,
+        MotionState::DeadUpFallHitCameraIce => 10,
+        MotionState::Sleep => 11,
+        MotionState::Rebirth => 12,
+        MotionState::RebirthWait => 13,
         MotionState::Wait => 14,
         MotionState::Entry => 322,
         MotionState::EntryStart => 323,
@@ -1071,6 +1196,20 @@ pub const fn source_binding_for_motion_state(
     motion_state: MotionState,
 ) -> Option<MotionStateSourceBinding> {
     match motion_state {
+        MotionState::DeadDown
+        | MotionState::DeadLeft
+        | MotionState::DeadRight
+        | MotionState::DeadUp
+        | MotionState::DeadUpStar
+        | MotionState::DeadUpStarIce
+        | MotionState::DeadUpFall
+        | MotionState::DeadUpFallHitCamera
+        | MotionState::DeadUpFallHitCameraFlat
+        | MotionState::DeadUpFallIce
+        | MotionState::DeadUpFallHitCameraIce
+        | MotionState::Sleep
+        | MotionState::Rebirth
+        | MotionState::RebirthWait => None,
         MotionState::Wait => Some(MotionStateSourceBinding::new(MotionState::Wait, 2, "Wait1")),
         MotionState::Entry => Some(MotionStateSourceBinding::new(
             MotionState::Entry,
@@ -1457,6 +1596,8 @@ pub(crate) fn source_motion_change_clamps_ground_velocity(
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerState {
     pub profile: FighterProfile,
+    pub player_state: u8,
+    pub stocks: i8,
     pub position: Vec2,
     pub source_position: SourceVec2,
     pub velocity: Vec2,
@@ -1492,6 +1633,11 @@ pub struct PlayerState {
     pub source_jab_followup_timer: u8,
     pub source_jab_followup_queued: bool,
     pub source_jab_combo_enabled: bool,
+    pub source_common_timer: u8,
+    pub source_dead_phase: u8,
+    pub source_collision_state: u8,
+    pub source_hit_intangible_timer: u16,
+    pub source_hurt_intangible_timer: u16,
     pub motion_state_alias: Option<MotionState>,
     pub motion_state: MotionState,
     pub motion_frame: u8,
@@ -1547,6 +1693,8 @@ impl PlayerState {
     pub const fn new_with_profile(x: i32, y: i32, facing: i8, profile: FighterProfile) -> Self {
         Self {
             profile,
+            player_state: PLAYER_STATE_IN_GAME,
+            stocks: DEFAULT_STOCK_COUNT,
             position: Vec2 { x, y },
             source_position: SourceVec2 {
                 x: x as f32 / MELEE_UNIT_SCALE as f32,
@@ -1585,6 +1733,11 @@ impl PlayerState {
             source_jab_followup_timer: 0,
             source_jab_followup_queued: false,
             source_jab_combo_enabled: false,
+            source_common_timer: 0,
+            source_dead_phase: 0,
+            source_collision_state: SOURCE_COLLISION_STATE_NORMAL,
+            source_hit_intangible_timer: 0,
+            source_hurt_intangible_timer: 0,
             motion_state_alias: Some(MotionState::Wait),
             motion_state: MotionState::Wait,
             motion_frame: 0,
@@ -1642,6 +1795,8 @@ impl PlayerState {
             action_sample_frame_count_for_motion_state(motion_state).unwrap_or(0);
         self.source_down_bound_pose = None;
         self.source_down_wait_timer = 0.0;
+        self.source_common_timer = 0;
+        self.source_dead_phase = 0;
         match source_binding_for_motion_state(motion_state) {
             Some(binding) => {
                 self.source_action_key = Some(binding.source_action_key);
@@ -1650,6 +1805,111 @@ impl PlayerState {
                 self.source_action_key = None;
             }
         }
+    }
+
+    pub fn reset_for_entry_spawn(
+        &mut self,
+        x: i32,
+        y: i32,
+        facing: i8,
+        profile: FighterProfile,
+        shield_health: f32,
+        entry_timer: u8,
+    ) {
+        let stocks = self.stocks;
+        *self = Self::new_with_profile(x, y, facing, profile);
+        self.stocks = stocks;
+        self.player_state = if stocks > 0 {
+            PLAYER_STATE_IN_GAME
+        } else {
+            PLAYER_STATE_NONE
+        };
+        self.shield_health = shield_health;
+        self.set_motion_state_alias(MotionState::Entry);
+        self.entry_timer = entry_timer;
+        self.grounded = false;
+    }
+
+    pub fn enter_source_dead_state(&mut self, direction: SourceDeathDirection) {
+        self.enter_source_dead_motion_state(direction.motion_state());
+    }
+
+    pub fn enter_source_dead_motion_state(&mut self, motion_state: MotionState) {
+        self.set_motion_state_alias(motion_state);
+        self.motion_frame = 0;
+        self.motion_anim_frame_milli = 0;
+        self.source_common_timer = 0;
+        self.source_dead_phase = 0;
+        self.velocity = Vec2 { x: 0, y: 0 };
+        self.source_self_velocity_x = 0.0;
+        self.source_self_velocity_y = 0.0;
+        self.ground_velocity_x = 0.0;
+        self.ground_accel_x = 0.0;
+        self.ground_accel_x2 = 0.0;
+        self.hitlag_frames = 0;
+        self.damage_hitstun_frames = 0;
+    }
+
+    pub fn enter_source_dead_motion_state_with_common_data(
+        &mut self,
+        motion_state: MotionState,
+        common_data: MeleeCommonData,
+    ) {
+        self.enter_source_dead_motion_state(motion_state);
+        self.source_common_timer = match motion_state {
+            MotionState::DeadUpStar | MotionState::DeadUpStarIce => {
+                common_data.dead_up_star_wait_ticks
+            }
+            MotionState::DeadUpFall
+            | MotionState::DeadUpFallHitCamera
+            | MotionState::DeadUpFallHitCameraFlat
+            | MotionState::DeadUpFallIce
+            | MotionState::DeadUpFallHitCameraIce => common_data.dead_up_fall_wait_ticks,
+            _ => 0,
+        };
+    }
+
+    pub fn enter_source_rebirth_state(
+        &mut self,
+        x: i32,
+        y: i32,
+        facing: i8,
+        shield_health: f32,
+        rebirth_ticks: u8,
+    ) {
+        let profile = self.profile;
+        let stocks = self.stocks;
+        *self = Self::new_with_profile(x, y, facing, profile);
+        self.stocks = stocks;
+        self.player_state = PLAYER_STATE_IN_GAME;
+        self.shield_health = shield_health;
+        self.set_motion_state_alias(MotionState::Rebirth);
+        self.source_common_timer = rebirth_ticks;
+        self.grounded = false;
+    }
+
+    pub fn enter_source_rebirth_wait_state(&mut self, rebirth_wait_ticks: u8) {
+        self.set_motion_state_alias(MotionState::RebirthWait);
+        self.source_common_timer = rebirth_wait_ticks;
+        self.velocity = Vec2 { x: 0, y: 0 };
+        self.source_self_velocity_x = 0.0;
+        self.source_self_velocity_y = 0.0;
+        self.grounded = false;
+    }
+
+    pub fn apply_source_hurt_intangible_timer(&mut self, ticks: u16) {
+        if ticks > self.source_hurt_intangible_timer {
+            self.source_hurt_intangible_timer = ticks;
+        }
+        self.source_collision_state = if self.source_hit_intangible_timer != 0 {
+            SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE
+        } else {
+            SOURCE_COLLISION_STATE_HURT_INTANGIBLE
+        };
+    }
+
+    pub const fn source_allows_hurt_collision(self) -> bool {
+        self.source_collision_state == SOURCE_COLLISION_STATE_NORMAL
     }
 }
 
@@ -1912,6 +2172,8 @@ fn player_source_pose_frame(player: PlayerState) -> u8 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerRenderSnapshot {
+    pub player_state: u8,
+    pub stocks: i8,
     pub position: Vec2,
     pub source_position: SourceVec2,
     pub velocity: Vec2,
@@ -1927,6 +2189,7 @@ pub struct PlayerRenderSnapshot {
     pub damage_element: u8,
     pub hitlag_frames: u8,
     pub damage_hitstun_frames: u16,
+    pub source_collision_state: u8,
     pub profile_weight: f32,
     pub melee_action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
@@ -1997,6 +2260,8 @@ impl PlayerRenderSnapshot {
             player.source_action_key
         };
         Self {
+            player_state: player.player_state,
+            stocks: player.stocks,
             position: player.position,
             source_position: player.source_position,
             velocity: player.velocity,
@@ -2012,6 +2277,7 @@ impl PlayerRenderSnapshot {
             damage_element: player.damage_element,
             hitlag_frames: player.hitlag_frames,
             damage_hitstun_frames: player.damage_hitstun_frames,
+            source_collision_state: player.source_collision_state,
             profile_weight: player.profile.weight,
             melee_action_state_id: player.melee_action_state_id,
             source_action_key: player.source_action_key,
@@ -2115,6 +2381,8 @@ macro_rules! player_rollback_snapshot_fields {
     ($emit:ident) => {
         $emit! {
             position: Vec2,
+            player_state: u8,
+            stocks: i8,
             source_position: SourceVec2,
             velocity: Vec2,
             source_self_velocity_x: f32,
@@ -2149,6 +2417,11 @@ macro_rules! player_rollback_snapshot_fields {
             source_jab_followup_timer: u8,
             source_jab_followup_queued: bool,
             source_jab_combo_enabled: bool,
+            source_common_timer: u8,
+            source_dead_phase: u8,
+            source_collision_state: u8,
+            source_hit_intangible_timer: u16,
+            source_hurt_intangible_timer: u16,
             motion_state_alias: Option<MotionState>,
             motion_state: MotionState,
             motion_frame: u8,
@@ -2224,7 +2497,9 @@ player_rollback_snapshot_fields!(define_player_rollback_snapshot);
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorldRollbackSnapshot {
     frame: Frame,
+    hsd_rng_seed: u32,
     engine_features: EngineFeatureToggles,
+    match_flow_enabled: bool,
     players: [PlayerRollbackSnapshot; PLAYER_COUNT],
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
@@ -2259,7 +2534,9 @@ impl Default for EngineFeatureToggles {
 #[derive(Debug, Clone, PartialEq)]
 pub struct World {
     frame: Frame,
+    hsd_rng_seed: u32,
     engine_features: EngineFeatureToggles,
+    match_flow_enabled: bool,
     stage: StageProfile,
     common_data: MeleeCommonData,
     players: [PlayerState; PLAYER_COUNT],
@@ -2319,7 +2596,9 @@ impl World {
 
         Self {
             frame: Frame(0),
+            hsd_rng_seed: HSD_RAND_INITIAL_SEED,
             engine_features: EngineFeatureToggles::parity(),
+            match_flow_enabled: false,
             stage,
             common_data,
             players,
@@ -2340,18 +2619,17 @@ impl World {
 
         for (index, player) in world.players.iter_mut().enumerate() {
             let spawn = stage.spawn_points[index];
-            *player = PlayerState::new_with_profile(
+            player.reset_for_entry_spawn(
                 spawn.x,
                 spawn.y,
                 spawn.facing,
                 FighterProfile::FALCON_LIKE,
+                world.common_data.shield_start_health,
+                5 * (index as u8 + 1),
             );
-            player.set_motion_state_alias(MotionState::Entry);
-            player.shield_health = world.common_data.shield_start_health;
-            player.entry_timer = 5 * (index as u8 + 1);
-            player.grounded = false;
         }
 
+        world.match_flow_enabled = true;
         world
     }
 
@@ -2363,8 +2641,36 @@ impl World {
         self.frame = frame;
     }
 
+    pub const fn hsd_rng_seed(&self) -> u32 {
+        self.hsd_rng_seed
+    }
+
+    pub fn set_hsd_rng_seed_for_diagnostic(&mut self, seed: u32) {
+        self.hsd_rng_seed = seed;
+    }
+
+    pub fn hsd_randi_for_diagnostic(&mut self, max_value: i32) -> i32 {
+        self.hsd_randi(max_value)
+    }
+
+    fn hsd_rand(&mut self) -> i32 {
+        self.hsd_rng_seed = self
+            .hsd_rng_seed
+            .wrapping_mul(214_013)
+            .wrapping_add(2_531_011);
+        (self.hsd_rng_seed >> 16) as i32
+    }
+
+    fn hsd_randi(&mut self, max_value: i32) -> i32 {
+        max_value * self.hsd_rand() / (1 << 16)
+    }
+
     pub const fn engine_features(&self) -> EngineFeatureToggles {
         self.engine_features
+    }
+
+    pub const fn match_flow_enabled(&self) -> bool {
+        self.match_flow_enabled
     }
 
     pub fn set_engine_features(&mut self, features: EngineFeatureToggles) {
@@ -2391,6 +2697,102 @@ impl World {
 
     pub(crate) fn players_mut(&mut self) -> &mut [PlayerState; PLAYER_COUNT] {
         &mut self.players
+    }
+
+    pub fn reset_player_to_stage_spawn(&mut self, player_index: usize) -> bool {
+        let Some(player) = self.players.get_mut(player_index) else {
+            return false;
+        };
+        let Some(spawn) = self.stage.spawn_points.get(player_index).copied() else {
+            return false;
+        };
+
+        let profile = player.profile;
+        let entry_timer = 5 * (player_index as u8 + 1);
+        player.reset_for_entry_spawn(
+            spawn.x,
+            spawn.y,
+            spawn.facing,
+            profile,
+            self.common_data.shield_start_health,
+            entry_timer,
+        );
+        true
+    }
+
+    pub fn lose_player_stock_for_stage_blast_zone(
+        &mut self,
+        player_index: usize,
+        direction: SourceDeathDirection,
+    ) -> bool {
+        let Some(player) = self.players.get_mut(player_index) else {
+            return false;
+        };
+        if player.player_state != PLAYER_STATE_IN_GAME || player.stocks <= 0 {
+            return false;
+        }
+
+        if player.stocks > 0 {
+            player.stocks -= 1;
+        }
+        if player.stocks <= 0 {
+            player.player_state = PLAYER_STATE_NONE;
+            player.velocity = Vec2 { x: 0, y: 0 };
+            player.source_self_velocity_x = 0.0;
+            player.source_self_velocity_y = 0.0;
+            player.hitlag_frames = 0;
+            player.damage_hitstun_frames = 0;
+            return true;
+        }
+
+        if direction == SourceDeathDirection::Up {
+            let roll = self.hsd_randi(100) + 1;
+            let motion_state = if roll <= self.common_data.top_blast_fall_ko_chance as i32 {
+                MotionState::DeadUpFall
+            } else {
+                MotionState::DeadUpStar
+            };
+            let Some(player) = self.players.get_mut(player_index) else {
+                return false;
+            };
+            player.enter_source_dead_motion_state_with_common_data(motion_state, self.common_data);
+            return true;
+        }
+
+        player.enter_source_dead_state(direction);
+        true
+    }
+
+    pub fn resolve_stage_blast_zone_ko_for_player(&mut self, player_index: usize) -> bool {
+        let Some(player) = self.players.get(player_index) else {
+            return false;
+        };
+        if player.player_state != PLAYER_STATE_IN_GAME {
+            return false;
+        }
+        if is_source_dead_motion_state(player.motion_state)
+            || is_source_rebirth_motion_state(player.motion_state)
+        {
+            return false;
+        }
+
+        let position = player.position;
+        let blast_zones = self.stage.blast_zones;
+        let direction = if position.x > blast_zones.right_x {
+            Some(SourceDeathDirection::Right)
+        } else if position.x < blast_zones.left_x {
+            Some(SourceDeathDirection::Left)
+        } else if position.y > blast_zones.top_y {
+            Some(SourceDeathDirection::Up)
+        } else if position.y < blast_zones.bottom_y {
+            Some(SourceDeathDirection::Down)
+        } else {
+            None
+        };
+
+        direction.is_some_and(|direction| {
+            self.lose_player_stock_for_stage_blast_zone(player_index, direction)
+        })
     }
 
     pub(crate) const fn previous_inputs(&self) -> &[PlayerInput; PLAYER_COUNT] {
@@ -2420,7 +2822,9 @@ impl World {
     pub fn rollback_snapshot(&self) -> WorldRollbackSnapshot {
         WorldRollbackSnapshot {
             frame: self.frame,
+            hsd_rng_seed: self.hsd_rng_seed,
             engine_features: self.engine_features,
+            match_flow_enabled: self.match_flow_enabled,
             players: self.players.map(PlayerRollbackSnapshot::from_player),
             previous_inputs: self.previous_inputs,
             input_timers: self.input_timers,
@@ -2431,7 +2835,9 @@ impl World {
 
     pub fn restore_rollback_snapshot(&mut self, snapshot: &WorldRollbackSnapshot) {
         self.frame = snapshot.frame;
+        self.hsd_rng_seed = snapshot.hsd_rng_seed;
         self.engine_features = snapshot.engine_features;
+        self.match_flow_enabled = snapshot.match_flow_enabled;
         for (player, player_snapshot) in self.players.iter_mut().zip(snapshot.players) {
             player_snapshot.restore_into(player);
         }
@@ -2491,8 +2897,16 @@ impl World {
         collision_frame: &SourceCollisionFrame,
     ) -> SourceCollisionStep {
         self.retain_source_hit_victim_log_for_frame(collision_frame);
-        let confirms =
-            self.source_hit_confirms_not_in_victim_log(source_hit_confirms(collision_frame));
+        let confirms = self.source_hit_confirms_not_in_victim_log(
+            source_hit_confirms(collision_frame)
+                .into_iter()
+                .filter(|confirm| {
+                    self.players
+                        .get(confirm.victim_index)
+                        .is_some_and(|player| player.source_allows_hurt_collision())
+                })
+                .collect(),
+        );
         let stages = source_damage_stages_from_confirms(&confirms);
         let results = self.source_damage_results_for_stages(&stages);
         let applied_stage_count = self.apply_source_damage_stages(&stages);
@@ -2682,14 +3096,18 @@ impl World {
     pub fn checksum(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         mix_u32(&mut hash, self.frame.0);
+        mix_u32(&mut hash, self.hsd_rng_seed);
         mix_u8(
             &mut hash,
             self.engine_features.shield_turnaround_during_guard as u8,
         );
+        mix_u8(&mut hash, self.match_flow_enabled as u8);
         mix_stage_profile(&mut hash, self.stage);
         mix_common_data(&mut hash, self.common_data);
         for player in self.players {
             mix_fighter_profile(&mut hash, player.profile);
+            mix_u8(&mut hash, player.player_state);
+            mix_u8(&mut hash, player.stocks as u8);
             mix_i32(&mut hash, player.position.x);
             mix_i32(&mut hash, player.position.y);
             mix_f32(&mut hash, player.source_position.x);
@@ -2729,6 +3147,11 @@ impl World {
             mix_u8(&mut hash, player.source_jab_followup_timer);
             mix_u8(&mut hash, player.source_jab_followup_queued as u8);
             mix_u8(&mut hash, player.source_jab_combo_enabled as u8);
+            mix_u8(&mut hash, player.source_common_timer);
+            mix_u8(&mut hash, player.source_dead_phase);
+            mix_u8(&mut hash, player.source_collision_state);
+            mix_u32(&mut hash, player.source_hit_intangible_timer as u32);
+            mix_u32(&mut hash, player.source_hurt_intangible_timer as u32);
             mix_optional_motion_state(&mut hash, player.motion_state_alias);
             mix_u8(&mut hash, player.motion_frame);
             mix_i32(&mut hash, player.motion_anim_frame_milli);
@@ -2907,6 +3330,20 @@ fn source_damage_hitstun_frames(common_data: MeleeCommonData, result: SourceDama
 const fn motion_state_id(state: MotionState) -> u8 {
     match state {
         MotionState::Wait => 0,
+        MotionState::DeadDown => 73,
+        MotionState::DeadLeft => 74,
+        MotionState::DeadRight => 75,
+        MotionState::DeadUp => 76,
+        MotionState::DeadUpStar => 77,
+        MotionState::DeadUpStarIce => 78,
+        MotionState::DeadUpFall => 79,
+        MotionState::DeadUpFallHitCamera => 80,
+        MotionState::DeadUpFallHitCameraFlat => 81,
+        MotionState::DeadUpFallIce => 82,
+        MotionState::DeadUpFallHitCameraIce => 83,
+        MotionState::Sleep => 84,
+        MotionState::Rebirth => 85,
+        MotionState::RebirthWait => 86,
         MotionState::Entry => 53,
         MotionState::EntryStart => 54,
         MotionState::EntryEnd => 55,
@@ -3211,6 +3648,18 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.platform_pass_y_tap_window);
     mix_f32(hash, common.pass_initial_y_velocity);
     mix_u8(hash, common.platform_drop_delay_ticks);
+    mix_u8(hash, common.rebirth_ticks);
+    mix_u8(hash, common.rebirth_wait_ticks);
+    mix_u32(hash, common.rebirth_hurt_intangible_ticks as u32);
+    mix_u8(hash, common.top_blast_fall_ko_chance);
+    mix_u8(hash, common.dead_up_star_wait_ticks);
+    mix_u8(hash, common.dead_up_star_rise_ticks);
+    mix_u8(hash, common.dead_up_star_exit_ticks);
+    mix_u8(hash, common.dead_up_fall_wait_ticks);
+    mix_u8(hash, common.dead_up_fall_anim_ticks);
+    mix_u8(hash, common.dead_up_fall_hit_camera_ticks);
+    mix_u8(hash, common.dead_up_fall_drift_ticks);
+    mix_u8(hash, common.dead_up_fall_exit_ticks);
     mix_u8(hash, common.entry_start_ticks);
     mix_u8(hash, common.entry_end_ticks);
     mix_f32(hash, common.entry_initial_scale_y);

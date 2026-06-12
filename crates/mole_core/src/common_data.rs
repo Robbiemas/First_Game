@@ -179,6 +179,18 @@ pub struct MeleeCommonData {
     pub platform_pass_y_tap_window: u8,
     pub pass_initial_y_velocity: f32,
     pub platform_drop_delay_ticks: u8,
+    pub rebirth_ticks: u8,
+    pub rebirth_wait_ticks: u8,
+    pub rebirth_hurt_intangible_ticks: u16,
+    pub top_blast_fall_ko_chance: u8,
+    pub dead_up_star_wait_ticks: u8,
+    pub dead_up_star_rise_ticks: u8,
+    pub dead_up_star_exit_ticks: u8,
+    pub dead_up_fall_wait_ticks: u8,
+    pub dead_up_fall_anim_ticks: u8,
+    pub dead_up_fall_hit_camera_ticks: u8,
+    pub dead_up_fall_drift_ticks: u8,
+    pub dead_up_fall_exit_ticks: u8,
     pub entry_start_ticks: u8,
     pub entry_end_ticks: u8,
     pub entry_initial_scale_y: f32,
@@ -302,6 +314,18 @@ impl MeleeCommonData {
         platform_pass_y_tap_window: 6,
         pass_initial_y_velocity: -0.5,
         platform_drop_delay_ticks: 2,
+        rebirth_ticks: 60,
+        rebirth_wait_ticks: 240,
+        rebirth_hurt_intangible_ticks: 120,
+        top_blast_fall_ko_chance: 16,
+        dead_up_star_wait_ticks: 1,
+        dead_up_star_rise_ticks: 130,
+        dead_up_star_exit_ticks: 45,
+        dead_up_fall_wait_ticks: 1,
+        dead_up_fall_anim_ticks: 50,
+        dead_up_fall_hit_camera_ticks: 3,
+        dead_up_fall_drift_ticks: 40,
+        dead_up_fall_exit_ticks: 35,
         entry_start_ticks: 30,
         entry_end_ticks: 30,
         entry_initial_scale_y: 0.009999999776482582,
@@ -432,6 +456,18 @@ impl MeleeCommonData {
         data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
         data.pass_initial_y_velocity = read_f32(bytes, 0x46c, "x46C")?;
         data.platform_drop_delay_ticks = read_u8_from_f32(bytes, 0x470, "x470")?;
+        data.rebirth_ticks = read_u8_from_i32(bytes, 0x5d0, "x5D0")?;
+        data.rebirth_wait_ticks = read_u8_from_i32(bytes, 0x5d4, "x5D4")?;
+        data.rebirth_hurt_intangible_ticks = read_u16_from_i32(bytes, 0x5d8, "x5D8")?;
+        data.top_blast_fall_ko_chance = read_u8_from_i32(bytes, 0x520, "x520")?;
+        data.dead_up_star_wait_ticks = read_u8_from_i32(bytes, 0x504, "x504")?;
+        data.dead_up_star_rise_ticks = read_u8_from_i32(bytes, 0x508, "x508")?;
+        data.dead_up_star_exit_ticks = read_u8_from_i32(bytes, 0x50c, "x50C")?;
+        data.dead_up_fall_wait_ticks = read_u8_from_i32(bytes, 0x524, "x524")?;
+        data.dead_up_fall_anim_ticks = read_u8_from_i32(bytes, 0x528, "x528")?;
+        data.dead_up_fall_hit_camera_ticks = read_u8_from_i32(bytes, 0x52c, "x52C")?;
+        data.dead_up_fall_drift_ticks = read_u8_from_i32(bytes, 0x530, "x530")?;
+        data.dead_up_fall_exit_ticks = read_u8_from_i32(bytes, 0x534, "x534")?;
         data.entry_start_ticks = read_u8_from_i32(bytes, 0x6bc, "x6BC")?;
         data.entry_end_ticks = read_u8_from_i32(bytes, 0x6c0, "x6C0")?;
         data.entry_initial_scale_y = read_f32(bytes, 0x6c4, "x6C4")?;
@@ -564,6 +600,15 @@ fn read_u8_from_i32(
 ) -> Result<u8, CommonDataExtractError> {
     let value = read_i32(bytes, offset, field)?;
     range_i32(value, 0, u8::MAX as i32, field, offset).map(|value| value as u8)
+}
+
+fn read_u16_from_i32(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<u16, CommonDataExtractError> {
+    let value = read_i32(bytes, offset, field)?;
+    range_i32(value, 0, u16::MAX as i32, field, offset).map(|value| value as u16)
 }
 
 fn read_u8_from_f32(
@@ -1287,6 +1332,78 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "x470",
         offset: 0x470,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "rebirth_ticks",
+        source_name: "x5D0",
+        offset: 0x5d0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "rebirth_wait_ticks",
+        source_name: "x5D4",
+        offset: 0x5d4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "rebirth_hurt_intangible_ticks",
+        source_name: "x5D8",
+        offset: 0x5d8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_star_wait_ticks",
+        source_name: "x504",
+        offset: 0x504,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_star_rise_ticks",
+        source_name: "x508",
+        offset: 0x508,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_star_exit_ticks",
+        source_name: "x50C",
+        offset: 0x50c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "top_blast_fall_ko_chance",
+        source_name: "x520",
+        offset: 0x520,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_fall_wait_ticks",
+        source_name: "x524",
+        offset: 0x524,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_fall_anim_ticks",
+        source_name: "x528",
+        offset: 0x528,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_fall_hit_camera_ticks",
+        source_name: "x52C",
+        offset: 0x52c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_fall_drift_ticks",
+        source_name: "x530",
+        offset: 0x530,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_up_fall_exit_ticks",
+        source_name: "x534",
+        offset: 0x534,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "entry_start_ticks",

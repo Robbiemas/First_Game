@@ -169,6 +169,62 @@
       "source_name": "x3C",
       "stick_byte": 102
     },
+    "dead_up_fall_anim_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1320,
+      "raw": 50,
+      "source_name": "x528",
+      "ticks": 50
+    },
+    "dead_up_fall_drift_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1328,
+      "raw": 40,
+      "source_name": "x530",
+      "ticks": 40
+    },
+    "dead_up_fall_exit_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1332,
+      "raw": 35,
+      "source_name": "x534",
+      "ticks": 35
+    },
+    "dead_up_fall_hit_camera_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1324,
+      "raw": 3,
+      "source_name": "x52C",
+      "ticks": 3
+    },
+    "dead_up_fall_wait_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1316,
+      "raw": 1,
+      "source_name": "x524",
+      "ticks": 1
+    },
+    "dead_up_star_exit_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1292,
+      "raw": 45,
+      "source_name": "x50C",
+      "ticks": 45
+    },
+    "dead_up_star_rise_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1288,
+      "raw": 130,
+      "source_name": "x508",
+      "ticks": 130
+    },
+    "dead_up_star_wait_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1284,
+      "raw": 1,
+      "source_name": "x504",
+      "ticks": 1
+    },
     "down_stand_stick_y": {
       "kind": "stick",
       "offset": 580,
@@ -475,6 +531,27 @@
       "source_name": "x468",
       "ticks": 6
     },
+    "rebirth_hurt_intangible_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1496,
+      "raw": 120,
+      "source_name": "x5D8",
+      "ticks": 120
+    },
+    "rebirth_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1488,
+      "raw": 60,
+      "source_name": "x5D0",
+      "ticks": 60
+    },
+    "rebirth_wait_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1492,
+      "raw": 240,
+      "source_name": "x5D4",
+      "ticks": 240
+    },
     "run_accel_taper": {
       "kind": "source_f32",
       "offset": 92,
@@ -622,6 +699,13 @@
       "raw": 0.25,
       "source_name": "attackhi3_stick_threshold_y",
       "stick_byte": 32
+    },
+    "top_blast_fall_ko_chance": {
+      "kind": "i32_ticks",
+      "offset": 1312,
+      "raw": 16,
+      "source_name": "x520",
+      "ticks": 16
     },
     "trigger_deadzone": {
       "kind": "trigger",

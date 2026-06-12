@@ -248,9 +248,7 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
             ],
             outputs: &[
                 "crates/mole_runtime/src/generated/source_frame_data.rs",
-                "crates/mole_runtime/src/generated/source_frame_data/source_manifest.json",
                 "crates/mole_runtime/src/generated/source_frame_data/source_frame_capsules.bin",
-                "crates/mole_runtime/src/generated/source_frame_data/attack_air_n.figatree.bin",
             ],
         },
     ]

@@ -1238,9 +1238,6 @@ struct RuntimeSourcePoint {
 
 #[derive(Debug, Clone)]
 struct RuntimeSourceExportModule {
-    character: String,
-    source_character: Option<String>,
-    manifest_text: String,
     figatree_chunks: Vec<RuntimeFigatreeChunkExport>,
     baked_source_actions: Vec<RuntimeSourceActionFrameSamples>,
     state_bindings: Vec<RuntimeStateBindingExport>,
@@ -1250,7 +1247,6 @@ struct RuntimeSourceExportModule {
 #[derive(Debug, Clone)]
 struct RuntimeFigatreeChunkExport {
     source_action_key: String,
-    file_name: String,
     bytes: Vec<u8>,
 }
 
@@ -1297,7 +1293,6 @@ impl RuntimeSourceGeneratedModule {
 }
 
 const RUNTIME_SOURCE_SIDECAR_DIR: &str = "source_frame_data";
-const RUNTIME_SOURCE_MANIFEST_FILE: &str = "source_manifest.json";
 const RUNTIME_SOURCE_FRAME_CAPSULES_FILE: &str = "source_frame_capsules.bin";
 
 impl RuntimeSourceExportModule {
@@ -1359,7 +1354,6 @@ impl RuntimeSourceExportModule {
                             source_action_key.clone(),
                             RuntimeFigatreeChunkExport {
                                 source_action_key: source_action_key.clone(),
-                                file_name: runtime_figatree_chunk_file_name(&source_action_key),
                                 bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
                             },
                         );
@@ -1402,7 +1396,6 @@ impl RuntimeSourceExportModule {
                     source_action_key.to_string(),
                     RuntimeFigatreeChunkExport {
                         source_action_key: source_action_key.to_string(),
-                        file_name: runtime_figatree_chunk_file_name(source_action_key),
                         bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
                     },
                 );
@@ -1437,7 +1430,6 @@ impl RuntimeSourceExportModule {
                     source_action_key.to_string(),
                     RuntimeFigatreeChunkExport {
                         source_action_key: source_action_key.to_string(),
-                        file_name: runtime_figatree_chunk_file_name(source_action_key),
                         bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
                     },
                 );
@@ -1469,9 +1461,6 @@ impl RuntimeSourceExportModule {
         )?;
 
         Ok(Self {
-            character: character.to_string(),
-            source_character,
-            manifest_text,
             figatree_chunks,
             baked_source_actions,
             state_bindings,
@@ -1586,37 +1575,10 @@ fn generate_runtime_source_export_module(
         "// Gameplay, rendering, collision, and player startup must not sample source FigaTrees.\n\n",
         "// Canonical Melee action-state bindings may have no Rust MotionState alias.\n",
         "use mole_core::{MeleeActionStateId, MotionState};\n",
-        "use mole_frame_data::{RuntimeFigatreeChunk, RuntimeSourceExport};\n\n",
         "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"runtime_source_frame_data\";\n",
     ));
     output.push_str(&format!(
-        "#[allow(dead_code)]\npub(crate) const SOURCE_MANIFEST_JSON: &str = include_str!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_MANIFEST_FILE}\");\n\n",
-    ));
-    output.push_str(&format!(
         "pub(crate) const SOURCE_FRAME_CAPSULES_BYTES: &[u8] = include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_FRAME_CAPSULES_FILE}\");\n\n",
-    ));
-
-    output.push_str(
-        "#[allow(dead_code)]\npub(crate) const FIGATREE_CHUNKS: &[RuntimeFigatreeChunk<'static>] = &[\n",
-    );
-    for chunk in &module.figatree_chunks {
-        output.push_str(&format!(
-            "    RuntimeFigatreeChunk {{ source_action_key: {}, bytes: include_bytes!(\"{}/{}\") }},\n",
-            rust_string_literal(&chunk.source_action_key),
-            RUNTIME_SOURCE_SIDECAR_DIR,
-            chunk.file_name
-        ));
-    }
-    output.push_str("];\n\n");
-
-    output.push_str(&format!(
-        "#[allow(dead_code)]\npub(crate) static SOURCE_EXPORT: RuntimeSourceExport<'static> = RuntimeSourceExport {{\n    character: {},\n    source_character: {},\n    manifest_json: SOURCE_MANIFEST_JSON,\n    figatree_chunks: FIGATREE_CHUNKS,\n}};\n\n",
-        rust_string_literal(&module.character),
-        module
-            .source_character
-            .as_deref()
-            .map(|source_character| format!("Some({})", rust_string_literal(source_character)))
-            .unwrap_or_else(|| "None".to_string())
     ));
 
     output.push_str(concat!(
@@ -1663,27 +1625,11 @@ fn generate_runtime_source_export_module(
         "}\n",
     ));
 
-    let mut sidecars = vec![
-        RuntimeSourceSidecar {
-            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
-                .join(RUNTIME_SOURCE_MANIFEST_FILE),
-            bytes: module.manifest_text.as_bytes().to_vec(),
-        },
-        RuntimeSourceSidecar {
-            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
-                .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
-            bytes: encode_runtime_source_frame_capsules(&module.baked_source_actions)?,
-        },
-    ];
-    sidecars.extend(
-        module
-            .figatree_chunks
-            .iter()
-            .map(|chunk| RuntimeSourceSidecar {
-                relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR).join(&chunk.file_name),
-                bytes: chunk.bytes.clone(),
-            }),
-    );
+    let sidecars = vec![RuntimeSourceSidecar {
+        relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+            .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
+        bytes: encode_runtime_source_frame_capsules(&module.baked_source_actions)?,
+    }];
 
     Ok(RuntimeSourceGeneratedModule {
         module_text: output,
@@ -1923,13 +1869,6 @@ fn read_action_figatree_chunk(path: &Path, action: &Value) -> Result<Vec<u8>, St
         ));
     }
     Ok(bytes[offset..end].to_vec())
-}
-
-fn runtime_figatree_chunk_file_name(source_action_key: &str) -> String {
-    format!(
-        "{}.figatree.bin",
-        screaming_snake_identifier(source_action_key).to_ascii_lowercase()
-    )
 }
 
 fn generate_runtime_frame_data_module(

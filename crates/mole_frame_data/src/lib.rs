@@ -30,9 +30,9 @@ pub struct RuntimeSourceExport<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RuntimeSourcePoint {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -40,17 +40,17 @@ pub struct RuntimeSourceCapsuleSample {
     pub id: u64,
     pub a: RuntimeSourcePoint,
     pub b: RuntimeSourcePoint,
-    pub radius: f64,
+    pub radius: f32,
     pub hitbox_lifecycle_id: Option<SourceHitboxLifecycleId>,
     pub hitbox: Option<SourceHitboxAttributes>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RuntimeSourceDownBoundPoseSample {
-    pub hip_mtx_0_1: f64,
-    pub hip_mtx_0_2: f64,
-    pub hip_mtx_1_1: f64,
-    pub hip_mtx_1_2: f64,
+    pub hip_mtx_0_1: f32,
+    pub hip_mtx_0_2: f32,
+    pub hip_mtx_1_1: f32,
+    pub hip_mtx_1_2: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,7 +68,14 @@ pub struct RuntimeSourceActionFrameSamples {
     pub frames: Vec<RuntimeSourceFrameSample>,
 }
 
-const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0002";
+const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0003";
+const RUNTIME_SOURCE_FRAME_CAPSULES_F64_MAGIC: &[u8; 8] = b"MSFC0002";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeSourceFloatWidth {
+    F32,
+    F64,
+}
 
 pub fn encode_runtime_source_frame_capsules(
     actions: &[RuntimeSourceActionFrameSamples],
@@ -100,7 +107,7 @@ pub fn decode_runtime_source_frame_capsules(
     bytes: &[u8],
 ) -> Result<Vec<RuntimeSourceActionFrameSamples>, String> {
     let mut reader = RuntimeSourceFrameCapsuleReader::new(bytes);
-    reader.read_magic()?;
+    let float_width = reader.read_magic()?;
     let action_count = reader.read_u32()? as usize;
     let mut actions = Vec::with_capacity(action_count);
     for _ in 0..action_count {
@@ -110,9 +117,9 @@ pub fn decode_runtime_source_frame_capsules(
         let mut frames = Vec::with_capacity(frame_count);
         for _ in 0..frame_count {
             let source_frame = reader.read_u8()?;
-            let down_bound_pose = reader.read_down_bound_pose()?;
-            let hit_capsules = reader.read_capsules()?;
-            let hurt_capsules = reader.read_capsules()?;
+            let down_bound_pose = reader.read_down_bound_pose(float_width)?;
+            let hit_capsules = reader.read_capsules(float_width)?;
+            let hurt_capsules = reader.read_capsules(float_width)?;
             frames.push(RuntimeSourceFrameSample {
                 source_frame,
                 down_bound_pose,
@@ -162,7 +169,7 @@ fn push_u64(bytes: &mut Vec<u8>, value: u64) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
-fn push_f64(bytes: &mut Vec<u8>, value: f64) {
+fn push_f32(bytes: &mut Vec<u8>, value: f32) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
@@ -176,16 +183,16 @@ fn push_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
 }
 
 fn push_point(bytes: &mut Vec<u8>, point: RuntimeSourcePoint) {
-    push_f64(bytes, point.x);
-    push_f64(bytes, point.y);
-    push_f64(bytes, point.z);
+    push_f32(bytes, point.x);
+    push_f32(bytes, point.y);
+    push_f32(bytes, point.z);
 }
 
 fn push_down_bound_pose(bytes: &mut Vec<u8>, pose: RuntimeSourceDownBoundPoseSample) {
-    push_f64(bytes, pose.hip_mtx_0_1);
-    push_f64(bytes, pose.hip_mtx_0_2);
-    push_f64(bytes, pose.hip_mtx_1_1);
-    push_f64(bytes, pose.hip_mtx_1_2);
+    push_f32(bytes, pose.hip_mtx_0_1);
+    push_f32(bytes, pose.hip_mtx_0_2);
+    push_f32(bytes, pose.hip_mtx_1_1);
+    push_f32(bytes, pose.hip_mtx_1_2);
 }
 
 fn push_capsules(
@@ -200,7 +207,7 @@ fn push_capsules(
         push_u64(bytes, capsule.id);
         push_point(bytes, capsule.a);
         push_point(bytes, capsule.b);
-        push_f64(bytes, capsule.radius);
+        push_f32(bytes, capsule.radius);
         match capsule.hitbox_lifecycle_id {
             Some(lifecycle_id) => {
                 push_u8(bytes, 1);
@@ -239,10 +246,12 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
         Self { bytes, offset: 0 }
     }
 
-    fn read_magic(&mut self) -> Result<(), String> {
+    fn read_magic(&mut self) -> Result<RuntimeSourceFloatWidth, String> {
         let magic = self.read_exact(RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC.len())?;
         if magic == RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC {
-            Ok(())
+            Ok(RuntimeSourceFloatWidth::F32)
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_F64_MAGIC {
+            Ok(RuntimeSourceFloatWidth::F64)
         } else {
             Err("runtime source frame capsule sidecar has an unsupported format".to_string())
         }
@@ -309,10 +318,10 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
         Ok(u64::from_le_bytes(buf))
     }
 
-    fn read_f64(&mut self) -> Result<f64, String> {
-        let mut buf = [0u8; 8];
-        buf.copy_from_slice(self.read_exact(8)?);
-        Ok(f64::from_le_bytes(buf))
+    fn read_f32(&mut self) -> Result<f32, String> {
+        let mut buf = [0u8; 4];
+        buf.copy_from_slice(self.read_exact(4)?);
+        Ok(f32::from_le_bytes(buf))
     }
 
     fn read_string(&mut self) -> Result<String, String> {
@@ -323,31 +332,51 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
             .map_err(|error| format!("runtime source action key is not UTF-8: {error}"))
     }
 
-    fn read_point(&mut self) -> Result<RuntimeSourcePoint, String> {
+    fn read_source_float(&mut self, float_width: RuntimeSourceFloatWidth) -> Result<f32, String> {
+        match float_width {
+            RuntimeSourceFloatWidth::F32 => self.read_f32(),
+            RuntimeSourceFloatWidth::F64 => {
+                let mut buf = [0u8; 8];
+                buf.copy_from_slice(self.read_exact(8)?);
+                Ok(f64::from_le_bytes(buf) as f32)
+            }
+        }
+    }
+
+    fn read_point(
+        &mut self,
+        float_width: RuntimeSourceFloatWidth,
+    ) -> Result<RuntimeSourcePoint, String> {
         Ok(RuntimeSourcePoint {
-            x: self.read_f64()?,
-            y: self.read_f64()?,
-            z: self.read_f64()?,
+            x: self.read_source_float(float_width)?,
+            y: self.read_source_float(float_width)?,
+            z: self.read_source_float(float_width)?,
         })
     }
 
-    fn read_down_bound_pose(&mut self) -> Result<RuntimeSourceDownBoundPoseSample, String> {
+    fn read_down_bound_pose(
+        &mut self,
+        float_width: RuntimeSourceFloatWidth,
+    ) -> Result<RuntimeSourceDownBoundPoseSample, String> {
         Ok(RuntimeSourceDownBoundPoseSample {
-            hip_mtx_0_1: self.read_f64()?,
-            hip_mtx_0_2: self.read_f64()?,
-            hip_mtx_1_1: self.read_f64()?,
-            hip_mtx_1_2: self.read_f64()?,
+            hip_mtx_0_1: self.read_source_float(float_width)?,
+            hip_mtx_0_2: self.read_source_float(float_width)?,
+            hip_mtx_1_1: self.read_source_float(float_width)?,
+            hip_mtx_1_2: self.read_source_float(float_width)?,
         })
     }
 
-    fn read_capsules(&mut self) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
+    fn read_capsules(
+        &mut self,
+        float_width: RuntimeSourceFloatWidth,
+    ) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
         let capsule_count = self.read_u16()? as usize;
         let mut capsules = Vec::with_capacity(capsule_count);
         for _ in 0..capsule_count {
             let id = self.read_u64()?;
-            let a = self.read_point()?;
-            let b = self.read_point()?;
-            let radius = self.read_f64()?;
+            let a = self.read_point(float_width)?;
+            let b = self.read_point(float_width)?;
+            let radius = self.read_source_float(float_width)?;
             let hitbox_lifecycle_id = match self.read_u8()? {
                 0 => None,
                 1 => Some(SourceHitboxLifecycleId::new(self.read_u64()?)),
@@ -980,10 +1009,10 @@ fn source_down_bound_pose(pose: &[JointPose]) -> Result<RuntimeSourceDownBoundPo
         .get(4)
         .ok_or_else(|| "sampled pose is missing FtPart_HipN joint 4".to_string())?;
     Ok(RuntimeSourceDownBoundPoseSample {
-        hip_mtx_0_1: f64::from(hip.world_matrix.rows[0][1]),
-        hip_mtx_0_2: f64::from(hip.world_matrix.rows[0][2]),
-        hip_mtx_1_1: f64::from(hip.world_matrix.rows[1][1]),
-        hip_mtx_1_2: f64::from(hip.world_matrix.rows[1][2]),
+        hip_mtx_0_1: hip.world_matrix.rows[0][1],
+        hip_mtx_0_2: hip.world_matrix.rows[0][2],
+        hip_mtx_1_1: hip.world_matrix.rows[1][1],
+        hip_mtx_1_2: hip.world_matrix.rows[1][2],
     })
 }
 
@@ -1762,7 +1791,7 @@ fn sample_hitbox_capsules_for_frame(
                 id: hitbox.id,
                 a: runtime_source_point(previous_center),
                 b: runtime_source_point(current_center),
-                radius: f64::from(hitbox.radius),
+                radius: hitbox.radius,
                 hitbox_lifecycle_id: Some(active_hitbox.lifecycle_id),
                 hitbox: Some(SourceHitboxAttributes {
                     bone: hitbox.bone as u16,
@@ -2013,7 +2042,7 @@ fn sample_hurtbox_capsules_for_frame(
             id: required_u64(hurtbox, &["id"])?,
             a: runtime_source_point(source_a),
             b: runtime_source_point(source_b),
-            radius: f64::from(required_f32(hurtbox, &["scale_raw"])?),
+            radius: required_f32(hurtbox, &["scale_raw"])?,
             hitbox_lifecycle_id: None,
             hitbox: None,
         });
@@ -2023,9 +2052,9 @@ fn sample_hurtbox_capsules_for_frame(
 
 fn runtime_source_point(point: Vec3) -> RuntimeSourcePoint {
     RuntimeSourcePoint {
-        x: f64::from(point.x),
-        y: f64::from(point.y),
-        z: f64::from(point.z),
+        x: point.x,
+        y: point.y,
+        z: point.z,
     }
 }
 

@@ -16948,6 +16948,7 @@ pub(crate) fn falcon_ecb_samples_for_motion_state(
         MotionState::Entry => Some(&FALCON_ECB_ACTION_238),
         MotionState::EntryStart => Some(&FALCON_ECB_ACTION_238),
         MotionState::EntryEnd => Some(&FALCON_ECB_ACTION_238),
+        _ => None,
     }
 }
 

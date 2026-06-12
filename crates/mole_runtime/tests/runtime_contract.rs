@@ -8,7 +8,8 @@ use mole_core::{
     source_units_to_milli, step_world, EcbDiamond, FighterEntryPlatformProfile, FighterProfile,
     Frame, GameCubeButtonState, GameCubePadStatus, MeleeActionStateId, MeleeCommonData,
     MotionState, PlayerInput, SourceActionKey, SourceVec3, StageProfile, Vec2, WalkSpeedBucket,
-    World, TICK_NANOS, UCF_DASHBACK_AMENDMENT_BIT,
+    World, PLAYER_STATE_NONE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_NANOS,
+    UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
     apply_source_collisions_for_world, compare_slippi_export_from_match_start_with_core,
@@ -2793,6 +2794,31 @@ fn runtime_source_down_bound_actions_resolve_from_canonical_action_ids() {
 }
 
 #[test]
+fn runtime_source_collision_frame_skips_hurt_capsules_for_source_intangible_players() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_source_collision_states[1] = SOURCE_COLLISION_STATE_HURT_INTANGIBLE;
+
+    let collision_frame = source_collision_frame_from_frame(&frame);
+
+    assert!(
+        collision_frame
+            .hurts
+            .iter()
+            .any(|capsule| capsule.owner_index == 0),
+        "normal player should still emit source hurt capsules"
+    );
+    assert!(
+        !collision_frame
+            .hurts
+            .iter()
+            .any(|capsule| capsule.owner_index == 1),
+        "source x198C hurt-intangible player should not emit hurt capsules"
+    );
+}
+
+#[test]
 fn runtime_source_passive_actions_resolve_from_canonical_action_ids() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
 
@@ -5242,4 +5268,29 @@ impl InputSource for ScriptedInputSource {
     fn poll_inputs(&mut self, _frame: Frame) -> [PlayerInput; 2] {
         [self.input, PlayerInput::neutral()]
     }
+}
+
+#[test]
+fn render_and_source_collision_skip_slots_without_source_player_state_or_stocks() {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut player = world.players()[0];
+    player.player_state = PLAYER_STATE_NONE;
+    player.stocks = 0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&frame);
+    assert!(collision_frame.hits.iter().all(|hit| hit.owner_index != 0));
+    assert!(collision_frame
+        .hurts
+        .iter()
+        .all(|hurt| hurt.owner_index != 0));
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    assert_eq!(scene.players[0].width, 0);
+    assert_eq!(scene.players[0].height, 0);
+    assert_eq!(scene.players[0].color, RenderColor::TRANSPARENT);
+    assert_eq!(scene.player_ecbs[0].color, RenderColor::TRANSPARENT);
+    assert!(scene.player_hitbox_pills[0].is_empty());
+    assert!(scene.player_hurtbox_pills[0].is_empty());
 }

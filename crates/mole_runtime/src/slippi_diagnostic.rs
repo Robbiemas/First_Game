@@ -970,6 +970,20 @@ fn player_state_from_slippi_pre(
     player.grounded = !matches!(
         motion_state,
         MotionState::Entry
+            | MotionState::DeadDown
+            | MotionState::DeadLeft
+            | MotionState::DeadRight
+            | MotionState::DeadUp
+            | MotionState::DeadUpStar
+            | MotionState::DeadUpStarIce
+            | MotionState::DeadUpFall
+            | MotionState::DeadUpFallHitCamera
+            | MotionState::DeadUpFallHitCameraFlat
+            | MotionState::DeadUpFallIce
+            | MotionState::DeadUpFallHitCameraIce
+            | MotionState::Sleep
+            | MotionState::Rebirth
+            | MotionState::RebirthWait
             | MotionState::EntryStart
             | MotionState::EntryEnd
             | MotionState::Pass
@@ -1182,6 +1196,20 @@ fn expected_state_label(
 
 fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
     match action_state_id {
+        0 => Some(MotionState::DeadDown),
+        1 => Some(MotionState::DeadLeft),
+        2 => Some(MotionState::DeadRight),
+        3 => Some(MotionState::DeadUp),
+        4 => Some(MotionState::DeadUpStar),
+        5 => Some(MotionState::DeadUpStarIce),
+        6 => Some(MotionState::DeadUpFall),
+        7 => Some(MotionState::DeadUpFallHitCamera),
+        8 => Some(MotionState::DeadUpFallHitCameraFlat),
+        9 => Some(MotionState::DeadUpFallIce),
+        10 => Some(MotionState::DeadUpFallHitCameraIce),
+        11 => Some(MotionState::Sleep),
+        12 => Some(MotionState::Rebirth),
+        13 => Some(MotionState::RebirthWait),
         14 => Some(MotionState::Wait),
         15 => Some(MotionState::WalkSlow),
         16 => Some(MotionState::WalkMiddle),
@@ -1260,6 +1288,20 @@ fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
 
 fn slippi_action_state_name(action_state_id: u16) -> &'static str {
     match action_state_id {
+        0 => "DeadDown",
+        1 => "DeadLeft",
+        2 => "DeadRight",
+        3 => "DeadUp",
+        4 => "DeadUpStar",
+        5 => "DeadUpStarIce",
+        6 => "DeadUpFall",
+        7 => "DeadUpFallHitCamera",
+        8 => "DeadUpFallHitCameraFlat",
+        9 => "DeadUpFallIce",
+        10 => "DeadUpFallHitCameraIce",
+        11 => "Sleep",
+        12 => "Rebirth",
+        13 => "RebirthWait",
         14 => "Wait",
         15 => "WalkSlow",
         16 => "WalkMiddle",

@@ -62,7 +62,7 @@ enum CliCommand {
     FriendConnect(FriendConnectCommand),
     FighterCommon(FighterCommonCommand),
     Doctor,
-    Tests,
+    Tests(TestsCommand),
     Handoff,
     RecommendNext,
     Request(RequestCommand),
@@ -179,6 +179,17 @@ pub(crate) enum PackageCommand {
 enum FriendConnectCommand {
     Status,
     Diagnostics { log: Option<String> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TestsCommand {
+    Plan,
+    Run {
+        package: Option<String>,
+        filters: Vec<String>,
+        nocapture: bool,
+        dry_run: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -466,7 +477,7 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
             parse_friend_connect_command(&positional[1..]).map(CliCommand::FriendConnect)
         }
         "doctor" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Doctor),
-        "tests" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Tests),
+        "tests" => parse_tests_command(&positional[1..]).map(CliCommand::Tests),
         "handoff" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Handoff),
         "recommend-next" => {
             ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::RecommendNext)
@@ -550,6 +561,46 @@ fn parse_friend_connect_diagnostics(args: &[String]) -> Result<FriendConnectComm
         index += 1;
     }
     Ok(FriendConnectCommand::Diagnostics { log })
+}
+
+fn parse_tests_command(args: &[String]) -> Result<TestsCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("plan");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "plan" => ensure_no_extra_args("tests plan", rest).map(|()| TestsCommand::Plan),
+        "run" => parse_tests_run(rest),
+        other => Err(format!("unknown mole tests command: {other}")),
+    }
+}
+
+fn parse_tests_run(args: &[String]) -> Result<TestsCommand, String> {
+    let mut package = None;
+    let mut filters = Vec::new();
+    let mut nocapture = false;
+    let mut dry_run = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--package" | "-p" => package = Some(take_flag_value(args, &mut index, "--package")?),
+            "--nocapture" => nocapture = true,
+            "--dry-run" => dry_run = true,
+            other if other.starts_with("--") => {
+                return Err(format!("unexpected argument for tests run: {other}"))
+            }
+            other => filters.push(other.to_string()),
+        }
+        index += 1;
+    }
+    if filters.is_empty() {
+        return Err("tests run requires at least one test filter".to_string());
+    }
+
+    Ok(TestsCommand::Run {
+        package,
+        filters,
+        nocapture,
+        dry_run,
+    })
 }
 
 fn parse_package_command(args: &[String]) -> Result<PackageCommand, String> {
@@ -1361,7 +1412,7 @@ fn command_report(options: &CliOptions) -> Value {
         }
         CliCommand::FriendConnect(command) => friend_connect_report(&options.root, command),
         CliCommand::Doctor => doctor_report(&options.root),
-        CliCommand::Tests => tests_report(&options.root),
+        CliCommand::Tests(command) => tests_report(&options.root, command),
         CliCommand::Handoff => handoff_report(&options.root),
         CliCommand::RecommendNext => recommend_next_report(&options.root),
         CliCommand::Request(command) => request_report(&options.root, command),
@@ -1887,17 +1938,134 @@ fn doctor_report(root: &Path) -> Value {
     report
 }
 
-fn tests_report(root: &Path) -> Value {
+fn tests_report(root: &Path, command: &TestsCommand) -> Value {
+    match command {
+        TestsCommand::Plan => tests_plan_report(root),
+        TestsCommand::Run {
+            package,
+            filters,
+            nocapture,
+            dry_run,
+        } => tests_run_report(root, package.as_deref(), filters, *nocapture, *dry_run),
+    }
+}
+
+fn tests_plan_report(root: &Path) -> Value {
     let commands = recommended_test_commands();
     let mut report = base_report("tests", root);
     report["commands"] = json!(commands);
     report["notes"] = json!([
         "Run full workspace tests after Rust core or generated table changes.",
         "Run graph/parity Python tests after docs/state_graphs or tools changes.",
-        "Cargo accepts one test-name filter per cargo test invocation; run multiple exact tests as separate cargo test commands or use one shared substring/module filter.",
-        "Mole CLI is read-only; it reports commands but does not run them."
+        "Cargo accepts one test-name filter per cargo test invocation; use `mole tests run -p <crate> filter_a filter_b` to execute multiple exact filters as separate cargo test commands.",
+        "Mole CLI test plans are read-only; `tests run` executes cargo and reports each invocation."
     ]);
     report
+}
+
+fn tests_run_report(
+    root: &Path,
+    package: Option<&str>,
+    filters: &[String],
+    nocapture: bool,
+    dry_run: bool,
+) -> Value {
+    let mut report = base_report("tests run", root);
+    let commands = filters
+        .iter()
+        .map(|filter| cargo_test_command_line(package, filter, nocapture))
+        .collect::<Vec<_>>();
+    report["dry_run"] = json!(dry_run);
+    report["commands"] = json!(commands);
+    report["filters"] = json!(filters);
+    report["package"] = json!(package);
+    report["notes"] = json!([
+        "Each filter is run as a separate cargo test invocation because Cargo accepts one test-name filter per command.",
+        "Use one shared substring manually only when it intentionally covers the target tests."
+    ]);
+
+    if dry_run {
+        report["ok"] = json!(true);
+        report["results"] = json!([]);
+        return report;
+    }
+
+    let results = filters
+        .iter()
+        .map(|filter| run_cargo_test_filter(root, package, filter, nocapture))
+        .collect::<Vec<_>>();
+    let ok = results
+        .iter()
+        .all(|result| result.get("ok").and_then(Value::as_bool).unwrap_or(false));
+    report["ok"] = json!(ok);
+    report["results"] = json!(results);
+    report
+}
+
+fn cargo_test_command_line(package: Option<&str>, filter: &str, nocapture: bool) -> String {
+    let mut parts = vec![
+        "cargo".to_string(),
+        "test".to_string(),
+        "--target-dir".to_string(),
+        "target/mole-cli-test-runner".to_string(),
+    ];
+    if let Some(package) = package {
+        parts.push("-p".to_string());
+        parts.push(package.to_string());
+    }
+    parts.push(filter.to_string());
+    if nocapture {
+        parts.push("--".to_string());
+        parts.push("--nocapture".to_string());
+    }
+    parts.join(" ")
+}
+
+fn run_cargo_test_filter(
+    root: &Path,
+    package: Option<&str>,
+    filter: &str,
+    nocapture: bool,
+) -> Value {
+    let mut args = vec![
+        "test".to_string(),
+        "--target-dir".to_string(),
+        root.join("target/mole-cli-test-runner")
+            .display()
+            .to_string(),
+    ];
+    if let Some(package) = package {
+        args.push("-p".to_string());
+        args.push(package.to_string());
+    }
+    args.push(filter.to_string());
+    if nocapture {
+        args.push("--".to_string());
+        args.push("--nocapture".to_string());
+    }
+    let output = Command::new("cargo").args(&args).current_dir(root).output();
+    match output {
+        Ok(output) => json!({
+            "filter": filter,
+            "command": cargo_test_command_line(package, filter, nocapture),
+            "ok": output.status.success(),
+            "status": output.status.code(),
+            "stdout_tail": tail_string(&String::from_utf8_lossy(&output.stdout), 40),
+            "stderr_tail": tail_string(&String::from_utf8_lossy(&output.stderr), 40),
+        }),
+        Err(error) => json!({
+            "filter": filter,
+            "command": cargo_test_command_line(package, filter, nocapture),
+            "ok": false,
+            "error": error.to_string(),
+        }),
+    }
+}
+
+fn tail_string(text: &str, max_lines: usize) -> String {
+    let lines = text.lines().collect::<Vec<_>>();
+    let start = lines.len().saturating_sub(max_lines);
+    lines[start..].join("\n")
 }
 
 fn handoff_report(root: &Path) -> Value {
@@ -2819,15 +2987,15 @@ fn command_help_catalog() -> Value {
         },
         {
             "name": "tests",
-            "usage": "mole tests [--json]",
-            "purpose": "List recommended verification commands for the current Mole Game workflow.",
-            "mutates_workspace": false,
+            "usage": "mole tests [plan] [--json] | mole tests run [-p crate] [--nocapture] [--dry-run] <filter>...",
+            "purpose": "List recommended verification commands, or run multiple exact Cargo test filters as separate cargo test invocations.",
+            "mutates_workspace": true,
             "writes": [],
             "output_modes": ["json", "text"],
             "required_flags": [],
-            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "optional_flags": ["plan", "run", "--package", "-p", "--nocapture", "--dry-run", "--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Reports commands only; it intentionally does not execute them. Cargo accepts one test-name filter per invocation; run multiple exact tests as separate cargo test commands or use one shared substring/module filter."
+            "agent_notes": "Use `mole tests run -p mole_core test_a test_b --dry-run` to expand multiple exact filters safely. Without --dry-run it executes each filter separately because Cargo accepts one test-name filter per invocation."
         },
         {
             "name": "handoff",
