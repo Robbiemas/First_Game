@@ -1981,6 +1981,35 @@ fn render_scene_exposes_attack_air_n_source_hitbox_and_hurtbox_pills() {
 }
 
 #[test]
+fn render_scene_keeps_cliff_states_visible_with_source_wireframes() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    for motion_state in [MotionState::CliffCatch, MotionState::CliffWait] {
+        let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+        let ledge = world.stage().ledges[0];
+        let mut player = world.players()[0];
+        player.set_motion_state_alias(motion_state);
+        player.grounded = false;
+        player.source_cliff_ledge_id = Some(ledge.index);
+        player.position = Vec2 {
+            x: ledge.x_milli + player.profile.ledge_snap_x_milli,
+            y: ledge.y_milli + player.profile.ledge_snap_y_milli,
+        };
+        player.source_position = mole_core::SourceVec2::from_milli(player.position);
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let frame = RenderFrame::from_world(&world);
+        let scene = RenderScene::from_frame(&frame, 960, 540);
+
+        assert_eq!(scene.player_ecbs[0].color, RenderColor::ECB);
+        assert!(
+            !scene.player_hurtbox_pills[0].is_empty(),
+            "{motion_state:?} should render baked source hurtbox wireframes"
+        );
+    }
+}
+
+#[test]
 fn render_scene_samples_source_capsules_by_canonical_action_identity() {
     let world = World::for_two_players();
     let mut frame = RenderFrame::from_world(&world);

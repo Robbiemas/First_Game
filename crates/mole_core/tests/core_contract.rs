@@ -834,6 +834,30 @@ fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
 }
 
 #[test]
+fn airborne_fighter_near_battlefield_platform_edge_does_not_cliff_catch() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let stage = world.stage();
+    let left_platform = stage.soft_platforms[0];
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Fall);
+    player.grounded = false;
+    player.position = Vec2 {
+        x: left_platform.left_x,
+        y: left_platform.y - 10_000,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    player.velocity.y = -1_000;
+    player.source_self_velocity_y = -1.0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(player.source_cliff_ledge_id, None);
+}
+
+#[test]
 fn source_cliff_catch_animation_end_enters_cliff_wait_on_same_ledge() {
     let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
     let ledge = world.stage().ledges[0];
@@ -862,7 +886,7 @@ fn source_cliff_catch_animation_end_enters_cliff_wait_on_same_ledge() {
     );
     assert_eq!(
         player.source_action_key,
-        Some(SourceActionKey::new("CliffWait"))
+        Some(SourceActionKey::new("CliffWait1"))
     );
     assert_eq!(player.source_cliff_ledge_id, Some(ledge.index));
     assert_eq!(

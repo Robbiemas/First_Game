@@ -918,7 +918,7 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert_eq!(parsed["ok"], true);
     assert_eq!(parsed["compact_manifest_detected"], true);
     assert_eq!(parsed["runtime_export_kind"], "compact_source_export");
-    assert_eq!(parsed["state_count"], 105);
+    assert_eq!(parsed["state_count"], 107);
     let gap_action_ids = parsed["rust_parity_gaps"]
         .as_array()
         .unwrap()
@@ -936,6 +936,14 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(
         !gap_action_ids.contains(&238),
         "Entry source action data is shared by the Entry, EntryStart, and EntryEnd runtime aliases"
+    );
+    assert!(
+        !gap_action_ids.contains(&216),
+        "CliffCatch source action data is consumed by the CliffCatch runtime binding"
+    );
+    assert!(
+        !gap_action_ids.contains(&217),
+        "CliffWait1 source action data is consumed by the CliffWait runtime binding"
     );
     assert_eq!(parsed["wrote_output"], true);
     assert!(parsed["figatree_chunk_count"].as_u64().unwrap() >= 65);
@@ -980,6 +988,8 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("source_action_key: \"Passive\""));
     assert!(generated.contains("source_action_key: \"PassiveStandF\""));
     assert!(generated.contains("source_action_key: \"PassiveStandB\""));
+    assert!(generated.contains("source_action_key: \"CliffCatch\""));
+    assert!(generated.contains("source_action_key: \"CliffWait1\""));
     assert!(generated.contains(
         "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(45), source_action_key: \"Attack12\", motion_state: None }"
     ));

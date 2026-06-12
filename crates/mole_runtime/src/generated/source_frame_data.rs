@@ -87,6 +87,8 @@ pub(crate) const ACTION_BINDINGS: &[RuntimeActionBinding] = &[
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(43), source_action_key: "Landing", motion_state: Some(MotionState::LandingFallSpecial) },
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(323), source_action_key: "Entry", motion_state: Some(MotionState::EntryStart) },
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(324), source_action_key: "Entry", motion_state: Some(MotionState::EntryEnd) },
+    RuntimeActionBinding { action_state_id: MeleeActionStateId::new(252), source_action_key: "CliffCatch", motion_state: Some(MotionState::CliffCatch) },
+    RuntimeActionBinding { action_state_id: MeleeActionStateId::new(253), source_action_key: "CliffWait1", motion_state: Some(MotionState::CliffWait) },
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(45), source_action_key: "Attack12", motion_state: None },
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(46), source_action_key: "Attack13", motion_state: None },
     RuntimeActionBinding { action_state_id: MeleeActionStateId::new(47), source_action_key: "Attack100Start", motion_state: None },

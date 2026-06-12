@@ -3,7 +3,7 @@ use crate::{
     collision::{
         floor_friction_multiplier_for_bottom, floor_surface_for_bottom,
         floor_surface_index_for_bottom, has_floor_support,
-        landing_contact_for_bottom_with_floor_skip,
+        landing_contact_for_bottom_with_floor_skip, source_ledge_grab_contact,
     },
     fighter_stick_axis_to_f32,
     state::{
@@ -2383,14 +2383,20 @@ fn try_source_cliff_catch(
         return false;
     }
 
-    let Some(ledge) = stage.ledges.iter().copied().find(|ledge| {
-        source_cliff_catch_reaches_ledge(player, *ledge)
-            && !source_ledge_is_occupied(ledge.index, player_index, source_ledge_owners)
+    let Some(contact) = source_ledge_grab_contact(
+        stage,
+        player.position,
+        player.profile.ledge_snap_x_milli,
+        player.profile.ledge_snap_y_milli,
+        player.profile.ledge_snap_height_milli,
+    )
+    .filter(|contact| {
+        !source_ledge_is_occupied(contact.ledge.index, player_index, source_ledge_owners)
     }) else {
         return false;
     };
 
-    enter_source_cliff_catch(player, ledge);
+    enter_source_cliff_catch(player, contact.ledge);
     true
 }
 
@@ -2405,16 +2411,6 @@ fn source_ledge_is_occupied(
         .any(|(owner_index, owner_ledge)| {
             owner_index != player_index && *owner_ledge == Some(ledge_id)
         })
-}
-
-fn source_cliff_catch_reaches_ledge(player: &PlayerState, ledge: StageLedge) -> bool {
-    let facing = ledge_facing(ledge.side);
-    let anchor_x = ledge.x_milli + i32::from(facing) * player.profile.ledge_snap_x_milli;
-    let anchor_y = ledge.y_milli + player.profile.ledge_snap_y_milli;
-    let x_reaches = (player.position.x - anchor_x).abs() <= player.profile.ledge_snap_x_milli;
-    let y_min = ledge.y_milli;
-    let y_max = anchor_y + player.profile.ledge_snap_height_milli;
-    x_reaches && player.position.y >= y_min && player.position.y <= y_max
 }
 
 fn ledge_facing(side: StageLedgeSide) -> i8 {

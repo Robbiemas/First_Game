@@ -1496,13 +1496,13 @@ pub const fn source_binding_for_motion_state(
         )),
         MotionState::CliffCatch => Some(MotionStateSourceBinding::new(
             MotionState::CliffCatch,
-            252,
+            216,
             "CliffCatch",
         )),
         MotionState::CliffWait => Some(MotionStateSourceBinding::new(
             MotionState::CliffWait,
-            253,
-            "CliffWait",
+            217,
+            "CliffWait1",
         )),
         MotionState::EntryStart => Some(MotionStateSourceBinding::new(
             MotionState::EntryStart,

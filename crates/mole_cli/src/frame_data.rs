@@ -1265,6 +1265,8 @@ const DERIVED_RUNTIME_SOURCE_BINDINGS: &[&str] = &[
     "LandingFallSpecial",
     "EntryStart",
     "EntryEnd",
+    "CliffCatch",
+    "CliffWait",
 ];
 
 #[derive(Debug, Clone)]

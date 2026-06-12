@@ -1,6 +1,6 @@
 use crate::{
     common_data::MeleeCommonData,
-    stage::{StageProfile, StageSurface, StageSurfaceKind},
+    stage::{StageLedge, StageLedgeSide, StageProfile, StageSurface, StageSurfaceKind},
     state::{MeleeActionStateId, SourceActionKey, Vec2},
 };
 
@@ -545,6 +545,12 @@ pub struct StageLandingContact {
     pub y: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SourceLedgeGrabContact {
+    pub ledge: StageLedge,
+    pub side: StageLedgeSide,
+}
+
 pub fn landing_contact_for_bottom(
     stage: StageProfile,
     previous_bottom: Vec2,
@@ -611,6 +617,52 @@ pub fn floor_friction_multiplier_for_bottom(stage: StageProfile, bottom: Vec2) -
     floor_surface_for_bottom(stage, bottom)
         .map(|surface| surface.friction_multiplier)
         .unwrap_or(1.0)
+}
+
+pub fn source_ledge_grab_contact(
+    stage: StageProfile,
+    root_position: Vec2,
+    ledge_snap_x_milli: i32,
+    ledge_snap_y_milli: i32,
+    ledge_snap_height_milli: i32,
+) -> Option<SourceLedgeGrabContact> {
+    stage.ledges.iter().copied().find_map(|ledge| {
+        source_ledge_grab_reaches_collision_edge(
+            root_position,
+            ledge,
+            ledge_snap_x_milli,
+            ledge_snap_y_milli,
+            ledge_snap_height_milli,
+        )
+        .then_some(SourceLedgeGrabContact {
+            ledge,
+            side: ledge.side,
+        })
+    })
+}
+
+fn source_ledge_grab_reaches_collision_edge(
+    root_position: Vec2,
+    ledge: StageLedge,
+    ledge_snap_x_milli: i32,
+    ledge_snap_y_milli: i32,
+    ledge_snap_height_milli: i32,
+) -> bool {
+    let facing = match ledge.side {
+        StageLedgeSide::Left => 1,
+        StageLedgeSide::Right => -1,
+    };
+    let snap_x = ledge.x_milli + facing * ledge_snap_x_milli;
+    let snap_y = ledge.y_milli + ledge_snap_y_milli;
+    let x_min = ledge.x_milli.min(snap_x);
+    let x_max = ledge.x_milli.max(snap_x);
+    let y_min = ledge.y_milli;
+    let y_max = snap_y + ledge_snap_height_milli;
+
+    root_position.x >= x_min
+        && root_position.x <= x_max
+        && root_position.y >= y_min
+        && root_position.y <= y_max
 }
 
 pub(crate) fn floor_surface_index_for_bottom(
