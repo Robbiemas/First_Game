@@ -1777,6 +1777,9 @@ fn friend_connect_status_report(root: &Path) -> Value {
     });
     report["signaling_contract"] = json!({
         "supabase_role": "rendezvous and match-start signaling only",
+        "lobby_directory_room": "M0LELOBBY",
+        "lobby_directory_slots": 4,
+        "lobby_directory_transport": "setup-only Supabase Realtime broadcast used only by the Friend Connect code window; gameplay stays on direct UDP",
         "gameplay_transport": "direct UDP input packets",
         "start_delivery": "host rebroadcasts match_start so the joiner listener can catch it before game start",
     });

@@ -26,6 +26,7 @@ fn signaling_messages_round_trip_through_json_with_stable_type_tags() {
             DirectEndpoint::udp("127.0.0.1:41001"),
         ),
         SignalingMessage::match_start("ABCD12", "peer-a"),
+        SignalingMessage::lobby_advertise("ABCD12", "peer-a"),
     ];
 
     for (message, expected_type) in messages.into_iter().zip([
@@ -36,6 +37,7 @@ fn signaling_messages_round_trip_through_json_with_stable_type_tags() {
         "ice_candidate",
         "direct_endpoint",
         "match_start",
+        "lobby_advertise",
     ]) {
         let json = message.to_json().expect("message should serialize");
         let decoded = SignalingMessage::from_json(&json).expect("message should deserialize");
@@ -178,6 +180,21 @@ fn match_start_broadcast_payload_stays_setup_only() {
     assert!(!payload.contains("\"frame\""));
     assert!(!payload.contains("\"checksum\""));
     assert!(!payload.contains("\"input\""));
+}
+
+#[test]
+fn lobby_advertise_broadcast_uses_shared_directory_and_stays_setup_only() {
+    let frame = SupabaseRealtimeConfig::lobby_advertise_frame("M0LEA1", "M0LEA1", "1", "2")
+        .expect("lobby advertisement should serialize");
+
+    assert!(frame.contains("realtime:mole-friend-connect-M0LELOBBY"));
+    assert!(frame.contains("\"event\":\"setup\""));
+    assert!(frame.contains("\"lobby_advertise\""));
+    assert!(frame.contains("\"room_code\":\"M0LEA1\""));
+    assert!(frame.contains("\"peer_id\":\"M0LEA1\""));
+    assert!(!frame.contains("\"frame\""));
+    assert!(!frame.contains("\"checksum\""));
+    assert!(!frame.contains("\"input\""));
 }
 
 #[test]

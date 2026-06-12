@@ -5,6 +5,7 @@ use serde_json::json;
 use tungstenite::Message;
 
 static RUSTLS_CRYPTO_PROVIDER: Once = Once::new();
+pub const FRIEND_CONNECT_DIRECTORY_ROOM: &str = "M0LELOBBY";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -39,6 +40,10 @@ pub enum SignalingMessage {
         endpoint: DirectEndpoint,
     },
     MatchStart {
+        room_code: String,
+        peer_id: String,
+    },
+    LobbyAdvertise {
         room_code: String,
         peer_id: String,
     },
@@ -113,6 +118,13 @@ impl SignalingMessage {
         }
     }
 
+    pub fn lobby_advertise(room_code: impl Into<String>, peer_id: impl Into<String>) -> Self {
+        Self::LobbyAdvertise {
+            room_code: room_code.into(),
+            peer_id: peer_id.into(),
+        }
+    }
+
     pub fn to_json(&self) -> serde_json::Result<String> {
         serde_json::to_string(self)
     }
@@ -138,6 +150,9 @@ impl SignalingMessage {
                 room_code, peer_id, ..
             }
             | Self::MatchStart {
+                room_code, peer_id, ..
+            }
+            | Self::LobbyAdvertise {
                 room_code, peer_id, ..
             } => {
                 if !is_valid_room_code(room_code) {
@@ -168,7 +183,7 @@ impl SignalingMessage {
                 }
             }
             Self::CreateRoom { .. } | Self::JoinRoom { .. } => {}
-            Self::MatchStart { .. } => {}
+            Self::MatchStart { .. } | Self::LobbyAdvertise { .. } => {}
         }
 
         Ok(())
@@ -350,6 +365,10 @@ impl SupabaseRealtimeConfig {
         ))
     }
 
+    pub fn lobby_directory_join_frame(ref_id: &str) -> String {
+        Self::join_topic_frame(&Self::room_topic(FRIEND_CONNECT_DIRECTORY_ROOM), ref_id)
+    }
+
     fn join_topic_frame(topic: &str, ref_id: &str) -> String {
         serde_json::to_string(&json!({
             "topic": topic,
@@ -401,6 +420,22 @@ impl SupabaseRealtimeConfig {
             "join_ref": join_ref
         }))
         .map_err(|error| error.to_string())
+    }
+
+    pub fn lobby_advertise_frame(
+        room_code: &str,
+        local_peer_id: &str,
+        join_ref: &str,
+        ref_id: &str,
+    ) -> Result<String, String> {
+        let room_code = normalize_friend_peer_id(room_code)?;
+        let local_peer_id = normalize_friend_peer_id(local_peer_id)?;
+        Self::broadcast_frame_for_room(
+            FRIEND_CONNECT_DIRECTORY_ROOM,
+            join_ref,
+            ref_id,
+            SignalingMessage::lobby_advertise(room_code, local_peer_id),
+        )
     }
 
     pub fn setup_broadcast_payload(message: SignalingMessage) -> Result<String, String> {
@@ -522,6 +557,99 @@ impl SupabaseRealtimeConfig {
                 ))
                 .map_err(|error| error.to_string())?;
             return Ok(RemoteDirectEndpoint { peer_id, endpoint });
+        }
+    }
+
+    pub fn advertise_lobby_repeated(
+        &self,
+        room_code: &str,
+        local_peer_id: &str,
+        repeat_count: usize,
+        repeat_interval: Duration,
+    ) -> Result<(), String> {
+        self.advertise_lobby_repeated_until(
+            room_code,
+            local_peer_id,
+            repeat_count,
+            repeat_interval,
+            || false,
+        )
+    }
+
+    pub fn advertise_lobby_repeated_until(
+        &self,
+        room_code: &str,
+        local_peer_id: &str,
+        repeat_count: usize,
+        repeat_interval: Duration,
+        mut should_stop: impl FnMut() -> bool,
+    ) -> Result<(), String> {
+        ensure_rustls_crypto_provider();
+        let room_code = normalize_friend_peer_id(room_code)?;
+        let local_peer_id = normalize_friend_peer_id(local_peer_id)?;
+        let (mut socket, _response) =
+            tungstenite::connect(self.websocket_url()).map_err(|error| error.to_string())?;
+        let join_ref = "1";
+        socket
+            .send(Message::Text(
+                Self::lobby_directory_join_frame(join_ref).into(),
+            ))
+            .map_err(|error| error.to_string())?;
+        let count = repeat_count.max(1);
+        for index in 0..count {
+            if should_stop() {
+                return Ok(());
+            }
+            if index > 0 && !repeat_interval.is_zero() {
+                std::thread::sleep(repeat_interval);
+                if should_stop() {
+                    return Ok(());
+                }
+            }
+            let ref_id = (index + 2).to_string();
+            socket
+                .send(Message::Text(
+                    Self::lobby_advertise_frame(&room_code, &local_peer_id, join_ref, &ref_id)?
+                        .into(),
+                ))
+                .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub fn stream_lobby_directory(
+        &self,
+        local_peer_id: &str,
+        sender: std::sync::mpsc::Sender<Result<String, String>>,
+    ) -> Result<(), String> {
+        ensure_rustls_crypto_provider();
+        let local_peer_id = normalize_friend_peer_id(local_peer_id)?;
+        let (mut socket, _response) =
+            tungstenite::connect(self.websocket_url()).map_err(|error| error.to_string())?;
+        let join_ref = "1";
+        socket
+            .send(Message::Text(
+                Self::lobby_directory_join_frame(join_ref).into(),
+            ))
+            .map_err(|error| error.to_string())?;
+
+        loop {
+            let message = socket.read().map_err(|error| error.to_string())?;
+            let Message::Text(text) = message else {
+                continue;
+            };
+            let Some(SignalingMessage::LobbyAdvertise {
+                room_code, peer_id, ..
+            }) = Self::parse_setup_broadcast(text.as_str())?
+            else {
+                continue;
+            };
+            if peer_id == local_peer_id || room_code == local_peer_id {
+                continue;
+            }
+            if sender.send(Ok(room_code)).is_err() {
+                return Ok(());
+            }
         }
     }
 

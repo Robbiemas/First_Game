@@ -2401,6 +2401,15 @@ fn friend_connect_status_reports_role_controller_and_package_contract() {
         .unwrap()
         .contains("rollback confirmation"));
     assert_eq!(
+        parsed["signaling_contract"]["lobby_directory_room"],
+        "M0LELOBBY"
+    );
+    assert_eq!(parsed["signaling_contract"]["lobby_directory_slots"], 4);
+    assert!(parsed["signaling_contract"]["lobby_directory_transport"]
+        .as_str()
+        .unwrap()
+        .contains("setup-only"));
+    assert_eq!(
         parsed["solo_internet_test_contract"]["mode"],
         "visible-host-plus-visible-peer"
     );

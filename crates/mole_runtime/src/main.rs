@@ -5,7 +5,10 @@ use std::fs;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
 #[cfg(all(feature = "sdl", feature = "wup"))]
-use std::sync::mpsc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc,
+};
 
 #[cfg(feature = "wup")]
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -611,6 +614,107 @@ struct FriendConnectPanel {
     remote_peer_id: String,
     status: String,
     input_status: String,
+    lobby_slots: FriendLobbySlots,
+    lobby_directory_receiver: Option<mpsc::Receiver<Result<String, String>>>,
+    lobby_advertise_stop: Option<Arc<AtomicBool>>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_CAPACITY: usize = 4;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_TTL: Duration = Duration::from_secs(10);
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_ADVERTISE_REPEAT_COUNT: usize = 180;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_ADVERTISE_INTERVAL: Duration = Duration::from_secs(2);
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_X: f32 = 22.0;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_Y: f32 = 150.0;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_WIDTH: f32 = 226.0;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_HEIGHT: f32 = 18.0;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+const FRIEND_LOBBY_SLOT_GAP: f32 = 6.0;
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+#[derive(Default)]
+struct FriendLobbySlots {
+    entries: Vec<FriendLobbySlot>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+struct FriendLobbySlot {
+    code: String,
+    last_seen: Instant,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+impl FriendLobbySlots {
+    fn observe(&mut self, code: &str, local_code: &str, now: Instant) {
+        let Ok(code) = normalize_runtime_friend_code(code) else {
+            return;
+        };
+        let Ok(local_code) = normalize_runtime_friend_code(local_code) else {
+            return;
+        };
+        if code == local_code {
+            return;
+        }
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.code == code) {
+            entry.last_seen = now;
+        } else {
+            self.entries.push(FriendLobbySlot {
+                code,
+                last_seen: now,
+            });
+        }
+        self.prune(now);
+    }
+
+    fn visible_codes(&self, now: Instant) -> Vec<String> {
+        let mut entries = self
+            .entries
+            .iter()
+            .filter(|entry| now.duration_since(entry.last_seen) <= FRIEND_LOBBY_SLOT_TTL)
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| {
+            right
+                .last_seen
+                .cmp(&left.last_seen)
+                .then_with(|| left.code.cmp(&right.code))
+        });
+        entries
+            .into_iter()
+            .take(FRIEND_LOBBY_SLOT_CAPACITY)
+            .map(|entry| entry.code.clone())
+            .collect()
+    }
+
+    fn code_at(&self, index: usize, now: Instant) -> Option<String> {
+        self.visible_codes(now).get(index).cloned()
+    }
+
+    fn prune(&mut self, now: Instant) {
+        self.entries
+            .retain(|entry| now.duration_since(entry.last_seen) <= FRIEND_LOBBY_SLOT_TTL);
+        self.entries.sort_by(|left, right| {
+            right
+                .last_seen
+                .cmp(&left.last_seen)
+                .then_with(|| left.code.cmp(&right.code))
+        });
+        self.entries.truncate(FRIEND_LOBBY_SLOT_CAPACITY);
+    }
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -962,6 +1066,9 @@ fn run_friend_connect_headless_peer(config: HeadlessFriendPeerConfig) -> Result<
         remote_peer_id: config.host_code.clone(),
         status: "HEADLESS OPENING UDP".to_string(),
         input_status: "HEADLESS INPUT NEUTRAL".to_string(),
+        lobby_slots: FriendLobbySlots::default(),
+        lobby_directory_receiver: None,
+        lobby_advertise_stop: None,
     };
     let (socket, local_endpoint) = create_friend_udp_socket_and_endpoint(&mut panel, None)
         .ok_or_else(|| format!("headless UDP setup failed: {}", panel.status))?;
@@ -1270,7 +1377,7 @@ fn run_friend_connect_sdl(
     let mut canvas = window.into_canvas();
     disable_sdl_renderer_vsync(&canvas)?;
     let connect_window = video
-        .window("Mole Friend Connect", 520, 260)
+        .window("Mole Friend Connect", 520, 320)
         .position(1060 + window_offset.0, 120 + window_offset.1)
         .build()
         .map_err(|error| error.to_string())?;
@@ -1301,7 +1408,11 @@ fn run_friend_connect_sdl(
         } else {
             "INPUT WUP NOT READY".to_string()
         },
+        lobby_slots: FriendLobbySlots::default(),
+        lobby_directory_receiver: None,
+        lobby_advertise_stop: None,
     };
+    start_friend_lobby_directory(&mut panel);
     let mut netplay_logger = create_friend_netplay_logger(
         NetplayLogRole::VisibleHost,
         &panel.local_peer_id,
@@ -1329,6 +1440,7 @@ fn run_friend_connect_sdl(
     for frame_number in 0..frames {
         let frame_start = Instant::now();
         let frame = Frame(frame_number);
+        poll_friend_lobby_directory(&mut panel, &network);
         for event in event_pump.poll_iter() {
             if handle_friend_connect_event(event, &mut panel, &mut network, local_udp_addr)? {
                 return Ok(());
@@ -1529,6 +1641,10 @@ fn handle_friend_connect_event(
             ..
         } => return Ok(true),
         Event::MouseButtonDown { x, y, .. } => {
+            if let Some(index) = friend_lobby_slot_at(x as f32, y as f32) {
+                join_friend_lobby_slot(panel, network, local_udp_addr, index)?;
+                return Ok(false);
+            }
             if start_button_contains(x, y) {
                 start_friend_lobby(panel, network)?;
             }
@@ -1560,6 +1676,10 @@ fn handle_friend_connect_event(
             ..
         } => {
             if friend_connect_accepts_peer_code_input(network) {
+                if let Some(index) = friend_lobby_slot_index_for_keycode(keycode) {
+                    join_friend_lobby_slot(panel, network, local_udp_addr, index)?;
+                    return Ok(false);
+                }
                 if let Some(character) = friend_code_character(keycode) {
                     if panel.remote_peer_id.len() < 12 {
                         panel.remote_peer_id.push(character);
@@ -1578,6 +1698,75 @@ fn friend_connect_accepts_peer_code_input(network: &FriendConnectNetwork) -> boo
         FriendConnectNetwork::Editing | FriendConnectNetwork::Failed => true,
         FriendConnectNetwork::Pending(pending) => pending.lobby_owner,
         FriendConnectNetwork::Connected(_) => false,
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn start_friend_lobby_directory(panel: &mut FriendConnectPanel) {
+    let local_peer_id = panel.local_peer_id.clone();
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        let result = friend_connect_supabase_config()
+            .and_then(|config| config.stream_lobby_directory(&local_peer_id, sender.clone()));
+        let _ = sender.send(result.map(|_| local_peer_id));
+    });
+    panel.lobby_directory_receiver = Some(receiver);
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn poll_friend_lobby_directory(panel: &mut FriendConnectPanel, network: &FriendConnectNetwork) {
+    let Some(receiver) = panel.lobby_directory_receiver.take() else {
+        return;
+    };
+    let mut keep_receiver = true;
+    loop {
+        match receiver.try_recv() {
+            Ok(Ok(code)) => {
+                panel
+                    .lobby_slots
+                    .observe(&code, &panel.local_peer_id, Instant::now());
+            }
+            Ok(Err(error)) => {
+                if !matches!(network, FriendConnectNetwork::Connected(_)) {
+                    panel.status = format!("LOBBY LIST {}", trim_status(&error));
+                }
+                keep_receiver = false;
+                break;
+            }
+            Err(mpsc::TryRecvError::Empty) => break,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                keep_receiver = false;
+                break;
+            }
+        }
+    }
+    panel.lobby_slots.prune(Instant::now());
+    if keep_receiver {
+        panel.lobby_directory_receiver = Some(receiver);
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn join_friend_lobby_slot(
+    panel: &mut FriendConnectPanel,
+    network: &mut FriendConnectNetwork,
+    local_udp_addr: Option<SocketAddr>,
+    index: usize,
+) -> Result<(), String> {
+    if !friend_connect_accepts_peer_code_input(network) {
+        return Ok(());
+    }
+    let Some(code) = panel.lobby_slots.code_at(index, Instant::now()) else {
+        return Ok(());
+    };
+    panel.remote_peer_id = code;
+    start_friend_connect(panel, network, local_udp_addr)
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn stop_friend_lobby_advertise(panel: &mut FriendConnectPanel) {
+    if let Some(stop) = panel.lobby_advertise_stop.take() {
+        stop.store(true, Ordering::Relaxed);
     }
 }
 
@@ -1607,6 +1796,21 @@ fn open_friend_lobby(
     let local_peer_id = panel.local_peer_id.clone();
     let local_endpoint_text = local_endpoint.to_string();
     let (sender, receiver) = mpsc::channel();
+    stop_friend_lobby_advertise(panel);
+    let advertise_stop = Arc::new(AtomicBool::new(false));
+    panel.lobby_advertise_stop = Some(Arc::clone(&advertise_stop));
+    let advertise_config = config.clone();
+    let advertise_room_code = room_code.clone();
+    let advertise_peer_id = local_peer_id.clone();
+    std::thread::spawn(move || {
+        let _ = advertise_config.advertise_lobby_repeated_until(
+            &advertise_room_code,
+            &advertise_peer_id,
+            FRIEND_LOBBY_ADVERTISE_REPEAT_COUNT,
+            FRIEND_LOBBY_ADVERTISE_INTERVAL,
+            || advertise_stop.load(Ordering::Relaxed),
+        );
+    });
     std::thread::spawn(move || {
         let result = config.host_direct_endpoint(
             &room_code,
@@ -1641,6 +1845,7 @@ fn start_friend_connect(
             return Ok(());
         }
     };
+    stop_friend_lobby_advertise(panel);
     let (socket, local_endpoint) =
         match create_friend_udp_socket_and_endpoint(panel, local_udp_addr) {
             Some(parts) => parts,
@@ -1736,6 +1941,7 @@ fn poll_pending_friend_connect(
     };
     match pending.receiver.try_recv() {
         Ok(Ok(remote_endpoint)) => {
+            stop_friend_lobby_advertise(panel);
             let peer_addr = match remote_endpoint.endpoint.udp_addr.parse::<SocketAddr>() {
                 Ok(peer_addr) => peer_addr,
                 Err(error) => {
@@ -2266,9 +2472,53 @@ fn draw_friend_connect_panel(
     )?;
     draw_sdl_label(
         canvas,
+        "OPEN LOBBIES",
+        22,
+        126,
+        3,
+        Color::RGBA(160, 170, 184, 255),
+    )?;
+    let visible_codes = panel.lobby_slots.visible_codes(Instant::now());
+    for index in 0..FRIEND_LOBBY_SLOT_CAPACITY {
+        let y =
+            FRIEND_LOBBY_SLOT_Y + index as f32 * (FRIEND_LOBBY_SLOT_HEIGHT + FRIEND_LOBBY_SLOT_GAP);
+        draw_sdl_rect(
+            canvas,
+            RenderRect {
+                x: FRIEND_LOBBY_SLOT_X as i32,
+                y: y as i32,
+                width: FRIEND_LOBBY_SLOT_WIDTH as u32,
+                height: FRIEND_LOBBY_SLOT_HEIGHT as u32,
+                color: RenderColor {
+                    r: 30,
+                    g: 39,
+                    b: 52,
+                    a: 255,
+                },
+            },
+        )?;
+        let label = visible_codes
+            .get(index)
+            .map(|code| format!("{} {}", index + 1, code))
+            .unwrap_or_else(|| format!("{} EMPTY", index + 1));
+        draw_sdl_label(
+            canvas,
+            &label,
+            FRIEND_LOBBY_SLOT_X as i32 + 8,
+            y as i32 + 4,
+            2,
+            if visible_codes.get(index).is_some() {
+                Color::RGBA(145, 213, 255, 255)
+            } else {
+                Color::RGBA(98, 108, 122, 255)
+            },
+        )?;
+    }
+    draw_sdl_label(
+        canvas,
         &format!("STATUS {}", trim_status(&panel.status)),
         22,
-        136,
+        254,
         3,
         status_color(network),
     )?;
@@ -2276,16 +2526,16 @@ fn draw_friend_connect_panel(
         canvas,
         &trim_status(&panel.input_status),
         22,
-        166,
+        280,
         3,
         Color::RGBA(160, 170, 184, 255),
     )?;
     draw_sdl_label(
         canvas,
-        "ENTER CONNECTS  ESC QUITS  S STARTS",
+        "CLICK/1-4 JOIN  ENTER MANUAL  S START",
         22,
-        226,
-        3,
+        304,
+        2,
         Color::RGBA(160, 170, 184, 255),
     )?;
     if let FriendConnectNetwork::Connected(game) = network {
@@ -2393,6 +2643,20 @@ fn empty_code_placeholder(code: &str) -> &str {
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
+fn normalize_runtime_friend_code(code: &str) -> Result<String, String> {
+    let code = code.trim().to_ascii_uppercase();
+    if (4..=12).contains(&code.len())
+        && code
+            .chars()
+            .all(|character| character.is_ascii_uppercase() || character.is_ascii_digit())
+    {
+        Ok(code)
+    } else {
+        Err("friend-connect code must be 4-12 uppercase letters or digits".to_string())
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn trim_status(status: &str) -> String {
     const MAX_CHARS: usize = 42;
     let mut trimmed = status
@@ -2425,6 +2689,32 @@ fn status_color(network: &FriendConnectNetwork) -> Color {
 #[cfg(all(feature = "sdl", feature = "wup"))]
 fn start_button_contains(x: f32, y: f32) -> bool {
     (382.0..=488.0).contains(&x) && (188.0..=216.0).contains(&y)
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn friend_lobby_slot_at(x: f32, y: f32) -> Option<usize> {
+    if !(FRIEND_LOBBY_SLOT_X..=FRIEND_LOBBY_SLOT_X + FRIEND_LOBBY_SLOT_WIDTH).contains(&x) {
+        return None;
+    }
+    for index in 0..FRIEND_LOBBY_SLOT_CAPACITY {
+        let top =
+            FRIEND_LOBBY_SLOT_Y + index as f32 * (FRIEND_LOBBY_SLOT_HEIGHT + FRIEND_LOBBY_SLOT_GAP);
+        if (top..=top + FRIEND_LOBBY_SLOT_HEIGHT).contains(&y) {
+            return Some(index);
+        }
+    }
+    None
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn friend_lobby_slot_index_for_keycode(keycode: Keycode) -> Option<usize> {
+    match keycode {
+        Keycode::_1 | Keycode::Kp1 => Some(0),
+        Keycode::_2 | Keycode::Kp2 => Some(1),
+        Keycode::_3 | Keycode::Kp3 => Some(2),
+        Keycode::_4 | Keycode::Kp4 => Some(3),
+        _ => None,
+    }
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -4409,6 +4699,85 @@ mod tests {
         assert!(super::start_button_contains(488.0, 216.0));
         assert!(!super::start_button_contains(381.0, 188.0));
         assert!(!super::start_button_contains(488.0, 217.0));
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_lobby_slots_keep_four_fresh_remote_codes() {
+        let start = std::time::Instant::now();
+        let mut slots = super::FriendLobbySlots::default();
+
+        slots.observe("M0LEA1", "M0LEA1", start);
+        slots.observe("M0LEB2", "M0LEA1", start);
+        slots.observe(
+            "M0LEC3",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(1),
+        );
+        slots.observe(
+            "M0LED4",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(2),
+        );
+        slots.observe(
+            "M0LEE5",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(3),
+        );
+        slots.observe(
+            "M0LEF6",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(4),
+        );
+        slots.observe(
+            "M0LEC3",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(5),
+        );
+
+        assert_eq!(
+            slots.visible_codes(start + std::time::Duration::from_millis(5)),
+            vec!["M0LEC3", "M0LEF6", "M0LEE5", "M0LED4"]
+        );
+        assert_eq!(
+            slots.visible_codes(
+                start + super::FRIEND_LOBBY_SLOT_TTL + std::time::Duration::from_millis(6)
+            ),
+            Vec::<String>::new()
+        );
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_lobby_slots_map_numbers_and_clicks_to_visible_codes() {
+        let start = std::time::Instant::now();
+        let mut slots = super::FriendLobbySlots::default();
+        slots.observe("M0LEB2", "M0LEA1", start);
+        slots.observe(
+            "M0LEC3",
+            "M0LEA1",
+            start + std::time::Duration::from_millis(1),
+        );
+
+        assert_eq!(
+            super::friend_lobby_slot_index_for_keycode(super::Keycode::_1),
+            Some(0)
+        );
+        assert_eq!(
+            super::friend_lobby_slot_index_for_keycode(super::Keycode::Kp2),
+            Some(1)
+        );
+        assert_eq!(
+            super::friend_lobby_slot_index_for_keycode(super::Keycode::_5),
+            None
+        );
+        assert_eq!(super::friend_lobby_slot_at(30.0, 152.0), Some(0));
+        assert_eq!(super::friend_lobby_slot_at(30.0, 224.0), Some(3));
+        assert_eq!(super::friend_lobby_slot_at(30.0, 244.0), None);
+        assert_eq!(
+            slots.code_at(1, start + std::time::Duration::from_millis(1)),
+            Some("M0LEB2".to_string())
+        );
     }
 
     #[cfg(all(feature = "sdl", feature = "wup"))]

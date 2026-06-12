@@ -11,17 +11,19 @@ but authoritative gameplay work now belongs in Rust.
 
 For a one-file Windows handoff build, download:
 
-[Download MoleGame-FriendPlaytest.exe](https://raw.githubusercontent.com/Robbiemas/First_Game/278009c3251fb9d1e8b864f251b1e00ff1b4ca10/playtest/MoleGame-FriendPlaytest.exe)
+[Download MoleGame-FriendPlaytest.exe](https://github.com/Robbiemas/First_Game/raw/master/playtest/MoleGame-FriendPlaytest.exe)
 
 After download, double-click the `.exe`. It extracts the minimal native Rust
 SDL3/WUP package under local app data and launches Friend Connect: the game
-window plus a second connection-code window. The visible code is the lobby code:
-one player shares their code, the other player types that code and presses
-Enter, then the code-owner sees the peer join and can click Start. Start is
-rebroadcast briefly as setup signaling so the joining player does not miss it
-while their listener finishes connecting. The Friend Connect runtime is
-play-until-quit by default, so a player can wait at the code window without a
-smoke-test frame timeout.
+window plus a second connection-code window. The visible code is the lobby code,
+and each open lobby advertises that code in a small setup-only lobby directory.
+Click one of the four open-lobby slots, or press `1`-`4`, to join without typing.
+Manual code entry still works as a fallback: type the peer code and press Enter.
+The code-owner sees the peer join and can click Start. Start is rebroadcast
+briefly as setup signaling so the joining player does not miss it while their
+listener finishes connecting. The Friend Connect runtime is play-until-quit by
+default, so a player can wait at the code window without a smoke-test frame
+timeout.
 
 Friend Connect singles uses lobby role for player ownership: the code-owner is
 always P1 and the only player who can start the match; the player who types the
