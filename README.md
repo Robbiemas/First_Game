@@ -152,10 +152,13 @@ buttons before deriving Melee-style input facts.
 For a WUP-028 adapter on Windows:
 
 1. Install/select WinUSB for the adapter with Zadig if needed.
-2. Close remapper software.
-3. Plug in the adapter.
-4. Run `.\execs\Check WUP Native.cmd`.
-5. Launch `.\execs\Run SDL3 Runtime.cmd`.
+2. Install the GameCube adapter polling-rate overclock driver on that Windows
+   machine. Without it, local WUP input can feel delayed even when network play
+   feels snappy from another computer.
+3. Close remapper software.
+4. Plug in the adapter.
+5. Run `.\execs\Check WUP Native.cmd`.
+6. Launch `.\execs\Run SDL3 Runtime.cmd`.
 
 UCF preprocessing is default-on for regular playtesting. Use the vanilla
 launcher when you need to inspect the pre-UCF native controller path.
