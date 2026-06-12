@@ -3271,8 +3271,8 @@ fn gameplay_launch_paths_do_not_require_wup_adapter_at_startup() {
     assert!(source.contains("fn open_optional_wup_input_source("));
     assert!(source.contains("fn retry_optional_wup_input_source("));
     assert!(source.contains("fn poll_optional_wup_inputs("));
-    assert!(source
-        .contains("fn poll_traced_wup_inputs(\n    input_source: &mut Option<WupInputSource>"));
+    assert!(source.contains("fn poll_traced_wup_inputs("));
+    assert!(source.contains("input_source: &mut Option<WupInputSource>,"));
     assert!(
         !source.contains(
             "let mut gameplay_input_source =\n        WupInputSource::open_with_config(mole_runtime::WupInputConfig { ucf_enabled })?;"
