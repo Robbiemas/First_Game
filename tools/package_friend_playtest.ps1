@@ -68,7 +68,7 @@ setlocal
 cd /d "%~dp0"
 set "PATH=%~dp0;%PATH%"
 set "MOLE_ASSET_ROOT=%~dp0"
-mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2
+mole_runtime.exe --friend-connect --play --netplay-delay 2
 pause
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Mole Game.cmd") -Encoding ASCII
 
@@ -78,8 +78,18 @@ setlocal
 cd /d "%~dp0"
 set "PATH=%~dp0;%PATH%"
 set "MOLE_ASSET_ROOT=%~dp0"
+mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2
+pause
+'@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Mole Game Trace.cmd") -Encoding ASCII
+
+@'
+@echo off
+setlocal
+cd /d "%~dp0"
+set "PATH=%~dp0;%PATH%"
+set "MOLE_ASSET_ROOT=%~dp0"
 echo Running Friend Connect with vanilla pre-UCF input mode.
-mole_runtime.exe --friend-connect --play --input-trace --no-ucf --netplay-delay 2
+mole_runtime.exe --friend-connect --play --no-ucf --netplay-delay 2
 pause
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Mole Game Vanilla No UCF.cmd") -Encoding ASCII
 
@@ -92,7 +102,7 @@ set "MOLE_ASSET_ROOT=%~dp0"
 echo Starting visible Friend Connect host for solo internet testing.
 echo Copy the YOUR CODE value from the Friend Connect window, then run:
 echo   Run Headless Internet Peer.cmd
-mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2
+mole_runtime.exe --friend-connect --play --netplay-delay 2
 pause
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Solo Internet Host.cmd") -Encoding ASCII
 
@@ -127,9 +137,9 @@ echo Starting visible P1 host and visible P2 peer on loopback UDP ports 41001/41
 echo Supabase is still used for setup; local UDP is used for same-machine gameplay packets.
 echo Logs will write under logs\netplay.
 echo CPU headroom is shown as CPU nHZ in each Friend Connect status panel.
-start "Mole Solo Host" "%~dp0mole_runtime.exe" --friend-connect --play --input-trace --netplay-delay 2 --friend-code %HOST_CODE% --auto-start --window-offset-x 0 --window-offset-y 0 --friend-local-udp 127.0.0.1:41001
+start "Mole Solo Host" "%~dp0mole_runtime.exe" --friend-connect --play --netplay-delay 2 --friend-code %HOST_CODE% --auto-start --window-offset-x 0 --window-offset-y 0 --friend-local-udp 127.0.0.1:41001
 timeout /t 2 /nobreak >nul
-start "Mole Solo Visual Peer" "%~dp0mole_runtime.exe" --friend-connect --play --input-trace --netplay-delay 2 --friend-code %PEER_CODE% --connect-code %HOST_CODE% --window-offset-x 360 --window-offset-y 400 --friend-local-udp 127.0.0.1:41002
+start "Mole Solo Visual Peer" "%~dp0mole_runtime.exe" --friend-connect --play --netplay-delay 2 --friend-code %PEER_CODE% --connect-code %HOST_CODE% --window-offset-x 360 --window-offset-y 400 --friend-local-udp 127.0.0.1:41002
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Local Internet Playtest.cmd") -Encoding ASCII
 
 @'
@@ -138,7 +148,7 @@ setlocal
 cd /d "%~dp0"
 set "PATH=%~dp0;%PATH%"
 set "MOLE_ASSET_ROOT=%~dp0"
-mole_runtime.exe --sdl --play --input-trace
+mole_runtime.exe --sdl --play
 pause
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Local Practice.cmd") -Encoding ASCII
 
@@ -148,8 +158,18 @@ setlocal
 cd /d "%~dp0"
 set "PATH=%~dp0;%PATH%"
 set "MOLE_ASSET_ROOT=%~dp0"
+mole_runtime.exe --sdl --play --input-trace
+pause
+'@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Local Practice Trace.cmd") -Encoding ASCII
+
+@'
+@echo off
+setlocal
+cd /d "%~dp0"
+set "PATH=%~dp0;%PATH%"
+set "MOLE_ASSET_ROOT=%~dp0"
 echo Running local practice with vanilla pre-UCF input mode.
-mole_runtime.exe --sdl --play --input-trace --no-ucf
+mole_runtime.exe --sdl --play --no-ucf
 pause
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "Run Local Practice Vanilla No UCF.cmd") -Encoding ASCII
 
@@ -194,7 +214,10 @@ SDL3/WUP runtime. It does not include the full source repository.
 
 - `Run Mole Game.cmd`: Friend Connect playtest with UCF enabled. It opens the
   game window and a second connection-code window, then waits until closed. It
-  uses the Slippi-style default `--netplay-delay 2` baseline.
+  uses the Slippi-style default `--netplay-delay 2` baseline and keeps per-frame
+  input tracing disabled for the lightweight playtest path.
+- `Run Mole Game Trace.cmd`: same Friend Connect path with controller/core
+  input trace JSONL enabled for diagnostics.
 - `Run Mole Game Vanilla No UCF.cmd`: Friend Connect with UCF disabled so the
   native pre-UCF GameCube input path can be checked. It uses the same
   `--netplay-delay 2` baseline.
@@ -209,6 +232,8 @@ SDL3/WUP runtime. It does not include the full source repository.
   gameplay packets use explicit loopback UDP ports so router NAT hairpinning
   cannot hide packet-flow failures.
 - `Run Local Practice.cmd`: local single-machine playtest with UCF enabled.
+- `Run Local Practice Trace.cmd`: local practice with controller/core input
+  trace JSONL enabled for diagnostics.
 - `Run Local Practice Vanilla No UCF.cmd`: local single-machine vanilla input
   playtest.
 - `Check WUP Adapter.cmd`: prints whether the adapter ports are visible.
@@ -216,7 +241,9 @@ SDL3/WUP runtime. It does not include the full source repository.
 
 ## Notes
 
-- The game writes input trace logs to `logs\` next to this package.
+- The lean launchers do not write per-frame input trace logs. Use the explicit
+  Trace launchers when controller/core diagnostics are needed; those logs write
+  to `logs\` next to this package.
 - Supabase is used only to exchange setup endpoints through the public
   publishable project key. Gameplay packets are direct UDP between players.
 - Start is rebroadcast briefly as setup signaling so the joining player does

@@ -3314,6 +3314,23 @@ fn gameplay_launch_paths_do_not_require_wup_adapter_at_startup() {
 }
 
 #[test]
+fn friend_connect_main_debug_overlay_is_opt_in_for_playtest_performance() {
+    let source =
+        std::fs::read_to_string(project_asset_root().join("crates/mole_runtime/src/main.rs"))
+            .expect("runtime main source should be readable");
+
+    assert!(source.contains("debug_overlay: bool,"));
+    assert!(source.contains("let overlay = debug_overlay.then(|| match &network"));
+    let friend_connect_body = source
+        .split("fn run_friend_connect_sdl(")
+        .nth(1)
+        .and_then(|body| body.split("fn handle_friend_connect_event(").next())
+        .expect("Friend Connect SDL body should be present");
+    assert!(!friend_connect_body.contains("Some(&overlay)"));
+    assert!(friend_connect_body.contains("overlay.as_ref()"));
+}
+
+#[test]
 fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
     let launcher = project_asset_root()
         .join("execs")

@@ -1782,8 +1782,8 @@ fn friend_connect_status_report(root: &Path) -> Value {
     });
     report["solo_internet_test_contract"] = json!({
         "mode": "visible-host-plus-visible-peer",
-        "visible_host_command": "mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2 --friend-code CODE --auto-start --friend-local-udp 127.0.0.1:41001",
-        "visible_peer_command": "mole_runtime.exe --friend-connect --play --input-trace --netplay-delay 2 --friend-code PEER --connect-code CODE --friend-local-udp 127.0.0.1:41002",
+        "visible_host_command": "mole_runtime.exe --friend-connect --play --netplay-delay 2 --friend-code CODE --auto-start --friend-local-udp 127.0.0.1:41001",
+        "visible_peer_command": "mole_runtime.exe --friend-connect --play --netplay-delay 2 --friend-code PEER --connect-code CODE --friend-local-udp 127.0.0.1:41002",
         "headless_peer_command": "mole_runtime.exe --friend-connect-headless-peer --connect-code CODE --netplay-delay 2",
         "visible_peer_slot": 2,
         "headless_peer_input": "deterministic neutral input remains available for explicit headless diagnostics",

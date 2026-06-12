@@ -2257,6 +2257,28 @@ fn package_friend_playtest_dry_run_reports_closed_handoff_artifacts() {
 }
 
 #[test]
+fn package_friend_playtest_default_launchers_are_lean_and_trace_is_explicit() {
+    let script = fs::read_to_string(workspace_root().join("tools/package_friend_playtest.ps1"))
+        .expect("friend playtest package script should be readable");
+    fn launcher_block<'a>(script: &'a str, launcher: &str) -> &'a str {
+        let marker =
+            format!("'@ | Set-Content -LiteralPath (Join-Path $packageRoot \"{launcher}\")");
+        let end = script
+            .find(&marker)
+            .unwrap_or_else(|| panic!("missing launcher block for {launcher}"));
+        let start = script[..end]
+            .rfind("@'")
+            .unwrap_or_else(|| panic!("missing here-string start for {launcher}"));
+        &script[start..end]
+    }
+
+    assert!(!launcher_block(&script, "Run Mole Game.cmd").contains("--input-trace"));
+    assert!(!launcher_block(&script, "Run Local Practice.cmd").contains("--input-trace"));
+    assert!(launcher_block(&script, "Run Mole Game Trace.cmd").contains("--input-trace"));
+    assert!(launcher_block(&script, "Run Local Practice Trace.cmd").contains("--input-trace"));
+}
+
+#[test]
 fn package_local_internet_playtest_dry_run_reports_secondary_launcher_artifacts() {
     let root = temp_project_root("package_local_internet_playtest_dry_run");
     let output = run_cli(&[
@@ -2399,6 +2421,18 @@ fn friend_connect_status_reports_role_controller_and_package_contract() {
             .as_str()
             .unwrap()
             .contains("--friend-local-udp 127.0.0.1:41002")
+    );
+    assert!(
+        !parsed["solo_internet_test_contract"]["visible_host_command"]
+            .as_str()
+            .unwrap()
+            .contains("--input-trace")
+    );
+    assert!(
+        !parsed["solo_internet_test_contract"]["visible_peer_command"]
+            .as_str()
+            .unwrap()
+            .contains("--input-trace")
     );
     assert_eq!(
         parsed["solo_internet_test_contract"]["gameplay_transport"],

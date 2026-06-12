@@ -114,6 +114,7 @@ fn main() {
             auto_start_friend_connect,
             friend_connect_window_offset,
             friend_connect_local_udp_addr,
+            debug_overlay,
         ) {
             eprintln!("{error}");
             std::process::exit(1);
@@ -1021,7 +1022,7 @@ fn run_friend_connect_headless_peer(config: HeadlessFriendPeerConfig) -> Result<
 
     let mut inbox = InputPacketInbox::default();
     let mut stats = mole_runtime::UdpRuntimeStats::default();
-    let mut session = RollbackSession::new(mole_runtime::default_play_world(), 32);
+    let mut session = friend_connect_rollback_session();
     let mut local_input_delay = SlippiInputDelayBuffer::new(config.netplay_delay_frames);
     let mut time_sync = FriendConnectTimeSync::new(Instant::now());
     let mut seeded_initial_delay_pads = false;
@@ -1186,6 +1187,15 @@ fn headless_friend_peer_local_input(_frame: Frame) -> PlayerInput {
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
+fn friend_connect_rollback_session() -> RollbackSession {
+    RollbackSession::new_with_step(
+        mole_runtime::default_play_world(),
+        32,
+        mole_runtime::step_world_with_source_collisions,
+    )
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn headless_friend_peer_status(
     phase: &str,
     room_code: &str,
@@ -1246,6 +1256,7 @@ fn run_friend_connect_sdl(
     auto_start: bool,
     window_offset: (i32, i32),
     local_udp_addr: Option<SocketAddr>,
+    debug_overlay: bool,
 ) -> Result<(), String> {
     mole_runtime::preload_runtime_source_frame_data()?;
     configure_sdl_controller_hints();
@@ -1474,19 +1485,19 @@ fn run_friend_connect_sdl(
             | FriendConnectNetwork::Failed => mole_runtime::RenderFrame::from_world(&preview_world),
         };
 
-        let overlay = match &network {
+        let overlay = debug_overlay.then(|| match &network {
             FriendConnectNetwork::Connected(game) => {
                 DebugOverlay::from_frame_with_udp_stats(&render_frame, &game.stats)
             }
             _ => DebugOverlay::from_frame(&render_frame),
-        };
+        });
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         let scene =
             RenderScene::from_frame_with_camera(&render_frame, width, height, &mut render_camera);
         draw_sdl_scene(
             &mut canvas,
             &scene,
-            Some(&overlay),
+            overlay.as_ref(),
             Some(&mut texture_cache),
         )?;
         draw_friend_connect_panel(&mut connect_canvas, &panel, &network)?;
@@ -1770,7 +1781,7 @@ fn poll_pending_friend_connect(
                 transport,
                 inbox: InputPacketInbox::default(),
                 stats: mole_runtime::UdpRuntimeStats::default(),
-                session: RollbackSession::new(mole_runtime::default_play_world(), 32),
+                session: friend_connect_rollback_session(),
                 match_frame: Frame(0),
                 local_input_delay: SlippiInputDelayBuffer::new(netplay_delay_frames),
                 time_sync: FriendConnectTimeSync::new(Instant::now()),

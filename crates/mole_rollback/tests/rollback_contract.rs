@@ -174,6 +174,34 @@ fn corrected_remote_input_resimulates_to_no_delay_authoritative_checksum() {
 }
 
 #[test]
+fn custom_step_function_is_used_for_prediction_and_resimulation() {
+    fn step_with_marker(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
+        step_world(world, frame, inputs);
+        let mut player = world.players()[1];
+        player.damage_percent += 1.0;
+        assert!(world.set_player_state_for_diagnostic(1, player));
+    }
+
+    let mut session =
+        RollbackSession::new_with_step(World::for_two_players(), 32, step_with_marker);
+
+    session.advance_with_prediction(
+        Frame(0),
+        [Some(PlayerInput::neutral()), Some(PlayerInput::neutral())],
+    );
+    assert_eq!(session.world().players()[1].damage_percent, 1.0);
+
+    session.advance_with_prediction(Frame(1), [Some(PlayerInput::neutral()), None]);
+    let predicted_checksum = session.world().checksum();
+    assert_eq!(session.world().players()[1].damage_percent, 2.0);
+
+    let corrected = PlayerInput::neutral().with_left_stick(-127, 0);
+    assert!(session.confirm_input(Frame(1), 1, corrected, Frame(2)));
+    assert_eq!(session.world().players()[1].damage_percent, 2.0);
+    assert_ne!(session.world().checksum(), predicted_checksum);
+}
+
+#[test]
 fn input_delay_buffer_outputs_inputs_after_configured_frame_delay() {
     let mut delay = InputDelayBuffer::new(2);
     let first = PlayerInput::neutral().with_attack(true);

@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use mole_core::{step_world, Frame, PlayerInput, World, WorldRollbackSnapshot};
 
+pub type StepWorldFn = fn(&mut World, Frame, &[PlayerInput; 2]);
+
 #[derive(Debug, Clone)]
 struct Snapshot {
     frame: Frame,
@@ -130,14 +132,24 @@ pub struct RollbackSession {
     world: World,
     snapshots: SnapshotBuffer,
     inputs: BTreeMap<Frame, [PlayerInput; 2]>,
+    step_world_fn: StepWorldFn,
 }
 
 impl RollbackSession {
     pub fn new(initial: World, snapshot_capacity: usize) -> Self {
+        Self::new_with_step(initial, snapshot_capacity, step_world)
+    }
+
+    pub fn new_with_step(
+        initial: World,
+        snapshot_capacity: usize,
+        step_world_fn: StepWorldFn,
+    ) -> Self {
         Self {
             world: initial,
             snapshots: SnapshotBuffer::new(snapshot_capacity),
             inputs: BTreeMap::new(),
+            step_world_fn,
         }
     }
 
@@ -148,7 +160,7 @@ impl RollbackSession {
     pub fn advance(&mut self, frame: Frame, inputs: [PlayerInput; 2]) {
         self.snapshots.save(frame, &self.world);
         self.inputs.insert(frame, inputs);
-        step_world(&mut self.world, frame, &inputs);
+        (self.step_world_fn)(&mut self.world, frame, &inputs);
     }
 
     pub fn advance_with_prediction(
@@ -217,7 +229,7 @@ impl RollbackSession {
                 .copied()
                 .unwrap_or([PlayerInput::neutral(), PlayerInput::neutral()]);
             self.snapshots.save(frame, &self.world);
-            step_world(&mut self.world, frame, &inputs);
+            (self.step_world_fn)(&mut self.world, frame, &inputs);
         }
         true
     }
