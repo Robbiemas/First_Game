@@ -802,8 +802,8 @@ fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
     player.set_motion_state_alias(MotionState::Fall);
     player.grounded = false;
     player.position = Vec2 {
-        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
-        y: ledge.y_milli + profile.ledge_snap_y_milli,
+        x: ledge.x_milli - 1_500,
+        y: ledge.y_milli - 12_000,
     };
     player.source_position = mole_core::SourceVec2::from_milli(player.position);
     player.velocity.y = -1_000;
@@ -831,6 +831,31 @@ fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
             y: ledge.y_milli + profile.ledge_snap_y_milli,
         }
     );
+}
+
+#[test]
+fn airborne_fighter_inside_battlefield_floor_edge_does_not_cliff_catch() {
+    let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
+    let ledge = world.stage().ledges[0];
+    assert_eq!(ledge.side, StageLedgeSide::Left);
+    let profile = FighterProfile::FALCON_LIKE;
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::Fall);
+    player.grounded = false;
+    player.position = Vec2 {
+        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
+        y: ledge.y_milli + profile.ledge_snap_y_milli,
+    };
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    player.velocity.y = -1_000;
+    player.source_self_velocity_y = -1.0;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::Fall);
+    assert_eq!(player.source_cliff_ledge_id, None);
 }
 
 #[test]
@@ -921,8 +946,8 @@ fn source_cliff_catch_rejects_ledge_occupied_by_another_fighter() {
     challenger.set_motion_state_alias(MotionState::Fall);
     challenger.grounded = false;
     challenger.position = Vec2 {
-        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
-        y: ledge.y_milli + profile.ledge_snap_y_milli,
+        x: ledge.x_milli - 1_500,
+        y: ledge.y_milli - 12_000,
     };
     challenger.source_position = mole_core::SourceVec2::from_milli(challenger.position);
     challenger.velocity.y = -1_000;
@@ -943,14 +968,13 @@ fn source_cliff_catch_rejects_ledge_occupied_by_another_fighter() {
 fn source_ledge_cooldown_blocks_immediate_regrab_and_ticks_down() {
     let mut world = World::for_two_players_on_stage(StageProfile::battlefield());
     let ledge = world.stage().ledges[0];
-    let profile = FighterProfile::FALCON_LIKE;
     let mut player = world.players()[0];
     player.set_motion_state_alias(MotionState::Fall);
     player.grounded = false;
     player.source_ledge_cooldown_timer = 5;
     player.position = Vec2 {
-        x: ledge.x_milli + profile.ledge_snap_x_milli - 500,
-        y: ledge.y_milli + profile.ledge_snap_y_milli,
+        x: ledge.x_milli - 1_500,
+        y: ledge.y_milli - 12_000,
     };
     player.source_position = mole_core::SourceVec2::from_milli(player.position);
     player.velocity.y = -1_000;

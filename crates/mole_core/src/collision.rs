@@ -1,6 +1,9 @@
 use crate::{
     common_data::MeleeCommonData,
-    stage::{StageLedge, StageLedgeSide, StageProfile, StageSurface, StageSurfaceKind},
+    stage::{
+        StageCollisionLineKind, StageLedge, StageLedgeSide, StageProfile, StageSurface,
+        StageSurfaceKind,
+    },
     state::{MeleeActionStateId, SourceActionKey, Vec2},
 };
 
@@ -621,14 +624,19 @@ pub fn floor_friction_multiplier_for_bottom(stage: StageProfile, bottom: Vec2) -
 
 pub fn source_ledge_grab_contact(
     stage: StageProfile,
-    root_position: Vec2,
+    previous_root_position: Vec2,
+    current_root_position: Vec2,
+    current_ecb: EcbDiamond,
     ledge_snap_x_milli: i32,
     ledge_snap_y_milli: i32,
     ledge_snap_height_milli: i32,
 ) -> Option<SourceLedgeGrabContact> {
     stage.ledges.iter().copied().find_map(|ledge| {
         source_ledge_grab_reaches_collision_edge(
-            root_position,
+            stage,
+            previous_root_position,
+            current_root_position,
+            current_ecb,
             ledge,
             ledge_snap_x_milli,
             ledge_snap_y_milli,
@@ -642,27 +650,94 @@ pub fn source_ledge_grab_contact(
 }
 
 fn source_ledge_grab_reaches_collision_edge(
-    root_position: Vec2,
+    stage: StageProfile,
+    previous_root_position: Vec2,
+    current_root_position: Vec2,
+    current_ecb: EcbDiamond,
     ledge: StageLedge,
     ledge_snap_x_milli: i32,
     ledge_snap_y_milli: i32,
     ledge_snap_height_milli: i32,
 ) -> bool {
-    let facing = match ledge.side {
-        StageLedgeSide::Left => 1,
-        StageLedgeSide::Right => -1,
+    let Some(melee_stage) = stage.melee_stage_profile() else {
+        return false;
     };
-    let snap_x = ledge.x_milli + facing * ledge_snap_x_milli;
-    let snap_y = ledge.y_milli + ledge_snap_y_milli;
-    let x_min = ledge.x_milli.min(snap_x);
-    let x_max = ledge.x_milli.max(snap_x);
-    let y_min = ledge.y_milli;
-    let y_max = snap_y + ledge_snap_height_milli;
+    let Some(source_line) = melee_stage.collision.lines.get(ledge.line_index as usize) else {
+        return false;
+    };
+    if source_line.kind != StageCollisionLineKind::Floor || source_line.passable {
+        return false;
+    }
+    let Some(line) = melee_stage.collision.scaled_line(ledge.line_index as usize) else {
+        return false;
+    };
 
-    root_position.x >= x_min
-        && root_position.x <= x_max
-        && root_position.y >= y_min
-        && root_position.y <= y_max
+    let edge = match ledge.side {
+        StageLedgeSide::Left => Vec2 {
+            x: line.x0_milli,
+            y: line.y0_milli,
+        },
+        StageLedgeSide::Right => Vec2 {
+            x: line.x1_milli,
+            y: line.y1_milli,
+        },
+    };
+    if edge.x != ledge.x_milli || edge.y != ledge.y_milli {
+        return false;
+    }
+
+    let half_height = ledge_snap_height_milli / 2;
+    let local_left_x = current_ecb.left.x - current_root_position.x;
+    let local_right_x = current_ecb.right.x - current_root_position.x;
+
+    let (left, right) = match ledge.side {
+        StageLedgeSide::Left => {
+            if previous_root_position.x < current_root_position.x {
+                (
+                    previous_root_position.x,
+                    ledge_snap_x_milli + current_root_position.x + local_right_x,
+                )
+            } else {
+                (
+                    current_root_position.x,
+                    ledge_snap_x_milli + previous_root_position.x + local_right_x,
+                )
+            }
+        }
+        StageLedgeSide::Right => {
+            let snap_x = -ledge_snap_x_milli;
+            if previous_root_position.x > current_root_position.x {
+                (
+                    snap_x + current_root_position.x + local_left_x,
+                    previous_root_position.x,
+                )
+            } else {
+                (
+                    snap_x + previous_root_position.x + local_left_x,
+                    current_root_position.x,
+                )
+            }
+        }
+    };
+    let (bottom, top) = if previous_root_position.y < current_root_position.y {
+        (
+            previous_root_position.y + ledge_snap_y_milli - half_height,
+            current_root_position.y + ledge_snap_y_milli + half_height,
+        )
+    } else {
+        (
+            current_root_position.y + ledge_snap_y_milli - half_height,
+            previous_root_position.y + ledge_snap_y_milli + half_height,
+        )
+    };
+    if edge.x < left || edge.x > right || edge.y < bottom || edge.y > top {
+        return false;
+    }
+
+    match ledge.side {
+        StageLedgeSide::Left => current_ecb.bottom.x < edge.x && current_ecb.bottom.y < edge.y,
+        StageLedgeSide::Right => current_ecb.bottom.x > edge.x && current_ecb.bottom.y < edge.y,
+    }
 }
 
 pub(crate) fn floor_surface_index_for_bottom(

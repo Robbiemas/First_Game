@@ -29,6 +29,10 @@ Rust/project artifacts, not raw ISO, raw DAT, or decomp files.
   and broad IASA options need decomp-shaped runtime rules. The source-backed
   platform cue/wireframe now renders during Entry and RebirthWait, and hard-down
   RebirthWait exit installs source `x5D8` intangibility before Fall.
+- Cliff catch is wired to extracted Battlefield ledges, but the full
+  `CollData.env_flags` collision pass is not translated yet. Until that exists,
+  ledge catch must stay constrained by source floor-line endpoints and ECB bottom
+  checks, not root-position rectangles or platform-edge guesses.
 - Match phase is rollback-owned and renders Ready/Go labels, but the full
   source countdown timing still needs the `gm` flow translated.
 - Falcon down-air style hits currently produce damage/animation feedback but do
@@ -36,6 +40,45 @@ Rust/project artifacts, not raw ISO, raw DAT, or decomp files.
 - SDI/ASDI/DI, tumble, wall/ceiling/floor tech, cliff attack/jump/climb/escape
   options, KO/stock/respawn, and full four-stock match flow are not yet
   complete.
+
+## Bottom-Up Cliff And Stage Collision Checklist
+
+Problem observed 2026-06-12: ledge catch was too sensitive and could be
+perceived as grabbing platforms/invalid edges because Rust still used a
+root-position snap rectangle. The decomp does not do that. `mpcoll.c` first
+updates `CollData`, then `ftcliffcommon.c` only enters `CliffCatch` when
+`Collide_LeftLedgeGrab` or `Collide_RightLedgeGrab` is present.
+
+Decomp anchors:
+- `src/melee/mp/mpcoll.c`: `mpColl_80044164`,
+  `mpColl_800443C4`, and the `CollisionFlagAir_CanGrabLedge` block that sets
+  `Collide_LeftLedgeGrab` / `Collide_RightLedgeGrab`.
+- `src/melee/ft/ftcliffcommon.c`: `ftCliffCommon_80081298`,
+  `ftCliffCommon_80081370`, `ftCo_CliffCatch_Phys`.
+- `src/melee/mp/mplib.c`: `mpLib_80053ECC_Floor`,
+  `mpLib_80053DA4_Floor`, `mpFloorGetLeft`, `mpFloorGetRight`,
+  `mpLib_80054ED8`.
+- `src/melee/lb/types.h`: `CollData.env_flags`,
+  `ledge_id_left`, `ledge_id_right`.
+
+Checklist:
+- [ ] Promote a compact Rust `CollData` equivalent for fighter/stage collision
+  snapshots, including `env_flags`, previous/current position, current ECB,
+  ledge IDs, floor skip, facing, and source snap dimensions.
+- [ ] Translate `mpColl_80044164` and `mpColl_800443C4` over extracted
+  `StageCollisionLine` data so left/right ledge-grab flags are produced by the
+  collision pass, not by state code.
+- [ ] Translate the surrounding `CollisionFlagAir_CanGrabLedge` order from
+  `mpcoll.c`: airborne only, falling only, not already on an edge, facing-gated.
+- [ ] Preserve source floor topology and line flags so soft platforms and
+  non-ledge floor segments cannot emit cliff flags unless the decomp would.
+- [ ] Translate `mpLib_80053ECC_Floor`, `mpLib_80053DA4_Floor`, and
+  `mpLib_80054ED8` against baked stage lines for cliff pinning and invalid-line
+  fallback to Fall.
+- [ ] Replace the temporary state-level ledge gate with the collision-pass
+  `env_flags` once the compact `CollData` path exists.
+- [ ] Add replay divergence probes around first cliff-grab frames so Slippi
+  checks can show whether ledge IDs, position pinning, and facing match source.
 
 ## Priority Queue
 

@@ -8,7 +8,7 @@ use crate::{
     fighter_stick_axis_to_f32,
     state::{
         action_sample_frame_count_for_motion_state, active_ecb_bottom_offset_y,
-        is_source_damage_action_state_id, is_source_dead_motion_state,
+        active_ecb_for_player, is_source_damage_action_state_id, is_source_dead_motion_state,
         is_source_rebirth_motion_state, melee_action_state_id_for_motion_state,
         source_motion_change_clamps_ground_velocity, source_root_motion_delta, EXPIRED_INPUT_TIMER,
         SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE,
@@ -1056,6 +1056,8 @@ pub fn step_world_with_source_runtime_data(
                 if try_source_cliff_catch(
                     player,
                     stage,
+                    previous_position,
+                    common_data,
                     input_facts,
                     player_index,
                     &source_ledge_owners,
@@ -1100,6 +1102,8 @@ pub fn step_world_with_source_runtime_data(
                 if try_source_cliff_catch(
                     player,
                     stage,
+                    previous_position,
+                    common_data,
                     input_facts,
                     player_index,
                     &source_ledge_owners,
@@ -2369,6 +2373,8 @@ fn source_ledge_owners(players: &[PlayerState; PLAYER_COUNT]) -> [Option<u16>; P
 fn try_source_cliff_catch(
     player: &mut PlayerState,
     stage: StageProfile,
+    previous_position: Vec2,
+    common_data: MeleeCommonData,
     input_facts: MeleeInputFacts,
     player_index: usize,
     source_ledge_owners: &[Option<u16>; PLAYER_COUNT],
@@ -2385,7 +2391,9 @@ fn try_source_cliff_catch(
 
     let Some(contact) = source_ledge_grab_contact(
         stage,
+        previous_position,
         player.position,
+        active_ecb_for_player(player, common_data),
         player.profile.ledge_snap_x_milli,
         player.profile.ledge_snap_y_milli,
         player.profile.ledge_snap_height_milli,
