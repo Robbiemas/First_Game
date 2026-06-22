@@ -1,8 +1,29 @@
 {
-  "id": "captain_falcon_combat_values",
-  "title": "Captain Falcon Combat Values",
-  "scope": "character_combat",
+  "categories": [
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 104.0,
+          "kind": "source_f32",
+          "offset": 136,
+          "offset_hex": "0x88",
+          "owner_id": "captain_falcon",
+          "owner_scope": "character",
+          "provenance": "extracted_melee_dat",
+          "raw": 104.0,
+          "rust_name": "weight",
+          "source_name": "weight"
+        }
+      ],
+      "id": "combat_attributes",
+      "label": "Combat Attributes"
+    }
+  ],
+  "character_id": "captain_falcon",
   "engine_boundary": "rust_core_authority",
+  "id": "captain_falcon_combat_values",
+  "scope": "character_combat",
   "source": {
     "file": "resources/melee/raw/PlCa.dat",
     "format": "HSD DAT, big-endian floats/ints",
@@ -12,26 +33,5 @@
     "source_character": "captain",
     "symbol": "ftDataCaptain"
   },
-  "character_id": "captain_falcon",
-  "categories": [
-    {
-      "id": "combat_attributes",
-      "label": "Combat Attributes",
-      "fields": [
-        {
-          "rust_name": "weight",
-          "source_name": "weight",
-          "offset": 136,
-          "offset_hex": "0x88",
-          "kind": "source_f32",
-          "raw": 104.0,
-          "converted_value": 104.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "character",
-          "owner_id": "captain_falcon"
-        }
-      ]
-    }
-  ]
+  "title": "Captain Falcon Combat Values"
 }

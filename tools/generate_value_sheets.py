@@ -79,6 +79,7 @@ GLOBAL_CATEGORIES = {
         "crouch_release_y",
         "tilt_x",
         "tilt_y",
+        "throw_down_y",
         "escape_x",
         "escape_x_tap_window",
         "escape_y",

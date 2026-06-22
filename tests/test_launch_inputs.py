@@ -74,10 +74,8 @@ def test_sdl3_runtime_launcher_builds_with_native_wup_feature():
 
     assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
     assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
-    assert 'if not exist "%RUNTIME_EXE%"' in text
-    assert 'cargo build --release -p mole_runtime --features "sdl wup"' in text
+    assert "Ensure Release Runtime.cmd" in text
     assert '"%RUNTIME_EXE%" --sdl --play --input-trace' in text
-    assert '--features "sdl wup"' in text
     assert "-- --sdl" not in text
     assert "--input-trace" in text
     assert "cargo run --release" not in text
@@ -92,8 +90,7 @@ def test_sdl3_runtime_vanilla_launcher_disables_ucf():
 
     assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
     assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
-    assert 'if not exist "%RUNTIME_EXE%"' in text
-    assert '--features "sdl wup"' in text
+    assert "Ensure Release Runtime.cmd" in text
     assert '"%RUNTIME_EXE%" --sdl --play --input-trace --no-ucf' in text
     assert "cargo run --release" not in text
     assert "Open Dev Tool.cmd" in text
@@ -139,8 +136,7 @@ def test_slippi_replay_launcher_uses_replay_source_and_live_divergence_log():
     assert 'set "DIVERGENCE_LOG=%CD%\\debug\\slippi\\runtime-divergence.latest.json"' in text
     assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
     assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
-    assert 'if not exist "%RUNTIME_EXE%"' in text
-    assert 'cargo build --release -p mole_runtime --features "sdl wup"' in text
+    assert "Ensure Release Runtime.cmd" in text
     assert '"%RUNTIME_EXE%" --sdl' in text
     assert '--visual-slippi-replay "%REPLAY_PATH%"' in text
     assert '--frames 4294967295' in text
@@ -150,6 +146,20 @@ def test_slippi_replay_launcher_uses_replay_source_and_live_divergence_log():
     assert "slippi_replay_to_inputs.cjs" not in text
     assert ".inputs.json" not in text
     assert "Open Dev Tool.cmd" not in text
+
+
+def test_release_runtime_helper_rebuilds_when_runtime_sources_are_newer():
+    launcher = ROOT / "execs" / "Ensure Release Runtime.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
+    assert 'if not exist "%RUNTIME_EXE%"' in text
+    assert "LastWriteTimeUtc" in text
+    assert "crates\\mole_core\\src" in text
+    assert "crates\\mole_runtime\\src" in text
+    assert "Runtime source newer than release exe" in text
+    assert 'cargo build --release -p mole_runtime --features "sdl wup"' in text
 
 
 def test_clean_local_outputs_launcher_is_dry_run_and_avoids_required_artifacts():

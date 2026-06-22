@@ -960,6 +960,16 @@ pub enum MotionState {
     Pass,
     CliffCatch,
     CliffWait,
+    CliffClimbSlow,
+    CliffClimbQuick,
+    CliffAttackSlow,
+    CliffAttackQuick,
+    CliffEscapeSlow,
+    CliffEscapeQuick,
+    CliffJumpSlow1,
+    CliffJumpSlow2,
+    CliffJumpQuick1,
+    CliffJumpQuick2,
 }
 
 pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
@@ -1051,6 +1061,16 @@ pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "Pass",
     "CliffCatch",
     "CliffWait",
+    "CliffClimbSlow",
+    "CliffClimbQuick",
+    "CliffAttackSlow",
+    "CliffAttackQuick",
+    "CliffEscapeSlow",
+    "CliffEscapeQuick",
+    "CliffJumpSlow1",
+    "CliffJumpSlow2",
+    "CliffJumpQuick1",
+    "CliffJumpQuick2",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1264,6 +1284,16 @@ pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
         "Pass" => MotionState::Pass,
         "CliffCatch" => MotionState::CliffCatch,
         "CliffWait" => MotionState::CliffWait,
+        "CliffClimbSlow" => MotionState::CliffClimbSlow,
+        "CliffClimbQuick" => MotionState::CliffClimbQuick,
+        "CliffAttackSlow" => MotionState::CliffAttackSlow,
+        "CliffAttackQuick" => MotionState::CliffAttackQuick,
+        "CliffEscapeSlow" => MotionState::CliffEscapeSlow,
+        "CliffEscapeQuick" => MotionState::CliffEscapeQuick,
+        "CliffJumpSlow1" => MotionState::CliffJumpSlow1,
+        "CliffJumpSlow2" => MotionState::CliffJumpSlow2,
+        "CliffJumpQuick1" => MotionState::CliffJumpQuick1,
+        "CliffJumpQuick2" => MotionState::CliffJumpQuick2,
         _ => return None,
     })
 }
@@ -1903,6 +1933,16 @@ pub const fn melee_action_state_id_for_motion_state(
         MotionState::Pass => 244,
         MotionState::CliffCatch => 252,
         MotionState::CliffWait => 253,
+        MotionState::CliffClimbSlow => 254,
+        MotionState::CliffClimbQuick => 255,
+        MotionState::CliffAttackSlow => 256,
+        MotionState::CliffAttackQuick => 257,
+        MotionState::CliffEscapeSlow => 258,
+        MotionState::CliffEscapeQuick => 259,
+        MotionState::CliffJumpSlow1 => 260,
+        MotionState::CliffJumpSlow2 => 261,
+        MotionState::CliffJumpQuick1 => 262,
+        MotionState::CliffJumpQuick2 => 263,
     })
 }
 
@@ -2203,6 +2243,56 @@ pub const fn source_binding_for_motion_state(
             MotionState::CliffWait,
             217,
             "CliffWait1",
+        )),
+        MotionState::CliffClimbSlow => Some(MotionStateSourceBinding::new(
+            MotionState::CliffClimbSlow,
+            219,
+            "CliffClimbSlow",
+        )),
+        MotionState::CliffClimbQuick => Some(MotionStateSourceBinding::new(
+            MotionState::CliffClimbQuick,
+            220,
+            "CliffClimbQuick",
+        )),
+        MotionState::CliffAttackSlow => Some(MotionStateSourceBinding::new(
+            MotionState::CliffAttackSlow,
+            221,
+            "CliffAttackSlow",
+        )),
+        MotionState::CliffAttackQuick => Some(MotionStateSourceBinding::new(
+            MotionState::CliffAttackQuick,
+            222,
+            "CliffAttackQuick",
+        )),
+        MotionState::CliffEscapeSlow => Some(MotionStateSourceBinding::new(
+            MotionState::CliffEscapeSlow,
+            223,
+            "CliffEscapeSlow",
+        )),
+        MotionState::CliffEscapeQuick => Some(MotionStateSourceBinding::new(
+            MotionState::CliffEscapeQuick,
+            224,
+            "CliffEscapeQuick",
+        )),
+        MotionState::CliffJumpSlow1 => Some(MotionStateSourceBinding::new(
+            MotionState::CliffJumpSlow1,
+            225,
+            "CliffJumpSlow1",
+        )),
+        MotionState::CliffJumpSlow2 => Some(MotionStateSourceBinding::new(
+            MotionState::CliffJumpSlow2,
+            226,
+            "CliffJumpSlow2",
+        )),
+        MotionState::CliffJumpQuick1 => Some(MotionStateSourceBinding::new(
+            MotionState::CliffJumpQuick1,
+            227,
+            "CliffJumpQuick1",
+        )),
+        MotionState::CliffJumpQuick2 => Some(MotionStateSourceBinding::new(
+            MotionState::CliffJumpQuick2,
+            228,
+            "CliffJumpQuick2",
         )),
         MotionState::EntryStart => Some(MotionStateSourceBinding::new(
             MotionState::EntryStart,
@@ -3284,7 +3374,7 @@ fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
     }
 }
 
-fn player_model_facing(player: &PlayerState) -> i8 {
+pub(crate) fn player_model_facing(player: &PlayerState) -> i8 {
     if player.motion_state == MotionState::TurnRun {
         player.turn_run_accel_mul
     } else {
@@ -4455,20 +4545,20 @@ impl World {
             .filter(|confirm| self.source_hit_confirm_allowed_by_victim_damage_gate(*confirm))
             .collect::<Vec<_>>();
         let mut confirms = Vec::new();
-        let mut throw_victim_confirms = Vec::new();
+        let mut held_victim_confirms = Vec::new();
         for confirm in damage_gate_confirms {
-            if self.source_hit_confirm_targets_active_throw_victim(confirm) {
-                throw_victim_confirms.push(confirm);
+            if self.source_hit_confirm_targets_active_held_victim(confirm) {
+                held_victim_confirms.push(confirm);
             } else {
                 confirms.push(confirm);
             }
         }
         let stages = self.source_damage_stages_from_confirms_with_stale(&confirms);
-        let throw_victim_stages =
-            self.source_damage_stages_from_confirms_with_stale(&throw_victim_confirms);
+        let held_victim_stages =
+            self.source_damage_stages_from_confirms_with_stale(&held_victim_confirms);
         let mut applied_stages = stages.clone();
-        applied_stages.extend(throw_victim_stages);
-        confirms.extend(throw_victim_confirms);
+        applied_stages.extend(held_victim_stages);
+        confirms.extend(held_victim_confirms);
         self.update_source_stale_moves_from_confirms(&logged_confirms);
         let results = self.source_damage_results_for_stages(&stages);
         let applied_stage_count = self.apply_source_damage_stages(&applied_stages);
@@ -4726,7 +4816,7 @@ impl World {
         true
     }
 
-    fn source_hit_confirm_targets_active_throw_victim(&self, confirm: SourceHitConfirm) -> bool {
+    fn source_hit_confirm_targets_active_held_victim(&self, confirm: SourceHitConfirm) -> bool {
         if confirm.attacker_index == confirm.victim_index {
             return false;
         }
@@ -4743,7 +4833,7 @@ impl World {
             return false;
         };
         let action_state_id = confirm.action_state_id.or(attacker.melee_action_state_id);
-        action_state_id.is_some_and(source_throw_action_state_id)
+        action_state_id.is_some_and(source_held_victim_damage_action_state_id)
             && attacker.source_victim_index == Some(victim_index)
             && attacker.source_x1a5c_index == Some(victim_index)
             && victim.source_victim_index == Some(attacker_index)
@@ -5445,6 +5535,10 @@ fn source_throw_action_state_id(action_state_id: MeleeActionStateId) -> bool {
     matches!(action_state_id.get(), 219..=222)
 }
 
+fn source_held_victim_damage_action_state_id(action_state_id: MeleeActionStateId) -> bool {
+    source_throw_action_state_id(action_state_id) || action_state_id.get() == 217
+}
+
 fn source_held_victim_action_state_id(action_state_id: MeleeActionStateId) -> bool {
     matches!(
         action_state_id.get(),
@@ -5857,6 +5951,16 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::Pass => 49,
         MotionState::CliffCatch => 50,
         MotionState::CliffWait => 51,
+        MotionState::CliffClimbSlow => 73,
+        MotionState::CliffClimbQuick => 74,
+        MotionState::CliffAttackSlow => 75,
+        MotionState::CliffAttackQuick => 76,
+        MotionState::CliffEscapeSlow => 77,
+        MotionState::CliffEscapeQuick => 78,
+        MotionState::CliffJumpSlow1 => 79,
+        MotionState::CliffJumpSlow2 => 80,
+        MotionState::CliffJumpQuick1 => 81,
+        MotionState::CliffJumpQuick2 => 82,
     }
 }
 
@@ -6073,6 +6177,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.turn_run_x as u8);
     mix_u8(hash, common.tilt_x as u8);
     mix_u8(hash, common.tilt_y as u8);
+    mix_u8(hash, common.throw_down_y as u8);
     mix_u8(hash, common.smash_y as u8);
     mix_u8(hash, common.crouch_y as u8);
     mix_u8(hash, common.crouch_release_y as u8);

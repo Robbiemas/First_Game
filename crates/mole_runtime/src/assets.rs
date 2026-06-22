@@ -299,6 +299,16 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::AttackAirLw
         | MotionState::CliffCatch
         | MotionState::CliffWait
+        | MotionState::CliffClimbSlow
+        | MotionState::CliffClimbQuick
+        | MotionState::CliffAttackSlow
+        | MotionState::CliffAttackQuick
+        | MotionState::CliffEscapeSlow
+        | MotionState::CliffEscapeQuick
+        | MotionState::CliffJumpSlow1
+        | MotionState::CliffJumpSlow2
+        | MotionState::CliffJumpQuick1
+        | MotionState::CliffJumpQuick2
         | MotionState::SpecialAirN
         | MotionState::SpecialAirSStart
         | MotionState::SpecialAirS

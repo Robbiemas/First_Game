@@ -25,6 +25,16 @@ SOURCE_STATES = {
 }
 
 SOURCE_ACTIONS = {
+    "CliffAttackQuick": "CLIFF_ATTACK_QUICK",
+    "CliffAttackSlow": "CLIFF_ATTACK_SLOW",
+    "CliffClimbQuick": "CLIFF_CLIMB_QUICK",
+    "CliffClimbSlow": "CLIFF_CLIMB_SLOW",
+    "CliffEscapeQuick": "CLIFF_ESCAPE_QUICK",
+    "CliffEscapeSlow": "CLIFF_ESCAPE_SLOW",
+    "CliffJumpQuick1": "CLIFF_JUMP_QUICK1",
+    "CliffJumpQuick2": "CLIFF_JUMP_QUICK2",
+    "CliffJumpSlow1": "CLIFF_JUMP_SLOW1",
+    "CliffJumpSlow2": "CLIFF_JUMP_SLOW2",
     "PassiveStandF": "PASSIVE_STAND_F",
     "PassiveStandB": "PASSIVE_STAND_B",
 }

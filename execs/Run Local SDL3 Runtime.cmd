@@ -12,14 +12,10 @@ if not exist "%SDL3_ROOT%\lib\x64\SDL3.dll" (
     )
 )
 set "PATH=%USERPROFILE%\.cargo\bin;%SDL3_ROOT%\lib\x64;%PATH%"
-if not exist "%RUNTIME_EXE%" (
-    echo Release runtime missing; building once...
-    call cargo build --release -p mole_runtime --features "sdl wup"
-    if errorlevel 1 (
-        echo Mole Rust SDL3 runtime build failed.
-        pause
-        exit /b 1
-    )
+call "%~dp0Ensure Release Runtime.cmd"
+if errorlevel 1 (
+    pause
+    exit /b 1
 )
 echo Launching local Mole Rust SDL3 runtime with native WUP controller input...
 "%RUNTIME_EXE%" --sdl --play --input-trace

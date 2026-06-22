@@ -1,8 +1,723 @@
 {
-  "id": "global_combat_values",
-  "title": "Global Combat Values",
-  "scope": "global_combat",
+  "categories": [
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.009999999776482582,
+          "kind": "source_f32",
+          "offset": 244,
+          "offset_hex": "0xf4",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.009999999776482582,
+          "rust_name": "knockback_weight_multiplier",
+          "source_name": "xF4"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.0,
+          "kind": "source_f32",
+          "offset": 248,
+          "offset_hex": "0xf8",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0,
+          "rust_name": "knockback_decay",
+          "source_name": "xF8"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2500.0,
+          "kind": "source_f32",
+          "offset": 264,
+          "offset_hex": "0x108",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 2500.0,
+          "rust_name": "knockback_cap",
+          "source_name": "x108"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.10000000149011612,
+          "kind": "source_f32",
+          "offset": 272,
+          "offset_hex": "0x110",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.10000000149011612,
+          "rust_name": "knockback_damage_scale",
+          "source_name": "x110"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.05000000074505806,
+          "kind": "source_f32",
+          "offset": 276,
+          "offset_hex": "0x114",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.05000000074505806,
+          "rust_name": "knockback_hit_count_scale",
+          "source_name": "x114"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 10.0,
+          "kind": "source_f32",
+          "offset": 280,
+          "offset_hex": "0x118",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 10.0,
+          "rust_name": "knockback_weight_set_damage",
+          "source_name": "x118"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.399999976158142,
+          "kind": "source_f32",
+          "offset": 284,
+          "offset_hex": "0x11c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.399999976158142,
+          "rust_name": "knockback_result_scale",
+          "source_name": "x11C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 18.0,
+          "kind": "source_f32",
+          "offset": 288,
+          "offset_hex": "0x120",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 18.0,
+          "rust_name": "knockback_result_offset",
+          "source_name": "x120"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.029999999329447746,
+          "kind": "source_f32",
+          "offset": 256,
+          "offset_hex": "0x100",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.029999999329447746,
+          "rust_name": "damage_knockback_velocity_scale",
+          "source_name": "x100"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.0,
+          "kind": "source_f32",
+          "offset": 512,
+          "offset_hex": "0x200",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.0,
+          "rust_name": "damage_ground_knockback_friction_multiplier",
+          "source_name": "x200"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.050999999046325684,
+          "kind": "source_f32",
+          "offset": 516,
+          "offset_hex": "0x204",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.050999999046325684,
+          "rust_name": "damage_knockback_frame_decay",
+          "source_name": "x204_knockbackFrameDecay"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 100.0,
+          "kind": "source_f32",
+          "offset": 268,
+          "offset_hex": "0x10c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 100.0,
+          "rust_name": "throw_knockback_weight",
+          "source_name": "x10C"
+        }
+      ],
+      "id": "knockback",
+      "label": "Knockback"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.5,
+          "kind": "source_f32",
+          "offset": 484,
+          "offset_hex": "0x1e4",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.5,
+          "rust_name": "damage_landing_basic_knockback_threshold",
+          "source_name": "x1E4"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 5.0,
+          "kind": "source_f32",
+          "offset": 480,
+          "offset_hex": "0x1e0",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 5.0,
+          "rust_name": "damage_landing_down_bound_knockback_threshold",
+          "source_name": "x1E0"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 10.0,
+          "kind": "source_f32",
+          "offset": 344,
+          "offset_hex": "0x158",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 10.0,
+          "rust_name": "damage_motion_tier_1_threshold",
+          "source_name": "x158"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 21.0,
+          "kind": "source_f32",
+          "offset": 348,
+          "offset_hex": "0x15c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 21.0,
+          "rust_name": "damage_motion_tier_2_threshold",
+          "source_name": "x15C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.0,
+          "kind": "source_f32",
+          "offset": 352,
+          "offset_hex": "0x160",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.0,
+          "rust_name": "damage_motion_tier_3_threshold",
+          "source_name": "x160"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 220.0,
+          "kind": "source_f32",
+          "offset": 1060,
+          "offset_hex": "0x424",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 220.0,
+          "rust_name": "down_wait_timer",
+          "source_name": "x424"
+        }
+      ],
+      "id": "damage_motion_thresholds",
+      "label": "Damage Motion Thresholds"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.7853981852531433,
+          "kind": "source_f32",
+          "offset": 324,
+          "offset_hex": "0x144",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.7853981852531433,
+          "rust_name": "damage_sakurai_air_angle_radians",
+          "source_name": "x144_radians"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 44.0,
+          "kind": "source_f32",
+          "offset": 328,
+          "offset_hex": "0x148",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 44.0,
+          "rust_name": "damage_sakurai_ground_angle_degrees",
+          "source_name": "x148"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.099998474121094,
+          "kind": "source_f32",
+          "offset": 336,
+          "offset_hex": "0x150",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.099998474121094,
+          "rust_name": "damage_sakurai_ground_max_knockback",
+          "source_name": "x150"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 32.0,
+          "kind": "source_f32",
+          "offset": 332,
+          "offset_hex": "0x14c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 32.0,
+          "rust_name": "damage_sakurai_ground_min_knockback",
+          "source_name": "x14C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.2217304706573486,
+          "kind": "source_f32",
+          "offset": 564,
+          "offset_hex": "0x234",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.2217304706573486,
+          "rust_name": "damage_fly_top_angle_min_radians",
+          "source_name": "x234"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.919862151145935,
+          "kind": "source_f32",
+          "offset": 568,
+          "offset_hex": "0x238",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.919862151145935,
+          "rust_name": "damage_fly_top_angle_max_radians",
+          "source_name": "x238"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.30000001192092896,
+          "kind": "source_f32",
+          "offset": 576,
+          "offset_hex": "0x240",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.30000001192092896,
+          "rust_name": "damage_fly_top_random_chance",
+          "source_name": "x240"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 100,
+          "kind": "i32_ticks",
+          "offset": 572,
+          "offset_hex": "0x23c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 100,
+          "rust_name": "damage_fly_top_random_percent_threshold",
+          "source_name": "x23C"
+        }
+      ],
+      "id": "damage_angles",
+      "label": "Damage Angles"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 3.0,
+          "kind": "source_f32",
+          "offset": 412,
+          "offset_hex": "0x19c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0,
+          "rust_name": "hitlag_base_frames",
+          "source_name": "x19C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.6666666865348816,
+          "kind": "source_f32",
+          "offset": 416,
+          "offset_hex": "0x1a0",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.6666666865348816,
+          "rust_name": "hitlag_crouch_multiplier",
+          "source_name": "x1A0"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.3333333432674408,
+          "kind": "source_f32",
+          "offset": 408,
+          "offset_hex": "0x198",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.3333333432674408,
+          "rust_name": "hitlag_damage_scale",
+          "source_name": "x198"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 20.0,
+          "kind": "source_f32",
+          "offset": 404,
+          "offset_hex": "0x194",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 20.0,
+          "rust_name": "hitlag_max_frames",
+          "source_name": "x194_unkHitLagFrames"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.0,
+          "kind": "source_f32",
+          "offset": 232,
+          "offset_hex": "0xe8",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0,
+          "rust_name": "lcancel_divisor",
+          "source_name": "xE8"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 7,
+          "kind": "i32_ticks",
+          "offset": 228,
+          "offset_hex": "0xe4",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 7,
+          "rust_name": "lcancel_window",
+          "source_name": "xE4"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.699999988079071,
+          "kind": "source_f32",
+          "offset": 1200,
+          "offset_hex": "0x4b0",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.699999988079071,
+          "rust_name": "sdi_min_stick_mag",
+          "source_name": "sdi_min_stick_mag"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 4,
+          "kind": "i32_ticks",
+          "offset": 1204,
+          "offset_hex": "0x4b4",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 4,
+          "rust_name": "sdi_stick_window",
+          "source_name": "sdi_stick_window"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 6.0,
+          "kind": "source_f32",
+          "offset": 1208,
+          "offset_hex": "0x4b8",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 6.0,
+          "rust_name": "sdi_pos_scale",
+          "source_name": "sdi_pos_scale"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 3.0,
+          "kind": "source_f32",
+          "offset": 1212,
+          "offset_hex": "0x4bc",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 3.0,
+          "rust_name": "asdi_pos_scale",
+          "source_name": "x4BC"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 18.0,
+          "kind": "source_f32",
+          "offset": 424,
+          "offset_hex": "0x1a8",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 18.0,
+          "rust_name": "di_angle_degrees",
+          "source_name": "x1A8"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.0,
+          "kind": "source_f32",
+          "offset": 428,
+          "offset_hex": "0x1ac",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.0,
+          "rust_name": "trigger_di_knockback_multiplier",
+          "source_name": "x1AC"
+        }
+      ],
+      "id": "hitlag_and_lcancel",
+      "label": "Hitlag And Lcancel"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "stick_byte",
+          "converted_value": 25,
+          "kind": "stick",
+          "offset": 580,
+          "offset_hex": "0x244",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.20000000298023224,
+          "rust_name": "down_stand_stick_y",
+          "source_name": "x244"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 40,
+          "kind": "i32_ticks",
+          "offset": 28,
+          "offset_hex": "0x1c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 40,
+          "rust_name": "passive_input_age_threshold",
+          "source_name": "x1C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.20000000298023224,
+          "kind": "source_f32",
+          "offset": 596,
+          "offset_hex": "0x254",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.20000000298023224,
+          "rust_name": "passive_stand_stick_x",
+          "source_name": "x254"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 20.0,
+          "kind": "source_f32",
+          "offset": 592,
+          "offset_hex": "0x250",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 20.0,
+          "rust_name": "passive_window_max",
+          "source_name": "x250"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.0,
+          "kind": "source_f32",
+          "offset": 784,
+          "offset_hex": "0x310",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.0,
+          "rust_name": "landing_wait_y_velocity_threshold",
+          "source_name": "x310"
+        }
+      ],
+      "id": "passive_and_recovery",
+      "label": "Passive And Recovery"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 60.0,
+          "kind": "source_f32",
+          "offset": 608,
+          "offset_hex": "0x260",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 60.0,
+          "rust_name": "shield_start_health",
+          "source_name": "x260_startShieldHealth"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 8,
+          "kind": "f32_ticks",
+          "offset": 616,
+          "offset_hex": "0x268",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 8.0,
+          "rust_name": "shield_release_lockout_frames",
+          "source_name": "x268"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.14000000059604645,
+          "kind": "source_f32",
+          "offset": 632,
+          "offset_hex": "0x278",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.14000000059604645,
+          "rust_name": "shield_hold_drain",
+          "source_name": "x278"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.07000000029802322,
+          "kind": "source_f32",
+          "offset": 636,
+          "offset_hex": "0x27c",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.07000000029802322,
+          "rust_name": "shield_regen",
+          "source_name": "x27C"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 30.0,
+          "kind": "source_f32",
+          "offset": 640,
+          "offset_hex": "0x280",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 30.0,
+          "rust_name": "shield_break_reset_health",
+          "source_name": "x280_unkShieldHealth"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 1.0,
+          "kind": "source_f32",
+          "offset": 644,
+          "offset_hex": "0x284",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 1.0,
+          "rust_name": "shield_hit_drain_damage_scale",
+          "source_name": "x284"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.0,
+          "kind": "source_f32",
+          "offset": 648,
+          "offset_hex": "0x288",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.0,
+          "rust_name": "shield_hit_drain_base",
+          "source_name": "x288"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.10000000149011612,
+          "kind": "source_f32",
+          "offset": 732,
+          "offset_hex": "0x2dc",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.10000000149011612,
+          "rust_name": "shield_hit_lightshield_min",
+          "source_name": "x2DC"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.30000001192092896,
+          "kind": "source_f32",
+          "offset": 736,
+          "offset_hex": "0x2e0",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.30000001192092896,
+          "rust_name": "shield_hit_lightshield_max",
+          "source_name": "x2E0"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.10000000149011612,
+          "kind": "source_f32",
+          "offset": 748,
+          "offset_hex": "0x2ec",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.10000000149011612,
+          "rust_name": "shield_hold_lightshield_min",
+          "source_name": "x2EC"
+        },
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 2.0,
+          "kind": "source_f32",
+          "offset": 752,
+          "offset_hex": "0x2f0",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 2.0,
+          "rust_name": "shield_hold_lightshield_max",
+          "source_name": "x2F0"
+        }
+      ],
+      "id": "shield_and_defense",
+      "label": "Shield And Defense"
+    },
+    {
+      "fields": [
+        {
+          "comparison_value_kind": "source_f32",
+          "converted_value": 0.4000000059604645,
+          "kind": "source_f32",
+          "offset": 340,
+          "offset_hex": "0x154",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 0.4000000059604645,
+          "rust_name": "damage_duration_scale",
+          "source_name": "x154"
+        },
+        {
+          "comparison_value_kind": "ticks",
+          "converted_value": 8,
+          "kind": "i32_ticks",
+          "offset": 840,
+          "offset_hex": "0x348",
+          "owner_scope": "global",
+          "provenance": "extracted_melee_dat",
+          "raw": 8,
+          "rust_name": "throw_collision_lockout_ticks",
+          "source_name": "x348"
+        }
+      ],
+      "id": "damage_response",
+      "label": "Damage Response"
+    }
+  ],
   "engine_boundary": "rust_core_authority",
+  "id": "global_combat_values",
+  "scope": "global_combat",
   "source": {
     "common_attributes_offset": 40896,
     "file": "resources/melee/raw/PlCo.dat",
@@ -10,720 +725,5 @@
     "ft_load_common_data_offset": 60632,
     "symbol": "ftLoadCommonData"
   },
-  "categories": [
-    {
-      "id": "knockback",
-      "label": "Knockback",
-      "fields": [
-        {
-          "rust_name": "knockback_weight_multiplier",
-          "source_name": "xF4",
-          "offset": 244,
-          "offset_hex": "0xf4",
-          "kind": "source_f32",
-          "raw": 0.009999999776482582,
-          "converted_value": 0.009999999776482582,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_decay",
-          "source_name": "xF8",
-          "offset": 248,
-          "offset_hex": "0xf8",
-          "kind": "source_f32",
-          "raw": 2.0,
-          "converted_value": 2.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_cap",
-          "source_name": "x108",
-          "offset": 264,
-          "offset_hex": "0x108",
-          "kind": "source_f32",
-          "raw": 2500.0,
-          "converted_value": 2500.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_damage_scale",
-          "source_name": "x110",
-          "offset": 272,
-          "offset_hex": "0x110",
-          "kind": "source_f32",
-          "raw": 0.10000000149011612,
-          "converted_value": 0.10000000149011612,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_hit_count_scale",
-          "source_name": "x114",
-          "offset": 276,
-          "offset_hex": "0x114",
-          "kind": "source_f32",
-          "raw": 0.05000000074505806,
-          "converted_value": 0.05000000074505806,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_weight_set_damage",
-          "source_name": "x118",
-          "offset": 280,
-          "offset_hex": "0x118",
-          "kind": "source_f32",
-          "raw": 10.0,
-          "converted_value": 10.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_result_scale",
-          "source_name": "x11C",
-          "offset": 284,
-          "offset_hex": "0x11c",
-          "kind": "source_f32",
-          "raw": 1.399999976158142,
-          "converted_value": 1.399999976158142,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "knockback_result_offset",
-          "source_name": "x120",
-          "offset": 288,
-          "offset_hex": "0x120",
-          "kind": "source_f32",
-          "raw": 18.0,
-          "converted_value": 18.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_knockback_velocity_scale",
-          "source_name": "x100",
-          "offset": 256,
-          "offset_hex": "0x100",
-          "kind": "source_f32",
-          "raw": 0.029999999329447743,
-          "converted_value": 0.029999999329447743,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_ground_knockback_friction_multiplier",
-          "source_name": "x200",
-          "offset": 512,
-          "offset_hex": "0x200",
-          "kind": "source_f32",
-          "raw": 1.0,
-          "converted_value": 1.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_knockback_frame_decay",
-          "source_name": "x204_knockbackFrameDecay",
-          "offset": 516,
-          "offset_hex": "0x204",
-          "kind": "source_f32",
-          "raw": 0.05099999904632568,
-          "converted_value": 0.05099999904632568,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "throw_knockback_weight",
-          "source_name": "x10C",
-          "offset": 268,
-          "offset_hex": "0x10c",
-          "kind": "source_f32",
-          "raw": 100.0,
-          "converted_value": 100.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "damage_motion_thresholds",
-      "label": "Damage Motion Thresholds",
-      "fields": [
-        {
-          "rust_name": "damage_landing_basic_knockback_threshold",
-          "source_name": "x1E4",
-          "offset": 484,
-          "offset_hex": "0x1e4",
-          "kind": "source_f32",
-          "raw": 0.5,
-          "converted_value": 0.5,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_landing_down_bound_knockback_threshold",
-          "source_name": "x1E0",
-          "offset": 480,
-          "offset_hex": "0x1e0",
-          "kind": "source_f32",
-          "raw": 5.0,
-          "converted_value": 5.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_motion_tier_1_threshold",
-          "source_name": "x158",
-          "offset": 344,
-          "offset_hex": "0x158",
-          "kind": "source_f32",
-          "raw": 10.0,
-          "converted_value": 10.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_motion_tier_2_threshold",
-          "source_name": "x15C",
-          "offset": 348,
-          "offset_hex": "0x15c",
-          "kind": "source_f32",
-          "raw": 21.0,
-          "converted_value": 21.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_motion_tier_3_threshold",
-          "source_name": "x160",
-          "offset": 352,
-          "offset_hex": "0x160",
-          "kind": "source_f32",
-          "raw": 32.0,
-          "converted_value": 32.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "down_wait_timer",
-          "source_name": "x424",
-          "offset": 1060,
-          "offset_hex": "0x424",
-          "kind": "source_f32",
-          "raw": 220.0,
-          "converted_value": 220.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "damage_angles",
-      "label": "Damage Angles",
-      "fields": [
-        {
-          "rust_name": "damage_sakurai_air_angle_radians",
-          "source_name": "x144_radians",
-          "offset": 324,
-          "offset_hex": "0x144",
-          "kind": "source_f32",
-          "raw": 0.7853981852531433,
-          "converted_value": 0.7853981852531433,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_sakurai_ground_angle_degrees",
-          "source_name": "x148",
-          "offset": 328,
-          "offset_hex": "0x148",
-          "kind": "source_f32",
-          "raw": 44.0,
-          "converted_value": 44.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_sakurai_ground_max_knockback",
-          "source_name": "x150",
-          "offset": 336,
-          "offset_hex": "0x150",
-          "kind": "source_f32",
-          "raw": 32.099998474121094,
-          "converted_value": 32.099998474121094,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_sakurai_ground_min_knockback",
-          "source_name": "x14C",
-          "offset": 332,
-          "offset_hex": "0x14c",
-          "kind": "source_f32",
-          "raw": 32.0,
-          "converted_value": 32.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_fly_top_angle_min_radians",
-          "source_name": "x234",
-          "offset": 564,
-          "offset_hex": "0x234",
-          "kind": "source_f32",
-          "raw": 1.2217304706573486,
-          "converted_value": 1.2217304706573486,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_fly_top_angle_max_radians",
-          "source_name": "x238",
-          "offset": 568,
-          "offset_hex": "0x238",
-          "kind": "source_f32",
-          "raw": 1.919862151145935,
-          "converted_value": 1.919862151145935,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_fly_top_random_chance",
-          "source_name": "x240",
-          "offset": 576,
-          "offset_hex": "0x240",
-          "kind": "source_f32",
-          "raw": 0.30000001192092896,
-          "converted_value": 0.30000001192092896,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "damage_fly_top_random_percent_threshold",
-          "source_name": "x23C",
-          "offset": 572,
-          "offset_hex": "0x23c",
-          "kind": "i32_ticks",
-          "raw": 100,
-          "converted_value": 100,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "hitlag_and_lcancel",
-      "label": "Hitlag And Lcancel",
-      "fields": [
-        {
-          "rust_name": "hitlag_base_frames",
-          "source_name": "x19C",
-          "offset": 412,
-          "offset_hex": "0x19c",
-          "kind": "source_f32",
-          "raw": 3.0,
-          "converted_value": 3.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "hitlag_crouch_multiplier",
-          "source_name": "x1A0",
-          "offset": 416,
-          "offset_hex": "0x1a0",
-          "kind": "source_f32",
-          "raw": 0.6666666865348816,
-          "converted_value": 0.6666666865348816,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "hitlag_damage_scale",
-          "source_name": "x198",
-          "offset": 408,
-          "offset_hex": "0x198",
-          "kind": "source_f32",
-          "raw": 0.3333333432674408,
-          "converted_value": 0.3333333432674408,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "hitlag_max_frames",
-          "source_name": "x194_unkHitLagFrames",
-          "offset": 404,
-          "offset_hex": "0x194",
-          "kind": "source_f32",
-          "raw": 20.0,
-          "converted_value": 20.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "lcancel_divisor",
-          "source_name": "xE8",
-          "offset": 232,
-          "offset_hex": "0xe8",
-          "kind": "source_f32",
-          "raw": 2.0,
-          "converted_value": 2.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "lcancel_window",
-          "source_name": "xE4",
-          "offset": 228,
-          "offset_hex": "0xe4",
-          "kind": "i32_ticks",
-          "raw": 7,
-          "converted_value": 7,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "sdi_min_stick_mag",
-          "source_name": "sdi_min_stick_mag",
-          "offset": 1200,
-          "offset_hex": "0x4b0",
-          "kind": "source_f32",
-          "raw": 0.699999988079071,
-          "converted_value": 0.699999988079071,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "sdi_stick_window",
-          "source_name": "sdi_stick_window",
-          "offset": 1204,
-          "offset_hex": "0x4b4",
-          "kind": "i32_ticks",
-          "raw": 4,
-          "converted_value": 4,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "sdi_pos_scale",
-          "source_name": "sdi_pos_scale",
-          "offset": 1208,
-          "offset_hex": "0x4b8",
-          "kind": "source_f32",
-          "raw": 6.0,
-          "converted_value": 6.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "asdi_pos_scale",
-          "source_name": "x4BC",
-          "offset": 1212,
-          "offset_hex": "0x4bc",
-          "kind": "source_f32",
-          "raw": 3.0,
-          "converted_value": 3.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "di_angle_degrees",
-          "source_name": "x1A8",
-          "offset": 424,
-          "offset_hex": "0x1a8",
-          "kind": "source_f32",
-          "raw": 18.0,
-          "converted_value": 18.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "trigger_di_knockback_multiplier",
-          "source_name": "x1AC",
-          "offset": 428,
-          "offset_hex": "0x1ac",
-          "kind": "source_f32",
-          "raw": 1.0,
-          "converted_value": 1.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "passive_and_recovery",
-      "label": "Passive And Recovery",
-      "fields": [
-        {
-          "rust_name": "down_stand_stick_y",
-          "source_name": "x244",
-          "offset": 580,
-          "offset_hex": "0x244",
-          "kind": "stick",
-          "raw": 0.20000000298023224,
-          "converted_value": 25,
-          "comparison_value_kind": "stick_byte",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "passive_input_age_threshold",
-          "source_name": "x1C",
-          "offset": 28,
-          "offset_hex": "0x1c",
-          "kind": "i32_ticks",
-          "raw": 40,
-          "converted_value": 40,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "passive_stand_stick_x",
-          "source_name": "x254",
-          "offset": 596,
-          "offset_hex": "0x254",
-          "kind": "source_f32",
-          "raw": 0.20000000298023224,
-          "converted_value": 0.20000000298023224,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "passive_window_max",
-          "source_name": "x250",
-          "offset": 592,
-          "offset_hex": "0x250",
-          "kind": "source_f32",
-          "raw": 20.0,
-          "converted_value": 20.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "landing_wait_y_velocity_threshold",
-          "source_name": "x310",
-          "offset": 784,
-          "offset_hex": "0x310",
-          "kind": "source_f32",
-          "raw": 1.0,
-          "converted_value": 1.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "shield_and_defense",
-      "label": "Shield And Defense",
-      "fields": [
-        {
-          "rust_name": "shield_start_health",
-          "source_name": "x260_startShieldHealth",
-          "offset": 608,
-          "offset_hex": "0x260",
-          "kind": "source_f32",
-          "raw": 60.0,
-          "converted_value": 60.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_release_lockout_frames",
-          "source_name": "x268",
-          "offset": 616,
-          "offset_hex": "0x268",
-          "kind": "f32_ticks",
-          "raw": 8.0,
-          "converted_value": 8,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hold_drain",
-          "source_name": "x278",
-          "offset": 632,
-          "offset_hex": "0x278",
-          "kind": "source_f32",
-          "raw": 0.14000000059604645,
-          "converted_value": 0.14000000059604645,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_regen",
-          "source_name": "x27C",
-          "offset": 636,
-          "offset_hex": "0x27c",
-          "kind": "source_f32",
-          "raw": 0.07000000029802322,
-          "converted_value": 0.07000000029802322,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_break_reset_health",
-          "source_name": "x280_unkShieldHealth",
-          "offset": 640,
-          "offset_hex": "0x280",
-          "kind": "source_f32",
-          "raw": 30.0,
-          "converted_value": 30.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hit_drain_damage_scale",
-          "source_name": "x284",
-          "offset": 644,
-          "offset_hex": "0x284",
-          "kind": "source_f32",
-          "raw": 1.0,
-          "converted_value": 1.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hit_drain_base",
-          "source_name": "x288",
-          "offset": 648,
-          "offset_hex": "0x288",
-          "kind": "source_f32",
-          "raw": 0.0,
-          "converted_value": 0.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hit_lightshield_min",
-          "source_name": "x2DC",
-          "offset": 732,
-          "offset_hex": "0x2dc",
-          "kind": "source_f32",
-          "raw": 0.10000000149011612,
-          "converted_value": 0.10000000149011612,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hit_lightshield_max",
-          "source_name": "x2E0",
-          "offset": 736,
-          "offset_hex": "0x2e0",
-          "kind": "source_f32",
-          "raw": 0.30000001192092896,
-          "converted_value": 0.30000001192092896,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hold_lightshield_min",
-          "source_name": "x2EC",
-          "offset": 748,
-          "offset_hex": "0x2ec",
-          "kind": "source_f32",
-          "raw": 0.10000000149011612,
-          "converted_value": 0.10000000149011612,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "shield_hold_lightshield_max",
-          "source_name": "x2F0",
-          "offset": 752,
-          "offset_hex": "0x2f0",
-          "kind": "source_f32",
-          "raw": 2.0,
-          "converted_value": 2.0,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    },
-    {
-      "id": "damage_response",
-      "label": "Damage Response",
-      "fields": [
-        {
-          "rust_name": "damage_duration_scale",
-          "source_name": "x154",
-          "offset": 340,
-          "offset_hex": "0x154",
-          "kind": "source_f32",
-          "raw": 0.4000000059604645,
-          "converted_value": 0.4000000059604645,
-          "comparison_value_kind": "source_f32",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        },
-        {
-          "rust_name": "throw_collision_lockout_ticks",
-          "source_name": "x348",
-          "offset": 840,
-          "offset_hex": "0x348",
-          "kind": "i32_ticks",
-          "raw": 8,
-          "converted_value": 8,
-          "comparison_value_kind": "ticks",
-          "provenance": "extracted_melee_dat",
-          "owner_scope": "global"
-        }
-      ]
-    }
-  ]
+  "title": "Global Combat Values"
 }

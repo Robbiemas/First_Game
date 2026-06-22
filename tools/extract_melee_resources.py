@@ -148,6 +148,7 @@ COMMON_FIELDS = (
     Field("crouch_release_y", "x94", 0x94, "stick"),
     Field("tilt_x", "x98", 0x98, "stick"),
     Field("tilt_y", "attackhi3_stick_threshold_y", 0xAC, "stick"),
+    Field("throw_down_y", "xB0", 0xB0, "stick"),
     Field("aerial_neutral_x", "xDC", 0xDC, "stick"),
     Field("aerial_neutral_y", "xE0", 0xE0, "stick"),
     Field("lcancel_window", "xE4", 0xE4, "i32_ticks"),

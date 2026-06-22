@@ -2139,6 +2139,80 @@ fn slippi_match_start_frame2299_ground_grab_enters_capture_pull() {
 }
 
 #[test]
+fn runtime_left_facing_catch_wait_holds_victim_on_faced_capturedamage_joint() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+
+    let mut grabber = world.players()[0];
+    grabber.motion_state_alias = None;
+    grabber.motion_state = MotionState::Catch;
+    grabber.melee_action_state_id = Some(MeleeActionStateId::new(213));
+    grabber.source_action_key = Some(SourceActionKey::new("Catch"));
+    grabber.source_action_total_frames = 30;
+    grabber.source_victim_index = Some(1);
+    grabber.source_x1a5c_index = Some(1);
+    grabber.source_x221b_b5 = true;
+    grabber.facing = -1;
+    grabber.source_position = SourceVec2 { x: 10.0, y: 0.0 };
+    grabber.position = grabber.source_position.to_milli();
+    grabber.motion_frame = 6;
+    grabber.set_source_motion_anim_frame(7.0);
+    grabber.motion_throw_flags = 1 << 3;
+    assert!(world.set_player_state_for_diagnostic(0, grabber));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(226));
+    victim.source_action_key = Some(SourceActionKey::new("CapturePulledLw"));
+    victim.source_action_total_frames = 20;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.grounded = true;
+    victim.source_position = SourceVec2 { x: 20.0, y: 0.0 };
+    victim.position = victim.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let players = world.players();
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(216)),
+        "ftCo_CatchPull_Anim should run fn_800DA1D8 into CatchWait"
+    );
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(227)),
+        "fn_800DA1D8 should call fn_800DB6C8 into CaptureWaitLw"
+    );
+    assert!(
+        players[1].source_position.x < players[0].source_position.x,
+        "lb_8000B1CC(capturedamage.x18) should place a left-facing grab hold on the grabber's faced side; grabber_x={:.6} victim_x={:.6}",
+        players[0].source_position.x,
+        players[1].source_position.x
+    );
+
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let victim_hurtbox = scene.player_hurtbox_pills[1]
+        .first()
+        .expect("CaptureWaitLw victim should render source hurtboxes");
+    assert!(
+        victim_hurtbox.a.x < scene.player_contact_points[0].x
+            || victim_hurtbox.b.x < scene.player_contact_points[0].x,
+        "rendered source hurtboxes for the held victim should appear on the same faced side as the decomp capturedamage joint; grabber_screen_x={} hurt_a_x={} hurt_b_x={}",
+        scene.player_contact_points[0].x,
+        victim_hurtbox.a.x,
+        victim_hurtbox.b.x
+    );
+}
+
+#[test]
 fn slippi_match_start_frame2301_capture_wait_lw_preserves_source_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let Some(export) = read_slippi_match_start_fixture_export() else {
@@ -5626,6 +5700,38 @@ fn special_air_hi_hit_pills_sample_live_source_anim_frame() {
     assert!(
         !scene.player_hitbox_pills[0].is_empty(),
         "ftColl updates active hit capsules from the live fighter pose; render must use the same live source animation frame instead of the stale integer pose frame"
+    );
+}
+
+#[test]
+fn special_air_hi_command_grab_hit_pills_use_catch_element_color() {
+    let first_active_frame = (1..=65)
+        .find(|source_frame| {
+            let frame = falcon_special_air_hi_render_frame(
+                *source_frame,
+                0.0,
+                Vec2 { x: 0, y: 0 },
+                SourceVec2 { x: 0.0, y: 0.0 },
+            );
+            RenderScene::from_frame(&frame, 960, 540).player_hitbox_pills[0]
+                .iter()
+                .any(|pill| pill.color == RenderColor::COMMAND_GRAB_PILL)
+        })
+        .expect("SpecialAirHi catch-element hitboxes should render as command-grab pills");
+
+    let frame = falcon_special_air_hi_render_frame(
+        first_active_frame,
+        f32::from(first_active_frame.saturating_sub(1)),
+        Vec2 { x: 0, y: 0 },
+        SourceVec2 { x: 0.0, y: 0.0 },
+    );
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert!(
+        scene.player_hitbox_pills[0]
+            .iter()
+            .all(|pill| pill.color == RenderColor::COMMAND_GRAB_PILL),
+        "Falcon Dive's action script marks its hitboxes with SOURCE_HIT_ELEMENT_CATCH; the debug overlay should distinguish command grabs from ordinary damaging hitboxes without changing collision data"
     );
 }
 

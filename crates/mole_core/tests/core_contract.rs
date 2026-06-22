@@ -6,22 +6,23 @@ use mole_core::collision::{
 };
 use mole_core::{
     fighter_stick_axis_to_f32, has_source_ecb_samples_for_motion_state,
-    input_common_data_field_sources, landing_contact_for_bottom_with_floor_skip, melee_units,
-    melee_units_f32, milli_to_source_units, motion_state_for_runtime_variant,
-    runtime_motion_state_for_source_key, source_ledge_grab_contact, source_root_motion_delta,
-    source_root_motion_delta_for_action_key, source_root_motion_position,
-    source_special_action_binding_for_motion_state, source_special_action_binding_for_runtime_id,
-    source_units_to_milli, step_world, step_world_with_source_runtime_data, CommonDataExtractError,
-    CommonDataProvenance, EcbDiamond, EngineFeatureToggles, FighterActionFrames, FighterCameraBox,
-    FighterEntryPlatformProfile, FighterProfile, FighterProfileExtractError, Frame,
-    GameCubeButtonState, GameCubePadStatus, MatchPhase, MeleeActionStateId, MeleeCommonData,
-    MeleeInputConfig, MeleeInputProcessor, MeleeInputSnapshot, MeleeInputThresholds,
-    MeleeInputTimers, MeleeJumpInput, MotionState, PlayerInput, PlayerState, SourceActionKey,
-    SourceActionPoseMetadata, SourceActionScriptEvent, SourceActionScriptEvents, SourceCapturePose,
-    SourceDownBoundPose, SourcePosePoint, SourceVec2, SourceVec3, StageCollisionLineKind,
-    StageLedge, StageLedgeSide, StageProfile, StageSpawnPoint, StageSurface, StageSurfaceKind,
-    Vec2, WalkSpeedBucket, World, CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, DEFAULT_STOCK_COUNT,
-    PLAYER_STATE_IN_GAME, PLAYER_STATE_NONE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_RATE_HZ,
+    input_common_data_field_sources, landing_contact_for_bottom_with_floor_skip,
+    melee_action_state_id_for_motion_state, melee_units, melee_units_f32, milli_to_source_units,
+    motion_state_for_runtime_variant, runtime_motion_state_for_source_key,
+    source_ledge_grab_contact, source_root_motion_delta, source_root_motion_delta_for_action_key,
+    source_root_motion_position, source_special_action_binding_for_motion_state,
+    source_special_action_binding_for_runtime_id, source_units_to_milli, step_world,
+    step_world_with_source_runtime_data, CommonDataExtractError, CommonDataProvenance, EcbDiamond,
+    EngineFeatureToggles, FighterActionFrames, FighterCameraBox, FighterEntryPlatformProfile,
+    FighterProfile, FighterProfileExtractError, Frame, GameCubeButtonState, GameCubePadStatus,
+    MatchPhase, MeleeActionStateId, MeleeCommonData, MeleeInputConfig, MeleeInputProcessor,
+    MeleeInputSnapshot, MeleeInputThresholds, MeleeInputTimers, MeleeJumpInput, MotionState,
+    PlayerInput, PlayerState, SourceActionKey, SourceActionPoseMetadata, SourceActionScriptEvent,
+    SourceActionScriptEvents, SourceCapturePose, SourceDownBoundPose, SourcePosePoint, SourceVec2,
+    SourceVec3, StageCollisionLineKind, StageLedge, StageLedgeSide, StageProfile, StageSpawnPoint,
+    StageSurface, StageSurfaceKind, Vec2, WalkSpeedBucket, World,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, DEFAULT_STOCK_COUNT, PLAYER_STATE_IN_GAME,
+    PLAYER_STATE_NONE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_RATE_HZ,
 };
 use std::{fs, path::Path};
 
@@ -294,6 +295,77 @@ fn catch_entry_preserves_ground_velocity_like_ftco_800d8c54() {
     assert_eq!(player.motion_state, MotionState::Catch);
     assert!((player.ground_velocity_x - expected).abs() < 0.00001);
     assert!((player.source_position.x - (start_x + expected)).abs() < 0.00001);
+}
+
+#[test]
+fn standing_grab_enters_catch_preserving_decomp_facing_dir_for_both_facings() {
+    for facing in [1, -1] {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.set_motion_state_alias(MotionState::Wait);
+        player.facing = facing;
+        player.source_motion_entry_facing = facing;
+        player.grounded = true;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        step_world(
+            &mut world,
+            Frame(0),
+            &[
+                PlayerInput::neutral().with_grab(true),
+                PlayerInput::neutral(),
+            ],
+        );
+
+        let player = world.players()[0];
+        assert_eq!(
+            player.motion_state,
+            MotionState::Catch,
+            "ftCo_Catch_CheckInput routes standing grab through ftCo_MS_Catch"
+        );
+        assert_eq!(
+            player.facing, facing,
+            "ftCo_800D8C54 must not flip facing_dir on standing grab entry"
+        );
+        assert_eq!(player.source_motion_entry_facing, facing);
+    }
+}
+
+#[test]
+fn run_grab_enters_catch_dash_preserving_decomp_facing_dir_for_both_facings() {
+    for facing in [1, -1] {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.set_motion_state_alias(MotionState::Run);
+        player.facing = facing;
+        player.source_motion_entry_facing = facing;
+        player.grounded = true;
+        player.motion_frame = 4;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        step_world(
+            &mut world,
+            Frame(0),
+            &[
+                PlayerInput::neutral()
+                    .with_left_stick(80 * facing, 0)
+                    .with_grab(true),
+                PlayerInput::neutral(),
+            ],
+        );
+
+        let player = world.players()[0];
+        assert_eq!(
+            player.motion_state,
+            MotionState::CatchDash,
+            "ftCo_800D8A38 routes run grab through ftCo_MS_CatchDash"
+        );
+        assert_eq!(
+            player.facing, facing,
+            "ftCo_800D8C54 must not flip facing_dir on dash grab entry"
+        );
+        assert_eq!(player.source_motion_entry_facing, facing);
+    }
 }
 
 fn dash_stick_x() -> i8 {
@@ -1091,6 +1163,7 @@ fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
     player.source_position = mole_core::SourceVec2::from_milli(player.position);
     player.velocity.y = -1_000;
     player.source_self_velocity_y = -1.0;
+    player.jumps_remaining = 0;
     assert!(world.set_player_state_for_diagnostic(0, player));
 
     step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
@@ -1116,6 +1189,11 @@ fn airborne_fighter_near_battlefield_ledge_enters_source_cliff_catch() {
             2,
             player.profile
         )
+    );
+    assert_eq!(
+        player.jumps_remaining,
+        player.profile.reusable_air_jumps(),
+        "ftCliffCommon_80081370 calls ftCommon_8007D5D4 while entering CliffCatch; x1968_jumpsUsed becomes 1, so Falcon's reusable double jump is restored while hanging"
     );
 }
 
@@ -1781,6 +1859,27 @@ fn source_cliff_wait_uses_plco_timer_and_hurt_intangibility() {
     assert_eq!(player.source_hurt_intangible_timer, 5);
 }
 
+fn source_world_with_player_in_cliff_wait(common: MeleeCommonData, damage_percent: f32) -> World {
+    let mut world = World::for_two_players_on_stage_with_profiles_and_common_data(
+        StageProfile::battlefield(),
+        [FighterProfile::FALCON_LIKE; 2],
+        common,
+    );
+    let ledge = world.stage().ledges[0];
+    let mut player = world.players()[0];
+    player.set_motion_state_alias(MotionState::CliffWait);
+    player.grounded = false;
+    player.facing = 1;
+    player.damage_percent = damage_percent;
+    player.source_cliff_stick_gate = true;
+    player.source_cliff_wait_timer = 30;
+    player.source_cliff_ledge_id = Some(ledge.index);
+    player.position = source_cliff_wait_position_from_transn(ledge.x_milli, ledge.y_milli, 1);
+    player.source_position = mole_core::SourceVec2::from_milli(player.position);
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    world
+}
+
 #[test]
 fn source_cliff_wait_arms_gate_then_away_down_releases_to_fall_with_cooldown() {
     let common = MeleeCommonData {
@@ -1824,6 +1923,136 @@ fn source_cliff_wait_arms_gate_then_away_down_releases_to_fall_with_cooldown() {
     assert_eq!(player.motion_state, MotionState::Fall);
     assert_eq!(player.source_cliff_ledge_id, None);
     assert_eq!(player.source_ledge_cooldown_timer, 9);
+}
+
+#[test]
+fn source_cliff_wait_a_or_b_enters_decomp_cliff_attack_percent_variant() {
+    let common = MeleeCommonData {
+        cliff_quick_percent_threshold: 100,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut quick = source_world_with_player_in_cliff_wait(common, 25.0);
+    let mut slow = source_world_with_player_in_cliff_wait(common, 125.0);
+
+    step_world(
+        &mut quick,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_attack(true),
+            PlayerInput::neutral(),
+        ],
+    );
+    step_world(
+        &mut slow,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_special(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let quick_player = quick.players()[0];
+    assert_eq!(quick_player.motion_state, MotionState::CliffAttackQuick);
+    assert_eq!(
+        quick_player.source_action_key,
+        Some(SourceActionKey::new("CliffAttackQuick"))
+    );
+    assert_eq!(
+        melee_action_state_id_for_motion_state(quick_player.motion_state).get(),
+        257
+    );
+    let slow_player = slow.players()[0];
+    assert_eq!(slow_player.motion_state, MotionState::CliffAttackSlow);
+    assert_eq!(
+        slow_player.source_action_key,
+        Some(SourceActionKey::new("CliffAttackSlow"))
+    );
+    assert_eq!(
+        melee_action_state_id_for_motion_state(slow_player.motion_state).get(),
+        256
+    );
+}
+
+#[test]
+fn source_cliff_wait_lr_enters_decomp_cliff_escape() {
+    let common = MeleeCommonData::provisional_mole();
+    let mut world = source_world_with_player_in_cliff_wait(common, 10.0);
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_right_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffEscapeQuick);
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("CliffEscapeQuick"))
+    );
+    assert_eq!(
+        melee_action_state_id_for_motion_state(player.motion_state).get(),
+        259
+    );
+}
+
+#[test]
+fn source_cliff_wait_jump_input_enters_decomp_cliff_jump1() {
+    let common = MeleeCommonData::provisional_mole();
+    let mut world = source_world_with_player_in_cliff_wait(common, 10.0);
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_jump(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffJumpQuick1);
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("CliffJumpQuick1"))
+    );
+    assert_eq!(
+        melee_action_state_id_for_motion_state(player.motion_state).get(),
+        262
+    );
+}
+
+#[test]
+fn source_cliff_wait_toward_after_gate_enters_decomp_cliff_climb() {
+    let common = MeleeCommonData {
+        cliff_option_stick_threshold: 32,
+        ..MeleeCommonData::provisional_mole()
+    };
+    let mut world = source_world_with_player_in_cliff_wait(common, 10.0);
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+    step_world(
+        &mut world,
+        Frame(1),
+        &[
+            PlayerInput::neutral().with_left_stick(90, 80),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::CliffClimbQuick);
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("CliffClimbQuick"))
+    );
+    assert_eq!(
+        melee_action_state_id_for_motion_state(player.motion_state).get(),
+        255
+    );
 }
 
 #[test]
@@ -2931,6 +3160,7 @@ fn input_threshold_defaults_match_extracted_plco_common_data() {
     assert_eq!(thresholds.aerial_vertical_angle_tan_milli, 1192);
     assert_eq!(common.tilt_x, 32);
     assert_eq!(common.tilt_y, 32);
+    assert_eq!(common.throw_down_y, -32);
     assert_eq!(common.crouch_y, 87);
     assert_eq!(common.crouch_release_y, 79);
     assert_eq!(common.air_jump_backward_x, 16);
@@ -3200,6 +3430,14 @@ fn input_common_data_sources_track_melee_field_offsets() {
     assert_eq!(dash.source_name, "x3C");
     assert_eq!(dash.offset, 0x3c);
     assert_eq!(dash.provenance, CommonDataProvenance::ExtractedPlCo);
+
+    let throw_down = sources
+        .iter()
+        .find(|source| source.rust_name == "throw_down_y")
+        .expect("throw_down_y common-data source should be recorded");
+    assert_eq!(throw_down.source_name, "xB0");
+    assert_eq!(throw_down.offset, 0xb0);
+    assert_eq!(throw_down.provenance, CommonDataProvenance::ExtractedPlCo);
 
     let walk_slow = sources
         .iter()
@@ -3708,6 +3946,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     put_f32_be(&mut bytes, 0x94, 0.28);
     put_f32_be(&mut bytes, 0x98, 0.25);
     put_f32_be(&mut bytes, 0xac, 0.26);
+    put_f32_be(&mut bytes, 0xb0, -0.27);
     put_f32_be(&mut bytes, 0xdc, 0.43);
     put_f32_be(&mut bytes, 0xe0, 0.44);
     put_i32_be(&mut bytes, 0xe4, 9);
@@ -4008,6 +4247,7 @@ fn extracted_plco_common_data_reads_big_endian_values_from_source_offsets() {
     assert_eq!(common.crouch_release_y, 36);
     assert_eq!(common.tilt_x, 32);
     assert_eq!(common.tilt_y, 33);
+    assert_eq!(common.throw_down_y, -34);
     assert_eq!(common.aerial_neutral_x, 55);
     assert_eq!(common.aerial_neutral_y, 56);
     assert_eq!(common.fallspecial_platform_landing_y, -79);
@@ -4200,6 +4440,7 @@ fn synthetic_plco_common_data_bytes() -> Vec<u8> {
     put_f32_be(&mut bytes, 0x94, 0.28);
     put_f32_be(&mut bytes, 0x98, 0.25);
     put_f32_be(&mut bytes, 0xac, 0.26);
+    put_f32_be(&mut bytes, 0xb0, -0.27);
     put_f32_be(&mut bytes, 0xdc, 0.43);
     put_f32_be(&mut bytes, 0xe0, 0.44);
     put_i32_be(&mut bytes, 0xe4, 7);
@@ -6322,13 +6563,242 @@ fn source_capture_pulled_lw_applies_decomp_capture_joint_delta() {
     );
 
     let victim = world.players()[1];
-    assert!((victim.source_position.x - 15.25).abs() <= 0.000_01);
+    assert!(
+        (victim.source_position.x - 11.25).abs() <= 0.000_01,
+        "ftCo_CapturePulledLw_Phys samples both capturedamage.x18 and XRotN through lb_8000B1CC before applying the source delta"
+    );
     assert!((victim.source_position.y - 8.0).abs() <= 0.000_01);
     assert_eq!(victim.position, victim.source_position.to_milli());
     assert_eq!(
         victim.melee_action_state_id,
         Some(MeleeActionStateId::new(226))
     );
+}
+
+#[test]
+fn source_capture_pulled_lw_mirrors_decomp_capture_joint_delta_for_left_facing_fighters() {
+    let mut world = World::for_two_players();
+    let mut grabber = world.players()[0];
+    grabber.motion_state_alias = None;
+    grabber.motion_state = MotionState::Catch;
+    grabber.melee_action_state_id = Some(MeleeActionStateId::new(216));
+    grabber.source_action_key = Some(SourceActionKey::new("CatchWait"));
+    grabber.source_action_total_frames = 30;
+    grabber.source_victim_index = Some(1);
+    grabber.source_x1a5c_index = Some(1);
+    grabber.facing = -1;
+    grabber.source_position = SourceVec2 { x: 10.0, y: 5.0 };
+    grabber.position = grabber.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(0, grabber));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(226));
+    victim.source_action_key = Some(SourceActionKey::new("CapturePulledLw"));
+    victim.source_action_total_frames = 20;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.facing = -1;
+    victim.source_position = SourceVec2 { x: 20.0, y: -1.0 };
+    victim.position = victim.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(); 2],
+        |player| {
+            let source_action_key = player.source_action_key?;
+            let capture_pose = match source_action_key.as_str() {
+                "CatchWait" => SourceCapturePose {
+                    capture_anchor: SourcePosePoint {
+                        x: 3.25,
+                        y: 4.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                "CapturePulledLw" => SourceCapturePose {
+                    xrotn: SourcePosePoint {
+                        x: -2.0,
+                        y: 1.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                _ => return None,
+            };
+            Some(SourceActionPoseMetadata {
+                capture_pose: Some(capture_pose),
+                ..SourceActionPoseMetadata::default()
+            })
+        },
+        |action_state_id| match action_state_id.get() {
+            216 => Some(30),
+            226 => Some(20),
+            _ => None,
+        },
+    );
+
+    let victim = world.players()[1];
+    assert!((victim.source_position.x - 4.75).abs() <= 0.000_01,
+        "lb_8000B1CC samples the grabber's faced capturedamage JObj world position before subtracting the victim's faced XRotN JObj world sample"
+    );
+    assert!((victim.source_position.y - 8.0).abs() <= 0.000_01);
+    assert_eq!(victim.position, victim.source_position.to_milli());
+}
+
+#[test]
+fn source_capture_pulled_lw_faces_both_capturedamage_and_victim_xrotn_joints() {
+    let mut world = World::for_two_players();
+    let mut grabber = world.players()[0];
+    grabber.motion_state_alias = None;
+    grabber.motion_state = MotionState::Catch;
+    grabber.melee_action_state_id = Some(MeleeActionStateId::new(216));
+    grabber.source_action_key = Some(SourceActionKey::new("CatchWait"));
+    grabber.source_action_total_frames = 30;
+    grabber.source_victim_index = Some(1);
+    grabber.source_x1a5c_index = Some(1);
+    grabber.facing = -1;
+    grabber.source_position = SourceVec2 { x: 10.0, y: 5.0 };
+    grabber.position = grabber.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(0, grabber));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(226));
+    victim.source_action_key = Some(SourceActionKey::new("CapturePulledLw"));
+    victim.source_action_total_frames = 20;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.facing = -1;
+    victim.source_position = SourceVec2 { x: 20.0, y: -1.0 };
+    victim.position = victim.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(); 2],
+        |player| {
+            let source_action_key = player.source_action_key?;
+            let capture_pose = match source_action_key.as_str() {
+                "CatchWait" => SourceCapturePose {
+                    capture_anchor: SourcePosePoint {
+                        x: 3.25,
+                        y: 4.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                "CapturePulledLw" => SourceCapturePose {
+                    xrotn: SourcePosePoint {
+                        x: -2.0,
+                        y: 1.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                _ => return None,
+            };
+            Some(SourceActionPoseMetadata {
+                capture_pose: Some(capture_pose),
+                ..SourceActionPoseMetadata::default()
+            })
+        },
+        |action_state_id| match action_state_id.get() {
+            216 => Some(30),
+            226 => Some(20),
+            _ => None,
+        },
+    );
+
+    let victim = world.players()[1];
+    assert!(
+        (victim.source_position.x - 4.75).abs() <= 0.000_01,
+        "ftCo_CapturePulledLw_Phys samples both JObjs through lb_8000B1CC, so the victim XRotN sample must also be mirrored by the victim model facing; victim_x={:.6}",
+        victim.source_position.x
+    );
+    assert!((victim.source_position.y - 8.0).abs() <= 0.000_01);
+    assert_eq!(victim.position, victim.source_position.to_milli());
+}
+
+#[test]
+fn source_capture_joint_delta_samples_posed_jobj_world_facing() {
+    let mut world = World::for_two_players();
+    let mut grabber = world.players()[0];
+    grabber.motion_state_alias = None;
+    grabber.motion_state = MotionState::TurnRun;
+    grabber.melee_action_state_id = Some(MeleeActionStateId::new(216));
+    grabber.source_action_key = Some(SourceActionKey::new("CatchWait"));
+    grabber.source_action_total_frames = 30;
+    grabber.source_victim_index = Some(1);
+    grabber.source_x1a5c_index = Some(1);
+    grabber.facing = -1;
+    grabber.turn_run_accel_mul = 1;
+    grabber.source_position = SourceVec2 { x: 10.0, y: 5.0 };
+    grabber.position = grabber.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(0, grabber));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(226));
+    victim.source_action_key = Some(SourceActionKey::new("CapturePulledLw"));
+    victim.source_action_total_frames = 20;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_position = SourceVec2 { x: 20.0, y: -1.0 };
+    victim.position = victim.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(); 2],
+        |player| {
+            let source_action_key = player.source_action_key?;
+            let capture_pose = match source_action_key.as_str() {
+                "CatchWait" => SourceCapturePose {
+                    capture_anchor: SourcePosePoint {
+                        x: 3.25,
+                        y: 4.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                "CapturePulledLw" => SourceCapturePose {
+                    xrotn: SourcePosePoint {
+                        x: -2.0,
+                        y: 1.5,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                },
+                _ => return None,
+            };
+            Some(SourceActionPoseMetadata {
+                capture_pose: Some(capture_pose),
+                ..SourceActionPoseMetadata::default()
+            })
+        },
+        |action_state_id| match action_state_id.get() {
+            216 => Some(30),
+            226 => Some(20),
+            _ => None,
+        },
+    );
+
+    let victim = world.players()[1];
+    assert!(
+        (victim.source_position.x - 11.25).abs() <= 0.000_01,
+        "ftCo_CapturePulledLw_Phys samples both JObj world positions with lb_8000B1CC before applying the capture delta; victim_x={:.6}",
+        victim.source_position.x
+    );
+    assert!((victim.source_position.y - 8.0).abs() <= 0.000_01);
+    assert_eq!(victim.position, victim.source_position.to_milli());
 }
 
 #[test]
@@ -6508,6 +6978,419 @@ fn source_only_thrown_states_bind_to_captain_victim_throw_actions() {
     }
 }
 
+fn configure_source_catch_wait_throw_pair(world: &mut World, facing: i8) {
+    let mut thrower = world.players()[0];
+    thrower.motion_state_alias = None;
+    thrower.motion_state = MotionState::Catch;
+    thrower.melee_action_state_id = Some(MeleeActionStateId::new(216));
+    thrower.source_action_key = Some(SourceActionKey::new("CatchWait"));
+    thrower.source_action_total_frames = 30;
+    thrower.source_victim_index = Some(1);
+    thrower.source_x1a5c_index = Some(1);
+    thrower.source_x221b_b5 = true;
+    thrower.facing = facing;
+    thrower.motion_cmd_var0 = 0x55;
+    thrower.motion_throw_flags = 0xff;
+    assert!(world.set_player_state_for_diagnostic(0, thrower));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(227));
+    victim.source_action_key = Some(SourceActionKey::new("CaptureWaitLw"));
+    victim.source_action_total_frames = 35;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_x221b_b5 = false;
+    victim.facing = -facing;
+    victim.motion_anim_frame_milli = 7_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+}
+
+fn step_source_catch_wait_throw_selection(world: &mut World, frame: u32, input: PlayerInput) {
+    step_world_with_source_runtime_data(
+        world,
+        Frame(frame),
+        &[input, PlayerInput::neutral()],
+        |_| None,
+        |action_state_id| match action_state_id.get() {
+            216 => Some(30),
+            219 => Some(38),
+            220 => Some(52),
+            221 => Some(44),
+            222 => Some(49),
+            227 => Some(35),
+            239 => Some(24),
+            240 => Some(18),
+            241 => Some(15),
+            242 => Some(49),
+            _ => None,
+        },
+    );
+}
+
+fn assert_source_throw_selected(
+    world: &World,
+    throw_state_id: u16,
+    throw_key: &'static str,
+    victim_state_id: u16,
+    victim_key: &'static str,
+) {
+    let players = world.players();
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(throw_state_id))
+    );
+    assert_eq!(
+        players[0].source_action_key,
+        Some(SourceActionKey::new(throw_key))
+    );
+    assert_eq!(players[0].motion_state_alias, None);
+    assert_eq!(players[0].motion_frame, 0);
+    assert_eq!(players[0].motion_cmd_var0, 0);
+    assert_eq!(players[0].motion_throw_flags, 0);
+    assert_eq!(players[0].source_victim_index, Some(1));
+
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(victim_state_id)),
+        "ftCo_800DD4B0 should route victim_msid = throw_index + 239"
+    );
+    assert_eq!(
+        players[1].source_action_key,
+        Some(SourceActionKey::new(victim_key))
+    );
+    assert_eq!(players[1].motion_state_alias, None);
+    assert_eq!(players[1].motion_frame, 0);
+    assert_eq!(players[1].source_victim_index, Some(0));
+    assert_eq!(players[1].facing, players[0].facing);
+}
+
+#[test]
+fn source_catch_wait_attack_press_enters_catch_attack_like_fn_800da4c0() {
+    let mut world = World::for_two_players();
+    configure_source_catch_wait_throw_pair(&mut world, 1);
+    step_source_catch_wait_throw_selection(&mut world, 1, PlayerInput::neutral().with_attack(true));
+
+    let players = world.players();
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(217)),
+        "ftCo_CatchWait_IASA should call fn_800DA4FC when input.x668 has the A press bit"
+    );
+    assert_eq!(
+        players[0].source_action_key,
+        Some(SourceActionKey::new("CatchAttack"))
+    );
+    assert_eq!(players[0].motion_state_alias, None);
+    assert_eq!(players[0].motion_frame, 0);
+    assert_eq!(players[0].motion_anim_frame_milli, 0);
+    assert_eq!(players[0].ground_velocity_x.to_bits(), 0.0_f32.to_bits());
+    assert_eq!(players[0].source_victim_index, Some(1));
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(227)),
+        "pummel entry keeps the victim in CaptureWaitLw rather than a throw state"
+    );
+    assert_eq!(players[1].source_victim_index, Some(0));
+}
+
+#[test]
+fn source_catch_attack_anim_end_returns_to_catch_wait_like_fn_800da2b0() {
+    let mut world = World::for_two_players();
+    let mut thrower = world.players()[0];
+    thrower.motion_state_alias = None;
+    thrower.motion_state = MotionState::Catch;
+    thrower.melee_action_state_id = Some(MeleeActionStateId::new(217));
+    thrower.source_action_key = Some(SourceActionKey::new("CatchAttack"));
+    thrower.source_action_total_frames = 24;
+    thrower.source_victim_index = Some(1);
+    thrower.source_x1a5c_index = Some(1);
+    thrower.source_x221b_b5 = true;
+    thrower.motion_frame = 23;
+    thrower.set_source_motion_anim_frame(23.0);
+    assert!(world.set_player_state_for_diagnostic(0, thrower));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(227));
+    victim.source_action_key = Some(SourceActionKey::new("CaptureWaitLw"));
+    victim.source_action_total_frames = 35;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_x221b_b5 = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(); 2],
+        |_| None,
+        |action_state_id| match action_state_id.get() {
+            217 => Some(24),
+            227 => Some(35),
+            216 => Some(30),
+            _ => None,
+        },
+    );
+
+    let players = world.players();
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(216))
+    );
+    assert_eq!(
+        players[0].source_action_key,
+        Some(SourceActionKey::new("CatchWait"))
+    );
+    assert_eq!(players[0].motion_frame, 0);
+    assert_eq!(players[0].motion_anim_frame_milli, 0);
+    assert_eq!(players[0].source_victim_index, Some(1));
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(227))
+    );
+}
+
+#[test]
+fn source_catch_attack_hitbox_damages_held_victim_without_throw_release() {
+    let mut world = World::for_two_players();
+    let mut thrower = world.players()[0];
+    thrower.motion_state_alias = None;
+    thrower.motion_state = MotionState::Catch;
+    thrower.melee_action_state_id = Some(MeleeActionStateId::new(217));
+    thrower.source_action_key = Some(SourceActionKey::new("CatchAttack"));
+    thrower.source_action_total_frames = 24;
+    thrower.source_victim_index = Some(1);
+    thrower.source_x1a5c_index = Some(1);
+    assert!(world.set_player_state_for_diagnostic(0, thrower));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(227));
+    victim.source_action_key = Some(SourceActionKey::new("CaptureWaitLw"));
+    victim.source_action_total_frames = 35;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_x2226_b2 = true;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let hitbox = SourceHitboxAttributes {
+        bone: 8,
+        hit_group: 0,
+        damage: 3,
+        angle: 361,
+        knockback_growth: 20,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let collision_frame = SourceCollisionFrame {
+        hits: vec![SourceCollisionCapsule::new(
+            0,
+            1,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 2.0),
+        )
+        .with_source_pose(
+            Some(MeleeActionStateId::new(217)),
+            Some(SourceActionKey::new("CatchAttack")),
+            4,
+        )
+        .with_hitbox_lifecycle(SourceHitboxLifecycleId::new(4_u64 << 32))
+        .with_hitbox_attributes(hitbox)],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 2.0),
+        )],
+    };
+
+    let step = world.apply_source_collision_frame(&collision_frame);
+
+    assert_eq!(step.confirms.len(), 1);
+    assert_eq!(step.stages.len(), 1);
+    assert_eq!(
+        step.results.len(),
+        0,
+        "ftCo_CatchAttack pummel should stage held-victim damage without routing the captured victim through normal damage knockback"
+    );
+    assert_eq!(step.applied_stage_count, 1);
+    assert_eq!(world.apply_source_damage_results(&step.results), 0);
+    assert_eq!(world.players()[1].damage_applied, 3);
+    assert_eq!(world.commit_staged_source_damage(), 1);
+    assert_eq!(world.players()[1].damage_percent, 3.0);
+    assert_eq!(
+        world.players()[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(227)),
+        "CatchAttack pummel damage should not release the victim from CaptureWaitLw"
+    );
+    assert_eq!(world.players()[1].source_knockback_velocity_x, 0.0);
+    assert_eq!(world.players()[1].source_knockback_velocity_y, 0.0);
+    assert_eq!(world.players()[1].source_ground_knockback_velocity, 0.0);
+    assert_eq!(world.players()[0].source_victim_index, Some(1));
+    assert_eq!(world.players()[1].source_victim_index, Some(0));
+}
+
+#[test]
+fn source_catch_wait_main_stick_selects_all_four_decomp_throw_directions() {
+    for (input, throw_state_id, throw_key, victim_state_id, victim_key) in [
+        (
+            PlayerInput::neutral().with_left_stick(90, 0),
+            219,
+            "ThrowF",
+            239,
+            "TCaptainThrowF",
+        ),
+        (
+            PlayerInput::neutral().with_left_stick(-90, 0),
+            220,
+            "ThrowB",
+            240,
+            "TCaptainThrowB",
+        ),
+        (
+            PlayerInput::neutral().with_left_stick(0, 90),
+            221,
+            "ThrowHi",
+            241,
+            "TCaptainThrowHi",
+        ),
+        (
+            PlayerInput::neutral().with_left_stick(0, -90),
+            222,
+            "ThrowLw",
+            242,
+            "TCaptainThrowLw",
+        ),
+    ] {
+        let mut world = World::for_two_players();
+        configure_source_catch_wait_throw_pair(&mut world, 1);
+        step_source_catch_wait_throw_selection(&mut world, 1, input);
+        assert_source_throw_selected(
+            &world,
+            throw_state_id,
+            throw_key,
+            victim_state_id,
+            victim_key,
+        );
+    }
+}
+
+#[test]
+fn source_catch_wait_side_throw_selection_uses_facing_dir_like_ftco_800dd1e4() {
+    for (facing, input, throw_state_id, throw_key, victim_state_id, victim_key) in [
+        (
+            -1,
+            PlayerInput::neutral().with_left_stick(-90, 0),
+            219,
+            "ThrowF",
+            239,
+            "TCaptainThrowF",
+        ),
+        (
+            -1,
+            PlayerInput::neutral().with_left_stick(90, 0),
+            220,
+            "ThrowB",
+            240,
+            "TCaptainThrowB",
+        ),
+    ] {
+        let mut world = World::for_two_players();
+        configure_source_catch_wait_throw_pair(&mut world, facing);
+        step_source_catch_wait_throw_selection(&mut world, 1, input);
+        assert_source_throw_selected(
+            &world,
+            throw_state_id,
+            throw_key,
+            victim_state_id,
+            victim_key,
+        );
+    }
+}
+
+#[test]
+fn source_catch_wait_cstick_selects_all_four_decomp_throw_directions() {
+    for (input, throw_state_id, throw_key, victim_state_id, victim_key) in [
+        (
+            PlayerInput::neutral().with_c_stick(90, 0),
+            219,
+            "ThrowF",
+            239,
+            "TCaptainThrowF",
+        ),
+        (
+            PlayerInput::neutral().with_c_stick(-90, 0),
+            220,
+            "ThrowB",
+            240,
+            "TCaptainThrowB",
+        ),
+        (
+            PlayerInput::neutral().with_c_stick(0, 90),
+            221,
+            "ThrowHi",
+            241,
+            "TCaptainThrowHi",
+        ),
+    ] {
+        let mut world = World::for_two_players();
+        configure_source_catch_wait_throw_pair(&mut world, 1);
+        step_source_catch_wait_throw_selection(&mut world, 1, input);
+        assert_source_throw_selected(
+            &world,
+            throw_state_id,
+            throw_key,
+            victim_state_id,
+            victim_key,
+        );
+    }
+
+    let mut world = World::for_two_players();
+    configure_source_catch_wait_throw_pair(&mut world, 1);
+    let cstick_down = PlayerInput::neutral().with_c_stick(0, -90);
+    step_source_catch_wait_throw_selection(&mut world, 1, cstick_down);
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(216)),
+        "ftCo_800DF878 does not select down throw from a fresh C-stick down crossing"
+    );
+    step_source_catch_wait_throw_selection(&mut world, 2, cstick_down);
+    assert_source_throw_selected(&world, 222, "ThrowLw", 242, "TCaptainThrowLw");
+}
+
+#[test]
+fn source_catch_wait_only_cstick_down_buffers_as_a_held_throw_direction() {
+    for (held_input, expected_throw) in [
+        (PlayerInput::neutral().with_c_stick(90, 0), None),
+        (PlayerInput::neutral().with_c_stick(-90, 0), None),
+        (PlayerInput::neutral().with_c_stick(0, 90), None),
+        (PlayerInput::neutral().with_c_stick(0, -90), Some("ThrowLw")),
+    ] {
+        let mut world = World::for_two_players();
+        step_world(&mut world, Frame(0), &[held_input, PlayerInput::neutral()]);
+        configure_source_catch_wait_throw_pair(&mut world, 1);
+        step_source_catch_wait_throw_selection(&mut world, 1, held_input);
+
+        match expected_throw {
+            Some(source_key) => assert_eq!(
+                world.players()[0].source_action_key,
+                Some(SourceActionKey::new(source_key))
+            ),
+            None => assert_eq!(
+                world.players()[0].melee_action_state_id,
+                Some(MeleeActionStateId::new(216)),
+                "decomp edge-crossing C-stick throw directions should not trigger from held input"
+            ),
+        }
+    }
+}
+
 #[test]
 fn source_catch_wait_fresh_up_input_enters_throw_hi_and_victim_thrown_hi() {
     let mut world = World::for_two_players();
@@ -6591,6 +7474,85 @@ fn source_catch_wait_fresh_up_input_enters_throw_hi_and_victim_thrown_hi() {
         players[1].motion_anim_frame_milli, 1_000,
         "ftCo_800DE3FC calls ftAnim_8006EBA4 immediately after entering the thrown motion"
     );
+    assert_eq!(players[1].source_victim_index, Some(0));
+    assert_eq!(players[1].facing, players[0].facing);
+}
+
+#[test]
+fn source_catch_wait_fresh_down_input_enters_throw_lw_and_victim_thrown_lw() {
+    let mut world = World::for_two_players();
+    let mut thrower = world.players()[0];
+    thrower.motion_state_alias = None;
+    thrower.motion_state = MotionState::Catch;
+    thrower.melee_action_state_id = Some(MeleeActionStateId::new(216));
+    thrower.source_action_key = Some(SourceActionKey::new("CatchWait"));
+    thrower.source_action_total_frames = 30;
+    thrower.source_victim_index = Some(1);
+    thrower.source_x1a5c_index = Some(1);
+    thrower.source_x221b_b5 = true;
+    thrower.facing = 1;
+    thrower.motion_cmd_var0 = 0x55;
+    thrower.motion_throw_flags = 0xff;
+    assert!(world.set_player_state_for_diagnostic(0, thrower));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(227));
+    victim.source_action_key = Some(SourceActionKey::new("CaptureWaitLw"));
+    victim.source_action_total_frames = 35;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_x221b_b5 = false;
+    victim.facing = -1;
+    victim.motion_anim_frame_milli = 7_000;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let fresh_down = [
+        PlayerInput::neutral().with_left_stick(0, -90),
+        PlayerInput::neutral(),
+    ];
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &fresh_down,
+        |_| None,
+        |action_state_id| match action_state_id.get() {
+            216 => Some(30),
+            222 => Some(49),
+            227 => Some(35),
+            242 => Some(49),
+            _ => None,
+        },
+    );
+
+    let players = world.players();
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(222)),
+        "ftCo_CatchWait_IASA -> ftCo_800DD1E4 should select ThrowLw from a fresh down threshold crossing"
+    );
+    assert_eq!(
+        players[0].source_action_key,
+        Some(SourceActionKey::new("ThrowLw"))
+    );
+    assert_eq!(players[0].motion_state_alias, None);
+    assert_eq!(players[0].motion_frame, 0);
+    assert_eq!(players[0].motion_cmd_var0, 0);
+    assert_eq!(players[0].motion_throw_flags, 0);
+    assert_eq!(players[0].source_victim_index, Some(1));
+
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(242)),
+        "ftCo_800DD398 should enter victim_msid = throw_index + 239 for down throw"
+    );
+    assert_eq!(
+        players[1].source_action_key,
+        Some(SourceActionKey::new("TCaptainThrowLw"))
+    );
+    assert_eq!(players[1].motion_state_alias, None);
+    assert_eq!(players[1].motion_frame, 0);
     assert_eq!(players[1].source_victim_index, Some(0));
     assert_eq!(players[1].facing, players[0].facing);
 }
@@ -6909,7 +7871,7 @@ fn source_thrown_hi_uses_ftco_800de508_constrained_xrotn_position_each_tick() {
 
     let players = world.players();
     let victim = players[1];
-    let expected_x = 40.0 + 2.5 - 4.0 * victim.source_x34_scale_y;
+    let expected_x = 40.0 - 2.5 - 4.0 * victim.source_x34_scale_y;
     let expected_y = 3.0 + 5.0 + -6.0 * victim.source_x34_scale_y;
     assert!(
         victim.source_x2226_b2,
@@ -7599,6 +8561,110 @@ fn source_throw_hi_b3_release_samples_post_anim_transn2_like_ftco_800ddde4() {
         "ftCo_800DDDE4 samples FtPart_TransN2 after the throw action animation callback advances; release_base.y={:.6} expected={:.6}",
         release_base.y,
         expected_post_anim_release.y
+    );
+}
+
+#[test]
+fn source_throw_hi_b3_release_mirrors_transn2_for_left_facing_thrower() {
+    let mut world = World::for_two_players();
+
+    let mut thrower = world.players()[0];
+    thrower.motion_state_alias = None;
+    thrower.motion_state = MotionState::Catch;
+    thrower.melee_action_state_id = Some(MeleeActionStateId::new(221));
+    thrower.source_action_key = Some(SourceActionKey::new("ThrowHi"));
+    thrower.source_action_total_frames = 44;
+    thrower.source_victim_index = Some(1);
+    thrower.source_x1a5c_index = Some(1);
+    thrower.facing = -1;
+    thrower.source_position = SourceVec2 { x: 100.0, y: 0.0 };
+    thrower.position = thrower.source_position.to_milli();
+    thrower.motion_frame = 13;
+    thrower.set_source_motion_anim_frame(14.0);
+    thrower.source_throw_hitboxes[0] = Some(installed_throw_hitbox(SourceThrowHitboxAttributes {
+        hitbox_idx: 0,
+        damage: 4,
+        angle: 90,
+        hit_x24: 100,
+        hit_x28: 0,
+        hit_x2c: 120,
+        element: 0,
+        sfx_severity: 0,
+        sfx_kind: 0,
+    }));
+    assert!(world.set_player_state_for_diagnostic(0, thrower));
+
+    let mut victim = world.players()[1];
+    victim.motion_state_alias = None;
+    victim.motion_state = MotionState::GuardOn;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(241));
+    victim.source_action_key = Some(SourceActionKey::new("TCaptainThrowHi"));
+    victim.source_action_total_frames = 15;
+    victim.source_victim_index = Some(0);
+    victim.source_x1a5c_index = Some(0);
+    victim.source_x2226_b2 = true;
+    victim.facing = -1;
+    victim.grounded = false;
+    victim.source_x1a70 = SourceVec3 {
+        x: 0.0,
+        y: -3.0,
+        z: 2.0,
+    };
+    victim.source_x34_scale_y = 1.0;
+    victim.source_position = SourceVec2 { x: -50.0, y: -50.0 };
+    victim.position = victim.source_position.to_milli();
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(1),
+        &[PlayerInput::neutral(); 2],
+        |player| {
+            if player.source_action_key != Some(SourceActionKey::new("ThrowHi")) {
+                return None;
+            }
+            let anim_frame = player.source_motion_anim_frame;
+            let script_events = if (anim_frame - 14.0).abs() <= f32::EPSILON {
+                SourceActionScriptEvents::single(SourceActionScriptEvent::SetThrowFlag {
+                    hit_idx: 0,
+                    flag_bit: Some(3),
+                })
+            } else {
+                SourceActionScriptEvents::empty()
+            };
+            Some(SourceActionPoseMetadata {
+                capture_pose: Some(SourceCapturePose {
+                    transn2: SourcePosePoint {
+                        x: 10.0 + anim_frame,
+                        y: 20.0 + anim_frame,
+                        z: 0.0,
+                    },
+                    ..SourceCapturePose::default()
+                }),
+                script_events,
+                ..SourceActionPoseMetadata::default()
+            })
+        },
+        |action_state_id| match action_state_id.get() {
+            221 => Some(44),
+            241 => Some(15),
+            90 => Some(40),
+            _ => None,
+        },
+    );
+
+    let victim = world.players()[1];
+    let expected_release_x = 100.0 - (10.0 + 15.0) - victim.source_x1a70.z;
+    let release_base_x = victim.source_position.x
+        - victim.source_self_velocity_x
+        - victim.source_knockback_velocity_x;
+
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(90))
+    );
+    assert!((release_base_x - expected_release_x).abs() <= 0.000_01,
+        "ftCo_800DDDE4 samples FtPart_TransN2 as a faced world JObj position before adding facing_dir * x1A70.z"
     );
 }
 

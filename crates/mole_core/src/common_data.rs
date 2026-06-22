@@ -92,6 +92,7 @@ pub struct MeleeCommonData {
     pub turn_run_x: i8,
     pub tilt_x: i8,
     pub tilt_y: i8,
+    pub throw_down_y: i8,
     pub smash_y: i8,
     pub crouch_y: i8,
     pub crouch_release_y: i8,
@@ -254,6 +255,7 @@ impl MeleeCommonData {
         turn_run_x: -48,
         tilt_x: 32,
         tilt_y: 32,
+        throw_down_y: -32,
         smash_y: 80,
         crouch_y: 87,
         crouch_release_y: 79,
@@ -451,6 +453,7 @@ impl MeleeCommonData {
         data.crouch_release_y = read_stick_i8(bytes, 0x94, "x94")?;
         data.tilt_x = read_stick_i8(bytes, 0x98, "x98")?;
         data.tilt_y = read_stick_i8(bytes, 0xac, "attackhi3_stick_threshold_y")?;
+        data.throw_down_y = read_stick_i8(bytes, 0xb0, "xB0")?;
         data.aerial_neutral_x = read_stick_i8(bytes, 0xdc, "xDC")?;
         data.aerial_neutral_y = read_stick_i8(bytes, 0xe0, "xE0")?;
         data.lcancel_window = read_u8_from_i32(bytes, 0xe4, "xE4")?;
@@ -1095,6 +1098,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "attackhi3_stick_threshold_y",
         offset: 0xac,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "throw_down_y",
+        source_name: "xB0",
+        offset: 0xb0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "aerial_neutral_x",

@@ -861,6 +861,13 @@
       "source_name": "attackhi3_stick_threshold_y",
       "stick_byte": 32
     },
+    "throw_down_y": {
+      "kind": "stick",
+      "offset": 176,
+      "raw": -0.25,
+      "source_name": "xB0",
+      "stick_byte": -32
+    },
     "top_blast_fall_ko_chance": {
       "kind": "i32_ticks",
       "offset": 1312,

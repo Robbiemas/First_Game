@@ -1,6 +1,7 @@
 import struct
 
 from tools.generate_source_root_motion_rust import (
+    SOURCE_ACTIONS,
     SOURCE_STATES,
     fmt_float,
     normalize_vec3_float_literals,
@@ -24,6 +25,22 @@ def test_source_root_motion_generator_preserves_f32_bits_in_rust_literals():
 def test_source_root_motion_generator_covers_falcon_up_special_actions():
     assert SOURCE_STATES["SpecialHi"] == ("SPECIAL_HI", 65)
     assert SOURCE_STATES["SpecialAirHi"] == ("SPECIAL_AIR_HI", 65)
+
+
+def test_source_root_motion_generator_covers_source_ledge_option_actions():
+    for source_action_key in [
+        "CliffAttackQuick",
+        "CliffAttackSlow",
+        "CliffClimbQuick",
+        "CliffClimbSlow",
+        "CliffEscapeQuick",
+        "CliffEscapeSlow",
+        "CliffJumpQuick1",
+        "CliffJumpQuick2",
+        "CliffJumpSlow1",
+        "CliffJumpSlow2",
+    ]:
+        assert source_action_key in SOURCE_ACTIONS
 
 
 def test_source_root_motion_generator_normalizes_existing_vec3_float_literals():

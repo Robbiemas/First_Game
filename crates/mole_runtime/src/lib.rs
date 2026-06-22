@@ -1676,6 +1676,12 @@ impl RenderColor {
         b: 68,
         a: 112,
     };
+    pub const COMMAND_GRAB_PILL: Self = Self {
+        r: 190,
+        g: 92,
+        b: 255,
+        a: 128,
+    };
     pub const HURTBOX_PILL: Self = Self {
         r: 246,
         g: 197,
@@ -2345,13 +2351,21 @@ fn player_hitbox_pills(
                 a: hitbox.b,
                 ..hitbox
             };
+            let color = if hitbox
+                .hitbox
+                .is_some_and(|attrs| attrs.element == SOURCE_HIT_ELEMENT_CATCH)
+            {
+                RenderColor::COMMAND_GRAB_PILL
+            } else {
+                RenderColor::HITBOX_PILL
+            };
             render_source_capsule(
                 visual_hitbox,
                 frame.player_source_positions[index].to_milli(),
                 frame.player_model_facing(index),
                 source_root,
                 transform,
-                RenderColor::HITBOX_PILL,
+                color,
                 source_frame_data::SOURCE_ARTIFACT_KIND,
             )
         })
@@ -2502,13 +2516,15 @@ fn source_thrown_hurt_constraint(
     let victim_pose = source_live_capture_pose_for_player(frame, player_index)?;
     let thrower_pose = source_live_capture_pose_for_player(frame, thrower_index)?;
     Some(SourceThrownHurtConstraint {
-        current_anchor: source_pose_point_add_root(
+        current_anchor: source_pose_point_add_faced_root(
             frame.player_source_positions[thrower_index],
             thrower_pose.transn2,
+            frame.player_model_facing(thrower_index),
         ),
-        previous_anchor: source_pose_point_add_root(
+        previous_anchor: source_pose_point_add_faced_root(
             frame.player_source_previous_positions[thrower_index],
             thrower_pose.transn2,
+            frame.player_model_facing(thrower_index),
         ),
         victim_xrotn: victim_pose.xrotn,
     })
@@ -2531,14 +2547,15 @@ fn source_live_capture_pose_for_player(
     })
 }
 
-fn source_pose_point_add_root(
+fn source_pose_point_add_faced_root(
     root_position: SourceVec2,
     point: SourcePosePoint,
+    facing: i8,
 ) -> SourcePosePoint {
     SourcePosePoint {
-        x: root_position.x + point.x,
+        x: root_position.x + if facing < 0 { -point.x } else { point.x },
         y: root_position.y + point.y,
-        z: point.z,
+        z: if facing < 0 { -point.z } else { point.z },
     }
 }
 

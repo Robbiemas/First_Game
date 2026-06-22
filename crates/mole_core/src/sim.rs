@@ -11,7 +11,7 @@ use crate::{
         active_ecb_for_player, is_source_damage_action_state_id, is_source_dead_motion_state,
         is_source_rebirth_motion_state, landing_fall_special_lag_ticks,
         live_source_local_ecb_for_player_pose_frame_milli, melee_action_state_id_for_motion_state,
-        source_motion_change_clamps_ground_velocity, source_root_motion_delta,
+        player_model_facing, source_motion_change_clamps_ground_velocity, source_root_motion_delta,
         source_root_motion_delta_for_action_key, source_root_motion_frame_count,
         source_root_motion_position, source_special_action_binding_for_motion_state,
         SourceFighterEcb, EXPIRED_INPUT_TIMER, SOURCE_COLLISION_STATE_HIT_AND_HURT_INTANGIBLE,
@@ -83,6 +83,8 @@ const SOURCE_CATCH_PULL_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId
 const SOURCE_CATCH_DASH_PULL_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(215);
 const SOURCE_CATCH_WAIT_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(216);
 const SOURCE_CATCH_WAIT_ACTION_KEY: SourceActionKey = SourceActionKey::new("CatchWait");
+const SOURCE_CATCH_ATTACK_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(217);
+const SOURCE_CATCH_ATTACK_ACTION_KEY: SourceActionKey = SourceActionKey::new("CatchAttack");
 const SOURCE_THROW_F_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(219);
 const SOURCE_THROW_B_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(220);
 const SOURCE_THROW_HI_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(221);
@@ -139,6 +141,7 @@ struct PendingSourceThrowAnimFreeze {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct SourcePoseMetadataSnapshot {
     source_position: SourceVec2,
+    model_facing: i8,
     capture_pose: Option<SourceCapturePose>,
     script_events: SourceActionScriptEvents,
     primary_hitbox: Option<SourceHitboxAttributes>,
@@ -189,6 +192,7 @@ pub fn step_world_with_source_runtime_data(
         let metadata = source_pose_metadata(&player);
         SourcePoseMetadataSnapshot {
             source_position: player.source_position,
+            model_facing: player_model_facing(&player),
             capture_pose: metadata.and_then(|metadata| metadata.capture_pose),
             script_events: metadata
                 .map(|metadata| metadata.script_events)
@@ -341,6 +345,7 @@ pub fn step_world_with_source_runtime_data(
                 advance_source_grab_capture_state(
                     player,
                     player_index,
+                    input_facts,
                     input_snapshot,
                     stage,
                     common_data,
@@ -1123,17 +1128,69 @@ pub fn step_world_with_source_runtime_data(
             }
             MotionState::CliffWait => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
-                let remained_on_cliff =
-                    if apply_source_cliff_wait_iasa(player, stick_x, stick_y, common_data) {
-                        matches!(player.motion_state, MotionState::CliffWait)
-                    } else if !apply_source_cliff_physics(player, stage) {
-                        enter_fall(player);
-                        false
-                    } else {
-                        tick_source_cliff_wait_timer(player);
-                        true
-                    };
+                let remained_on_cliff = if apply_source_cliff_wait_iasa(
+                    player,
+                    input_facts,
+                    input_snapshot,
+                    stick_x,
+                    stick_y,
+                    common_data,
+                ) {
+                    matches!(player.motion_state, MotionState::CliffWait)
+                } else if !apply_source_cliff_physics(player, stage) {
+                    enter_fall(player);
+                    false
+                } else {
+                    tick_source_cliff_wait_timer(player);
+                    true
+                };
                 skip_position_update_this_tick = remained_on_cliff;
+            }
+            MotionState::CliffClimbSlow
+            | MotionState::CliffClimbQuick
+            | MotionState::CliffAttackSlow
+            | MotionState::CliffAttackQuick
+            | MotionState::CliffEscapeSlow
+            | MotionState::CliffEscapeQuick => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                if action_sample_frame_count_for_motion_state(player.motion_state)
+                    .is_some_and(|frames| player.motion_frame >= frames)
+                {
+                    player.set_motion_state_alias(MotionState::Wait);
+                    player.motion_frame = 0;
+                    player.set_source_motion_anim_frame(0.0);
+                    player.grounded = true;
+                    player.source_cliff_ledge_id = None;
+                    player.source_cliff_stick_gate = false;
+                    player.source_cliff_wait_timer = 0;
+                    set_source_self_velocity(player, 0.0, 0.0);
+                } else if !apply_source_cliff_physics(player, stage) {
+                    enter_fall(player);
+                } else {
+                    skip_position_update_this_tick = true;
+                }
+            }
+            MotionState::CliffJumpSlow1 | MotionState::CliffJumpQuick1 => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                if action_sample_frame_count_for_motion_state(player.motion_state)
+                    .is_some_and(|frames| player.motion_frame >= frames)
+                {
+                    enter_source_cliff_jump_2(player);
+                } else if !apply_source_cliff_physics(player, stage) {
+                    enter_fall(player);
+                } else {
+                    skip_position_update_this_tick = true;
+                }
+            }
+            MotionState::CliffJumpSlow2 | MotionState::CliffJumpQuick2 => {
+                player.motion_frame = player.motion_frame.saturating_add(1);
+                if action_sample_frame_count_for_motion_state(player.motion_state)
+                    .is_some_and(|frames| player.motion_frame >= frames)
+                {
+                    enter_fall(player);
+                } else {
+                    apply_air_drift(player, stick_x, common_data);
+                }
             }
             MotionState::EscapeAir => {
                 player.motion_frame = player.motion_frame.saturating_add(1);
@@ -1778,6 +1835,7 @@ fn is_source_grab_capture_player(player: &PlayerState) -> bool {
                 SOURCE_CATCH_PULL_ACTION_STATE_ID
                     | SOURCE_CATCH_DASH_PULL_ACTION_STATE_ID
                     | SOURCE_CATCH_WAIT_ACTION_STATE_ID
+                    | SOURCE_CATCH_ATTACK_ACTION_STATE_ID
                     | SOURCE_THROW_F_ACTION_STATE_ID
                     | SOURCE_THROW_B_ACTION_STATE_ID
                     | SOURCE_THROW_HI_ACTION_STATE_ID
@@ -1797,6 +1855,7 @@ fn is_source_grab_capture_player(player: &PlayerState) -> bool {
 fn advance_source_grab_capture_state(
     player: &mut PlayerState,
     player_index: usize,
+    input_facts: MeleeInputFacts,
     input_snapshot: MeleeInputSnapshot,
     stage: StageProfile,
     common_data: MeleeCommonData,
@@ -1887,6 +1946,15 @@ fn advance_source_grab_capture_state(
         }
     }
 
+    if action_state_id == SOURCE_CATCH_ATTACK_ACTION_STATE_ID
+        && source_action_animation_done(player)
+    {
+        enter_source_catch_wait_after_attack(player, source_action_total_frames);
+        source_pose_metadata_snapshots[player_index] =
+            source_pose_metadata_snapshot_for_player(player, source_pose_metadata);
+        return (None, None, None, None);
+    }
+
     if matches!(
         action_state_id,
         SOURCE_CATCH_PULL_ACTION_STATE_ID | SOURCE_CATCH_DASH_PULL_ACTION_STATE_ID
@@ -1910,6 +1978,12 @@ fn advance_source_grab_capture_state(
     }
 
     if action_state_id == SOURCE_CATCH_WAIT_ACTION_STATE_ID {
+        if input_facts.source_pressed.a() {
+            enter_source_catch_attack(player, source_action_total_frames);
+            source_pose_metadata_snapshots[player_index] =
+                source_pose_metadata_snapshot_for_player(player, source_pose_metadata);
+            return (None, None, None, None);
+        }
         if let Some(throw_action_state_id) =
             source_catch_wait_throw_action_state(player, input_snapshot, common_data)
         {
@@ -1947,6 +2021,7 @@ fn advance_source_grab_capture_state(
         SOURCE_CATCH_PULL_ACTION_STATE_ID
             | SOURCE_CATCH_DASH_PULL_ACTION_STATE_ID
             | SOURCE_CATCH_WAIT_ACTION_STATE_ID
+            | SOURCE_CATCH_ATTACK_ACTION_STATE_ID
     ) && player.grounded
     {
         apply_catch_ground_physics(player, stage, common_data);
@@ -2096,9 +2171,12 @@ fn apply_source_capture_joint_delta(
         return;
     };
 
-    let grabber_anchor_x = grabber_snapshot.source_position.x + grabber_pose.capture_anchor.x;
+    let grabber_anchor_x = grabber_snapshot.source_position.x
+        + source_faced_pose_x(grabber_snapshot.model_facing, grabber_pose.capture_anchor.x);
     let grabber_anchor_y = grabber_snapshot.source_position.y + grabber_pose.capture_anchor.y;
-    let victim_xrotn_x = player.source_position.x + victim_pose.xrotn.x;
+    let victim_snapshot = source_pose_metadata_snapshots[player_index];
+    let victim_xrotn_x = player.source_position.x
+        + source_faced_pose_x(victim_snapshot.model_facing, victim_pose.xrotn.x);
     let victim_xrotn_y = player.source_position.y + victim_pose.xrotn.y;
     add_source_position_x(player, grabber_anchor_x - victim_xrotn_x);
     add_source_position_y(player, grabber_anchor_y - victim_xrotn_y);
@@ -2127,7 +2205,7 @@ fn apply_source_thrown_accessory_position(
     set_source_position_x_source(
         player,
         thrower_snapshot.source_position.x
-            + thrower_pose.transn2.x
+            + source_faced_pose_x(thrower_snapshot.model_facing, thrower_pose.transn2.x)
             + facing * player.source_x1a70.z * scale_y,
     );
     set_source_position_y_source(
@@ -2143,9 +2221,18 @@ fn source_throw_release_transn2_position(
 ) -> Option<SourceVec2> {
     let thrower_pose = thrower_snapshot.capture_pose?;
     Some(SourceVec2 {
-        x: thrower_snapshot.source_position.x + thrower_pose.transn2.x,
+        x: thrower_snapshot.source_position.x
+            + source_faced_pose_x(thrower_snapshot.model_facing, thrower_pose.transn2.x),
         y: thrower_snapshot.source_position.y + thrower_pose.transn2.y,
     })
+}
+
+fn source_faced_pose_x(facing: i8, x: f32) -> f32 {
+    if facing < 0 {
+        -x
+    } else {
+        x
+    }
 }
 
 fn source_throw_release_last_pos(
@@ -2176,6 +2263,7 @@ fn source_pose_metadata_snapshot_for_player(
     let metadata = source_pose_metadata(player);
     SourcePoseMetadataSnapshot {
         source_position: player.source_position,
+        model_facing: player_model_facing(player),
         capture_pose: metadata.and_then(|metadata| metadata.capture_pose),
         script_events: metadata
             .map(|metadata| metadata.script_events)
@@ -2210,6 +2298,35 @@ fn enter_source_catch_wait_from_pull(
         player,
         SOURCE_CATCH_WAIT_ACTION_STATE_ID,
         SOURCE_CATCH_WAIT_ACTION_KEY,
+        source_action_total_frames,
+    );
+}
+
+fn enter_source_catch_wait_after_attack(
+    player: &mut PlayerState,
+    source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+) {
+    enter_source_grab_related_action(
+        player,
+        SOURCE_CATCH_WAIT_ACTION_STATE_ID,
+        SOURCE_CATCH_WAIT_ACTION_KEY,
+        source_action_total_frames,
+    );
+}
+
+fn enter_source_catch_attack(
+    player: &mut PlayerState,
+    source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+) {
+    player.ground_velocity_x = 0.0;
+    player.ground_accel_x = 0.0;
+    player.ground_accel_x2 = 0.0;
+    player.source_self_velocity_x = 0.0;
+    player.velocity.x = 0;
+    enter_source_grab_related_action(
+        player,
+        SOURCE_CATCH_ATTACK_ACTION_STATE_ID,
+        SOURCE_CATCH_ATTACK_ACTION_KEY,
         source_action_total_frames,
     );
 }
@@ -2250,6 +2367,17 @@ fn source_catch_wait_throw_action_state(
     ) {
         return Some(SOURCE_THROW_HI_ACTION_STATE_ID);
     }
+    if source_axis_crossed_negative(
+        input_snapshot.prev_lstick.1,
+        input_snapshot.lstick.1,
+        common_data.throw_down_y,
+    ) || source_cstick_down_throw_held(
+        input_snapshot.prev_cstick.1,
+        input_snapshot.cstick.1,
+        common_data.throw_down_y,
+    ) {
+        return Some(SOURCE_THROW_LW_ACTION_STATE_ID);
+    }
     None
 }
 
@@ -2262,6 +2390,24 @@ fn source_axis_crossed_pos_or_neg(previous: i8, current: i8, threshold: i8) -> b
 fn source_axis_crossed_positive(previous: i8, current: i8, threshold: i8) -> bool {
     let threshold = i16::from(threshold.abs());
     i16::from(previous) < threshold && i16::from(current) >= threshold
+}
+
+fn source_axis_crossed_negative(previous: i8, current: i8, threshold: i8) -> bool {
+    let threshold = if threshold < 0 {
+        i16::from(threshold)
+    } else {
+        -i16::from(threshold)
+    };
+    i16::from(previous) > threshold && i16::from(current) <= threshold
+}
+
+fn source_cstick_down_throw_held(previous: i8, current: i8, threshold: i8) -> bool {
+    let threshold = if threshold < 0 {
+        i16::from(threshold)
+    } else {
+        -i16::from(threshold)
+    };
+    i16::from(previous) <= threshold && i16::from(current) <= threshold
 }
 
 fn source_side_throw_action_state(stick_x: i8, facing: i8) -> MeleeActionStateId {
@@ -3862,6 +4008,9 @@ fn enter_source_cliff_catch(player: &mut PlayerState, ledge: StageLedge) -> bool
     player.fast_falling = false;
     player.velocity = Vec2 { x: 0, y: 0 };
     set_source_self_velocity(player, 0.0, 0.0);
+    player.jumps_remaining = player.profile.reusable_air_jumps();
+    player.ecb_bottom_lock_timer = 10;
+    player.source_coll_x130_locked = true;
     player.source_cliff_ledge_id = Some(ledge.index);
     player.source_cliff_stick_gate = false;
     player.source_cliff_wait_timer = 0;
@@ -3888,24 +4037,91 @@ fn enter_source_cliff_wait(player: &mut PlayerState, common_data: MeleeCommonDat
 
 fn apply_source_cliff_wait_iasa(
     player: &mut PlayerState,
+    input_facts: MeleeInputFacts,
+    input_snapshot: MeleeInputSnapshot,
     stick_x: i32,
     stick_y: i8,
     common_data: MeleeCommonData,
 ) -> bool {
+    if source_cliff_attack_input(input_facts, input_snapshot, common_data) {
+        enter_source_cliff_option(
+            player,
+            source_cliff_percent_state(
+                player,
+                common_data,
+                MotionState::CliffAttackQuick,
+                MotionState::CliffAttackSlow,
+            ),
+        );
+        return true;
+    }
+
+    if input_facts.source_pressed.lr()
+        || source_cstick_toward_crossed(input_snapshot, player.facing, common_data)
+    {
+        enter_source_cliff_option(
+            player,
+            source_cliff_percent_state(
+                player,
+                common_data,
+                MotionState::CliffEscapeQuick,
+                MotionState::CliffEscapeSlow,
+            ),
+        );
+        return true;
+    }
+
+    if input_facts.jump_pressed {
+        enter_source_cliff_option(
+            player,
+            source_cliff_percent_state(
+                player,
+                common_data,
+                MotionState::CliffJumpQuick1,
+                MotionState::CliffJumpSlow1,
+            ),
+        );
+        return true;
+    }
+
     let stick_y = i32::from(stick_y);
     if source_cliff_stick_exceeds_option_threshold(stick_x, stick_y, common_data) {
-        let angle = (stick_y as f32).atan2(stick_x as f32);
-        let threshold = (common_data.aerial_vertical_angle_tan_milli as f32 / 1000.0).atan();
-        let away_or_down =
-            angle <= -threshold || (angle <= threshold && stick_x * i32::from(player.facing) < 0);
-        if away_or_down && player.source_cliff_stick_gate {
-            player.source_ledge_cooldown_timer = common_data.ledge_cooldown_ticks;
-            player.source_cliff_stick_gate = false;
-            player.source_cliff_wait_timer = 0;
-            enter_fall(player);
+        if source_cliff_stick_is_away_or_down(stick_x, stick_y, player.facing, common_data) {
+            if player.source_cliff_stick_gate {
+                player.source_ledge_cooldown_timer = common_data.ledge_cooldown_ticks;
+                player.source_cliff_stick_gate = false;
+                player.source_cliff_wait_timer = 0;
+                enter_fall(player);
+                return true;
+            }
+            return false;
+        }
+        if player.source_cliff_stick_gate {
+            enter_source_cliff_option(
+                player,
+                source_cliff_percent_state(
+                    player,
+                    common_data,
+                    MotionState::CliffClimbQuick,
+                    MotionState::CliffClimbSlow,
+                ),
+            );
             return true;
         }
         return false;
+    }
+
+    let cstick_x = i32::from(input_snapshot.cstick.0);
+    let cstick_y = i32::from(input_snapshot.cstick.1);
+    if source_cliff_stick_exceeds_option_threshold(cstick_x, cstick_y, common_data)
+        && source_cliff_stick_is_away_or_down(cstick_x, cstick_y, player.facing, common_data)
+        && player.source_cliff_stick_gate
+    {
+        player.source_ledge_cooldown_timer = common_data.ledge_cooldown_ticks;
+        player.source_cliff_stick_gate = false;
+        player.source_cliff_wait_timer = 0;
+        enter_fall(player);
+        return true;
     }
 
     player.source_cliff_stick_gate = true;
@@ -3916,6 +4132,72 @@ fn apply_source_cliff_wait_iasa(
         return true;
     }
     false
+}
+
+fn source_cliff_attack_input(
+    input_facts: MeleeInputFacts,
+    input_snapshot: MeleeInputSnapshot,
+    common_data: MeleeCommonData,
+) -> bool {
+    input_facts.source_pressed.a()
+        || input_facts.source_pressed.b()
+        || source_axis_crossed_positive(
+            input_snapshot.prev_cstick.1,
+            input_snapshot.cstick.1,
+            common_data.c_stick,
+        )
+}
+
+fn source_cstick_toward_crossed(
+    input_snapshot: MeleeInputSnapshot,
+    facing: i8,
+    common_data: MeleeCommonData,
+) -> bool {
+    let previous = i16::from(input_snapshot.prev_cstick.0) * i16::from(facing);
+    let current = i16::from(input_snapshot.cstick.0) * i16::from(facing);
+    let threshold = i16::from(common_data.c_stick.abs());
+    previous < threshold && current >= threshold
+}
+
+fn source_cliff_percent_state(
+    player: &PlayerState,
+    common_data: MeleeCommonData,
+    quick_state: MotionState,
+    slow_state: MotionState,
+) -> MotionState {
+    if player.damage_percent < common_data.cliff_quick_percent_threshold as f32 {
+        quick_state
+    } else {
+        slow_state
+    }
+}
+
+fn enter_source_cliff_option(player: &mut PlayerState, motion_state: MotionState) {
+    player.set_motion_state_alias(motion_state);
+    player.motion_frame = 0;
+    player.set_source_motion_anim_frame(0.0);
+    player.source_cliff_stick_gate = false;
+    player.source_cliff_wait_timer = 0;
+    player.source_hurt_intangible_timer = 32;
+    player.grounded = false;
+    player.fast_falling = false;
+    player.velocity = Vec2 { x: 0, y: 0 };
+    set_source_self_velocity(player, 0.0, 0.0);
+}
+
+fn enter_source_cliff_jump_2(player: &mut PlayerState) {
+    let next_state = if player.motion_state == MotionState::CliffJumpQuick1 {
+        MotionState::CliffJumpQuick2
+    } else {
+        MotionState::CliffJumpSlow2
+    };
+    player.set_motion_state_alias(next_state);
+    player.motion_frame = 0;
+    player.set_source_motion_anim_frame(0.0);
+    player.source_cliff_ledge_id = None;
+    player.source_cliff_stick_gate = false;
+    player.source_cliff_wait_timer = 0;
+    player.grounded = false;
 }
 
 fn tick_source_cliff_wait_timer(player: &mut PlayerState) {
@@ -3929,6 +4211,17 @@ fn source_cliff_stick_exceeds_option_threshold(
 ) -> bool {
     let threshold = i32::from(common_data.cliff_option_stick_threshold);
     stick_x.abs() >= threshold || stick_y.abs() >= threshold
+}
+
+fn source_cliff_stick_is_away_or_down(
+    stick_x: i32,
+    stick_y: i32,
+    facing: i8,
+    common_data: MeleeCommonData,
+) -> bool {
+    let angle = (stick_y as f32).atan2(stick_x as f32);
+    let threshold = (common_data.aerial_vertical_angle_tan_milli as f32 / 1000.0).atan();
+    angle <= -threshold || (angle <= threshold && stick_x * i32::from(facing) < 0)
 }
 
 fn apply_source_cliff_physics(player: &mut PlayerState, stage: StageProfile) -> bool {

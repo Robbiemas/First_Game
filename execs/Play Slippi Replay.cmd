@@ -35,17 +35,13 @@ if not exist "%SDL3_ROOT%\lib\x64\SDL3.dll" (
 
 set "PATH=%USERPROFILE%\.cargo\bin;%SDL3_ROOT%\lib\x64;%PATH%"
 
-if not exist "%RUNTIME_EXE%" (
-    echo Release runtime missing; building once... >> "%LAUNCH_LOG%"
-    call cargo build --release -p mole_runtime --features "sdl wup" >> "%LAUNCH_LOG%" 2>&1
-    if errorlevel 1 (
-        echo Runtime build failed. >> "%LAUNCH_LOG%"
-        exit /b 1
-    )
-) else (
-    echo Using existing release runtime: %RUNTIME_EXE% >> "%LAUNCH_LOG%"
+call "%~dp0Ensure Release Runtime.cmd" >> "%LAUNCH_LOG%" 2>&1
+if errorlevel 1 (
+    echo Runtime build failed. >> "%LAUNCH_LOG%"
+    exit /b 1
 )
 
+echo Using fresh release runtime: %RUNTIME_EXE% >> "%LAUNCH_LOG%"
 echo Launching Mole Rust SDL3 Slippi replay runtime... >> "%LAUNCH_LOG%"
 "%RUNTIME_EXE%" --sdl --visual-slippi-replay "%REPLAY_PATH%" --frames 4294967295 --slippi-divergence-log "%DIVERGENCE_LOG%" --hold-final-frame >> "%LAUNCH_LOG%" 2>&1
 set "EXITCODE=%ERRORLEVEL%"
