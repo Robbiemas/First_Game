@@ -211,7 +211,7 @@ fn render_state_graph_subtabs(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
         for (panel, label) in [
             (StateGraphsPanel::Graphs, "Graphs"),
             (StateGraphsPanel::Selection, "Selection"),
-            (StateGraphsPanel::Missing, "Missing"),
+            (StateGraphsPanel::Missing, "Gaps"),
         ] {
             if ui
                 .selectable_label(app.selected_state_graph_panel == panel, label)
@@ -976,6 +976,11 @@ fn render_slippi_replay(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
                 {
                     let _ = app.select_first_slippi_replay_diff();
                 }
+                if ui.button("Play From Start").clicked() {
+                    if let Err(error) = app.launch_full_slippi_replay_runtime_until_first_diff() {
+                        app.slippi_replay_status = Some(error);
+                    }
+                }
             });
             if let Some(status) = &app.slippi_replay_status {
                 ui.label(status);
@@ -1444,8 +1449,6 @@ fn move_keyframe_ecb_wireframe_lines(points: [egui::Pos2; 4]) -> Vec<[egui::Pos2
         [points[1], points[2]],
         [points[2], points[3]],
         [points[3], points[0]],
-        [points[0], points[2]],
-        [points[3], points[1]],
     ]
 }
 
@@ -1649,10 +1652,10 @@ mod tests {
 
         let lines = move_keyframe_ecb_wireframe_lines(points);
 
-        assert_eq!(lines.len(), 6);
+        assert_eq!(lines.len(), 4);
         assert_eq!(lines[0], [points[0], points[1]]);
+        assert_eq!(lines[1], [points[1], points[2]]);
+        assert_eq!(lines[2], [points[2], points[3]]);
         assert_eq!(lines[3], [points[3], points[0]]);
-        assert_eq!(lines[4], [points[0], points[2]]);
-        assert_eq!(lines[5], [points[3], points[1]]);
     }
 }

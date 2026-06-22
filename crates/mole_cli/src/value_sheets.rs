@@ -81,6 +81,8 @@ const GLOBAL_CATEGORIES: &[(&str, &[&str])] = &[
             "aerial_vertical_angle_tan_milli",
             "fall_animation_drift_threshold",
             "fall_animation_blend",
+            "air_speed_clamp_friction",
+            "special_air_drift_stick_threshold",
         ],
     ),
     (
@@ -114,6 +116,7 @@ const GLOBAL_CATEGORIES: &[(&str, &[&str])] = &[
             "platform_drop_delay_ticks",
             "guard_on_catch_dash_window",
             "guard_reflect_input_window",
+            "catch_ground_friction_multiplier",
         ],
     ),
     (
@@ -130,10 +133,35 @@ const GLOBAL_CATEGORIES: &[(&str, &[&str])] = &[
     (
         "entry_and_respawn",
         &[
+            "dead_wait_ticks",
+            "dead_up_star_wait_ticks",
+            "dead_up_star_rise_ticks",
+            "dead_up_star_exit_ticks",
+            "top_blast_fall_ko_chance",
+            "dead_up_fall_wait_ticks",
+            "dead_up_fall_anim_ticks",
+            "dead_up_fall_hit_camera_ticks",
+            "dead_up_fall_drift_ticks",
+            "dead_up_fall_exit_ticks",
+            "rebirth_ticks",
+            "rebirth_wait_ticks",
+            "rebirth_hurt_intangible_ticks",
             "entry_start_ticks",
             "entry_end_ticks",
             "entry_initial_scale_y",
             "entry_collision_landing_lag_ticks",
+        ],
+    ),
+    (
+        "ledge_and_cliff",
+        &[
+            "cliff_grab_block_stick_y",
+            "cliff_option_stick_threshold",
+            "cliff_quick_percent_threshold",
+            "cliff_wait_high_percent_ticks",
+            "cliff_wait_low_percent_ticks",
+            "cliff_wait_hurt_intangible_ticks",
+            "ledge_cooldown_ticks",
         ],
     ),
 ];
@@ -199,7 +227,7 @@ const CHARACTER_CATEGORIES: &[(&str, &[&str])] = &[
     ),
     (
         "entry_and_collision",
-        &["weight", "entry_platform_offset_y"],
+        &["weight", "model_scaling", "entry_platform_offset_y"],
     ),
 ];
 
@@ -390,6 +418,9 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "knockback_result_scale",
             "knockback_result_offset",
             "damage_knockback_velocity_scale",
+            "damage_ground_knockback_friction_multiplier",
+            "damage_knockback_frame_decay",
+            "throw_knockback_weight",
         ],
     ),
     (
@@ -410,6 +441,10 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "damage_sakurai_ground_angle_degrees",
             "damage_sakurai_ground_max_knockback",
             "damage_sakurai_ground_min_knockback",
+            "damage_fly_top_angle_min_radians",
+            "damage_fly_top_angle_max_radians",
+            "damage_fly_top_random_chance",
+            "damage_fly_top_random_percent_threshold",
         ],
     ),
     (
@@ -421,6 +456,12 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "hitlag_max_frames",
             "lcancel_divisor",
             "lcancel_window",
+            "sdi_min_stick_mag",
+            "sdi_stick_window",
+            "sdi_pos_scale",
+            "asdi_pos_scale",
+            "di_angle_degrees",
+            "trigger_di_knockback_multiplier",
         ],
     ),
     (
@@ -430,6 +471,7 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "passive_input_age_threshold",
             "passive_stand_stick_x",
             "passive_window_max",
+            "landing_wait_y_velocity_threshold",
         ],
     ),
     (
@@ -448,7 +490,10 @@ const GLOBAL_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[
             "shield_hold_lightshield_max",
         ],
     ),
-    ("damage_response", &["damage_duration_scale"]),
+    (
+        "damage_response",
+        &["damage_duration_scale", "throw_collision_lockout_ticks"],
+    ),
 ];
 
 const FALCON_COMBAT_CATEGORIES: &[(&str, &[&str])] = &[("combat_attributes", &["weight"])];

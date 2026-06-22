@@ -6,7 +6,9 @@ use crate::move_keyframes::{
     MoveKeyframesSurface,
 };
 use crate::parity_ledger::ParityLedgerSurface;
-use crate::slippi_replay::{SlippiReplayLoadOptions, SlippiReplaySurface};
+use crate::slippi_replay::{
+    SlippiReplayLoadOptions, SlippiReplaySurface, SlippiRuntimeReplayLaunchPlan,
+};
 use crate::state_graphs::{
     StateGraphCanvasPair, StateGraphCanvasView, StateGraphSelection, StateGraphsSurface,
 };
@@ -14,11 +16,13 @@ use crate::ui;
 use crate::ParityLedgerViewModel;
 use eframe::egui;
 use mole_ledger::LedgerMap;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
     collections::BTreeMap,
-    fs,
+    fs::{self, File},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
 };
@@ -383,6 +387,57 @@ impl ParityLedgerApp {
         let index = self.slippi_replay.first_diff_index()?;
         self.selected_slippi_replay_row = index;
         Some(index)
+    }
+
+    pub fn launch_full_slippi_replay_runtime_until_first_diff(&mut self) -> Result<(), String> {
+        let input_export_path = self.resolve_workspace_path(&self.slippi_replay_path);
+        let divergence_log_path = self
+            .workspace_root
+            .join("debug")
+            .join("slippi")
+            .join("runtime-divergence.latest.json");
+        let plan = SlippiRuntimeReplayLaunchPlan::from_input_export(
+            &input_export_path,
+            &divergence_log_path,
+        )?;
+        let command_spec = runtime_replay_command_spec(&self.workspace_root, &plan);
+        let launch_log_path = self
+            .workspace_root
+            .join("debug")
+            .join("slippi")
+            .join("runtime-launch.latest.log");
+        if let Some(parent) = launch_log_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+        }
+        let stdout = File::create(&launch_log_path)
+            .map_err(|error| format!("failed to create {}: {error}", launch_log_path.display()))?;
+        let stderr = stdout
+            .try_clone()
+            .map_err(|error| format!("failed to clone launch log handle: {error}"))?;
+        let mut command = Command::new(&command_spec.program);
+        command
+            .args(&command_spec.args)
+            .current_dir(&self.workspace_root)
+            .env("PATH", runtime_process_path(&self.workspace_root))
+            .stdout(Stdio::from(stdout))
+            .stderr(Stdio::from(stderr));
+        hide_console_window(&mut command);
+        let child = command
+            .spawn()
+            .map_err(|error| format!("failed to launch runtime replay: {error}"))?;
+        let launch_mode = if command_spec.program == PathBuf::from("cargo") {
+            "cargo-backed"
+        } else {
+            "fresh release"
+        };
+        self.slippi_replay_status = Some(format!(
+            "Started {launch_mode} SDL runtime replay pid {}. It will rebuild if source changed. Divergence: {} | Launch log: {}.",
+            child.id(),
+            plan.divergence_log_path.display(),
+            launch_log_path.display()
+        ));
+        Ok(())
     }
 
     pub fn move_keyframe_count(&self) -> usize {
@@ -758,6 +813,112 @@ fn run_cargo_command(root: &Path, args: &[String]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RuntimeReplayCommandSpec {
+    program: PathBuf,
+    args: Vec<String>,
+}
+
+fn runtime_replay_command_spec(
+    root: &Path,
+    plan: &SlippiRuntimeReplayLaunchPlan,
+) -> RuntimeReplayCommandSpec {
+    if runtime_replay_executable_is_fresh(root) {
+        RuntimeReplayCommandSpec {
+            program: runtime_replay_executable_path(root),
+            args: plan.runtime_args(),
+        }
+    } else {
+        RuntimeReplayCommandSpec {
+            program: PathBuf::from("cargo"),
+            args: plan.cargo_args(),
+        }
+    }
+}
+
+fn runtime_replay_executable_path(root: &Path) -> PathBuf {
+    root.join("target")
+        .join("release")
+        .join(format!("mole_runtime{}", std::env::consts::EXE_SUFFIX))
+}
+
+fn runtime_replay_depfile_path(root: &Path) -> PathBuf {
+    root.join("target").join("release").join("mole_runtime.d")
+}
+
+fn runtime_replay_executable_is_fresh(root: &Path) -> bool {
+    let runtime_exe = runtime_replay_executable_path(root);
+    let Ok(runtime_modified) = runtime_exe
+        .metadata()
+        .and_then(|metadata| metadata.modified())
+    else {
+        return false;
+    };
+    let Ok(depfile_text) = fs::read_to_string(runtime_replay_depfile_path(root)) else {
+        return false;
+    };
+    let dependencies = runtime_replay_depfile_dependencies(&depfile_text);
+    if dependencies.is_empty() {
+        return false;
+    }
+    dependencies.into_iter().all(|dependency| {
+        dependency
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .map(|modified| modified <= runtime_modified)
+            .unwrap_or(false)
+    })
+}
+
+fn runtime_replay_depfile_dependencies(text: &str) -> Vec<PathBuf> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' && chars.peek() == Some(&' ') {
+            current.push(' ');
+            let _ = chars.next();
+        } else if ch.is_whitespace() {
+            if !current.is_empty() {
+                tokens.push(std::mem::take(&mut current));
+            }
+        } else {
+            current.push(ch);
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens.into_iter().skip(1).map(PathBuf::from).collect()
+}
+
+fn runtime_process_path(root: &Path) -> String {
+    let mut paths = Vec::new();
+    if let Some(home) = std::env::var_os("USERPROFILE").map(PathBuf::from) {
+        paths.push(home.join(".cargo/bin"));
+    }
+    paths.push(root.join(".local/SDL3/lib/x64"));
+    if let Some(existing) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+    std::env::join_paths(paths)
+        .unwrap_or_else(|_| std::env::var_os("PATH").unwrap_or_default())
+        .to_string_lossy()
+        .to_string()
+}
+
+fn hide_console_window(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = command;
+    }
+}
+
 impl AppSection {
     pub fn label(self) -> &'static str {
         match self {
@@ -847,9 +1008,9 @@ mod tests {
             Some(0.712)
         );
         assert_eq!(app.ledger_tab_count(), 7);
-        assert_eq!(app.ecb_coverage_motion_state_count(), 72);
-        assert_eq!(app.input_trace_row_count(), 9);
-        assert_eq!(app.slippi_replay_row_count(), 9);
+        assert_eq!(app.ecb_coverage_motion_state_count(), 74);
+        assert_eq!(app.input_trace_row_count(), 0);
+        assert_eq!(app.slippi_replay_row_count(), 0);
         assert_eq!(app.move_keyframe_count(), 45);
         assert_eq!(app.selected_move_keyframe_character_label(), "Dolphin Mole");
         assert!(app
@@ -880,13 +1041,15 @@ mod tests {
         let app = ParityLedgerApp::load(workspace_root().unwrap()).unwrap();
         let selection = crate::state_graphs::StateGraphSelection::Node {
             graph_id: "mole_current".to_string(),
-            id: "Wait".to_string(),
+            id: "Landing".to_string(),
         };
 
-        assert!(app
+        let detail = app
             .state_graph_selection_detail(&selection)
-            .expect("selection detail")
-            .contains("node: Wait"));
+            .expect("selection detail");
+        assert!(detail.contains("node: Landing"));
+        assert!(detail.contains("source_callback_order"));
+        assert!(detail.contains("ftCo_Landing_IASA"));
     }
 
     #[test]
@@ -909,7 +1072,14 @@ mod tests {
             move_keyframes,
         )
         .unwrap();
+        let fixture_dir = temp_test_dir("app_reload_controls_drive_trace_and_replay_surfaces");
+        fs::create_dir_all(&fixture_dir).unwrap();
+        let input_path = fixture_dir.join("fixture.inputs.json");
+        let slippi_path = fixture_dir.join("fixture.full.inputs.json");
+        fs::write(&input_path, input_trace_fixture()).unwrap();
+        fs::write(&slippi_path, slippi_trace_fixture()).unwrap();
 
+        app.input_trace_path = input_path.display().to_string();
         app.input_trace_player_number = 1;
         app.input_trace_start = 760;
         app.input_trace_end = 762;
@@ -917,13 +1087,97 @@ mod tests {
         assert_eq!(app.input_trace.focus_player_number, 1);
         assert_eq!(app.input_trace.frames.len(), 3);
 
+        app.slippi_replay_path = slippi_path.display().to_string();
         app.slippi_replay_player_number = 1;
-        app.slippi_replay_start = 760;
-        app.slippi_replay_end = 762;
+        app.slippi_replay_start = -17;
+        app.slippi_replay_end = -16;
         app.slippi_replay_max_frames = 3;
         app.reload_slippi_replay().unwrap();
         assert_eq!(app.slippi_replay.focus_player_number, 1);
-        assert_eq!(app.slippi_replay.rows.len(), 3);
+        assert_eq!(app.slippi_replay.rows.len(), 2);
+
+        let _ = fs::remove_dir_all(fixture_dir);
+    }
+
+    #[test]
+    fn runtime_replay_command_launches_fresh_release_runtime_directly() {
+        let root = temp_test_dir("runtime_replay_command_launches_fresh_release_runtime_directly");
+        let runtime_exe = runtime_replay_executable_path(&root);
+        let runtime_depfile = runtime_replay_depfile_path(&root);
+        let source_file = root.join("crates/mole_runtime/src/main.rs");
+        fs::create_dir_all(runtime_exe.parent().expect("runtime parent")).unwrap();
+        fs::create_dir_all(source_file.parent().expect("source parent")).unwrap();
+        fs::write(&source_file, "fn main() {}\n").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(
+            &runtime_depfile,
+            format!("{}: {}\n", runtime_exe.display(), source_file.display()),
+        )
+        .unwrap();
+        fs::write(&runtime_exe, []).unwrap();
+        let plan = SlippiRuntimeReplayLaunchPlan {
+            input_export_path: root.join("debug/slippi/test.inputs.json"),
+            divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
+            frames_to_run: 76,
+        };
+
+        let command_spec = runtime_replay_command_spec(&root, &plan);
+
+        assert_eq!(command_spec.program, runtime_exe);
+        assert_eq!(command_spec.args, plan.runtime_args());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn runtime_replay_command_uses_cargo_when_release_runtime_is_stale() {
+        let root = temp_test_dir("runtime_replay_command_uses_cargo_when_release_runtime_is_stale");
+        let runtime_exe = runtime_replay_executable_path(&root);
+        let runtime_depfile = runtime_replay_depfile_path(&root);
+        let source_file = root.join("crates/mole_runtime/src/main.rs");
+        fs::create_dir_all(runtime_exe.parent().expect("runtime parent")).unwrap();
+        fs::create_dir_all(source_file.parent().expect("source parent")).unwrap();
+        fs::write(&runtime_exe, []).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(&source_file, "fn main() {}\n").unwrap();
+        fs::write(
+            &runtime_depfile,
+            format!("{}: {}\n", runtime_exe.display(), source_file.display()),
+        )
+        .unwrap();
+        let plan = SlippiRuntimeReplayLaunchPlan {
+            input_export_path: root.join("debug/slippi/test.inputs.json"),
+            divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
+            frames_to_run: 76,
+        };
+
+        let command_spec = runtime_replay_command_spec(&root, &plan);
+
+        assert_eq!(command_spec.program, PathBuf::from("cargo"));
+        assert_eq!(command_spec.args, plan.cargo_args());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn runtime_replay_command_uses_cargo_when_release_depfile_is_missing() {
+        let root =
+            temp_test_dir("runtime_replay_command_uses_cargo_when_release_depfile_is_missing");
+        let runtime_exe = runtime_replay_executable_path(&root);
+        fs::create_dir_all(runtime_exe.parent().expect("runtime parent")).unwrap();
+        fs::write(&runtime_exe, []).unwrap();
+        let plan = SlippiRuntimeReplayLaunchPlan {
+            input_export_path: root.join("debug/slippi/test.inputs.json"),
+            divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
+            frames_to_run: 76,
+        };
+
+        let command_spec = runtime_replay_command_spec(&root, &plan);
+
+        assert_eq!(command_spec.program, PathBuf::from("cargo"));
+        assert_eq!(command_spec.args, plan.cargo_args());
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -951,6 +1205,74 @@ mod tests {
             .iter()
             .any(|frame| !frame.hitboxes.is_empty()));
         assert!(app.move_keyframes_editor.artifact_path().is_none());
+    }
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "mole_devtool_{name}_{}_{}",
+            std::process::id(),
+            suffix
+        ))
+    }
+
+    fn input_trace_fixture() -> &'static str {
+        r#"{
+          "export": {
+            "first_frame": 760,
+            "last_frame": 762,
+            "frame_count": 3,
+            "included_negative_frames": false,
+            "requested_frame_limit": 3
+          },
+          "metadata": {
+            "last_frame": 762,
+            "played_on": "2026-06-21",
+            "start_at": "fixture"
+          },
+          "settings": {
+            "is_pal": false,
+            "is_teams": false,
+            "slp_version": "3.16.0",
+            "stage_id": 31,
+            "starting_timer_seconds": 480
+          },
+          "source": {
+            "parser": "fixture",
+            "replay_path": "fixture.slp",
+            "parser_note": "unit test"
+          },
+          "frames": [
+            {"frame": 760, "players": {"0": {"pre": {"action_state_id": 14, "position": [0.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}},
+            {"frame": 761, "players": {"0": {"pre": {"action_state_id": 14, "position": [1.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}},
+            {"frame": 762, "players": {"0": {"pre": {"action_state_id": 14, "position": [2.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}}
+          ]
+        }"#
+    }
+
+    fn slippi_trace_fixture() -> &'static str {
+        r#"{
+          "export": {"first_frame": -18, "last_frame": -16, "frame_count": 3},
+          "source": {"replay_path": "fixture.slp"},
+          "settings": {"players": {}},
+          "frames": [
+            {"frame": -18, "players": {"0": {
+              "pre": {"rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "ucf_dashback_amendment": false}},
+              "post": {"action_state_id": 14, "position": [0.0, 0.0], "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}}
+            }}},
+            {"frame": -17, "players": {"0": {
+              "pre": {"rust_player_input": {"stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048, "ucf_dashback_amendment": false}},
+              "post": {"action_state_id": 24, "position": [32.2, 27.2], "self_induced_speeds": {"ground_x": -2.14, "air_x": -2.14, "y": 0.0}}
+            }}},
+            {"frame": -16, "players": {"0": {
+              "pre": {"rust_player_input": {"stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048, "ucf_dashback_amendment": false}},
+              "post": {"action_state_id": 24, "position": [30.22, 27.2], "self_induced_speeds": {"ground_x": -1.98, "air_x": -1.98, "y": 0.0}}
+            }}}
+          ]
+        }"#
     }
 
     #[test]

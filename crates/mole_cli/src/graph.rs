@@ -1,4 +1,5 @@
 use serde_json::{json, Value};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use crate::{read_json, GraphCommand, SCHEMA_VERSION};
@@ -8,10 +9,104 @@ pub(crate) fn graph_report(root: &Path, command: &GraphCommand) -> Value {
     match command {
         GraphCommand::Missing => graph_missing_report(root),
         GraphCommand::Next => graph_next_report(root),
+        GraphCommand::Completeness => graph_completeness_report(root),
         GraphCommand::Inspect { target } => graph_inspect_report(root, target),
         GraphCommand::Layout => graph_layout_report(root),
         GraphCommand::LayoutSave { write } => graph_layout_save_report(root, *write),
     }
+}
+
+pub(crate) fn graph_completeness_report(root: &Path) -> Value {
+    let reference_path = root.join("docs/state_graphs/melee_reference_graph.json");
+    let current_path = root.join("docs/state_graphs/mole_current_graph.json");
+    let source_manifest_path =
+        root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json");
+    let ecb_coverage_path = root.join("docs/state_graphs/parity_reports/falcon_ecb_coverage.json");
+    let mut errors = Vec::new();
+    let reference = read_json(reference_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", reference_path.display())))
+        .ok();
+    let current = read_json(current_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", current_path.display())))
+        .ok();
+    let source_manifest = read_json(source_manifest_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", source_manifest_path.display())))
+        .ok();
+    let ecb_coverage = read_json(ecb_coverage_path.clone())
+        .inspect_err(|error| errors.push(format!("{}: {error}", ecb_coverage_path.display())))
+        .ok();
+
+    let missing_nodes = missing_reference_nodes(reference.as_ref(), current.as_ref());
+    let missing_edges = missing_reference_edges(reference.as_ref(), current.as_ref());
+    let unbound_actions = source_manifest
+        .as_ref()
+        .map(source_manifest_unbound_actions)
+        .unwrap_or_default();
+    let imported_action_count = source_manifest
+        .as_ref()
+        .map(source_manifest_action_count)
+        .unwrap_or(0);
+    let status_counts = current
+        .as_ref()
+        .map(graph_status_count_map)
+        .unwrap_or_default();
+    let mapped_motion_state_count = ecb_coverage
+        .as_ref()
+        .and_then(|coverage| {
+            coverage
+                .get("mapped_motion_state_count")
+                .and_then(Value::as_u64)
+                .or_else(|| {
+                    coverage
+                        .get("mapped_motion_states")
+                        .and_then(Value::as_array)
+                        .map(|states| states.len() as u64)
+                })
+        })
+        .unwrap_or(0);
+    let missing_sampled_mapping_count = ecb_coverage
+        .as_ref()
+        .and_then(|coverage| coverage.get("missing_sampled_mappings"))
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    let recommended_next = graph_completeness_recommendations(
+        missing_nodes.len(),
+        missing_edges.len(),
+        unbound_actions.len(),
+    );
+
+    json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "graph completeness",
+        "project_root": root.display().to_string(),
+        "mutated": false,
+        "reference_presence": {
+            "reference_graph_path": "docs/state_graphs/melee_reference_graph.json",
+            "rust_graph_path": "docs/state_graphs/mole_current_graph.json",
+            "missing_node_count": missing_nodes.len(),
+            "missing_edge_count": missing_edges.len(),
+            "missing_nodes": missing_nodes,
+            "missing_edges": missing_edges,
+        },
+        "source_completeness": {
+            "source_manifest_path": "resources/melee/frame_data/dolphin_mole/source_manifest.json",
+            "ecb_coverage_path": "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
+            "imported_action_count": imported_action_count,
+            "unbound_action_count": unbound_actions.len(),
+            "unbound_actions": unbound_actions,
+            "mapped_motion_state_count": mapped_motion_state_count,
+            "missing_sampled_mapping_count": missing_sampled_mapping_count,
+        },
+        "rust_implementation_parity": {
+            "aligned_count": status_counts.get("aligned").copied().unwrap_or(0),
+            "partial_count": status_counts.get("partial").copied().unwrap_or(0),
+            "missing_count": status_counts.get("missing").copied().unwrap_or(0),
+            "intentional_count": status_counts.get("intentional").copied().unwrap_or(0),
+            "status_counts": status_counts,
+        },
+        "recommended_next": recommended_next,
+        "errors": errors,
+    })
 }
 
 pub(crate) fn graph_layout_report(root: &Path) -> Value {
@@ -56,6 +151,135 @@ pub(crate) fn graph_layout_report(root: &Path) -> Value {
             "errors": [error],
         }),
     }
+}
+
+fn missing_reference_nodes(reference: Option<&Value>, current: Option<&Value>) -> Vec<Value> {
+    let current_ids = current
+        .and_then(|graph| graph.get("nodes"))
+        .and_then(Value::as_array)
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter_map(|node| node.get("id").and_then(Value::as_str))
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    reference
+        .and_then(|graph| graph.get("nodes"))
+        .and_then(Value::as_array)
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter(|node| {
+                    node.get("id")
+                        .and_then(Value::as_str)
+                        .is_some_and(|id| !current_ids.contains(id))
+                })
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn missing_reference_edges(reference: Option<&Value>, current: Option<&Value>) -> Vec<Value> {
+    let current_edges = current
+        .and_then(|graph| graph.get("edges"))
+        .and_then(Value::as_array)
+        .map(|edges| {
+            edges
+                .iter()
+                .filter_map(graph_edge_key)
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    reference
+        .and_then(|graph| graph.get("edges"))
+        .and_then(Value::as_array)
+        .map(|edges| {
+            edges
+                .iter()
+                .filter(|edge| {
+                    graph_edge_key(edge).is_some_and(|key| !current_edges.contains(&key))
+                })
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn graph_edge_key(edge: &Value) -> Option<String> {
+    Some(format!(
+        "{}->{}",
+        edge.get("from")?.as_str()?,
+        edge.get("to")?.as_str()?
+    ))
+}
+
+fn source_manifest_action_count(manifest: &Value) -> usize {
+    let Some(actions) = manifest.get("actions") else {
+        return 0;
+    };
+    actions
+        .as_array()
+        .map(Vec::len)
+        .or_else(|| actions.as_object().map(serde_json::Map::len))
+        .unwrap_or(0)
+}
+
+fn source_manifest_unbound_actions(manifest: &Value) -> Vec<Value> {
+    let mut actions = manifest
+        .get("rust_parity_gaps")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    actions.sort_by(|left, right| {
+        left.get("state")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .cmp(right.get("state").and_then(Value::as_str).unwrap_or(""))
+    });
+    actions
+}
+
+fn graph_status_count_map(graph: &Value) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for collection in ["nodes", "edges"] {
+        if let Some(entries) = graph.get(collection).and_then(Value::as_array) {
+            for entry in entries {
+                let status = entry
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("(none)")
+                    .to_string();
+                *counts.entry(status).or_default() += 1;
+            }
+        }
+    }
+    counts
+}
+
+fn graph_completeness_recommendations(
+    missing_node_count: usize,
+    missing_edge_count: usize,
+    unbound_action_count: usize,
+) -> Vec<String> {
+    let mut recommendations = Vec::new();
+    if unbound_action_count > 0 {
+        recommendations.push(
+            "Use action_motion_tables source gaps to expand Rust graph coverage before treating graph missing as completeness."
+                .to_string(),
+        );
+    }
+    if missing_node_count > 0 || missing_edge_count > 0 {
+        recommendations.push(format!(
+            "Add {missing_node_count} reference nodes and {missing_edge_count} reference edges to the Rust graph or mark them deferred with source justification."
+        ));
+    }
+    if recommendations.is_empty() {
+        recommendations
+            .push("No structural or source action graph completeness gaps detected.".to_string());
+    }
+    recommendations
 }
 
 pub(crate) fn graph_layout_save_report(root: &Path, write: bool) -> Value {

@@ -2,8 +2,8 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path, time::UNIX_EPOCH};
 
 use crate::{
-    fighter_common, generated_artifact_statuses, ledger_map, stage_assets, value_sheets,
-    GeneratedArtifactStatus, GeneratedCommand, SCHEMA_VERSION,
+    action_motion_tables, fighter_common, generated_artifact_statuses, ledger_map, stage_assets,
+    value_sheets, GeneratedArtifactStatus, GeneratedCommand, SCHEMA_VERSION,
 };
 
 struct ArtifactGroup {
@@ -26,6 +26,9 @@ pub(crate) fn generated_report(root: &Path, command: &GeneratedCommand) -> Value
         }
         GeneratedCommand::WriteLedgerMap { write } => {
             ledger_map::write_ledger_map_report(root, *write)
+        }
+        GeneratedCommand::WriteActionMotionTables { write } => {
+            action_motion_tables::write_action_motion_tables_report(root, *write)
         }
     }
 }
@@ -208,6 +211,14 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
             outputs: ledger_map::LEDGER_MAP_OUTPUTS,
         },
         ArtifactGroup {
+            id: "action_motion_tables",
+            name: "Action / Motion Tables",
+            generator: action_motion_tables::ACTION_MOTION_TABLES_GENERATOR,
+            recommended_command: action_motion_tables::ACTION_MOTION_TABLES_COMMAND,
+            inputs: action_motion_tables::ACTION_MOTION_TABLES_INPUTS,
+            outputs: action_motion_tables::ACTION_MOTION_TABLES_OUTPUTS,
+        },
+        ArtifactGroup {
             id: "value_parity_diff_report",
             name: "Value Parity Diff Report",
             generator: "tools/export_parity_diff_report.py",
@@ -230,11 +241,26 @@ fn generated_artifact_groups() -> Vec<ArtifactGroup> {
             inputs: &[
                 "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
                 "tools/falcon_ecb_mapping.py",
+                "tools/rust_literals.py",
             ],
             outputs: &[
                 "crates/mole_core/src/generated/falcon_ecb.rs",
                 "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
             ],
+        },
+        ArtifactGroup {
+            id: "source_root_motion_generated_tables",
+            name: "Source Root Motion Generated Tables",
+            generator: "tools/generate_source_root_motion_rust.py",
+            recommended_command: ".venv\\Scripts\\python.exe tools\\generate_source_root_motion_rust.py",
+            inputs: &[
+                "resources/melee/frame_data/dolphin_mole/source_manifest.json",
+                "resources/melee/raw/PlCaAJ.dat",
+                "crates/mole_cli/src/frame_data.rs",
+                "crates/mole_frame_data/src/lib.rs",
+                "tools/rust_literals.py",
+            ],
+            outputs: &["crates/mole_core/src/generated/source_root_motion.rs"],
         },
         ArtifactGroup {
             id: "runtime_source_frame_data",

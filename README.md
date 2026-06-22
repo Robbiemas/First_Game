@@ -9,11 +9,18 @@ but authoritative gameplay work now belongs in Rust.
 
 ## Download The Playtest
 
-For a one-file Windows handoff build, download:
+For local testing from this checkout, double-click `START HERE - Mole Game.hta`.
+It opens a small Windows menu for local play, Friend Connect playtest builds,
+the devtool replay viewer, screenshots, and current notes without typing
+terminal commands.
 
-[Download MoleGame-FriendPlaytest.exe](https://github.com/Robbiemas/First_Game/raw/master/playtest/MoleGame-FriendPlaytest.exe)
+For the current handoff builds, download:
 
-After download, double-click the `.exe`. It extracts the minimal native Rust
+- [Download MoleGame-FriendPlaytest.exe](https://github.com/Robbiemas/First_Game/raw/master/playtest/MoleGame-FriendPlaytest.exe)
+- [Download MoleGame-LocalInternetPlaytest.exe](https://github.com/Robbiemas/First_Game/raw/master/playtest/MoleGame-LocalInternetPlaytest.exe)
+- [Download MoleGame-LinuxFriendPlaytest.tar.gz](https://github.com/Robbiemas/First_Game/raw/master/playtest/MoleGame-LinuxFriendPlaytest.tar.gz)
+
+On Windows, double-click the `.exe`. It extracts the minimal native Rust
 SDL3/WUP package under local app data and launches Friend Connect: the game
 window plus a second connection-code window. The visible code is the lobby code,
 and each open lobby advertises that code in a small setup-only lobby directory.
@@ -46,6 +53,14 @@ Supabase is only used for endpoint setup through the public publishable key;
 gameplay packets stay direct UDP.
 Windows may show a SmartScreen warning because this is an unsigned early test
 build.
+
+On Linux or Steam Deck, extract the tarball, then run `./Run Mole Game.sh` from
+the extracted folder. The package is built for x86_64 Linux with bundled SDL3
+and desktop SDL video backends, so it is intended to run under normal SteamOS
+Desktop Mode or as an added non-Steam game. The Linux Friend Connect package
+uses the same setup protocol and direct UDP gameplay packets as the Windows
+package, so Linux and Windows playtest clients can connect to each other when
+both peers can exchange UDP traffic.
 
 For solo internet-path testing on one machine, use the packaged
 `Run Solo Internet Host.cmd` first, copy the visible Friend Connect code, then
@@ -120,6 +135,13 @@ To explicitly compose the secondary solo internet launcher on demand:
 
 ```powershell
 cargo run -p mole_cli -- package local-internet-playtest --json
+```
+
+To build the Steam Deck/Linux tarball from a Linux machine, Linux CI runner, or
+Linux Docker container with SDL desktop build dependencies:
+
+```powershell
+cargo run -p mole_cli -- package linux-friend-playtest --json
 ```
 
 That command builds the release SDL3/WUP runtime, regenerates the one-file

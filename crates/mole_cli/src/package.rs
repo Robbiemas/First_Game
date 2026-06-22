@@ -10,7 +10,9 @@ use crate::{PackageCommand, SCHEMA_VERSION};
 
 const PACKAGE_NAME: &str = "MoleGame-FriendPlaytest";
 const LOCAL_INTERNET_PACKAGE_NAME: &str = "MoleGame-LocalInternetPlaytest";
+const LINUX_PACKAGE_NAME: &str = "MoleGame-LinuxFriendPlaytest";
 const PACKAGE_SCRIPT: &str = "tools/package_friend_playtest.ps1";
+const LINUX_PACKAGE_SCRIPT: &str = "tools/package_linux_friend_playtest.sh";
 
 pub(crate) fn package_report(root: &Path, command: &PackageCommand) -> Value {
     match command {
@@ -19,6 +21,9 @@ pub(crate) fn package_report(root: &Path, command: &PackageCommand) -> Value {
         }
         PackageCommand::LocalInternetPlaytest { verify, dry_run } => {
             playtest_package_report(root, *verify, *dry_run, PackageKind::LocalInternet)
+        }
+        PackageCommand::LinuxFriendPlaytest { dry_run } => {
+            linux_playtest_package_report(root, *dry_run)
         }
     }
 }
@@ -130,6 +135,56 @@ fn playtest_package_report(root: &Path, verify: bool, dry_run: bool, kind: Packa
     }
 
     report["ok"] = json!(build_ok && artifacts_ok && verify_ok);
+    report["steps"] = json!(steps);
+    report
+}
+
+fn linux_playtest_package_report(root: &Path, dry_run: bool) -> Value {
+    let script = root.join(LINUX_PACKAGE_SCRIPT);
+    let package_folder = root.join("dist").join(LINUX_PACKAGE_NAME);
+    let playtest_tarball = root
+        .join("playtest")
+        .join(format!("{LINUX_PACKAGE_NAME}.tar.gz"));
+    let build_command = vec!["bash".to_string(), LINUX_PACKAGE_SCRIPT.to_string()];
+
+    let mut report = json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "package linux-friend-playtest",
+        "project_root": root.display().to_string(),
+        "mutated": !dry_run,
+        "dry_run": dry_run,
+        "verify": false,
+        "build_command": build_command,
+        "artifacts": {
+            "package_script": script.display().to_string(),
+            "package_folder": package_folder.display().to_string(),
+            "playtest_tarball": playtest_tarball.display().to_string(),
+        },
+    });
+
+    if dry_run {
+        report["ok"] = json!(true);
+        report["steps"] = json!([]);
+        return report;
+    }
+
+    let mut steps = Vec::new();
+    let build = run_process(root, "bash", &[LINUX_PACKAGE_SCRIPT], &[], &[]);
+    let build_ok = step_ok(&build);
+    steps.push(build);
+
+    let artifact_checks =
+        required_artifact_checks(&[package_folder.as_path(), playtest_tarball.as_path()]);
+    let artifacts_ok = artifact_checks
+        .as_array()
+        .is_some_and(|checks| checks.iter().all(|check| check["exists"] == true));
+    steps.push(json!({
+        "name": "linux artifact checks",
+        "ok": artifacts_ok,
+        "checks": artifact_checks,
+    }));
+
+    report["ok"] = json!(build_ok && artifacts_ok);
     report["steps"] = json!(steps);
     report
 }

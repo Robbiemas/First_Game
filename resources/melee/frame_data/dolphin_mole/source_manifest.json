@@ -51640,7 +51640,19 @@
     {
       "action_state_id": 42,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 17
+          }
+        ],
         "source": {
           "action_state_id": 42,
           "kind": "fighter_action_script",
@@ -57053,9 +57065,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000002",
@@ -57064,12 +57080,18 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
           },
           {
+            "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800002",
@@ -57078,12 +57100,18 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000002",
@@ -57092,6 +57120,8 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
@@ -58383,9 +58413,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000003",
@@ -58394,12 +58428,18 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
           },
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800003",
@@ -58408,12 +58448,18 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000003",
@@ -58422,6 +58468,8 @@
               "0x28190293",
               "0x00000007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
@@ -59713,9 +59761,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 5,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c006808",
@@ -59724,12 +59776,18 @@
               "0xb4990013",
               "0x0a00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
           },
           {
+            "clank": true,
             "frame": 5,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c802008",
@@ -59738,12 +59796,18 @@
               "0xb4990013",
               "0x0a00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c006806",
@@ -59752,12 +59816,18 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c802006",
@@ -59766,6 +59836,8 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 22
           },
           {
@@ -64821,9 +64893,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01680a",
@@ -64832,12 +64908,18 @@
               "0xb4968013",
               "0x0b000507"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c016807",
@@ -64846,6 +64928,8 @@
               "0xb48c8013",
               "0x05000487"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
@@ -66117,9 +66201,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700c",
@@ -66128,12 +66216,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680c",
@@ -66142,12 +66236,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200b",
@@ -66156,6 +66256,8 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
@@ -67328,9 +67430,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700c",
@@ -67339,12 +67445,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680c",
@@ -67353,12 +67465,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200b",
@@ -67367,6 +67485,8 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
@@ -68539,9 +68659,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700b",
@@ -68550,12 +68674,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680b",
@@ -68564,12 +68694,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200b",
@@ -68578,6 +68714,8 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
@@ -69750,9 +69888,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700a",
@@ -69761,12 +69903,18 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680a",
@@ -69775,12 +69923,18 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200b",
@@ -69789,6 +69943,8 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
@@ -70961,9 +71117,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700a",
@@ -70972,12 +71132,18 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680a",
@@ -70986,12 +71152,18 @@
               "0xb4990013",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200b",
@@ -71000,6 +71172,8 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
@@ -72172,9 +72346,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700d",
@@ -72183,12 +72361,18 @@
               "0xb4940013",
               "0x1900008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680d",
@@ -72197,6 +72381,8 @@
               "0xb4940013",
               "0x1900008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
@@ -73513,9 +73699,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00400c",
@@ -73524,12 +73714,18 @@
               "0x2812c013",
               "0x0c80008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80380c",
@@ -73538,12 +73734,18 @@
               "0x2312c013",
               "0x0c80008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 12
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00200c",
@@ -73552,6 +73754,8 @@
               "0x1e12c013",
               "0x0c80008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
@@ -74868,9 +75072,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00b815",
@@ -74879,12 +75087,18 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80c015",
@@ -74893,6 +75107,8 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -76488,9 +76704,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00b814",
@@ -76499,12 +76719,18 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80c014",
@@ -76513,6 +76739,8 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           }
         ],
@@ -78099,9 +78327,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00b813",
@@ -78110,12 +78342,18 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 19
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80c013",
@@ -78124,6 +78362,8 @@
               "0xb4990013",
               "0x0c040123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 24
           }
         ],
@@ -79710,9 +79950,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c002008",
@@ -79721,12 +79965,18 @@
               "0x2d190a13",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800808",
@@ -79735,12 +79985,18 @@
               "0x32190c93",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
+            "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00700e",
@@ -79749,12 +80005,18 @@
               "0x281a4013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 25
           },
           {
+            "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80680e",
@@ -79763,6 +80025,8 @@
               "0x2d1a4013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 30
           },
           {
@@ -79775,9 +80039,13 @@
             "word_offset": 41
           },
           {
+            "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00380d",
@@ -79786,12 +80054,18 @@
               "0x2d200013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 47
           },
           {
+            "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80200d",
@@ -79800,12 +80074,18 @@
               "0x2d1f8013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 52
           },
           {
+            "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00400c",
@@ -79814,6 +80094,8 @@
               "0x281b8013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 57
           },
           {
@@ -81004,9 +81286,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007012",
@@ -81015,12 +81301,18 @@
               "0xb4990013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806812",
@@ -81029,6 +81321,8 @@
               "0xb4990013",
               "0x0f00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 25
           },
           {
@@ -81041,9 +81335,13 @@
             "word_offset": 36
           },
           {
+            "clank": true,
             "frame": 29,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007010",
@@ -81052,12 +81350,18 @@
               "0xb4990013",
               "0x0a00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 42
           },
           {
+            "clank": true,
             "frame": 29,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806810",
@@ -81066,6 +81370,8 @@
               "0xb4990013",
               "0x0a00010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 47
           },
           {
@@ -82267,9 +82573,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007006",
@@ -82278,12 +82588,18 @@
               "0x29190513",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806805",
@@ -82292,12 +82608,18 @@
               "0x27190513",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 12
           },
           {
+            "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d002006",
@@ -82306,6 +82628,8 @@
               "0x25190513",
               "0x0000008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
@@ -82318,9 +82642,13 @@
             "word_offset": 23
           },
           {
+            "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c004007",
@@ -82329,12 +82657,18 @@
               "0xb4990013",
               "0x1400008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 29
           },
           {
+            "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c803807",
@@ -82343,12 +82677,18 @@
               "0xb4990013",
               "0x1400008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 34
           },
           {
+            "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d002007",
@@ -82357,6 +82697,8 @@
               "0xb4990013",
               "0x1400008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 39
           },
           {
@@ -83897,9 +84239,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c003812",
@@ -83908,12 +84254,18 @@
               "0x10190013",
               "0x0c08010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c802012",
@@ -83922,12 +84274,18 @@
               "0x10190013",
               "0x0c08010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 12
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c003806",
@@ -83936,12 +84294,18 @@
               "0xb4940013",
               "0x1180000b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c802006",
@@ -83950,6 +84314,8 @@
               "0xb4940013",
               "0x1180000b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -85490,9 +85856,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c00e",
@@ -85501,12 +85871,18 @@
               "0xb4990013",
               "0x0a000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80b80e",
@@ -85515,12 +85891,18 @@
               "0xb4990013",
               "0x00000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 12
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00b80e",
@@ -85529,12 +85911,18 @@
               "0xb4990013",
               "0x00000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c008",
@@ -85543,12 +85931,18 @@
               "0xb4990013",
               "0x0a000087"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80b808",
@@ -85557,12 +85951,18 @@
               "0xb4990013",
               "0x00000087"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 28
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00b808",
@@ -85571,6 +85971,8 @@
               "0xb4990013",
               "0x00000087"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 33
           },
           {
@@ -87111,9 +87513,13 @@
             "word_offset": 0
           },
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00380d",
@@ -87122,12 +87528,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
           },
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80400c",
@@ -87136,12 +87548,18 @@
               "0xb4990013",
               "0x0500008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00380c",
@@ -87150,12 +87568,18 @@
               "0x0f140013",
               "0x0400008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
+            "clank": true,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80400a",
@@ -87164,12 +87588,18 @@
               "0x0f140013",
               "0x0400008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 22
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c003808",
@@ -87178,12 +87608,18 @@
               "0x00118013",
               "0x0300008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 28
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c804006",
@@ -87192,6 +87628,8 @@
               "0x00118013",
               "0x0300008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 33
           },
           {
@@ -88732,9 +89170,13 @@
             "word_offset": 9
           },
           {
+            "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007010",
@@ -88743,12 +89185,18 @@
               "0x87190013",
               "0x1400010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806810",
@@ -88757,12 +89205,18 @@
               "0x87190013",
               "0x1400010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
+            "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d002010",
@@ -88771,6 +89225,8 @@
               "0x91190013",
               "0x1400010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 25
           },
           {
@@ -97758,7 +98214,19 @@
     {
       "action_state_id": 78,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 3,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 78,
           "kind": "fighter_action_script",
@@ -99448,7 +99916,19 @@
     {
       "action_state_id": 79,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 9,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 79,
           "kind": "fighter_action_script",
@@ -101138,7 +101618,30 @@
     {
       "action_state_id": 80,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 8
+          }
+        ],
         "source": {
           "action_state_id": 80,
           "kind": "fighter_action_script",
@@ -102828,7 +103331,19 @@
     {
       "action_state_id": 81,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 81,
           "kind": "fighter_action_script",
@@ -104518,7 +105033,19 @@
     {
       "action_state_id": 82,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 82,
           "kind": "fighter_action_script",
@@ -106208,7 +106735,19 @@
     {
       "action_state_id": 83,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 83,
           "kind": "fighter_action_script",
@@ -107898,7 +108437,19 @@
     {
       "action_state_id": 84,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 1
+          }
+        ],
         "source": {
           "action_state_id": 84,
           "kind": "fighter_action_script",
@@ -109588,7 +110139,19 @@
     {
       "action_state_id": 85,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 85,
           "kind": "fighter_action_script",
@@ -110819,7 +111382,30 @@
     {
       "action_state_id": 86,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 4,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 7,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 8
+          }
+        ],
         "source": {
           "action_state_id": 86,
           "kind": "fighter_action_script",
@@ -112050,7 +112636,19 @@
     {
       "action_state_id": 87,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 87,
           "kind": "fighter_action_script",
@@ -113281,7 +113879,19 @@
     {
       "action_state_id": 88,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 88,
           "kind": "fighter_action_script",
@@ -114512,7 +115122,19 @@
     {
       "action_state_id": 89,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 3,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 89,
           "kind": "fighter_action_script",
@@ -118583,7 +119205,19 @@
     {
       "action_state_id": 92,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 23,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 92,
           "kind": "fighter_action_script",
@@ -119940,7 +120574,30 @@
     {
       "action_state_id": 93,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 5,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 8
+          }
+        ],
         "source": {
           "action_state_id": 93,
           "kind": "fighter_action_script",
@@ -121297,7 +121954,19 @@
     {
       "action_state_id": 94,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 14,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 94,
           "kind": "fighter_action_script",
@@ -122654,7 +123323,19 @@
     {
       "action_state_id": 95,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 19,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 95,
           "kind": "fighter_action_script",
@@ -124011,7 +124692,19 @@
     {
       "action_state_id": 96,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 9,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 96,
           "kind": "fighter_action_script",
@@ -125701,7 +126394,30 @@
     {
       "action_state_id": 97,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 9
+          }
+        ],
         "source": {
           "action_state_id": 97,
           "kind": "fighter_action_script",
@@ -127391,7 +128107,19 @@
     {
       "action_state_id": 98,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 98,
           "kind": "fighter_action_script",
@@ -129081,7 +129809,19 @@
     {
       "action_state_id": 99,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 99,
           "kind": "fighter_action_script",
@@ -130771,7 +131511,19 @@
     {
       "action_state_id": 100,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 100,
           "kind": "fighter_action_script",
@@ -132002,7 +132754,30 @@
     {
       "action_state_id": 101,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 4,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 7,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 9
+          }
+        ],
         "source": {
           "action_state_id": 101,
           "kind": "fighter_action_script",
@@ -133233,7 +134008,19 @@
     {
       "action_state_id": 102,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 102,
           "kind": "fighter_action_script",
@@ -134464,7 +135251,19 @@
     {
       "action_state_id": 103,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 103,
           "kind": "fighter_action_script",
@@ -135695,7 +136494,19 @@
     {
       "action_state_id": 104,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 23,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 104,
           "kind": "fighter_action_script",
@@ -137052,7 +137863,30 @@
     {
       "action_state_id": 105,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 4,
+            "frame": 5,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 1
+          },
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 9
+          }
+        ],
         "source": {
           "action_state_id": 105,
           "kind": "fighter_action_script",
@@ -138409,7 +139243,19 @@
     {
       "action_state_id": 106,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 14,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 106,
           "kind": "fighter_action_script",
@@ -139766,7 +140612,19 @@
     {
       "action_state_id": 107,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 19,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7
+          }
+        ],
         "source": {
           "action_state_id": 107,
           "kind": "fighter_action_script",
@@ -141125,9 +141983,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d802007",
@@ -141136,6 +141998,8 @@
               "0xb4990017",
               "0x050c088f"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
           }
         ],
@@ -142542,9 +143406,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80b",
@@ -142553,6 +143421,8 @@
               "0xb4990017",
               "0x078c110f"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
           }
         ],
@@ -143957,7 +144827,19 @@
     {
       "action_state_id": 110,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 8
+          }
+        ],
         "source": {
           "action_state_id": 110,
           "kind": "fighter_action_script",
@@ -145361,9 +146243,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80a",
@@ -145372,6 +146258,8 @@
               "0xb4990017",
               "0x040c008f"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
           }
         ],
@@ -146778,9 +147666,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d802006",
@@ -146789,6 +147681,8 @@
               "0xb4990017",
               "0x02800817"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
           }
         ],
@@ -148195,9 +149089,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80a",
@@ -148206,6 +149104,8 @@
               "0xb4990017",
               "0x04001097"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
           }
         ],
@@ -151014,9 +151914,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80a",
@@ -151025,6 +151929,8 @@
               "0xb4990017",
               "0x04001097"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
           }
         ],
@@ -152431,9 +153337,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d802006",
@@ -152442,6 +153352,8 @@
               "0x1e190017",
               "0x028c088b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
           }
         ],
@@ -153848,9 +154760,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80d",
@@ -153859,6 +154775,8 @@
               "0x1e190017",
               "0x050c110b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
           }
         ],
@@ -155265,9 +156183,24 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 3
+          },
+          {
+            "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80d",
@@ -155276,6 +156209,8 @@
               "0x1e190017",
               "0x050c110b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           }
         ],
@@ -156682,9 +157617,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80b",
@@ -156693,6 +157632,8 @@
               "0x1e190017",
               "0x040c010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           }
         ],
@@ -158110,9 +159051,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d802002",
@@ -158121,6 +159066,8 @@
               "0x57190137",
               "0x0000291b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           }
         ],
@@ -159545,9 +160492,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a807",
@@ -159556,6 +160507,8 @@
               "0x50190797",
               "0x0000511b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           }
         ],
@@ -160968,6 +161921,17 @@
       "action_state_id": 122,
       "decoded_action_script": {
         "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 3
+          },
           {
             "cmd_var": 0,
             "frame": 21,
@@ -162390,9 +163354,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a806",
@@ -162401,6 +163369,8 @@
               "0x3c190a17",
               "0x0000a11b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
           }
         ],
@@ -163807,9 +164777,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80200a",
@@ -163818,6 +164792,8 @@
               "0xb4990017",
               "0x02800887"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           }
         ],
@@ -165224,9 +166200,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80f",
@@ -165235,6 +166215,8 @@
               "0xb4990017",
               "0x04001107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           }
         ],
@@ -166639,7 +167621,19 @@
     {
       "action_state_id": 126,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 6
+          }
+        ],
         "source": {
           "action_state_id": 126,
           "kind": "fighter_action_script",
@@ -168043,9 +169037,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a80c",
@@ -168054,6 +169052,8 @@
               "0xb4990017",
               "0x04000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           }
         ],
@@ -169460,9 +170460,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d802004",
@@ -169471,6 +170475,8 @@
               "0xb4a58017",
               "0x02bc0887"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
           }
         ],
@@ -170877,9 +171883,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a809",
@@ -170888,6 +171898,8 @@
               "0xb4a58017",
               "0x043c1107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
           }
         ],
@@ -172292,7 +173304,19 @@
     {
       "action_state_id": 130,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4
+          }
+        ],
         "source": {
           "action_state_id": 130,
           "kind": "fighter_action_script",
@@ -173696,9 +174720,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a806",
@@ -173707,6 +174735,8 @@
               "0xb4990017",
               "0x043c0107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
           }
         ],
@@ -187412,7 +188442,30 @@
     {
       "action_state_id": 142,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 9,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 2
+          },
+          {
+            "flag_bit": 4,
+            "frame": 10,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 5
+          }
+        ],
         "source": {
           "action_state_id": 142,
           "kind": "fighter_action_script",
@@ -189822,9 +190875,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000001",
@@ -189833,12 +190890,18 @@
               "0x32190013",
               "0x28000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800001",
@@ -189847,12 +190910,18 @@
               "0x32190013",
               "0x28000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000001",
@@ -189861,12 +190930,18 @@
               "0x41190013",
               "0x14000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 21
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d800001",
@@ -189875,6 +190950,8 @@
               "0x41190013",
               "0x14000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 26
           },
           {
@@ -191110,9 +192187,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000001",
@@ -191121,12 +192202,18 @@
               "0x32190013",
               "0x28000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 11
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800001",
@@ -191135,12 +192222,18 @@
               "0x32190013",
               "0x28000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000001",
@@ -191149,12 +192242,18 @@
               "0x41190013",
               "0x14000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 21
           },
           {
+            "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d800001",
@@ -191163,6 +192262,8 @@
               "0x41190013",
               "0x14000c0b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 26
           },
           {
@@ -244718,9 +245819,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007006",
@@ -244729,12 +245834,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c804006",
@@ -244743,12 +245854,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d008006",
@@ -244757,12 +245874,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d805006",
@@ -244771,6 +245894,8 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -244783,9 +245908,13 @@
             "word_offset": 29
           },
           {
+            "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007006",
@@ -244794,12 +245923,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 31
           },
           {
+            "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c804006",
@@ -244808,12 +245943,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 36
           },
           {
+            "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d008006",
@@ -244822,12 +245963,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 41
           },
           {
+            "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d805006",
@@ -244836,6 +245983,8 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 46
           },
           {
@@ -257102,9 +258251,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c008006",
@@ -257113,12 +258266,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c807006",
@@ -257127,6 +258286,8 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
@@ -257139,9 +258300,13 @@
             "word_offset": 19
           },
           {
+            "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c008006",
@@ -257150,12 +258315,18 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 21
           },
           {
+            "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c807006",
@@ -257164,6 +258335,8 @@
               "0xb48c8012",
               "0x2800048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 26
           },
           {
@@ -271971,7 +273144,19 @@
     {
       "action_state_id": 204,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 11,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 3
+          }
+        ],
         "source": {
           "action_state_id": 204,
           "kind": "fighter_action_script",
@@ -285442,7 +286627,19 @@
     {
       "action_state_id": 214,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 5,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 1
+          }
+        ],
         "source": {
           "action_state_id": 214,
           "kind": "fighter_action_script",
@@ -288223,8 +289420,8 @@
         "reason": "Melee stores compact action, hitbox command, hurtbox init, JObj, and FigaTree data; dev-tool/debug views may sample frames on demand, while player runtime preloads a baked in-memory action/frame cache from the compact export"
       },
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
-      "match_kind": "source_only",
-      "runtime_motion_state": null,
+      "match_kind": "exact_motion_state",
+      "runtime_motion_state": "CliffCatch",
       "source_action": {
         "action_state_id": 216,
         "cmd_var_events": [],
@@ -295852,9 +297049,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 37,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c808",
@@ -295863,12 +297064,18 @@
               "0xb4990b52",
               "0x00000487"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 37,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80c008",
@@ -295877,6 +297084,8 @@
               "0xb4990b52",
               "0x00000487"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
@@ -297418,9 +298627,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700a",
@@ -297429,12 +298642,18 @@
               "0xb4990b52",
               "0x0000048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80800a",
@@ -297443,12 +298662,18 @@
               "0xb4990b52",
               "0x0000048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00400a",
@@ -297457,6 +298682,8 @@
               "0xb4990b52",
               "0x0000048b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -312867,9 +314094,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000000",
@@ -312878,12 +314109,18 @@
               "0xb4990012",
               "0x0020008b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
           },
           {
+            "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800000",
@@ -312892,7 +314129,29 @@
               "0xb4990012",
               "0x0020008b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 14
+          },
+          {
+            "angle": 0,
+            "damage": 2,
+            "element": 0,
+            "frame": 6,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 50,
+            "hit_x28": 0,
+            "hit_x2c": 70,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800002",
+              "0x000c8000",
+              "0x23002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 19
           },
           {
             "frame": 8,
@@ -312902,6 +314161,17 @@
               "0x40000000"
             ],
             "word_offset": 23
+          },
+          {
+            "flag_bit": 3,
+            "frame": 8,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 24
           }
         ],
         "source": {
@@ -314154,9 +315424,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000000",
@@ -314165,12 +315439,18 @@
               "0xb4990012",
               "0x0020008b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800000",
@@ -314179,12 +315459,18 @@
               "0xb4990012",
               "0x0020008b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 14
           },
           {
+            "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000000",
@@ -314193,7 +315479,29 @@
               "0xb4990012",
               "0x0020008b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 19
+          },
+          {
+            "angle": 0,
+            "damage": 2,
+            "element": 0,
+            "frame": 10,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 50,
+            "hit_x28": 0,
+            "hit_x2c": 70,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800002",
+              "0x000c8000",
+              "0x23002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 24
           },
           {
             "frame": 12,
@@ -314203,6 +315511,17 @@
               "0x40000000"
             ],
             "word_offset": 28
+          },
+          {
+            "flag_bit": 3,
+            "frame": 12,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 29
           }
         ],
         "source": {
@@ -316704,9 +318023,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": false,
             "frame": 4,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c080003",
@@ -316715,6 +318038,8 @@
               "0x281903d1",
               "0x0000000b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 1
           },
           {
@@ -319226,9 +320551,53 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "angle": 45,
+            "damage": 4,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 105,
+            "hit_x28": 0,
+            "hit_x2c": 45,
+            "hitbox_idx": 0,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88000004",
+              "0x169a4000",
+              "0x16822000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 2,
+            "word_offset": 1
+          },
+          {
+            "angle": 361,
+            "damage": 3,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 100,
+            "hit_x28": 0,
+            "hit_x2c": 60,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800003",
+              "0xb4990000",
+              "0x1e002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 4
+          },
+          {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c005",
@@ -319237,12 +320606,18 @@
               "0x28190011",
               "0x23000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80b805",
@@ -319251,12 +320626,18 @@
               "0x28190011",
               "0x23000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00b805",
@@ -319265,7 +320646,20 @@
               "0x28190011",
               "0x23000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
+          },
+          {
+            "flag_bit": 3,
+            "frame": 18,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 39
           },
           {
             "frame": 18,
@@ -320644,9 +322038,53 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "angle": 135,
+            "damage": 4,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 130,
+            "hit_x28": 0,
+            "hit_x2c": 30,
+            "hitbox_idx": 0,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88000004",
+              "0x43a08000",
+              "0x0f022000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 2,
+            "word_offset": 1
+          },
+          {
+            "angle": 361,
+            "damage": 3,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 100,
+            "hit_x28": 0,
+            "hit_x2c": 60,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800003",
+              "0xb4990000",
+              "0x1e002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 4
+          },
+          {
+            "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007005",
@@ -320655,12 +322093,18 @@
               "0x23190011",
               "0x2300010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806805",
@@ -320669,12 +322113,18 @@
               "0x23190011",
               "0x2300010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d002005",
@@ -320683,7 +322133,20 @@
               "0x23190011",
               "0x2300010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
+          },
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 29
           },
           {
             "frame": 20,
@@ -322062,9 +323525,53 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "angle": 85,
+            "damage": 3,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 105,
+            "hit_x28": 0,
+            "hit_x2c": 70,
+            "hitbox_idx": 0,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88000003",
+              "0x2a9a4000",
+              "0x23022000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 2,
+            "word_offset": 1
+          },
+          {
+            "angle": 361,
+            "damage": 3,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 100,
+            "hit_x28": 0,
+            "hit_x2c": 60,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800003",
+              "0xb4990000",
+              "0x1e002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 4
+          },
+          {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c004",
@@ -322073,12 +323580,18 @@
               "0x28190011",
               "0x1e000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80b804",
@@ -322087,12 +323600,18 @@
               "0x28190011",
               "0x1e000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00b804",
@@ -322101,7 +323620,20 @@
               "0x28190011",
               "0x1e000107"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
+          },
+          {
+            "flag_bit": 3,
+            "frame": 15,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 34
           },
           {
             "frame": 29,
@@ -323478,7 +325010,59 @@
     {
       "action_state_id": 250,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "angle": 65,
+            "damage": 7,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 34,
+            "hit_x28": 0,
+            "hit_x2c": 75,
+            "hitbox_idx": 0,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88000007",
+              "0x20888000",
+              "0x25822000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 2,
+            "word_offset": 1
+          },
+          {
+            "angle": 361,
+            "damage": 3,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 100,
+            "hit_x28": 0,
+            "hit_x2c": 60,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800003",
+              "0xb4990000",
+              "0x1e002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 4
+          },
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 23
+          }
+        ],
         "source": {
           "action_state_id": 250,
           "kind": "fighter_action_script",
@@ -348307,9 +349891,13 @@
             "word_offset": 2
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c805",
@@ -348318,12 +349906,18 @@
               "0x2f990b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c805",
@@ -348332,12 +349926,18 @@
               "0x2f990b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 10
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c805",
@@ -348346,6 +349946,8 @@
               "0x2f990b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
@@ -348358,9 +349960,13 @@
             "word_offset": 35
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c80a",
@@ -348369,12 +349975,18 @@
               "0x371cc017",
               "0x2d0c0123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 37
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c80a",
@@ -348383,12 +349995,18 @@
               "0x371cc017",
               "0x2d0c0123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 42
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c80a",
@@ -348397,6 +350015,8 @@
               "0x371cc017",
               "0x2d0c0123"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 47
           },
           {
@@ -349821,9 +351441,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c808",
@@ -349832,12 +351456,18 @@
               "0x2f990ab7",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c808",
@@ -349846,12 +351476,18 @@
               "0x2f990ab7",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c808",
@@ -349860,12 +351496,18 @@
               "0x2f990ab7",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 14
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a808",
@@ -349874,6 +351516,8 @@
               "0xb4990ab7",
               "0x00081097"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 19
           },
           {
@@ -349886,9 +351530,13 @@
             "word_offset": 39
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c810",
@@ -349897,12 +351545,18 @@
               "0x2d140017",
               "0x96042117"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 41
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c810",
@@ -349911,12 +351565,18 @@
               "0x2d140017",
               "0x96042117"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 46
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c810",
@@ -349925,12 +351585,18 @@
               "0x2d140017",
               "0x96042117"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 51
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d80a808",
@@ -349939,6 +351605,8 @@
               "0x2d140017",
               "0x96042097"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 56
           },
           {
@@ -351363,9 +353031,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c806",
@@ -351374,12 +353046,18 @@
               "0x2f990b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c806",
@@ -351388,6 +353066,8 @@
               "0x2f990b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
@@ -351400,9 +353080,13 @@
             "word_offset": 28
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c80c",
@@ -351411,12 +353095,18 @@
               "0x2f9cc017",
               "0x280c010f"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 31
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c80c",
@@ -351425,6 +353115,8 @@
               "0x2f9cc017",
               "0x280c010f"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 36
           },
           {
@@ -352851,9 +354543,13 @@
             "word_offset": 1
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c804",
@@ -352862,12 +354558,18 @@
               "0x32190b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c804",
@@ -352876,12 +354578,18 @@
               "0x32190b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c804",
@@ -352890,12 +354598,18 @@
               "0x32190b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d81c804",
@@ -352904,6 +354618,8 @@
               "0x32190b57",
               "0x0008011b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
@@ -352916,9 +354632,13 @@
             "word_offset": 38
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01c802",
@@ -352927,12 +354647,18 @@
               "0x2d190016",
               "0x2d0c011b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 40
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c81c802",
@@ -352941,12 +354667,18 @@
               "0x2d190016",
               "0x2d0c011b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 45
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d01c802",
@@ -352955,12 +354687,18 @@
               "0x2d190016",
               "0x2d0c011b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 50
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d81c802",
@@ -352969,6 +354707,8 @@
               "0x2d190016",
               "0x2d0c011b"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 55
           },
           {
@@ -357251,9 +358991,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01681b",
@@ -357262,12 +359006,18 @@
               "0xb4998013",
               "0x0f04010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c816819",
@@ -357276,12 +359026,18 @@
               "0xb4998013",
               "0x0f04010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d017817",
@@ -357290,6 +359046,8 @@
               "0xb4998013",
               "0x0f04008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 25
           },
           {
@@ -358601,9 +360359,13 @@
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c01681b",
@@ -358612,12 +360374,18 @@
               "0xb4998013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 17
           },
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c816819",
@@ -358626,12 +360394,18 @@
               "0xb4998013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 22
           },
           {
+            "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d017817",
@@ -358640,6 +360414,8 @@
               "0xb4998013",
               "0x1404008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 27
           },
           {
@@ -359959,9 +361735,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000000",
@@ -359970,12 +361750,18 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800000",
@@ -359984,12 +361770,18 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000000",
@@ -359998,6 +361790,8 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -361311,9 +363105,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c807",
@@ -361322,6 +363120,8 @@
               "0x2d140012",
               "0x27040923"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
@@ -362575,9 +364375,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000000",
@@ -362586,12 +364390,18 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800000",
@@ -362600,12 +364410,18 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 18
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000000",
@@ -362614,6 +364430,8 @@
               "0xb4800013",
               "0x002c0007"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
           },
           {
@@ -363944,9 +365762,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00c807",
@@ -363955,6 +365777,8 @@
               "0x87118012",
               "0x1e040923"
             ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 13
           },
           {
@@ -365219,9 +367043,13 @@
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000001",
@@ -365230,12 +367058,18 @@
               "0xb4990013",
               "0x00200087"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 14
           },
           {
+            "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800001",
@@ -365244,7 +367078,29 @@
               "0xb4990013",
               "0x00200086"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 19
+          },
+          {
+            "angle": 0,
+            "damage": 6,
+            "element": 0,
+            "frame": 13,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 50,
+            "hit_x28": 0,
+            "hit_x2c": 70,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800006",
+              "0x000c8000",
+              "0x23002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 24
           },
           {
             "frame": 30,
@@ -367586,9 +369442,13 @@
             "word_offset": 7
           },
           {
+            "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000001",
@@ -367597,12 +369457,18 @@
               "0xb4990013",
               "0x00200087"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 14
           },
           {
+            "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800001",
@@ -367611,7 +369477,29 @@
               "0xb4990013",
               "0x00200086"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 19
+          },
+          {
+            "angle": 0,
+            "damage": 6,
+            "element": 0,
+            "frame": 13,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 50,
+            "hit_x28": 0,
+            "hit_x2c": 70,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800006",
+              "0x000c8000",
+              "0x23002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 24
           },
           {
             "frame": 30,
@@ -369951,9 +371839,13 @@
             "word_offset": 6
           },
           {
+            "clank": true,
             "frame": 2,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c001805",
@@ -369962,6 +371854,8 @@
               "0xb4800013",
               "0x0004010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 8
           },
           {
@@ -372285,6 +374179,46 @@
       "action_state_id": 310,
       "decoded_action_script": {
         "procedures": [
+          {
+            "angle": 361,
+            "damage": 12,
+            "element": 1,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 82,
+            "hit_x28": 0,
+            "hit_x2c": 40,
+            "hitbox_idx": 0,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x8800000c",
+              "0xb4948000",
+              "0x14088000"
+            ],
+            "sfx_kind": 8,
+            "sfx_severity": 0,
+            "word_offset": 0
+          },
+          {
+            "angle": 0,
+            "damage": 8,
+            "element": 0,
+            "frame": 0,
+            "handler": "ftAction_80071E04",
+            "hit_x24": 10,
+            "hit_x28": 0,
+            "hit_x2c": 100,
+            "hitbox_idx": 1,
+            "procedure": "fighter.set_throw_hitbox",
+            "raw_words": [
+              "0x88800008",
+              "0x00028000",
+              "0x32002000"
+            ],
+            "sfx_kind": 2,
+            "sfx_severity": 0,
+            "word_offset": 3
+          },
           {
             "cmd_var": 0,
             "frame": 45,
@@ -374616,9 +376550,13 @@
       "decoded_action_script": {
         "procedures": [
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700f",
@@ -374627,12 +376565,18 @@
               "0xb4918013",
               "0x1904010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 15
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680f",
@@ -374641,12 +376585,18 @@
               "0xb4918013",
               "0x1904010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 20
           },
           {
+            "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00700f",
@@ -374655,6 +376605,8 @@
               "0xb4918013",
               "0x1904010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 25
           },
           {
@@ -374669,9 +376621,13 @@
             "word_offset": 32
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c00700c",
@@ -374680,12 +376636,18 @@
               "0x280f0013",
               "0x1904010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 34
           },
           {
+            "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80680c",
@@ -374694,12 +376656,18 @@
               "0x280f0013",
               "0x1904010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 39
           },
           {
+            "clank": true,
             "frame": 25,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c007009",
@@ -374708,12 +376676,18 @@
               "0x2d0c8013",
               "0x1904008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 45
           },
           {
+            "clank": true,
             "frame": 25,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c806809",
@@ -374722,6 +376696,8 @@
               "0x2d0c8013",
               "0x1904008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 50
           },
           {
@@ -377466,9 +379442,13 @@
             "word_offset": 12
           },
           {
+            "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80700f",
@@ -377477,12 +379457,18 @@
               "0xb4918013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 16
           },
           {
+            "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00680f",
@@ -377491,12 +379477,18 @@
               "0xb4918013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 21
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80700d",
@@ -377505,12 +379497,18 @@
               "0xb4904013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 27
           },
           {
+            "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00680d",
@@ -377519,12 +379517,18 @@
               "0xb4904013",
               "0x1404010b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 32
           },
           {
+            "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c80700b",
@@ -377533,12 +379537,18 @@
               "0xb48f0013",
               "0x1404008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 38
           },
           {
+            "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d00680b",
@@ -377547,6 +379557,8 @@
               "0xb48f0013",
               "0x1404008b"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 43
           },
           {
@@ -378908,9 +380920,13 @@
             "word_offset": 0
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c000009",
@@ -378919,12 +380935,18 @@
               "0x28050013",
               "0x2800010a"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 22
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2c800009",
@@ -378933,12 +380955,18 @@
               "0x28050013",
               "0x2800010a"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 27
           },
           {
+            "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
             "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
             "procedure": "fighter.spawn_hitbox",
             "raw_words": [
               "0x2d000009",
@@ -378947,6 +380975,8 @@
               "0x28050013",
               "0x2800010a"
             ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 32
           },
           {
@@ -385329,6 +387359,61 @@
   },
   "rig": {
     "canonical_source": "ftData.x30 + PlCaAJ FigaTree + PlCaNr JObj skeleton",
+    "common_parts": {
+      "data": {
+        "capture_anchor_part": 61,
+        "hipn_joint": 4,
+        "hipn_part": 4,
+        "item_hold_part": 57,
+        "item_spawn_part": 39,
+        "resolved_joint_source": "ftParts_GetBoneIndex(fp, part) -> ftPartsTable[fp->kind]->part_to_joint[part]",
+        "source": {
+          "decomp_type": "struct ftData.x8 + struct ftData.x34",
+          "file": "resources/melee/raw/PlCa.dat",
+          "format": "HSD DAT, relocated ftData.x8 direct u8 indices and ftData.x34 thrown hitbox source plus PlCo ftPartsTable part-to-joint mapping",
+          "ft_data_offset": 39428,
+          "ftdata_common_parts_field_offset": 39436,
+          "ftdata_common_parts_offset": 0,
+          "ftdata_common_parts_relocated": true,
+          "ftdata_thrown_hitbox_field_offset": 39480,
+          "ftdata_thrown_hitbox_offset": 30872,
+          "ftdata_thrown_hitbox_relocated": true,
+          "source_character": "captain",
+          "symbol": "ftDataCaptain"
+        },
+        "source_notes": {
+          "capture_anchor_part": "ftCo_Attack100.c fn_800DA1D8 uses fp->parts[fp->ft_data->x8->x11].joint for mv.co.capturedamage.x18",
+          "hipn_part": "ftCo_DownBound.c/ftanim.c sample FtPart_HipN",
+          "thrown_hitbox_part": "ft_8007C17C initializes fp->x1064_thrownHitbox from fp->ft_data->x34->x0",
+          "thrown_hitbox_scale": "ft_8007C17C copies fp->ft_data->x34->scale into fp->x1064_thrownHitbox.scale",
+          "transn2_part": "ftCo_800DB368 constrains FtPart_XRotN to FtPart_TransN2",
+          "transn_part": "Fighter_UnkUpdateVecFromBones_8006876C samples FtPart_TransN for x1A70",
+          "xrotn_part": "ftCo_Attack100.c fn_800DAC78/fn_800DAD18 sample FtPart_XRotN"
+        },
+        "source_part_indices": {
+          "hipn_part": 4,
+          "transn2_part": 52,
+          "transn_part": 1,
+          "xrotn_part": 2
+        },
+        "thrown_hitbox_joint": 4,
+        "thrown_hitbox_part": 4,
+        "thrown_hitbox_scale": 2.0,
+        "transn2_joint": 61,
+        "transn2_part": 52,
+        "transn_joint": 1,
+        "transn_part": 1,
+        "visibility_part_a": 10,
+        "visibility_part_b": 16,
+        "xrotn_joint": 2,
+        "xrotn_part": 2
+      },
+      "path": "resources/melee/extracted/captain_falcon_common_parts.json",
+      "source_capture_anchor": "ftCo_CatchPull_Anim -> fn_800DA1D8 stores fp->parts[fp->ft_data->x8->x11].joint in mv.co.capturedamage.x18",
+      "source_capture_delta": "ftCo_CapturePulled* / CaptureWait* use lb_8000B1CC(capturedamage.x18) - lb_8000B1CC(FtPart_XRotN)",
+      "source_table": "ftData.x8",
+      "status": "source_extracted"
+    },
     "derived_samples": {
       "canonical": false,
       "ecb_samples_path": "resources/melee/extracted/captain_falcon_action_ecb_samples.json",
@@ -385653,6 +387738,7 @@
           "ft_data_offset": 39428,
           "ftdata_hurtbox_table_offset": 10752,
           "hurtbox_inits_offset": 30432,
+          "source_character": "captain",
           "symbol": "ftDataCaptain"
         }
       },
@@ -385665,6 +387751,288 @@
       "source_table": "ftData.x30",
       "source_update_handler": "lbColl_800083C4/lbColl_8000A244/lbColl_8000A584",
       "source_z_policy": "preserve JObj-transformed z; debug render may force fighter->cur_pos.z when ftCommon_8007F804 returns non-null",
+      "status": "source_extracted"
+    },
+    "live_pose_setup": {
+      "source_order": "Fighter_ChangeMotionState seeds TopN rot_y; ftAnim mutates JObj/FObj state; Fighter_UpdateModelScale sets root scale before map/capture consumers read lb_8000B1CC",
+      "topn_rot_y_radians": 1.5707963267948966,
+      "topn_rot_y_source": "ftPartSetRotY(fp, FtPart_TopN, M_PI_2 * fp->facing_dir) for right-facing source samples",
+      "topn_scale": 0.9700000286102296,
+      "topn_scale_source": "Fighter_UpdateModelScale -> ftCommon_GetModelScale(fp); unmodified Falcon uses x34_scale.y == 1.0, so model_scaling is the root scale"
+    },
+    "profile": {
+      "data": {
+        "fields": {
+          "aerial_drift_base": {
+            "kind": "source_f32",
+            "offset": 104,
+            "raw": 0.019999999552965164,
+            "source_name": "aerial_drift_base"
+          },
+          "aerial_friction": {
+            "kind": "source_f32",
+            "offset": 112,
+            "raw": 0.009999999776482582,
+            "source_name": "aerial_friction"
+          },
+          "air_drift_max": {
+            "kind": "source_f32",
+            "offset": 108,
+            "raw": 1.1200000047683716,
+            "source_name": "air_drift_max"
+          },
+          "air_drift_stick_mul": {
+            "kind": "source_f32",
+            "offset": 100,
+            "raw": 0.03999999910593033,
+            "source_name": "air_drift_stick_mul"
+          },
+          "air_jump_h_multiplier": {
+            "kind": "source_f32",
+            "offset": 84,
+            "raw": 0.8999999761581421,
+            "source_name": "air_jump_h_multiplier"
+          },
+          "air_jump_v_multiplier": {
+            "kind": "source_f32",
+            "offset": 80,
+            "raw": 0.8999999761581421,
+            "source_name": "air_jump_v_multiplier"
+          },
+          "air_max_horizontal_velocity": {
+            "kind": "source_f32",
+            "offset": 120,
+            "raw": 3.0,
+            "source_name": "air_max_horizontal_velocity"
+          },
+          "dash_initial_velocity": {
+            "kind": "source_f32",
+            "offset": 28,
+            "raw": 2.0,
+            "source_name": "dash_initial_velocity"
+          },
+          "dash_run_acceleration_a": {
+            "kind": "source_f32",
+            "offset": 32,
+            "raw": 0.15000000596046448,
+            "source_name": "dash_run_acceleration_a"
+          },
+          "dash_run_acceleration_b": {
+            "kind": "source_f32",
+            "offset": 36,
+            "raw": 0.009999999776482582,
+            "source_name": "dash_run_acceleration_b"
+          },
+          "dash_run_terminal_velocity": {
+            "kind": "source_f32",
+            "offset": 40,
+            "raw": 2.299999952316284,
+            "source_name": "dash_run_terminal_velocity"
+          },
+          "entry_platform_offset_y": {
+            "kind": "entry_platform_offset_milli",
+            "milli": 1647,
+            "offset": 272,
+            "raw": 1.100000023841858,
+            "source_name": "trophy_scale*1.497345"
+          },
+          "fast_fall_velocity": {
+            "kind": "source_f32",
+            "offset": 116,
+            "raw": 3.5,
+            "source_name": "fast_fall_velocity"
+          },
+          "fast_walk_threshold": {
+            "kind": "source_f32",
+            "offset": 20,
+            "raw": 0.659600019454956,
+            "source_name": "fast_walk_threshold"
+          },
+          "frames_to_change_direction_on_standing_turn": {
+            "kind": "f32_ticks",
+            "offset": 132,
+            "raw": 6.0,
+            "source_name": "frames_to_change_direction_on_standing_turn",
+            "ticks": 6
+          },
+          "grav": {
+            "kind": "source_f32",
+            "offset": 92,
+            "raw": 0.12999999523162842,
+            "source_name": "grav"
+          },
+          "ground_friction": {
+            "kind": "source_f32",
+            "offset": 24,
+            "raw": 0.07999999821186066,
+            "source_name": "gr_friction"
+          },
+          "ground_max_horizontal_velocity": {
+            "kind": "source_f32",
+            "offset": 52,
+            "raw": 3.0,
+            "source_name": "ground_max_horizontal_velocity"
+          },
+          "ground_to_air_jump_momentum_multiplier": {
+            "kind": "source_f32",
+            "offset": 68,
+            "raw": 0.75,
+            "source_name": "ground_to_air_jump_momentum_multiplier"
+          },
+          "hop_v_initial_velocity": {
+            "kind": "source_f32",
+            "offset": 76,
+            "raw": 1.899999976158142,
+            "source_name": "hop_v_initial_velocity"
+          },
+          "jump_h_initial_velocity": {
+            "kind": "source_f32",
+            "offset": 60,
+            "raw": 0.949999988079071,
+            "source_name": "jump_h_initial_velocity"
+          },
+          "jump_h_max_velocity": {
+            "kind": "source_f32",
+            "offset": 72,
+            "raw": 2.0999999046325684,
+            "source_name": "jump_h_max_velocity"
+          },
+          "jump_startup_time": {
+            "kind": "f32_ticks",
+            "offset": 56,
+            "raw": 4.0,
+            "source_name": "jump_startup_time",
+            "ticks": 4
+          },
+          "jump_v_initial_velocity": {
+            "kind": "source_f32",
+            "offset": 64,
+            "raw": 3.0999999046325684,
+            "source_name": "jump_v_initial_velocity"
+          },
+          "landingairb_lag": {
+            "kind": "f32_ticks",
+            "offset": 240,
+            "raw": 18.0,
+            "source_name": "landingairb_lag",
+            "ticks": 18
+          },
+          "landingairf_lag": {
+            "kind": "f32_ticks",
+            "offset": 236,
+            "raw": 19.0,
+            "source_name": "landingairf_lag",
+            "ticks": 19
+          },
+          "landingairhi_lag": {
+            "kind": "f32_ticks",
+            "offset": 244,
+            "raw": 15.0,
+            "source_name": "landingairhi_lag",
+            "ticks": 15
+          },
+          "landingairlw_lag": {
+            "kind": "f32_ticks",
+            "offset": 248,
+            "raw": 24.0,
+            "source_name": "landingairlw_lag",
+            "ticks": 24
+          },
+          "landingairn_lag": {
+            "kind": "f32_ticks",
+            "offset": 232,
+            "raw": 15.0,
+            "source_name": "landingairn_lag",
+            "ticks": 15
+          },
+          "max_jumps": {
+            "kind": "i32_ticks",
+            "offset": 88,
+            "raw": 2,
+            "source_name": "max_jumps",
+            "ticks": 2
+          },
+          "max_run_brake_frames": {
+            "kind": "f32_ticks",
+            "offset": 48,
+            "raw": 30.0,
+            "source_name": "max_run_brake_frames",
+            "ticks": 30
+          },
+          "mid_walk_threshold": {
+            "kind": "source_f32",
+            "offset": 16,
+            "raw": 0.40700000524520874,
+            "source_name": "mid_walk_threshold"
+          },
+          "model_scaling": {
+            "kind": "source_f32",
+            "offset": 140,
+            "raw": 0.9700000286102296,
+            "source_name": "model_scaling"
+          },
+          "normal_landing_lag": {
+            "kind": "f32_ticks",
+            "offset": 228,
+            "raw": 4.0,
+            "source_name": "normal_landing_lag",
+            "ticks": 4
+          },
+          "run_animation_scaling": {
+            "kind": "source_f32",
+            "offset": 44,
+            "raw": 2.3299999237060547,
+            "source_name": "run_animation_scaling"
+          },
+          "slow_walk_max_velocity": {
+            "kind": "source_f32",
+            "offset": 12,
+            "raw": 0.16500000655651093,
+            "source_name": "slow_walk_max_velocity"
+          },
+          "terminal_vel": {
+            "kind": "source_f32",
+            "offset": 96,
+            "raw": 2.9000000953674316,
+            "source_name": "terminal_vel"
+          },
+          "walk_accel": {
+            "kind": "source_f32",
+            "offset": 4,
+            "raw": 0.10000000149011612,
+            "source_name": "walk_accel"
+          },
+          "walk_initial_velocity": {
+            "kind": "source_f32",
+            "offset": 0,
+            "raw": 0.15000000596046448,
+            "source_name": "walk_initial_velocity"
+          },
+          "walk_max_vel": {
+            "kind": "source_f32",
+            "offset": 8,
+            "raw": 0.8500000238418579,
+            "source_name": "walk_max_vel"
+          },
+          "weight": {
+            "kind": "source_f32",
+            "offset": 136,
+            "raw": 104.0,
+            "source_name": "weight"
+          }
+        },
+        "source": {
+          "file": "resources/melee/raw/PlCa.dat",
+          "format": "HSD DAT, big-endian floats/ints",
+          "ft_data_offset": 39428,
+          "ftco_dat_attrs_len": 388,
+          "ftco_dat_attrs_offset": 14164,
+          "source_character": "captain",
+          "symbol": "ftDataCaptain"
+        }
+      },
+      "path": "resources/melee/extracted/captain_falcon_profile.json",
+      "source_table": "ftData.x0 co_attrs",
       "status": "source_extracted"
     },
     "skeleton": {
@@ -388130,10 +390498,11 @@
         ],
         "source": {
           "file": "resources/melee/raw/PlCaNr.dat",
-          "format": "HSD_Joint preorder tree from Captain Falcon neutral costume DAT",
+          "format": "HSD_Joint preorder tree from captain neutral costume DAT",
           "joint_count": 63,
           "root": "PlyCaptain5K_Share_joint",
-          "root_offset": 128488
+          "root_offset": 128488,
+          "source_character": "captain"
         }
       },
       "path": "resources/melee/extracted/captain_falcon_costume_skeleton.json",
@@ -389233,13 +391602,6 @@
       "source_action_key": "MissFoot",
       "source_action_name": "PlyCaptain5K_Share_ACTION_MissFoot_figatree",
       "state": "MissFoot"
-    },
-    {
-      "action_state_id": 216,
-      "reason": "source action imported but no current Rust MotionState binding exists",
-      "source_action_key": "CliffCatch",
-      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
-      "state": "CliffCatch"
     },
     {
       "action_state_id": 217,

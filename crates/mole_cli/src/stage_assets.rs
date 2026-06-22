@@ -30,7 +30,14 @@ const COLL_LINE_FLOOR: u16 = 0x1;
 const COLL_LINE_CEILING: u16 = 0x2;
 const COLL_LINE_RIGHT_WALL: u16 = 0x4;
 const COLL_LINE_LEFT_WALL: u16 = 0x8;
-const COLL_LINE_SOFT_FLOOR: u16 = 0x100;
+const COLL_LINE_KIND_MASK: u16 = 0x000F;
+const COLL_LINE_EMPTY: u16 = 0x0080;
+const COLL_LINE_PLATFORM: u16 = 0x0100;
+const COLL_LINE_SOFT_FLOOR: u16 = COLL_LINE_PLATFORM;
+const COLL_LINE_LEDGE: u16 = 0x0200;
+const COLL_LINE_ENABLED: u32 = 0x0001_0000;
+const COLL_LINE_HIDDEN: u32 = 0x0004_0000;
+const HSD_JOBJ_INSTANCE: u32 = 1 << 12;
 const DAT_DATA_BLOCK_BASE: usize = 0x20;
 const GCM_FST_OFFSET_FIELD: u64 = 0x424;
 const GCM_FST_SIZE_FIELD: u64 = 0x428;
@@ -777,6 +784,7 @@ struct ExtractedStageAsset {
     soft_platforms: Vec<ExtractedStageSurface>,
     blast_zones: Option<ExtractedStageBlastZones>,
     spawn_points: Option<Vec<ExtractedStageSpawnPoint>>,
+    respawn_platforms: Option<Vec<ExtractedStageRespawnPlatform>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -903,6 +911,18 @@ struct ExtractedStageMapHead {
     internal_count: i32,
     entries: Vec<ExtractedStageMapHeadEntry>,
     joints: Vec<ExtractedStageMapHeadJoint>,
+    #[serde(default)]
+    point_mappings: Vec<ExtractedStageMapHeadPointMapping>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageMapHeadPointMapping {
+    tree_index: u16,
+    stage_info_index: u16,
+    joint_index: Option<u16>,
+    source_position: ExtractedStageVec3,
+    scaled_x: i32,
+    scaled_y: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -977,6 +997,18 @@ struct ExtractedStageSpawnPoint {
     x: i32,
     y: i32,
     facing: i8,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtractedStageRespawnPlatform {
+    platform_index: u16,
+    stage_point_index: u16,
+    final_x: i32,
+    final_y: i32,
+    top_y: i32,
+    facing: i8,
+    offset_x: i32,
+    offset_y: i32,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -1061,6 +1093,10 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
         .spawn_points
         .as_ref()
         .ok_or_else(|| "Battlefield engine blob requires spawn_points".to_string())?;
+    let respawn_platforms = stage
+        .respawn_platforms
+        .as_ref()
+        .ok_or_else(|| "Battlefield engine blob requires respawn_platforms".to_string())?;
     let map_head = stage
         .map_head_object_tree
         .as_ref()
@@ -1080,11 +1116,12 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
     );
     text.push_str("    StageLedgeSide, StageMapHeadEntry,\n");
     text.push_str(
-        "    StageMapHeadJoint, StageMapHeadProfile, StageObjectCallbacks, StageSource,\n",
+        "    StageMapHeadJoint, StageMapHeadPointMapping, StageMapHeadProfile, StageObjectCallbacks,\n",
     );
     text.push_str(
-        "    StageSpawnMapping, StageSpawnPoint, StageSurface, StageSurfaceKind, StageVec3,\n",
+        "    StageRespawnPlatform, StageSource, StageSpawnMapping, StageSpawnPoint, StageSurface,\n",
     );
+    text.push_str("    StageSurfaceKind, StageVec3,\n");
     text.push_str("};\n\n");
 
     writeln!(
@@ -1170,6 +1207,11 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
     writeln!(text, "        internal_count: {},", map_head.internal_count).unwrap();
     writeln!(text, "        entries: &BATTLEFIELD_MAP_HEAD_ENTRIES,").unwrap();
     writeln!(text, "        joints: &BATTLEFIELD_MAP_HEAD_JOINTS,").unwrap();
+    writeln!(
+        text,
+        "        point_mappings: &BATTLEFIELD_MAP_HEAD_POINT_MAPPINGS,"
+    )
+    .unwrap();
     writeln!(text, "    }},").unwrap();
     writeln!(text, "    callbacks: StageCallbackProfile {{").unwrap();
     writeln!(
@@ -1272,6 +1314,39 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
             .unwrap();
         } else {
             writeln!(text, "        StageSpawnPoint {{ x: 0, y: 0, facing: 1 }},").unwrap();
+        }
+    }
+    writeln!(text, "    ],").unwrap();
+    writeln!(text, "    respawn_platforms: [").unwrap();
+    for index in 0..4 {
+        if let Some(platform) = respawn_platforms.get(index) {
+            writeln!(text, "        StageRespawnPlatform {{").unwrap();
+            writeln!(
+                text,
+                "            platform_index: {},",
+                platform.platform_index
+            )
+            .unwrap();
+            writeln!(
+                text,
+                "            stage_point_index: {},",
+                platform.stage_point_index
+            )
+            .unwrap();
+            writeln!(text, "            final_x: {},", platform.final_x).unwrap();
+            writeln!(text, "            final_y: {},", platform.final_y).unwrap();
+            writeln!(text, "            top_y: {},", platform.top_y).unwrap();
+            writeln!(text, "            facing: {},", platform.facing).unwrap();
+            writeln!(text, "            offset_x: {},", platform.offset_x).unwrap();
+            writeln!(text, "            offset_y: {},", platform.offset_y).unwrap();
+            writeln!(text, "        }},").unwrap();
+        } else {
+            writeln!(
+                text,
+                "        StageRespawnPlatform {{ platform_index: {}, stage_point_index: {}, final_x: 0, final_y: 0, top_y: 0, facing: 1, offset_x: 0, offset_y: 0 }},",
+                index, index + 4
+            )
+            .unwrap();
         }
     }
     writeln!(text, "    ],").unwrap();
@@ -1384,6 +1459,39 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
         writeln!(text, "        top_bound_milli: {},", joint.bounds.top).unwrap();
         writeln!(text, "        vtx_start: {},", joint.vtx_start).unwrap();
         writeln!(text, "        vtx_count: {},", joint.vtx_count).unwrap();
+        writeln!(text, "    }},").unwrap();
+    }
+    writeln!(text, "];").unwrap();
+
+    writeln!(
+        text,
+        "\nconst BATTLEFIELD_MAP_HEAD_POINT_MAPPINGS: [StageMapHeadPointMapping; {}] = [",
+        map_head.point_mappings.len()
+    )
+    .unwrap();
+    for mapping in &map_head.point_mappings {
+        writeln!(text, "    StageMapHeadPointMapping {{").unwrap();
+        writeln!(text, "        tree_index: {},", mapping.tree_index).unwrap();
+        writeln!(
+            text,
+            "        stage_info_index: {},",
+            mapping.stage_info_index
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        joint_index: {},",
+            rust_option_u16(mapping.joint_index)
+        )
+        .unwrap();
+        writeln!(
+            text,
+            "        source_position: {},",
+            stage_vec3_literal(&mapping.source_position)?
+        )
+        .unwrap();
+        writeln!(text, "        scaled_x: {},", mapping.scaled_x).unwrap();
+        writeln!(text, "        scaled_y: {},", mapping.scaled_y).unwrap();
         writeln!(text, "    }},").unwrap();
     }
     writeln!(text, "];").unwrap();
@@ -1840,6 +1948,15 @@ struct MapHeadScene {
     internal_count: i32,
     entries: Vec<MapHeadModelGroup>,
     joints: Vec<MapHeadNode>,
+    point_mappings: Vec<MapHeadPointMapping>,
+}
+
+#[derive(Debug, Clone)]
+struct MapHeadPointMapping {
+    tree_index: u16,
+    stage_info_index: u16,
+    joint_index: Option<usize>,
+    source_position: StageVec3Metadata,
 }
 
 #[derive(Debug, Clone)]
@@ -1879,6 +1996,18 @@ struct MapHeadNode {
     position_z: f32,
     mtx_offset: u32,
     robjdesc_offset: u32,
+}
+
+#[derive(Debug, Clone)]
+struct StageRespawnPlatformMetadata {
+    platform_index: u16,
+    stage_point_index: u16,
+    final_x: i32,
+    final_y: i32,
+    top_y: i32,
+    facing: i8,
+    offset_x: i32,
+    offset_y: i32,
 }
 
 fn resolve_stage_input(
@@ -2233,7 +2362,8 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         .unwrap_or(1.0);
     let coll = parse_map_coll_data(dat, &roots, coll_offset)?;
     let vertices = parse_vertices(dat, &roots, &coll, scale)?;
-    let lines = parse_lines(dat, &roots, &coll)?;
+    let mut lines = parse_lines(dat, &roots, &coll)?;
+    apply_mp_lib_load_empty_line_prune(&mut lines, &vertices);
     let joints = parse_joints(dat, &roots, &coll, scale)?;
     let mut surfaces = derive_surfaces(&lines, &vertices, &coll);
     canonicalize_stage_surfaces(&stage.stage_id, &mut surfaces);
@@ -2248,6 +2378,9 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         .and_then(|scene| derive_stage_bounds_from_map_head(scene, scale));
     let camera =
         parse_stage_camera_metadata(dat, &roots, ground_param_offset, stage_bounds.as_ref())?;
+    let respawn_platforms = map_head_object_tree
+        .as_ref()
+        .and_then(|scene| derive_respawn_platforms_from_map_head(scene, scale, &camera));
     let source_blast_zones =
         stage_bounds
             .as_ref()
@@ -2274,9 +2407,12 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         .filter(|surface| surface.kind == "soft")
         .cloned()
         .collect::<Vec<_>>();
-    let mut pending_stage_layers = vec!["map_plit_spawn_points", "itemdata"];
+    let mut pending_stage_layers = vec!["itemdata"];
     if map_head_object_tree.is_none() {
         pending_stage_layers.insert(0, "map_head_object_tree");
+    }
+    if respawn_platforms.is_none() {
+        pending_stage_layers.push("stage_info_x280_respawn_platforms");
     }
     if stage_bounds.is_none() {
         pending_stage_layers.push("camera_bounds");
@@ -2305,14 +2441,16 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
                 ".research/doldecomp-melee/src/melee/mp/types.h::MapCollData",
                 ".research/doldecomp-melee/src/melee/mp/types.h::MapLine",
                 ".research/doldecomp-melee/src/melee/mp/types.h::MapJoint",
+                ".research/doldecomp-melee/src/melee/mp/mplib.c::mpPruneEmptyLines",
                 ".research/doldecomp-melee/src/melee/mp/mplib.c::mpLibLoad"
             ],
-            "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498."
+            "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498. Collision lines are baked after mpPruneEmptyLines topology/LINE_FLAG_EMPTY mutation."
         },
         "collision": {
             "source_root": "coll_data",
             "coll_data_offset": coll_offset,
             "scale": scale,
+            "line_flag_refs": line_flag_refs_to_json(),
             "vertex_count": coll.vert_count,
             "line_count": coll.line_count,
             "joint_count": coll.joint_count,
@@ -2334,15 +2472,17 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
             "lines": lines.iter().enumerate().map(|(index, line)| line_to_json(index, line, &vertices, &coll)).collect::<Vec<_>>(),
             "joints": joints.iter().enumerate().map(|(index, joint)| joint_to_json(index, joint, scale)).collect::<Vec<_>>(),
         },
-        "ledges": ledges.iter().enumerate().map(|(index, ledge)| json!({
-            "index": index,
+        "ledges": ledges.iter().map(|ledge| json!({
+            "index": ledge.line_index,
             "line_index": ledge.line_index,
             "side": ledge.side,
             "x_milli": ledge.x_milli,
             "y_milli": ledge.y_milli,
             "source": {
                 "root": "coll_data",
-                "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+                "line_flag": "LINE_FLAG_LEDGE",
+                "lo_flag_mask": COLL_LINE_LEDGE,
+                "rule": "mpLib_80051BA8_Floor returns the LINE_FLAG_LEDGE floor line id; side-specific endpoint comes from mpColl_80044164/800443C4"
             }
         })).collect::<Vec<_>>(),
         "dynamic_collision": {
@@ -2354,7 +2494,7 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         },
         "map_head_object_tree": map_head_object_tree
             .as_ref()
-            .map(|groups| map_head_object_tree_to_json(groups)),
+            .map(|groups| map_head_object_tree_to_json(groups, scale)),
         "camera": stage_camera_metadata_to_json(&camera),
         "source_blast_zones": stage_float_bounds_to_json(&source_blast_zones),
         "callbacks": stage_callback_metadata_to_json(&callbacks),
@@ -2372,6 +2512,9 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
         } else {
             None
         },
+        "respawn_platforms": respawn_platforms
+            .as_ref()
+            .map(|platforms| platforms.iter().map(respawn_platform_to_json).collect::<Vec<_>>()),
         "pending_stage_layers": pending_stage_layers,
     }))
 }
@@ -2571,6 +2714,45 @@ fn parse_lines(dat: &[u8], roots: &DatRoots, coll: &MapCollData) -> Result<Vec<M
         });
     }
     Ok(lines)
+}
+
+fn apply_mp_lib_load_empty_line_prune(lines: &mut [MapLine], vertices: &[CollVertex]) {
+    for index in 0..lines.len() {
+        let Some(v0) = vertices.get(lines[index].v0_idx as usize) else {
+            continue;
+        };
+        let Some(v1) = vertices.get(lines[index].v1_idx as usize) else {
+            continue;
+        };
+        if v0.source_x != v1.source_x || v0.source_y != v1.source_y {
+            continue;
+        }
+
+        let empty_line_id = index as i16;
+        let prev_id0 = lines[index].prev_id0;
+        let next_id0 = lines[index].next_id0;
+        for line in lines.iter_mut() {
+            if line.prev_id0 == empty_line_id {
+                line.prev_id0 = prev_id0;
+            }
+            if line.next_id0 == empty_line_id {
+                line.next_id0 = next_id0;
+            }
+            if line.prev_id1 == empty_line_id {
+                line.prev_id1 = prev_id0;
+            }
+            if line.next_id1 == empty_line_id {
+                line.next_id1 = next_id0;
+            }
+        }
+
+        let line = &mut lines[index];
+        line.hi_flags |= COLL_LINE_EMPTY;
+        line.prev_id0 = -1;
+        line.next_id0 = -1;
+        line.prev_id1 = -1;
+        line.next_id1 = -1;
+    }
 }
 
 fn parse_joints(
@@ -2844,7 +3026,7 @@ fn parse_map_head_object_tree(
             });
         }
     }
-    Ok(Some(MapHeadScene {
+    let mut scene = MapHeadScene {
         stage_dat_offset: map_head_offset,
         unk0_offset,
         unk4,
@@ -2860,7 +3042,170 @@ fn parse_map_head_object_tree(
         internal_count,
         entries,
         joints,
-    }))
+        point_mappings: Vec::new(),
+    };
+    scene.point_mappings =
+        parse_map_head_point_mappings(dat, roots, unk0_offset, unk4, &joint_indices, &scene)?;
+
+    Ok(Some(scene))
+}
+
+fn parse_map_head_point_mappings(
+    dat: &[u8],
+    roots: &DatRoots,
+    table_offset: u32,
+    table_count: i32,
+    joint_indices: &BTreeMap<u32, usize>,
+    scene: &MapHeadScene,
+) -> Result<Vec<MapHeadPointMapping>, String> {
+    if table_count <= 0 || !is_data_offset_in_range(roots.data_block_size, table_offset, 0x0C) {
+        return Ok(Vec::new());
+    }
+
+    let world_positions = map_head_world_positions(scene);
+    let mut mappings = Vec::new();
+    for record_index in 0..table_count as usize {
+        let record_offset = table_offset as usize + record_index * 0x0C;
+        if record_offset + 0x0C > roots.data_block_size {
+            break;
+        }
+        let joint_offset = read_data_u32(
+            dat,
+            roots.data_block_size,
+            record_offset,
+            "map_head.unk0.joint",
+        )?;
+        let pair_offset = read_data_u32(
+            dat,
+            roots.data_block_size,
+            record_offset + 4,
+            "map_head.unk0.pairs",
+        )?;
+        let pair_count = read_data_i32(
+            dat,
+            roots.data_block_size,
+            record_offset + 8,
+            "map_head.unk0.pair_count",
+        )?;
+        if pair_count <= 0 || !is_data_offset_in_range(roots.data_block_size, pair_offset, 4) {
+            continue;
+        }
+        let Some(root_index) = joint_indices.get(&joint_offset).copied() else {
+            continue;
+        };
+        let tree_walk = map_head_ground_801c34ac_tree_walk(scene, root_index);
+        for pair_index in 0..pair_count as usize {
+            let pair_data_offset = pair_offset as usize + pair_index * 4;
+            if pair_data_offset + 4 > roots.data_block_size {
+                break;
+            }
+            let tree_index = read_data_i16(
+                dat,
+                roots.data_block_size,
+                pair_data_offset,
+                "map_head.unk0.pair.tree_index",
+            )?;
+            let stage_info_index = read_data_i16(
+                dat,
+                roots.data_block_size,
+                pair_data_offset + 2,
+                "map_head.unk0.pair.stage_info_index",
+            )?;
+            if tree_index < 0 || stage_info_index < 0 {
+                continue;
+            }
+            let joint_index = tree_walk.get(tree_index as usize).copied();
+            let source_position = joint_index
+                .and_then(|index| world_positions.get(index).copied())
+                .unwrap_or(StageVec3Metadata {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                });
+            mappings.push(MapHeadPointMapping {
+                tree_index: tree_index as u16,
+                stage_info_index: stage_info_index as u16,
+                joint_index,
+                source_position,
+            });
+        }
+    }
+    Ok(mappings)
+}
+
+fn map_head_ground_801c34ac_tree_walk(scene: &MapHeadScene, root_index: usize) -> Vec<usize> {
+    let parents = map_head_parent_indices(scene);
+    let mut result = Vec::new();
+    let mut current = Some(root_index);
+    while let Some(index) = current {
+        if scene.joints.get(index).is_none() || result.contains(&index) {
+            break;
+        }
+        result.push(index);
+        current = map_head_ground_801c34ac_next(scene, &parents, index);
+    }
+    result
+}
+
+fn map_head_parent_indices(scene: &MapHeadScene) -> Vec<Option<usize>> {
+    let mut parents = vec![None; scene.joints.len()];
+    let mut visited = vec![false; scene.joints.len()];
+    for entry in &scene.entries {
+        if let Some(root) = entry.joint_root_index {
+            map_head_parent_indices_walk(scene, root, None, &mut parents, &mut visited);
+        }
+    }
+    parents
+}
+
+fn map_head_parent_indices_walk(
+    scene: &MapHeadScene,
+    index: usize,
+    parent: Option<usize>,
+    parents: &mut [Option<usize>],
+    visited: &mut [bool],
+) {
+    if visited.get(index).copied().unwrap_or(true) {
+        return;
+    }
+    visited[index] = true;
+    if let Some(slot) = parents.get_mut(index) {
+        *slot = parent;
+    }
+    let Some(node) = scene.joints.get(index) else {
+        return;
+    };
+    if let Some(child) = node.child_index {
+        map_head_parent_indices_walk(scene, child, Some(index), parents, visited);
+    }
+    if let Some(next) = node.next_index {
+        map_head_parent_indices_walk(scene, next, parent, parents, visited);
+    }
+}
+
+fn map_head_ground_801c34ac_next(
+    scene: &MapHeadScene,
+    parents: &[Option<usize>],
+    index: usize,
+) -> Option<usize> {
+    let node = scene.joints.get(index)?;
+    if node.flags & HSD_JOBJ_INSTANCE == 0 {
+        if let Some(child) = node.child_index {
+            return Some(child);
+        }
+    }
+    if let Some(next) = node.next_index {
+        return Some(next);
+    }
+
+    let mut current = index;
+    loop {
+        let parent = parents.get(current).copied().flatten()?;
+        if let Some(next) = scene.joints.get(parent).and_then(|node| node.next_index) {
+            return Some(next);
+        }
+        current = parent;
+    }
 }
 
 fn parse_map_head_joint_index(
@@ -3076,7 +3421,10 @@ fn derive_ledges(
 ) -> Vec<DerivedLedge> {
     let mut ledges = Vec::new();
     for (index, line) in lines.iter().enumerate() {
-        if line_kind(index, line, coll) != "floor" || (line.lo_flags & COLL_LINE_SOFT_FLOOR) != 0 {
+        if line_kind(index, line, coll) != "floor"
+            || (line.lo_flags & COLL_LINE_SOFT_FLOOR) != 0
+            || (line.lo_flags & COLL_LINE_LEDGE) == 0
+        {
             continue;
         }
         let Some(v0) = vertices.get(line.v0_idx as usize) else {
@@ -3154,11 +3502,48 @@ fn line_to_json(
         "next_id1": line.next_id1,
         "hi_flags": line.hi_flags,
         "lo_flags": line.lo_flags,
+        "source_flags": line_flags_to_json(index, line, coll),
         "passable": (line.lo_flags & COLL_LINE_SOFT_FLOOR) != 0,
         "x0": v0.map(|vertex| vertex.x),
         "y0": v0.map(|vertex| vertex.y),
         "x1": v1.map(|vertex| vertex.x),
         "y1": v1.map(|vertex| vertex.y),
+    })
+}
+
+fn line_flag_refs_to_json() -> Value {
+    json!({
+        "source": ".research/doldecomp-melee/src/melee/mp/forward.h",
+        "hi_flags": {
+            "LINE_FLAG_KIND": COLL_LINE_KIND_MASK,
+            "LINE_FLAG_EMPTY": COLL_LINE_EMPTY
+        },
+        "lo_flags": {
+            "LINE_FLAG_PLATFORM": COLL_LINE_PLATFORM,
+            "LINE_FLAG_LEDGE": COLL_LINE_LEDGE
+        },
+        "runtime_flags": {
+            "LINE_FLAG_ENABLED": COLL_LINE_ENABLED,
+            "LINE_FLAG_HIDDEN": COLL_LINE_HIDDEN,
+            "mpLibLoad": "CollLine.flags = MapLine.hi_flags | LINE_FLAG_ENABLED; MapLine.lo_flags stays source data"
+        }
+    })
+}
+
+fn line_flags_to_json(index: usize, line: &MapLine, coll: &MapCollData) -> Value {
+    let enabled_after_mp_lib_load = line_kind(index, line, coll) != "unknown";
+    let runtime_flags = if enabled_after_mp_lib_load {
+        u32::from(line.hi_flags) | COLL_LINE_ENABLED
+    } else {
+        u32::from(line.hi_flags)
+    };
+    json!({
+        "kind_mask": line.hi_flags & COLL_LINE_KIND_MASK,
+        "empty": (line.hi_flags & COLL_LINE_EMPTY) != 0,
+        "platform": (line.lo_flags & COLL_LINE_PLATFORM) != 0,
+        "ledge": (line.lo_flags & COLL_LINE_LEDGE) != 0,
+        "enabled_after_mpLibLoad": enabled_after_mp_lib_load,
+        "runtime_flags_after_mpLibLoad": runtime_flags
     })
 }
 
@@ -3192,7 +3577,59 @@ fn joint_to_json(index: usize, joint: &MapJoint, scale: f32) -> Value {
     })
 }
 
-fn map_head_object_tree_to_json(scene: &MapHeadScene) -> Value {
+fn derive_respawn_platforms_from_map_head(
+    scene: &MapHeadScene,
+    scale: f32,
+    camera: &StageCameraMetadata,
+) -> Option<Vec<StageRespawnPlatformMetadata>> {
+    let top_y = source_units_to_milli(camera.cam_bounds.top + camera.cam_y_offset);
+    let mut platforms = Vec::new();
+    for platform_index in 0..4 {
+        let stage_point_index = platform_index + 4;
+        let mapping = scene
+            .point_mappings
+            .iter()
+            .find(|mapping| mapping.stage_info_index == stage_point_index as u16)?;
+        let final_x = source_units_to_milli(mapping.source_position.x * scale);
+        let final_y = source_units_to_milli(mapping.source_position.y * scale);
+        platforms.push(StageRespawnPlatformMetadata {
+            platform_index: platform_index as u16,
+            stage_point_index: stage_point_index as u16,
+            final_x,
+            final_y,
+            top_y,
+            facing: if final_x >= 0 { -1 } else { 1 },
+            offset_x: 0,
+            offset_y: 0,
+        });
+    }
+    Some(platforms)
+}
+
+fn respawn_platform_to_json(platform: &StageRespawnPlatformMetadata) -> Value {
+    json!({
+        "platform_index": platform.platform_index,
+        "stage_point_index": platform.stage_point_index,
+        "final_x": platform.final_x,
+        "final_y": platform.final_y,
+        "top_y": platform.top_y,
+        "facing": platform.facing,
+        "offset_x": platform.offset_x,
+        "offset_y": platform.offset_y,
+        "source": {
+            "decomp": [
+                ".research/doldecomp-melee/src/melee/gm/gm_1601.c::fn_8016719C",
+                ".research/doldecomp-melee/src/melee/ft/ft_0D4D.c::ftCo_800D4FF4",
+                ".research/doldecomp-melee/src/melee/gr/stage.c::Stage_80224E38",
+                ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
+                ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C2D24"
+            ],
+            "rule": "normal-stage Rebirth platform uses stage_info.x280[platform_index + 4] with camera top y as the spawn start and the mapped JObj world y as the Rebirth target"
+        }
+    })
+}
+
+fn map_head_object_tree_to_json(scene: &MapHeadScene, scale: f32) -> Value {
     json!({
         "source_root": "map_head",
         "stage_dat_offset": scene.stage_dat_offset,
@@ -3226,8 +3663,21 @@ fn map_head_object_tree_to_json(scene: &MapHeadScene) -> Value {
             "x30": entry.x30,
         })).collect::<Vec<_>>(),
         "joints": scene.joints.iter().map(map_head_node_to_json).collect::<Vec<_>>(),
+        "point_mappings": scene.point_mappings.iter().map(|mapping| json!({
+            "tree_index": mapping.tree_index,
+            "stage_info_index": mapping.stage_info_index,
+            "joint_index": mapping.joint_index,
+            "source_position": {
+                "x": mapping.source_position.x,
+                "y": mapping.source_position.y,
+                "z": mapping.source_position.z,
+            },
+            "scaled_x": source_units_to_milli(mapping.source_position.x * scale),
+            "scaled_y": source_units_to_milli(mapping.source_position.y * scale),
+        })).collect::<Vec<_>>(),
         "struct_refs": [
             ".research/doldecomp-melee/src/melee/gr/grdatfiles.c::grDatFiles_801C6038",
+            ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
             ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat",
             ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat_x8_t",
             ".research/doldecomp-melee/src/sysdolphin/baselib/jobj.h::HSD_Joint",
@@ -4207,5 +4657,66 @@ fn surface_kind_label(kind: StageSurfaceKind) -> &'static str {
     match kind {
         StageSurfaceKind::Solid => "solid",
         StageSurfaceKind::Soft => "soft",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_coll_data(floor_count: i16) -> MapCollData {
+        MapCollData {
+            verts_offset: 0,
+            vert_count: 2,
+            lines_offset: 0,
+            line_count: floor_count.max(0) as usize,
+            floor_start: 0,
+            floor_count,
+            ceiling_start: -1,
+            ceiling_count: 0,
+            right_wall_start: -1,
+            right_wall_count: 0,
+            left_wall_start: -1,
+            left_wall_count: 0,
+            dynamic_start: -1,
+            dynamic_count: 0,
+            joints_offset: 0,
+            joint_count: 0,
+            x2c: 0,
+        }
+    }
+
+    fn floor_line(lo_flags: u16) -> MapLine {
+        MapLine {
+            v0_idx: 0,
+            v1_idx: 1,
+            prev_id0: -1,
+            next_id0: -1,
+            prev_id1: -1,
+            next_id1: -1,
+            hi_flags: COLL_LINE_FLOOR,
+            lo_flags,
+        }
+    }
+
+    #[test]
+    fn derive_ledges_requires_source_line_ledge_flag() {
+        let vertices = vec![
+            CollVertex {
+                source_x: -10.0,
+                source_y: 0.0,
+                x: -10_000,
+                y: 0,
+            },
+            CollVertex {
+                source_x: 10.0,
+                source_y: 0.0,
+                x: 10_000,
+                y: 0,
+            },
+        ];
+        let coll = test_coll_data(1);
+
+        assert!(derive_ledges(&[floor_line(0)], &vertices, &coll).is_empty());
     }
 }

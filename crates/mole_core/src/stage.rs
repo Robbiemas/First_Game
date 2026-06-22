@@ -34,6 +34,18 @@ pub struct StageSpawnPoint {
     pub facing: i8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageRespawnPlatform {
+    pub platform_index: u16,
+    pub stage_point_index: u16,
+    pub final_x: i32,
+    pub final_y: i32,
+    pub top_y: i32,
+    pub facing: i8,
+    pub offset_x: i32,
+    pub offset_y: i32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StageProfile {
     pub name: &'static str,
@@ -42,6 +54,7 @@ pub struct StageProfile {
     pub ledges: &'static [StageLedge],
     pub blast_zones: StageBlastZones,
     pub spawn_points: [StageSpawnPoint; 4],
+    pub respawn_platforms: [StageRespawnPlatform; 4],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +80,7 @@ pub struct MeleeStageProfile {
     pub soft_platforms: [StageSurface; 3],
     pub blast_zones: StageBlastZones,
     pub spawn_points: [StageSpawnPoint; 4],
+    pub respawn_platforms: [StageRespawnPlatform; 4],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -189,6 +203,17 @@ pub struct StageMapHeadProfile {
     pub internal_count: i32,
     pub entries: &'static [StageMapHeadEntry],
     pub joints: &'static [StageMapHeadJoint],
+    pub point_mappings: &'static [StageMapHeadPointMapping],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StageMapHeadPointMapping {
+    pub tree_index: u16,
+    pub stage_info_index: u16,
+    pub joint_index: Option<u16>,
+    pub source_position: StageVec3,
+    pub scaled_x: i32,
+    pub scaled_y: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +274,9 @@ pub enum StageCollisionLineKind {
     Dynamic,
 }
 
+pub const STAGE_LINE_FLAG_PLATFORM: u16 = 0x0100;
+pub const STAGE_LINE_FLAG_LEDGE: u16 = 0x0200;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StageCollisionLine {
     pub index: u16,
@@ -262,6 +290,12 @@ pub struct StageCollisionLine {
     pub next_id1: i16,
     pub hi_flags: u16,
     pub lo_flags: u16,
+}
+
+impl StageCollisionLine {
+    pub const fn has_ledge_flag(self) -> bool {
+        self.lo_flags & STAGE_LINE_FLAG_LEDGE != 0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -370,6 +404,16 @@ impl StageProfile {
                     facing: -1,
                 },
             ],
+            respawn_platforms: [StageRespawnPlatform {
+                platform_index: 0,
+                stage_point_index: 0,
+                final_x: 0,
+                final_y: 0,
+                top_y: melee_units_f32(200.0),
+                facing: 1,
+                offset_x: 0,
+                offset_y: 0,
+            }; 4],
         }
     }
 
@@ -394,6 +438,7 @@ impl MeleeStageProfile {
             ledges: self.ledges,
             blast_zones: self.blast_zones,
             spawn_points: self.spawn_points,
+            respawn_platforms: self.respawn_platforms,
         }
     }
 }

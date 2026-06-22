@@ -122,6 +122,42 @@
           "comparison_value_kind": "source_f32",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_ground_knockback_friction_multiplier",
+          "source_name": "x200",
+          "offset": 512,
+          "offset_hex": "0x200",
+          "kind": "source_f32",
+          "raw": 1.0,
+          "converted_value": 1.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_knockback_frame_decay",
+          "source_name": "x204_knockbackFrameDecay",
+          "offset": 516,
+          "offset_hex": "0x204",
+          "kind": "source_f32",
+          "raw": 0.05099999904632568,
+          "converted_value": 0.05099999904632568,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "throw_knockback_weight",
+          "source_name": "x10C",
+          "offset": 268,
+          "offset_hex": "0x10c",
+          "kind": "source_f32",
+          "raw": 100.0,
+          "converted_value": 100.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
         }
       ]
     },
@@ -254,6 +290,54 @@
           "comparison_value_kind": "source_f32",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_fly_top_angle_min_radians",
+          "source_name": "x234",
+          "offset": 564,
+          "offset_hex": "0x234",
+          "kind": "source_f32",
+          "raw": 1.2217304706573486,
+          "converted_value": 1.2217304706573486,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_fly_top_angle_max_radians",
+          "source_name": "x238",
+          "offset": 568,
+          "offset_hex": "0x238",
+          "kind": "source_f32",
+          "raw": 1.919862151145935,
+          "converted_value": 1.919862151145935,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_fly_top_random_chance",
+          "source_name": "x240",
+          "offset": 576,
+          "offset_hex": "0x240",
+          "kind": "source_f32",
+          "raw": 0.30000001192092896,
+          "converted_value": 0.30000001192092896,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "damage_fly_top_random_percent_threshold",
+          "source_name": "x23C",
+          "offset": 572,
+          "offset_hex": "0x23c",
+          "kind": "i32_ticks",
+          "raw": 100,
+          "converted_value": 100,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
         }
       ]
     },
@@ -332,6 +416,78 @@
           "comparison_value_kind": "ticks",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
+        },
+        {
+          "rust_name": "sdi_min_stick_mag",
+          "source_name": "sdi_min_stick_mag",
+          "offset": 1200,
+          "offset_hex": "0x4b0",
+          "kind": "source_f32",
+          "raw": 0.699999988079071,
+          "converted_value": 0.699999988079071,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "sdi_stick_window",
+          "source_name": "sdi_stick_window",
+          "offset": 1204,
+          "offset_hex": "0x4b4",
+          "kind": "i32_ticks",
+          "raw": 4,
+          "converted_value": 4,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "sdi_pos_scale",
+          "source_name": "sdi_pos_scale",
+          "offset": 1208,
+          "offset_hex": "0x4b8",
+          "kind": "source_f32",
+          "raw": 6.0,
+          "converted_value": 6.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "asdi_pos_scale",
+          "source_name": "x4BC",
+          "offset": 1212,
+          "offset_hex": "0x4bc",
+          "kind": "source_f32",
+          "raw": 3.0,
+          "converted_value": 3.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "di_angle_degrees",
+          "source_name": "x1A8",
+          "offset": 424,
+          "offset_hex": "0x1a8",
+          "kind": "source_f32",
+          "raw": 18.0,
+          "converted_value": 18.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "trigger_di_knockback_multiplier",
+          "source_name": "x1AC",
+          "offset": 428,
+          "offset_hex": "0x1ac",
+          "kind": "source_f32",
+          "raw": 1.0,
+          "converted_value": 1.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
         }
       ]
     },
@@ -383,6 +539,18 @@
           "kind": "source_f32",
           "raw": 20.0,
           "converted_value": 20.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "landing_wait_y_velocity_threshold",
+          "source_name": "x310",
+          "offset": 784,
+          "offset_hex": "0x310",
+          "kind": "source_f32",
+          "raw": 1.0,
+          "converted_value": 1.0,
           "comparison_value_kind": "source_f32",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
@@ -540,6 +708,18 @@
           "raw": 0.4000000059604645,
           "converted_value": 0.4000000059604645,
           "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "throw_collision_lockout_ticks",
+          "source_name": "x348",
+          "offset": 840,
+          "offset_hex": "0x348",
+          "kind": "i32_ticks",
+          "raw": 8,
+          "converted_value": 8,
+          "comparison_value_kind": "ticks",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
         }

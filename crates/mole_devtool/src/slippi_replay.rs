@@ -57,6 +57,13 @@ pub struct SlippiReplayRow {
     pub velocity_y_delta: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlippiReplayExportRange {
+    pub first_frame: i32,
+    pub last_frame: i32,
+    pub frame_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct SlippiInputSource {
     replay_path: String,
@@ -64,19 +71,134 @@ struct SlippiInputSource {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct SlippiInputFile {
+    export: SlippiReplayExportRange,
     source: SlippiInputSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlippiRuntimeReplayLaunchPlan {
+    pub input_export_path: PathBuf,
+    pub divergence_log_path: PathBuf,
+    pub frames_to_run: u32,
+}
+
+impl SlippiRuntimeReplayLaunchPlan {
+    pub fn from_input_export(
+        path: impl AsRef<Path>,
+        divergence_log_path: impl AsRef<Path>,
+    ) -> Result<Self, String> {
+        let path = path.as_ref();
+        let text = fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let input_file: SlippiInputFile = serde_json::from_str(&text)
+            .map_err(|error| format!("failed to parse replay input export: {error}"))?;
+        let frames_to_run = (input_file.export.frame_count as u32).max(1);
+        Ok(Self {
+            input_export_path: path.to_path_buf(),
+            divergence_log_path: divergence_log_path.as_ref().to_path_buf(),
+            frames_to_run,
+        })
+    }
+
+    pub fn runtime_args(&self) -> Vec<String> {
+        vec![
+            "--sdl".to_string(),
+            "--visual-slippi-inputs".to_string(),
+            self.input_export_path.display().to_string(),
+            "--frames".to_string(),
+            self.frames_to_run.to_string(),
+            "--slippi-divergence-log".to_string(),
+            self.divergence_log_path.display().to_string(),
+            "--hold-final-frame".to_string(),
+        ]
+    }
+
+    pub fn cargo_args(&self) -> Vec<String> {
+        let mut args = vec![
+            "run".to_string(),
+            "--release".to_string(),
+            "-p".to_string(),
+            "mole_runtime".to_string(),
+            "--features".to_string(),
+            "sdl wup".to_string(),
+            "--".to_string(),
+        ];
+        args.extend(self.runtime_args());
+        args
+    }
 }
 
 impl SlippiReplaySurface {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
-        Self::load_with_options(SlippiReplayLoadOptions {
+        let options = SlippiReplayLoadOptions {
             focus_end: DEFAULT_SOURCE_FRAME_END,
             focus_start: DEFAULT_SOURCE_FRAME_START,
             input_export_path: root
                 .as_ref()
-                .join("debug/slippi/Game_20260530T214929.inputs.json"),
+                .join("debug/slippi/Game_20260530T214929.full.inputs.json"),
             max_frames: Some(DEFAULT_MAX_FRAMES),
             player_number: DEFAULT_PLAYER_INDEX + 1,
+        };
+        if options.input_export_path.exists() {
+            Self::load_metadata_only(options)
+        } else {
+            Self::empty_missing_artifact(options)
+        }
+    }
+
+    pub fn load_metadata_only(options: SlippiReplayLoadOptions) -> Result<Self, String> {
+        if options.player_number == 0 {
+            return Err("player numbers are 1-based and must be greater than zero".to_string());
+        }
+        if options.focus_end < options.focus_start {
+            return Err(format!(
+                "invalid replay trace window: {}..{}",
+                options.focus_start, options.focus_end
+            ));
+        }
+
+        let text = fs::read_to_string(&options.input_export_path).map_err(|error| {
+            format!(
+                "failed to read {}: {error}",
+                options.input_export_path.display()
+            )
+        })?;
+        let input_file: SlippiInputFile = serde_json::from_str(&text)
+            .map_err(|error| format!("failed to parse replay input export: {error}"))?;
+
+        Ok(Self {
+            focus_end: options.focus_end,
+            focus_player_number: options.player_number,
+            focus_start: options.focus_start,
+            input_export_path: options.input_export_path.display().to_string(),
+            replay_path: input_file.source.replay_path,
+            rows: Vec::new(),
+            trace_report_text:
+                "Replay metadata loaded. Press Refresh to compute the comparison trace.".to_string(),
+        })
+    }
+
+    fn empty_missing_artifact(options: SlippiReplayLoadOptions) -> Result<Self, String> {
+        if options.player_number == 0 {
+            return Err("player numbers are 1-based and must be greater than zero".to_string());
+        }
+        if options.focus_end < options.focus_start {
+            return Err(format!(
+                "invalid replay trace window: {}..{}",
+                options.focus_start, options.focus_end
+            ));
+        }
+
+        Ok(Self {
+            focus_end: options.focus_end,
+            focus_player_number: options.player_number,
+            focus_start: options.focus_start,
+            input_export_path: options.input_export_path.display().to_string(),
+            replay_path: "No local Slippi input export loaded".to_string(),
+            rows: Vec::new(),
+            trace_report_text:
+                "No local replay export found. Press Play From Start after exporting replay inputs."
+                    .to_string(),
         })
     }
 
@@ -130,6 +252,17 @@ impl SlippiReplaySurface {
             rows,
             trace_report_text,
         })
+    }
+
+    pub fn export_range_from_path(
+        path: impl AsRef<Path>,
+    ) -> Result<SlippiReplayExportRange, String> {
+        let path = path.as_ref();
+        let text = fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let input_file: SlippiInputFile = serde_json::from_str(&text)
+            .map_err(|error| format!("failed to parse replay input export: {error}"))?;
+        Ok(input_file.export)
     }
 
     pub fn summary(&self) -> String {
@@ -316,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn slippi_replay_loads_the_current_parity_window_trace() {
+    fn slippi_replay_default_load_is_metadata_only_for_fast_startup() {
         let surface = SlippiReplaySurface::load(workspace_root()).unwrap();
         let template = LedgerTabTemplate::from(&surface);
 
@@ -325,34 +458,144 @@ mod tests {
         assert_eq!(surface.focus_end, 768);
         assert_eq!(template.title, "Slippi Replay");
         assert_eq!(template.headers.len(), 13);
-        assert_eq!(template.rows.len(), 9);
-        assert!(surface.trace_report_text.contains("source_frame: 760"));
-        assert_eq!(
-            surface.first_diff_index(),
-            surface.rows.iter().position(|row| row.status == "diff")
-        );
+        assert!(template.rows.is_empty());
+        assert!(surface
+            .trace_report_text
+            .contains("No local replay export found"));
     }
 
     #[test]
     fn slippi_replay_loads_explicit_artifact_player_and_window() {
-        let root = workspace_root();
-        let path = root.join("debug/slippi/Game_20260530T214929.inputs.json");
+        let root = temp_test_dir("slippi_replay_loads_explicit_artifact_player_and_window");
+        let path = root.join("fixture.inputs.json");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, slippi_trace_fixture()).unwrap();
         let surface = SlippiReplaySurface::load_with_options(SlippiReplayLoadOptions {
-            input_export_path: path,
+            input_export_path: path.clone(),
             player_number: 1,
-            focus_start: 760,
-            focus_end: 762,
+            focus_start: -17,
+            focus_end: -16,
             max_frames: Some(3),
         })
         .unwrap();
 
         assert_eq!(surface.focus_player_number, 1);
-        assert_eq!(surface.focus_start, 760);
-        assert_eq!(surface.focus_end, 762);
-        assert_eq!(surface.rows.len(), 3);
+        assert_eq!(surface.focus_start, -17);
+        assert_eq!(surface.focus_end, -16);
+        assert_eq!(surface.rows.len(), 2);
         assert!(surface
             .rows
             .iter()
-            .all(|row| (760..=762).contains(&row.source_frame)));
+            .all(|row| (-17..=-16).contains(&row.source_frame)));
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn slippi_replay_runtime_launch_plan_runs_full_export_and_logs_live_divergence() {
+        let root = temp_test_dir(
+            "slippi_replay_runtime_launch_plan_runs_full_export_and_logs_live_divergence",
+        );
+        let path = root.join("fixture.full.inputs.json");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, slippi_metadata_fixture()).unwrap();
+
+        let log_path = root.join("debug/slippi/runtime-divergence.latest.json");
+        let plan = SlippiRuntimeReplayLaunchPlan::from_input_export(&path, &log_path).unwrap();
+
+        assert_eq!(plan.frames_to_run, 5313);
+        assert!(plan.cargo_args().windows(2).any(|pair| {
+            pair == [
+                "--visual-slippi-inputs".to_string(),
+                path.display().to_string(),
+            ]
+        }));
+        assert!(plan
+            .cargo_args()
+            .windows(2)
+            .any(|pair| pair == ["--frames".to_string(), "5313".to_string()]));
+        assert!(plan.cargo_args().windows(2).any(|pair| {
+            pair == [
+                "--slippi-divergence-log".to_string(),
+                log_path.display().to_string(),
+            ]
+        }));
+        assert!(plan
+            .cargo_args()
+            .contains(&"--hold-final-frame".to_string()));
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "mole_devtool_{name}_{}_{}",
+            std::process::id(),
+            suffix
+        ))
+    }
+
+    fn slippi_metadata_fixture() -> &'static str {
+        r#"{
+          "export": {"first_frame": -123, "last_frame": 5189, "frame_count": 5313},
+          "source": {"replay_path": "fixture.slp"},
+          "frames": []
+        }"#
+    }
+
+    fn slippi_trace_fixture() -> &'static str {
+        r#"{
+          "export": {"first_frame": -18, "last_frame": -16, "frame_count": 3},
+          "source": {"replay_path": "fixture.slp"},
+          "settings": {"players": {}},
+          "frames": [
+            {"frame": -18, "players": {"0": {
+              "pre": {
+                "rust_player_input": {
+                  "stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+                  "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0,
+                  "ucf_dashback_amendment": false
+                }
+              },
+              "post": {
+                "action_state_id": 14,
+                "position": [0.0, 0.0],
+                "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+              }
+            }}},
+            {"frame": -17, "players": {"0": {
+              "pre": {
+                "rust_player_input": {
+                  "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+                  "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+                  "ucf_dashback_amendment": false
+                }
+              },
+              "post": {
+                "action_state_id": 24,
+                "position": [32.2, 27.2],
+                "self_induced_speeds": {"ground_x": -2.14, "air_x": -2.14, "y": 0.0}
+              }
+            }}},
+            {"frame": -16, "players": {"0": {
+              "pre": {
+                "rust_player_input": {
+                  "stick_x": -125, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0,
+                  "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 2048,
+                  "ucf_dashback_amendment": false
+                }
+              },
+              "post": {
+                "action_state_id": 24,
+                "position": [30.22, 27.2],
+                "self_induced_speeds": {"ground_x": -1.98, "air_x": -1.98, "y": 0.0}
+              }
+            }}}
+          ]
+        }"#
     }
 }

@@ -4,19 +4,19 @@ Engine boundary: Rust core remains authoritative. Treat `diff` rows as investiga
 
 ## Global Values
 
-Total: 72 | Match: 72 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
+Total: 95 | Match: 95 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
 
 No non-matching rows.
 
 ## Test Character Values
 
-Total: 40 | Match: 40 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
+Total: 41 | Match: 41 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
 
 No non-matching rows.
 
 ## Global Combat Values
 
-Total: 41 | Match: 41 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
+Total: 56 | Match: 56 | Diff: 0 | Derived: 0 | Missing: 0 | Actionable: 0
 
 No non-matching rows.
 

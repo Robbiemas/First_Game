@@ -279,17 +279,23 @@ fn devtool_surfaces() -> Vec<DevtoolSurfaceSpec> {
             cli_commands: &[
                 "graph missing",
                 "graph next",
+                "graph completeness",
                 "graph inspect",
                 "graph layout",
                 "graph layout save",
+                "generated write-action-motion-tables",
             ],
             gui_section: "StateGraphs",
             source_artifacts: &[
                 "docs/state_graphs/melee_reference_graph.json",
                 "docs/state_graphs/mole_current_graph.json",
+                "docs/state_graphs/action_motion_tables.json",
                 "config/state_graph_layout.json",
             ],
-            outputs: &["docs/state_graphs/mole_current_graph.json"],
+            outputs: &[
+                "docs/state_graphs/mole_current_graph.json",
+                "docs/state_graphs/action_motion_tables.json",
+            ],
         },
         DevtoolSurfaceSpec {
             id: "parity_ledger",
@@ -474,14 +480,17 @@ fn roadmap_tabs() -> Vec<LedgerTabSpec> {
             id: "action_motion_tables",
             label: "Action / Motion Tables",
             kind: LedgerTabKind::Motion,
-            status: LedgerTabStatus::Planned,
+            status: LedgerTabStatus::Active,
             access: LedgerAccess {
-                cli: LedgerSurfaceState::Planned,
-                gui: LedgerSurfaceState::Planned,
+                cli: LedgerSurfaceState::Active,
+                gui: LedgerSurfaceState::Active,
             },
             summary: "Motion-state timing, callbacks, and transition windows.",
-            source_artifacts: &[],
-            outputs: &[],
+            source_artifacts: &[
+                "resources/melee/frame_data/dolphin_mole/source_manifest.json",
+                "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
+            ],
+            outputs: &["docs/state_graphs/action_motion_tables.json"],
         },
         LedgerTabSpec {
             id: "collision_volumes",
@@ -569,7 +578,7 @@ mod tests {
                 .iter()
                 .filter(|tab| tab.status == LedgerTabStatus::Active)
                 .count(),
-            6
+            7
         );
         assert_eq!(
             registry
@@ -577,7 +586,7 @@ mod tests {
                 .iter()
                 .filter(|tab| tab.status == LedgerTabStatus::Planned)
                 .count(),
-            5
+            4
         );
         assert_eq!(
             registry
@@ -610,7 +619,7 @@ mod tests {
         assert!(parsed.is_dual_surface());
         assert_eq!(parsed.tabs[0].id, "global_values");
         assert_eq!(parsed.tabs[0].cli_surface, LedgerSurfaceState::Active);
-        assert_eq!(parsed.tabs[6].status, LedgerTabStatus::Planned);
+        assert_eq!(parsed.tabs[6].status, LedgerTabStatus::Active);
         assert_eq!(parsed.devtool_surfaces[3].id, "input_trace");
         assert!(parsed.devtool_surfaces[3]
             .cli_commands
@@ -631,6 +640,7 @@ mod tests {
                 "global_combat_values",
                 "captain_falcon_combat_values",
                 "stage_values",
+                "action_motion_tables",
             ]
         );
         assert_eq!(registry.devtool_surfaces.len(), 6);

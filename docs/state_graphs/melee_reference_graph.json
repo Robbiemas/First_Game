@@ -25,7 +25,7 @@
       "melee_action_state_id": 324,
       "source_action_table_id": 238,
       "source_action_key": "Entry",
-      "notes": "EntryEnd uses x6C0, optionally calls ftColl_8007B760 with x6C8, then enters normal airborne/fall handling. Runtime pose/capsule coverage shares Captain Falcon action-table slot 238 (`Entry`) with the Entry family.",
+      "notes": "EntryEnd uses x6C0, keeps Entry collision ECB handling active during the accessory/platform collapse, optionally calls ftColl_8007B760 with x6C8, then enters normal airborne/fall handling. Runtime pose/capsule coverage shares Captain Falcon action-table slot 238 (`Entry`) with the Entry family.",
       "source_refs": [
         {
           "label": "Melee EntryEnd source",
@@ -181,7 +181,7 @@
         1
       ],
       "status": "reference",
-      "notes": "Standing/smash turn spine. Turn IASA temporarily flips facing for early action checks, replays x1C latched A/B on the just-turned frame, arms dash-out through fn_800C9C2C, and can be entered by an earlier state input callback before same-frame Turn_Phys. Slippi post/pre timing exposes basic standing-turn dash-out one exported tick after the ordinary animation flip, while Smash Turn and source-hooked dashback can still dash out on the flip tick.",
+      "notes": "Standing/smash turn spine. Turn IASA temporarily flips facing for early action checks, replays x1C latched A/B on the just-turned frame, arms dash-out through fn_800C9C2C, and can be entered by an earlier state input callback before same-frame Turn_Phys. Slippi post/pre timing exposes basic standing-turn dash-out one exported tick after the ordinary animation flip, while Smash Turn and source-hooked dashback can still dash out on the flip tick. Turn_Coll remains the ground-support collision owner for the exported step where Turn IASA enters Dash.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -194,6 +194,11 @@
           "function": "ft_80084F3C"
         },
         {
+          "label": "Melee grounded collision helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80083F88 / ft_80082708"
+        },
+        {
           "label": "Melee fighter update order",
           "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
           "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
@@ -204,7 +209,8 @@
         "ftCo_Turn_IASA flips facing_dir before source action helpers when has_turned is false, then restores it before guard/jump/dash checks.",
         "On the just-turned frame, input.x668 is ORed with mv.co.turn.x1C so latched A/B can be replayed through the normal source action priority.",
         "Fighter_ChangeMotionState updates phys_cb immediately, so a state that enters Turn during IASA receives Turn_Phys later in that same engine frame.",
-        "ftCo_Turn_Phys calls ft_80084F3C: gr_friction is doubled by common x6C when ABS(gr_vel) exceeds walk_max_vel, then staged as xE4_ground_accel_1."
+        "ftCo_Turn_Phys calls ft_80084F3C: gr_friction is doubled by common x6C when ABS(gr_vel) exceeds walk_max_vel, then staged as xE4_ground_accel_1.",
+        "ftCo_Turn_Coll calls ft_80083F88, which delegates to ft_80082708 for source ground-to-air support resolution."
       ]
     },
     {
@@ -244,6 +250,7 @@
         "ftCommon_800804A0 stages mv.co.dash.x0 into xE8_ground_accel_2, applying floor friction multiplier when below 1.0.",
         "ftCo_Dash_Phys consumes mv.co.dash.x0 on the entry physics tick by clearing it; ordinary Dash acceleration does not run until later Dash physics ticks.",
         "After the entry tick, ftCo_Dash_Phys calls getAccelAndTarget and ftCommon_8007C98C, which stages live-stick Dash/Run acceleration or friction into xE4_ground_accel_1.",
+        "ftCo_Dash_Coll calls ft_800844EC/ft_80082708 and mpColl_8004B108; mpColl_8004ACE4 can retain source floor support after ordinary projection fails when the previous collision pass had floor contact.",
         "ftCommon_ApplyGroundMovement converts gr_vel and xE4_ground_accel_1 into self_vel and anim_vel along the floor normal; xE8_ground_accel_2 is not part of same-frame translation.",
         "Fighter_procUpdate commits gr_vel += xE4_ground_accel_1 + xE8_ground_accel_2, then clears both acceleration slots."
       ]
@@ -302,7 +309,7 @@
       "source_action_table_id": 15,
       "source_action_key": "Landing",
       "source_submotion": "ftCo_SM_Kneebend",
-      "notes": "Jump squat. Grounded IASA can enter KneeBend before the same frame's Phys callback, so ftCo_KneeBend_Phys/ft_80084F3C applies grounded friction and writes self_vel/x74_anim_vel through ftCommon_ApplyGroundMovement. On animation completion, ftCo_KneeBend_Anim enters JumpF/JumpB before Phys, so ftCo_Jump_Enter scales the previous grounded self_vel by ground_to_air_jump_momentum_multiplier without a fresh takeoff-frame KneeBend friction tick."
+      "notes": "Jump squat. Grounded IASA can enter KneeBend before the same frame's Phys callback, so ftCo_KneeBend_Phys/ft_80084F3C applies grounded friction and writes self_vel/x74_anim_vel through ftCommon_ApplyGroundMovement. KneeBend_Coll calls ft_80083F88, which delegates to ft_80082708 for source ground support and enters Fall when that support fails. On animation completion, ftCo_KneeBend_Anim enters JumpF/JumpB before Phys, so ftCo_Jump_Enter scales the previous grounded self_vel by ground_to_air_jump_momentum_multiplier without a fresh takeoff-frame KneeBend friction tick."
     },
     {
       "id": "Run",
@@ -572,7 +579,7 @@
         5
       ],
       "status": "reference",
-      "notes": "Airdodge movement state. Action state 44 maps to PlyCaptain5K_Share_ACTION_EscapeAir_figatree in PlCaAJ.dat with a 50-frame FigaTree duration; ECB source points come from ftDataCaptain.x44, the Captain costume HSD joint preorder, sampled FigaTree tracks, and mpColl_LoadECB_JObj reduction.",
+      "notes": "Airdodge movement state. Action state 44 maps to PlyCaptain5K_Share_ACTION_EscapeAir_figatree in PlCaAJ.dat with a 50-frame FigaTree duration; ECB source points come from ftDataCaptain.x44, the Captain costume HSD joint preorder, sampled FigaTree tracks, and mpColl_LoadECB_JObj reduction. ftCo_EscapeAir_Coll calls ft_80082C74, which invokes its callback when ft_80081D0C/mpColl_800471F8 reports source floor collision.",
       "source_refs": [
         {
           "label": "Melee EscapeAir common data",
@@ -849,7 +856,7 @@
       "to": "Fall",
       "label": "x6C0 countdown expires",
       "status": "reference",
-      "notes": "Rust exits to Fall on the x6C0 schedule; the optional x6C8 collision handoff is recorded as a remaining gap.",
+      "notes": "EntryEnd_Anim decrements x6C0, optionally applies ftColl_8007B760 with x6C8, then calls ftCommon_8007D92C to enter Fall or Wait. The Entry collision ECB handoff remains relevant to the first Fall platform-contact frame.",
       "input": "no player IASA",
       "frames": "x6C0 countdown reaches zero"
     },
@@ -1022,6 +1029,42 @@
         "Walk carry remains in gr_vel when ftCo_Dash_CheckInput routes opposite fresh dash input into ftCo_Turn_Enter_Smash.",
         "The same frame uses Turn_Phys/ft_80084F3C, staging gr_friction into xE4 before gr_vel is committed.",
         "The next Turn dash-out frame calls ftCo_Dash_Enter and stages the initial dash delta through xE8."
+      ]
+    },
+    {
+      "from": "Turn",
+      "to": "Dash",
+      "input": "outward dash-threshold stick after Turn dash arm",
+      "frames": "same exported step for Smash/source-hooked turn dash-out; ordinary standing turn dash-out appears after the Slippi post/pre flip boundary",
+      "status": "reference",
+      "notes": "ftCo_Turn_IASA/fn_800C9C2C enters Dash when just_turned and the dash arm conditions are still satisfied. On the exported transition step, the source still resolves ground support through ftCo_Turn_Coll/ft_80083F88; Dash collision ownership begins on the following step. Retained-floor Turn support is a source-collision continuation, not a blanket Turn grounding rule.",
+      "source_refs": [
+        {
+          "label": "Melee Turn dash-out branch",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "fn_800C9C2C / ftCo_Turn_IASA"
+        },
+        {
+          "label": "Melee Turn collision",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Coll"
+        },
+        {
+          "label": "Melee grounded collision helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80083F88 / ft_80082708"
+        },
+        {
+          "label": "Melee Dash entry",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Dash.c",
+          "function": "ftCo_Dash_Enter"
+        }
+      ],
+      "physics": [
+        "Turn IASA can change the public action state to Dash before the exported step completes.",
+        "The same exported step keeps Turn's collision callback as the ground-support owner.",
+        "Retained-floor Turn support depends on the prior source floor-contact path.",
+        "Dash entry seeds the initial dash velocity; Dash collision support starts on the next exported step."
       ]
     },
     {
@@ -1505,7 +1548,8 @@
       "to": "LandingFallSpecial",
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
-      "status": "reference"
+      "status": "reference",
+      "notes": "ftCo_EscapeAir_Coll calls ft_80082C74(gobj, ftCo_80099D70); ftCo_80099D70 enters LandingFallSpecial with p_ftCommonData->x344 landing lag."
     },
     {
       "from": "FallSpecial",

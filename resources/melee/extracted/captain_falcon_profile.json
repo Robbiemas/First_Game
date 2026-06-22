@@ -202,6 +202,12 @@
       "raw": 0.40700000524520874,
       "source_name": "mid_walk_threshold"
     },
+    "model_scaling": {
+      "kind": "source_f32",
+      "offset": 140,
+      "raw": 0.9700000286102295,
+      "source_name": "model_scaling"
+    },
     "normal_landing_lag": {
       "kind": "f32_ticks",
       "offset": 228,

@@ -550,6 +550,19 @@
           "owner_id": "captain_falcon"
         },
         {
+          "rust_name": "model_scaling",
+          "source_name": "model_scaling",
+          "offset": 140,
+          "offset_hex": "0x8c",
+          "kind": "source_f32",
+          "raw": 0.9700000286102296,
+          "converted_value": 0.9700000286102296,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "character",
+          "owner_id": "captain_falcon"
+        },
+        {
           "rust_name": "entry_platform_offset_y",
           "source_name": "trophy_scale*1.497345",
           "offset": 272,

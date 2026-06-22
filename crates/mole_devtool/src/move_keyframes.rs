@@ -1031,11 +1031,20 @@ impl MoveKeyframesEditorSurface {
         runtime_frame.player_positions[0] = Vec2 { x: 0, y: 0 };
         runtime_frame.player_positions[1] = Vec2 { x: 10_000, y: 0 };
         runtime_frame.player_velocities = [Vec2 { x: 0, y: 0 }, Vec2 { x: 0, y: 0 }];
-        runtime_frame.player_ecbs[0] = selected_frame_ecb(frame).unwrap_or_else(|| {
-            EcbDiamond::from_bottom_center_and_size(Vec2 { x: 0, y: 0 }, 36, 72)
-        });
-        runtime_frame.player_ecbs[1] =
-            EcbDiamond::from_bottom_center_and_size(Vec2 { x: 10_000, y: 0 }, 36, 72);
+        runtime_frame.player_ecbs[0] =
+            selected_frame_ecb(frame).unwrap_or(EcbDiamond::SOURCE_DEFAULT);
+        runtime_frame.player_ecbs[1] = EcbDiamond {
+            top: Vec2 {
+                x: 10_000,
+                y: 8_000,
+            },
+            right: Vec2 {
+                x: 14_000,
+                y: 4_000,
+            },
+            bottom: Vec2 { x: 10_000, y: 0 },
+            left: Vec2 { x: 6_000, y: 4_000 },
+        };
         runtime_frame.player_grounded = [true, true];
         runtime_frame.player_facings = [1, -1];
         let preview_binding = move_keyframes_preview_binding(&self.surface);

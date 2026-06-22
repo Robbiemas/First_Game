@@ -417,17 +417,17 @@
       "status": "mapped_exact_action_table"
     },
     {
-      "action_state_id": 252,
+      "action_state_id": 216,
       "motion_state": "CliffCatch",
-      "sample_frames": 50,
-      "source_action": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
+      "sample_frames": 8,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
       "status": "mapped_exact_action_table"
     },
     {
-      "action_state_id": 253,
+      "action_state_id": 217,
       "motion_state": "CliffWait",
-      "sample_frames": 20,
-      "source_action": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
+      "sample_frames": 50,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
       "status": "mapped_exact_action_table"
     },
     {
@@ -527,6 +527,127 @@
     "generated_rust": "crates/mole_core/src/generated/falcon_ecb.rs",
     "samples": "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
   },
+  "special_action_bindings": [
+    {
+      "motion_state": "SpecialN",
+      "runtime_action_state_id": 347,
+      "source_action_key": "SpecialN",
+      "source_action_table_id": 301,
+      "total_frames": 100
+    },
+    {
+      "motion_state": "SpecialAirN",
+      "runtime_action_state_id": 348,
+      "source_action_key": "SpecialAirN",
+      "source_action_table_id": 302,
+      "total_frames": 100
+    },
+    {
+      "motion_state": "SpecialSStart",
+      "runtime_action_state_id": 349,
+      "source_action_key": "SpecialSStart",
+      "source_action_table_id": 303,
+      "total_frames": 80
+    },
+    {
+      "motion_state": "SpecialS",
+      "runtime_action_state_id": 350,
+      "source_action_key": "SpecialS",
+      "source_action_table_id": 304,
+      "total_frames": 25
+    },
+    {
+      "motion_state": "SpecialAirSStart",
+      "runtime_action_state_id": 351,
+      "source_action_key": "SpecialAirSStart",
+      "source_action_table_id": 305,
+      "total_frames": 80
+    },
+    {
+      "motion_state": "SpecialAirS",
+      "runtime_action_state_id": 352,
+      "source_action_key": "SpecialAirS",
+      "source_action_table_id": 306,
+      "total_frames": 45
+    },
+    {
+      "motion_state": "SpecialHi",
+      "runtime_action_state_id": 353,
+      "source_action_key": "SpecialHi",
+      "source_action_table_id": 307,
+      "total_frames": 65
+    },
+    {
+      "motion_state": "SpecialAirHi",
+      "runtime_action_state_id": 354,
+      "source_action_key": "SpecialAirHi",
+      "source_action_table_id": 308,
+      "total_frames": 65
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 355,
+      "source_action_key": "SpecialHiCatch",
+      "source_action_table_id": 309,
+      "total_frames": 16
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 356,
+      "source_action_key": "SpecialHiThrow",
+      "source_action_table_id": 310,
+      "total_frames": 60
+    },
+    {
+      "motion_state": "SpecialLw",
+      "runtime_action_state_id": 357,
+      "source_action_key": "SpecialLw",
+      "source_action_table_id": 311,
+      "total_frames": 40
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 358,
+      "source_action_key": "SpecialLwEnd",
+      "source_action_table_id": 312,
+      "total_frames": 30
+    },
+    {
+      "motion_state": "SpecialAirLw",
+      "runtime_action_state_id": 359,
+      "source_action_key": "SpecialAirLw",
+      "source_action_table_id": 313,
+      "total_frames": 30
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 360,
+      "source_action_key": "SpecialAirLwEnd",
+      "source_action_table_id": 314,
+      "total_frames": 45
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 361,
+      "source_action_key": "SpecialAirLwEndAir",
+      "source_action_table_id": 316,
+      "total_frames": 29
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 362,
+      "source_action_key": "SpecialLwEndAir",
+      "source_action_table_id": 315,
+      "total_frames": 30
+    },
+    {
+      "motion_state": null,
+      "runtime_action_state_id": 363,
+      "source_action_key": "SpecialHiThrow",
+      "source_action_table_id": 317,
+      "total_frames": 60
+    }
+  ],
   "title": "Captain Falcon ECB Coverage",
   "unmapped_derived_motion_states": []
 }

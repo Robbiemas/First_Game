@@ -1,0 +1,224 @@
+{
+  "fields": {
+    "specialhi_air_friction_mul": {
+      "kind": "source_f32",
+      "offset": 64,
+      "raw": 1.100000023841858,
+      "source_name": "specialhi_air_friction_mul"
+    },
+    "specialhi_air_var": {
+      "kind": "source_i32",
+      "offset": 100,
+      "raw": 0,
+      "source_name": "specialhi_air_var"
+    },
+    "specialhi_catch_grav": {
+      "kind": "source_f32",
+      "offset": 96,
+      "raw": 0.30000001192092896,
+      "source_name": "specialhi_catch_grav"
+    },
+    "specialhi_freefall_air_spd_mul": {
+      "kind": "source_f32",
+      "offset": 72,
+      "raw": 0.7200000286102295,
+      "source_name": "specialhi_freefall_air_spd_mul"
+    },
+    "specialhi_horz_vel": {
+      "kind": "source_f32",
+      "offset": 68,
+      "raw": 0.8500000238418579,
+      "source_name": "specialhi_horz_vel"
+    },
+    "specialhi_input_var": {
+      "kind": "source_f32",
+      "offset": 88,
+      "raw": 0.22499999403953552,
+      "source_name": "specialhi_input_var"
+    },
+    "specialhi_landing_lag": {
+      "kind": "source_f32",
+      "offset": 76,
+      "raw": 30.0,
+      "source_name": "specialhi_landing_lag"
+    },
+    "specialhi_unk0": {
+      "kind": "source_f32",
+      "offset": 80,
+      "raw": 6.0,
+      "source_name": "specialhi_unk0"
+    },
+    "specialhi_unk1": {
+      "kind": "source_f32",
+      "offset": 84,
+      "raw": 4.0,
+      "source_name": "specialhi_unk1"
+    },
+    "specialhi_unk2": {
+      "kind": "source_f32",
+      "offset": 92,
+      "raw": 15.0,
+      "source_name": "specialhi_unk2"
+    },
+    "speciallw_air_landing_traction": {
+      "kind": "source_f32",
+      "offset": 136,
+      "raw": 3.0,
+      "source_name": "speciallw_air_landing_traction"
+    },
+    "speciallw_flame_particle_angle": {
+      "kind": "source_f32",
+      "offset": 112,
+      "raw": 60.0,
+      "source_name": "speciallw_flame_particle_angle"
+    },
+    "speciallw_ground_lag_mul": {
+      "kind": "source_f32",
+      "offset": 124,
+      "raw": 1.0,
+      "source_name": "speciallw_ground_lag_mul"
+    },
+    "speciallw_ground_traction": {
+      "kind": "source_f32",
+      "offset": 132,
+      "raw": 1.600000023841858,
+      "source_name": "speciallw_ground_traction"
+    },
+    "speciallw_landing_lag_mul": {
+      "kind": "source_f32",
+      "offset": 128,
+      "raw": 1.0,
+      "source_name": "speciallw_landing_lag_mul"
+    },
+    "speciallw_on_hit_spd_modifier": {
+      "kind": "source_f32",
+      "offset": 116,
+      "raw": 0.6000000238418579,
+      "source_name": "speciallw_on_hit_spd_modifier"
+    },
+    "speciallw_unk1": {
+      "kind": "source_u32",
+      "offset": 108,
+      "raw": 4,
+      "source_name": "speciallw_unk1"
+    },
+    "speciallw_unk2": {
+      "kind": "source_i32",
+      "offset": 120,
+      "raw": 4,
+      "source_name": "speciallw_unk2"
+    },
+    "specialn_angle_diff": {
+      "kind": "source_f32",
+      "offset": 8,
+      "raw": 30.0,
+      "source_name": "specialn_angle_diff"
+    },
+    "specialn_stick_range_y_neg": {
+      "kind": "source_f32",
+      "offset": 0,
+      "raw": 0.125,
+      "source_name": "specialn_stick_range_y_neg"
+    },
+    "specialn_stick_range_y_pos": {
+      "kind": "source_f32",
+      "offset": 4,
+      "raw": 0.625,
+      "source_name": "specialn_stick_range_y_pos"
+    },
+    "specialn_vel_mul": {
+      "kind": "source_f32",
+      "offset": 16,
+      "raw": 0.9200000166893005,
+      "source_name": "specialn_vel_mul"
+    },
+    "specialn_vel_x": {
+      "kind": "source_f32",
+      "offset": 12,
+      "raw": 1.9500000476837158,
+      "source_name": "specialn_vel_x"
+    },
+    "specials_gr_vel_x": {
+      "kind": "source_f32",
+      "offset": 20,
+      "raw": 0.18000000715255737,
+      "source_name": "specials_gr_vel_x"
+    },
+    "specials_grav": {
+      "kind": "source_f32",
+      "offset": 24,
+      "raw": 0.05000000074505806,
+      "source_name": "specials_grav"
+    },
+    "specials_hit_landing_lag": {
+      "kind": "source_f32",
+      "offset": 60,
+      "raw": 40.0,
+      "source_name": "specials_hit_landing_lag"
+    },
+    "specials_miss_landing_lag": {
+      "kind": "source_f32",
+      "offset": 56,
+      "raw": 20.0,
+      "source_name": "specials_miss_landing_lag"
+    },
+    "specials_terminal_vel": {
+      "kind": "source_f32",
+      "offset": 28,
+      "raw": 3.180000066757202,
+      "source_name": "specials_terminal_vel"
+    },
+    "specials_unk0": {
+      "kind": "source_f32",
+      "offset": 32,
+      "raw": 12.0,
+      "source_name": "specials_unk0"
+    },
+    "specials_unk1": {
+      "kind": "source_f32",
+      "offset": 36,
+      "raw": 0.0,
+      "source_name": "specials_unk1"
+    },
+    "specials_unk2": {
+      "kind": "source_f32",
+      "offset": 40,
+      "raw": 6.0,
+      "source_name": "specials_unk2"
+    },
+    "specials_unk3": {
+      "kind": "source_f32",
+      "offset": 44,
+      "raw": 12.0,
+      "source_name": "specials_unk3"
+    },
+    "specials_unk4": {
+      "kind": "source_f32",
+      "offset": 48,
+      "raw": -1.0,
+      "source_name": "specials_unk4"
+    },
+    "specials_unk5": {
+      "kind": "source_f32",
+      "offset": 52,
+      "raw": 11.0,
+      "source_name": "specials_unk5"
+    },
+    "x68": {
+      "kind": "source_f32",
+      "offset": 104,
+      "raw": 2.802596928649634e-45,
+      "source_name": "x68"
+    }
+  },
+  "source": {
+    "decomp_type": "ftCaptain_DatAttrs",
+    "file": "resources/melee/raw/PlCa.dat",
+    "format": "HSD DAT, big-endian fighter ext_attr floats/ints",
+    "ft_data_offset": 39428,
+    "ftdata_ext_attr_offset": 14552,
+    "source_character": "captain",
+    "special_dat_attrs_len": 136328,
+    "symbol": "ftDataCaptain"
+  }
+}

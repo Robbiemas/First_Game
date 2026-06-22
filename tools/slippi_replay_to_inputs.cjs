@@ -556,12 +556,12 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
 
   return {
     schema_version: 1,
-    source: {
-      replay_path: path.resolve(replayPath),
-      parser: SLIPPI_NODE_ENTRYPOINT,
-      parser_note:
+      source: {
+        replay_path: path.resolve(replayPath),
+        parser: SLIPPI_NODE_ENTRYPOINT,
+        parser_note:
         "Slippi pre-frame joystick floats are exported as observed; rust_player_input is the Melee-cleaned compact gameplay lane. When raw SendGamePreFrame stick bytes are available, they are HSD-clamped, UCF 0.84 cardinals are applied for UCF-tagged players, and PlCo x0/x4 deadzones are applied before packing signed -127..127 axes. Raw bytes at offsets 0x3B/0x40/0x41/0x42 remain in the export for audit/UCF metadata.",
-    },
+      },
     settings: {
       slp_version: settings.slpVersion,
       stage_id: settings.stageId,

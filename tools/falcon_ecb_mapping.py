@@ -62,8 +62,8 @@ MOTION_STATE_ACTION_MAP: tuple[tuple[str, int], ...] = (
     ("Pass", 209),
     ("Catch", 242),
     ("CatchDash", 243),
-    ("CliffCatch", 252),
-    ("CliffWait", 253),
+    ("CliffCatch", 216),
+    ("CliffWait", 217),
     ("SpecialN", 301),
     ("SpecialAirN", 302),
     ("SpecialSStart", 303),
@@ -79,9 +79,81 @@ MOTION_STATE_ACTION_MAP: tuple[tuple[str, int], ...] = (
     ("EntryEnd", 238),
 )
 
+FALCON_SPECIAL_ACTION_BINDINGS: tuple[tuple[str | None, int, int, str, int], ...] = (
+    # motion_state, ftCa_MS runtime id, PlCaAJ action-table id, source action key, total frames
+    ("SpecialN", 347, 301, "SpecialN", 100),
+    ("SpecialAirN", 348, 302, "SpecialAirN", 100),
+    ("SpecialSStart", 349, 303, "SpecialSStart", 80),
+    ("SpecialS", 350, 304, "SpecialS", 25),
+    ("SpecialAirSStart", 351, 305, "SpecialAirSStart", 80),
+    ("SpecialAirS", 352, 306, "SpecialAirS", 45),
+    ("SpecialHi", 353, 307, "SpecialHi", 65),
+    ("SpecialAirHi", 354, 308, "SpecialAirHi", 65),
+    (None, 355, 309, "SpecialHiCatch", 16),
+    (None, 356, 310, "SpecialHiThrow", 60),
+    ("SpecialLw", 357, 311, "SpecialLw", 40),
+    (None, 358, 312, "SpecialLwEnd", 30),
+    ("SpecialAirLw", 359, 313, "SpecialAirLw", 30),
+    (None, 360, 314, "SpecialAirLwEnd", 45),
+    (None, 361, 316, "SpecialAirLwEndAir", 29),
+    (None, 362, 315, "SpecialLwEndAir", 30),
+    (None, 363, 317, "SpecialHiThrow", 60),
+)
+
+CANONICAL_SOURCE_ONLY_ACTION_MAP: tuple[tuple[int, int, str], ...] = (
+    # runtime action-state id, PlCaAJ action-table id, source action key
+    (45, 47, "Attack12"),
+    (46, 48, "Attack13"),
+    (47, 49, "Attack100Start"),
+    (48, 50, "Attack100Loop"),
+    (49, 51, "Attack100End"),
+    (75, 165, "DamageHi1"),
+    (76, 166, "DamageHi2"),
+    (77, 167, "DamageHi3"),
+    (78, 168, "DamageN1"),
+    (79, 169, "DamageN2"),
+    (80, 170, "DamageN3"),
+    (81, 171, "DamageLw1"),
+    (82, 172, "DamageLw2"),
+    (83, 173, "DamageLw3"),
+    (84, 174, "DamageAir1"),
+    (85, 175, "DamageAir2"),
+    (86, 176, "DamageAir3"),
+    (87, 177, "DamageFlyHi"),
+    (88, 178, "DamageFlyN"),
+    (89, 179, "DamageFlyLw"),
+    (90, 180, "DamageFlyTop"),
+    (91, 181, "DamageFlyRoll"),
+    (183, 288, "DownBoundU"),
+    (184, 184, "DownWaitU"),
+    (186, 290, "DownStandU"),
+    (187, 187, "DownAttackU"),
+    (191, 289, "DownBoundD"),
+    (192, 192, "DownWaitD"),
+    (194, 291, "DownStandD"),
+    (195, 195, "DownAttackD"),
+    (199, 199, "Passive"),
+    (200, 200, "PassiveStandF"),
+    (201, 201, "PassiveStandB"),
+)
+
+CHARACTER_SPECIAL_ACTION_BINDINGS: dict[
+    str, tuple[tuple[str | None, int, int, str, int], ...]
+] = {
+    "captain": FALCON_SPECIAL_ACTION_BINDINGS,
+}
+
 UNMAPPED_DERIVED_MOTION_STATES: tuple[str, ...] = (
 )
 
 
 def sampled_action_ids() -> tuple[int, ...]:
-    return tuple(dict.fromkeys(action_id for _state, action_id in MOTION_STATE_ACTION_MAP))
+    return tuple(
+        dict.fromkeys(
+            [
+                *(action_id for _state, action_id in MOTION_STATE_ACTION_MAP),
+                *(action_id for _runtime_id, action_id, _key in CANONICAL_SOURCE_ONLY_ACTION_MAP),
+                *(action_id for _state, _runtime_id, action_id, _key, _frames in FALCON_SPECIAL_ACTION_BINDINGS),
+            ]
+        )
+    )

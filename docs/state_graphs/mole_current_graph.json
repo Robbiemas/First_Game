@@ -42,7 +42,7 @@
         -1
       ],
       "status": "partial",
-      "notes": "Timer schedule follows x6C0 and exits into Fall, matching the Slippi negative-frame state order before player-controlled movement.",
+      "notes": "Timer schedule follows x6C0 and exits into Fall through a decomp-shaped Entry ECB handoff: the first Fall frames preserve the source JObj bottom offset so Battlefield platform contact occurs on the Slippi frame instead of one frame early.",
       "source_refs": [
         {
           "label": "Melee EntryEnd source",
@@ -62,7 +62,7 @@
         "global_common_values.entry_and_respawn.entry_collision_landing_lag_ticks"
       ],
       "known_gaps": [
-        "ftColl_8007B760 x6C8 handoff is recorded but not fully modeled."
+        "ftColl_8007B760 x6C8 hurt/collision timer side effect is recorded but not fully modeled."
       ]
     },
     {
@@ -341,7 +341,7 @@
         1
       ],
       "status": "partial",
-      "notes": "Rust has a standing turn state, source-shaped temporary-facing action checks, A/B latch fields, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn, and runtime trace fields for hidden Turn vars. Basic standing-turn dash-out is delayed one exported tick after the profile flip frame, matching the Slippi post/pre boundary, while Smash Turn and the UCF source hook retain their same-frame dash-out behavior. Exact source helper identity and Turn collision still need deeper coverage.",
+      "notes": "Rust has a standing turn state, source-shaped temporary-facing action checks, A/B latch fields, vanilla dash-out arm tests, adapter-owned UCF 0.84 dashback Turn hook amendment, same-frame Turn_Phys friction when Wait/Walk/Dash IASA enters Turn, source-owned Turn collision support on the exported Turn->Dash frame, and runtime trace fields for hidden Turn vars. Basic standing-turn dash-out is delayed one exported tick after the profile flip frame, matching the Slippi post/pre boundary, while Smash Turn and the UCF source hook retain their same-frame dash-out behavior.",
       "source_refs": [
         {
           "label": "Melee Turn source",
@@ -352,6 +352,11 @@
           "label": "Melee fighter callback order",
           "path": ".research/doldecomp-melee/src/melee/ft/fighter.c",
           "function": "Fighter_Spaghetti_8006AD10 / Fighter_procUpdate"
+        },
+        {
+          "label": "Melee grounded collision helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80083F88 / ft_80082708"
         },
         {
           "label": "UCF 0.84 dashback source hook",
@@ -382,7 +387,9 @@
         "Before has_turned, Turn action checks use turn_facing_after like the source's temporary facing flip; shield/jump/dash logic keeps the restored-facing path.",
         "Turn latch/debug fields are deterministic state and exposed through runtime traces.",
         "Dash->Turn applies Dash IASA x54 first, then Turn's general grounded ft_80084F3C friction before position and gr_vel commit.",
-        "Walk/Wait carried gr_vel entering Turn receives the same Turn friction before any next-frame dash-out."
+        "Walk/Wait carried gr_vel entering Turn receives the same Turn friction before any next-frame dash-out.",
+        "Retained-floor Turn support routes through the source ft_80082708 path only when the prior source collision pass had FloorPush; ordinary Turn entry stays on the non-retained path.",
+        "When Turn IASA enters Dash, the same exported step keeps Turn as the collision-owner state for post-move ground support; Dash collision ownership starts on the next step."
       ],
       "known_gaps": []
     },
@@ -394,7 +401,7 @@
         1
       ],
       "status": "aligned",
-      "notes": "Rust owns extracted PlCo dash facts: x0/x4 deadzones, x8/xC tap thresholds, x3C dash threshold, x40 tap window, x44/x48/x4C IASA windows, x54 Dash IASA velocity decay, source-shaped entry delta, tap-start early-Dash gating, Falcon Dash action-script cmd_var[0] timing, cmd-var-gated Dash-to-Run, source animation-completion fallback to Wait, and moonwalk-like payload/relay tests without a Moonwalk state. Grounded horizontal movement now stages source-shaped gr_vel, xE4_ground_accel_1, and xE8_ground_accel_2 equivalents: xE4 contributes to same-frame translation and ground velocity, while Dash-entry xE8 commits after translation and mv.co.dash.x0 suppresses the first ordinary Dash_Phys acceleration tick.",
+      "notes": "Rust owns extracted PlCo dash facts: x0/x4 deadzones, x8/xC tap thresholds, x3C dash threshold, x40 tap window, x44/x48/x4C IASA windows, x54 Dash IASA velocity decay, source-shaped entry delta, tap-start early-Dash gating, Falcon Dash action-script cmd_var[0] timing, cmd-var-gated Dash-to-Run, source animation-completion fallback to Wait, source ground-collision support through mpColl_8004ACE4's retained-floor fallback, and moonwalk-like payload/relay tests without a Moonwalk state. Grounded horizontal movement now stages source-shaped gr_vel, xE4_ground_accel_1, and xE8_ground_accel_2 equivalents: xE4 contributes to same-frame translation and ground velocity, while Dash-entry xE8 commits after translation and mv.co.dash.x0 suppresses the first ordinary Dash_Phys acceleration tick.",
       "source_refs": [
         {
           "label": "Melee Dash source",
@@ -411,7 +418,7 @@
         {
           "label": "Rust Dash simulation",
           "path": "crates/mole_core/src/sim.rs",
-      "function": "enter_dash / dash_anim_tick / apply_dash_script_events / apply_dash_physics / stage_dash_entry_ground_accel2"
+      "function": "enter_dash / dash_anim_tick / apply_dash_script_events / apply_dash_physics / stage_dash_entry_ground_accel2 / source_mp_coll_ground_fallback_retains_floor_support"
         },
         {
           "label": "Dash and moonwalk contract tests",
@@ -508,7 +515,7 @@
         1
       ],
       "status": "partial",
-      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, profile-owned full/short hop takeoff forces, and source-shaped grounded-to-air order: grounded IASA entries into KneeBend now run ftCo_KneeBend_Phys/ft_80084F3C on the same frame, while takeoff scales the prior grounded self_vel/gr_vel without an extra takeoff-frame friction tick. KneeBend_Anim enters JumpF/JumpB, same-frame Jump_IASA may accept fresh airborne actions, and the first Jump physics tick skips ordinary air drift/gravity. ECB coverage maps KneeBend through ftCo_SM_Kneebend/action-table slot 15; Captain Falcon's DAT points that slot at the Landing figatree bytes, but the decomp motion-state identity remains KneeBend."
+      "notes": "Rust has Falcon 4f jumpsquat, short-hop release tracking, profile-owned full/short hop takeoff forces, and source-shaped grounded-to-air order: grounded IASA entries into KneeBend now run ftCo_KneeBend_Phys/ft_80084F3C on the same frame, while takeoff scales the prior grounded self_vel/gr_vel without an extra takeoff-frame friction tick. KneeBend_Coll now follows ft_80083F88/ft_80082708 source ground support so a retained-floor dash jump can stay in jumpsquat before the source floor falls away. KneeBend_Anim enters JumpF/JumpB, same-frame Jump_IASA may accept fresh airborne actions, and the first Jump physics tick skips ordinary air drift/gravity. ECB coverage maps KneeBend through ftCo_SM_Kneebend/action-table slot 15; Captain Falcon's DAT points that slot at the Landing figatree bytes, but the decomp motion-state identity remains KneeBend."
     },
     {
       "id": "Run",
@@ -972,7 +979,7 @@
         5
       ],
       "status": "partial",
-      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity before the action-script cmd_var[0] handoff, ground-to-air ECB bottom locking as a rollback-owned floor-contact probe, generated Falcon action-table ECB samples after lock expiry, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits. Falcon action 44 now sources its cmd_var[0] skip-decay point from the extracted action script rather than a common-data placeholder.",
+      "notes": "Rust has fresh digital L/R airdodge entry, common-data deadzone/force/decay, no ordinary gravity before the action-script cmd_var[0] handoff, ground-to-air ECB bottom locking as a rollback-owned floor-contact probe, generated Falcon action-table ECB samples after lock expiry, a 50-frame action-table completion boundary for FallSpecial exit, core-owned active ECB render snapshots, and FallSpecial/LandingFallSpecial exits. EscapeAir source collision now allows the ft_80081D0C/mpColl_800471F8 floor path and honors ft_80082C74's LandingFallSpecial callback when that source floor probe hits. Falcon action 44 now sources its cmd_var[0] skip-decay point from the extracted action script rather than a common-data placeholder.",
       "source_refs": [
         {
           "label": "Melee ECB JObj source setup",
@@ -1862,8 +1869,8 @@
       "from": "EntryEnd",
       "to": "Fall",
       "label": "x6C0 countdown expires",
-      "status": "partial",
-      "notes": "Rust exits to Fall on the x6C0 schedule; the optional x6C8 collision handoff is recorded as a remaining gap.",
+      "status": "aligned",
+      "notes": "Rust exits to Fall on the x6C0 schedule and preserves Entry's source JObj ECB bottom through the initial Fall collision handoff, matching the Slippi landing frame for the Battlefield match-start spawn fall. The separate ftColl_8007B760 x6C8 hurt/collision timer remains recorded as a non-map-collision gap.",
       "input": "no player IASA",
       "frames": "x6C0 countdown reaches zero"
     },
@@ -2006,12 +2013,22 @@
       "input": "outward dash-threshold stick after Turn dash arm; optional UCF dashback amendment can fire on the source Turn hook frame",
       "frames": "Smash Turn and UCF source hook are same-frame; basic standing Turn dash-out is visible on the tick after the profile flip frame",
       "status": "aligned",
-      "notes": "Vanilla follows ftCo_Turn_IASA/fn_800C9C2C: fresh outward xsmash arms dash-out and Dash enters on just_turned if the stick is still held. Rust preserves same-frame dash-out for Smash Turn and the UCF hook, but delays basic standing-turn dash-out until the exported step after the ordinary animation flip because Slippi post-frame still reports the pre-flip Turn state while next pre-frame sees the new facing. UCF 0.84 dashback remains adapter-owned for the raw two-frame x delta and toggle, then the rollback input amendment applies the source Turn hook without creating a new movement state. Slippi replay export now writes that same adapter-owned bit for UCF-tagged players before the core oracle runs.",
+      "notes": "Vanilla follows ftCo_Turn_IASA/fn_800C9C2C: fresh outward xsmash arms dash-out and Dash enters on just_turned if the stick is still held. Rust preserves same-frame dash-out for Smash Turn and the UCF hook, but delays basic standing-turn dash-out until the exported step after the ordinary animation flip because Slippi post-frame still reports the pre-flip Turn state while next pre-frame sees the new facing. When Turn enters Dash during IASA, Rust now keeps Turn as the post-move ground-support owner for that exported step, matching ftCo_Turn_Coll/ft_80083F88 before Dash collision takes over on the next step. Retained-floor Turn frames continue through source ft_80082708 only when the prior source collision pass had FloorPush, matching the right-platform replay path without grounding unrelated top-platform Turn entries. UCF 0.84 dashback remains adapter-owned for the raw two-frame x delta and toggle, then the rollback input amendment applies the source Turn hook without creating a new movement state. Slippi replay export now writes that same adapter-owned bit for UCF-tagged players before the core oracle runs.",
       "source_refs": [
         {
           "label": "Melee Turn dash arm",
           "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
           "function": "ftCo_Turn_IASA / fn_800C9C2C"
+        },
+        {
+          "label": "Melee Turn collision",
+          "path": ".research/doldecomp-melee/src/melee/ft/chara/ftCommon/ftCo_Turn.c",
+          "function": "ftCo_Turn_Coll"
+        },
+        {
+          "label": "Melee grounded collision helpers",
+          "path": ".research/doldecomp-melee/src/melee/ft/ft_081B.c",
+          "function": "ft_80083F88 / ft_80082708"
         },
         {
           "label": "UCF 0.84 dashback source hook",
@@ -2046,7 +2063,9 @@
       "physics": [
         "source Turn action-state flags",
         "adapter-owned UCF raw x delta > 75",
-        "x tap timer and dash threshold remain vanilla facts"
+        "x tap timer and dash threshold remain vanilla facts",
+        "retained-floor Turn frames reuse source ft_80082708 only after a prior source FloorPush",
+        "Turn->Dash keeps Turn's ground-support collision owner for the exported transition step; Dash owns support on the following step."
       ],
       "known_gaps": []
     },
@@ -2870,7 +2889,7 @@
       "input": "ground/platform collision during EscapeAir",
       "frames": "collision frame",
       "status": "partial",
-      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir/FallSpecial now use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. Same-floor edge clamping now follows the decomp floor-edge branch closely enough for the replay to advance through the early top-platform airdodge sequence."
+      "notes": "Bottom-vertex downward contact enters LandingFallSpecial and preserves horizontal self velocity for the wavedash-like slide. EscapeAir now also uses the decomp ft_80082C74 callback shape: ft_80081D0C/mpColl_800471F8 source floor contact immediately calls the LandingFallSpecial entry. EscapeAir/FallSpecial use extracted per-frame JObj ECB samples, including separate previous/current frame probes so animated ECB motion can cross a platform even when root velocity alone would not; the same active ECB is exposed through render snapshots for the debug overlay. Same-floor edge clamping now follows the decomp floor-edge branch closely enough for the replay to advance through the early top-platform airdodge sequence."
     },
     {
       "from": "FallSpecial",

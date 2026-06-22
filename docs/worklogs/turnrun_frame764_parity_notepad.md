@@ -4,6 +4,9 @@ Purpose: a short working note for the current parity investigation so I can resu
 
 ## Current status
 
+- Superseded as the active frontier on 2026-06-21. Frame 764 remains a
+  resolved historical checkpoint; current replay parity status lives in
+  `docs/worklogs/gameplay_parity_scratchpad.md`.
 - Focused contract test passes: `turn_run_completion_into_run_uses_source_run_phys_handoff_tick`.
 - Replay trace for player 2 source frames `760..768` now matches state and
   horizontal velocity exactly.
@@ -627,8 +630,32 @@ Purpose: a short working note for the current parity investigation so I can resu
 ## 2026-06-11 fighter camera-box parity slice
 
 - User clarified that camera scale must not be tuned visually. The remaining zoom mismatch was treated as a source-data parity problem, not as a renderer preference.
+
+## 2026-06-12 CollData ECB/map-collision parity note
+
+- Promoted persistent source `CollData` ECB fields into `PlayerState`: current, previous, desired, and floor surface identity now roll back and hash with the fighter state.
+- Ground map collision now loads desired ECB through the source `mpColl_LoadECB_JObj(..., 5)` semantics and drives the persistent ECB through a decomp-shaped `mpColl_80043754` interpolation loop instead of snapping current ECB directly to desired.
+- Rejected an endpoint-preservation shortcut after replay trace proved it shifted the P2 EscapeF Battlefield platform drift into earlier frames. The source-compatible trace matches through source frame 1299 and diverges at frame 1300 with Rust clamping x=20000 while Slippi reports x=19901.
+- Current root frontier: the remaining frame-1300 barrier is not fixed by simplified platform endpoint handling. It likely requires continuing the direct translation of `mpColl_8004ACE4` callback state and/or source live-JObj animation timing for the current action. Do not reintroduce replay constants or action-specific edge preservation.
+- Architectural pattern: runtime map collision must consume persistent source `CollData` state and source collision lines/callbacks, not recomputed convenience surfaces. Simplified `StageSurface` spans are compatibility helpers only; they should not be the long-term authority for floor, ledge, wall, or endpoint behavior.
 - Promoted Captain Falcon `ftDataCaptain.x3C` into `mole_core::FighterCameraBox` on `FighterProfile`. The embedded values are the two `UnkFloat6_Camera` vectors read from `resources/melee/raw/PlCa.dat` via the source `ftData` pointer: `x0 = (10.0, 22.0, -9.0)` and `xC = (16.0, -9.0, 13.699999809265137)`.
 - `PlayerRenderSnapshot` and `RenderFrame` now carry the profile camera box to the runtime renderer. This keeps the camera path character-agnostic for later extracted profiles rather than special-casing Dolphin Mole or Captain Falcon in the camera.
 - Replaced the dynamic camera's ECB-derived subject bounds with the decomp mapping from `ftCamera_UpdateCameraBox` into `CmSubject`, then the signed min/max shape used by `Camera_8002958C`: `base + x2C.x`, `base + x2C.y`, `base + x34.y`, and `base + x34.x`, with stage `cam_fixed_zoom` and tracking ratio preserved from extraction.
 - Added tests proving the embedded Falcon camera box still matches `PlCa.dat` and that gameplay camera spread is driven by fighter profile camera boxes instead of active ECB geometry.
 - Verification for this slice: `cargo fmt --check`, `cargo test -p mole_core`, and `cargo test -p mole_runtime`.
+
+## 2026-06-12 source CollData floor-state milestone
+
+- Promoted persistent source floor identity and collision environment flags into `PlayerState`: `source_coll_floor_line_index` and `source_coll_env_flags` now roll back and hash with the fighter state.
+- Read the decomp path for grounded Escape collision:
+  - `ft_800827A0` copies fighter position into `CollData`, calls `mpColl_8004B2DC`, then writes `CollData.cur_pos` back to the fighter.
+  - `mpColl_8004B2DC` loads ECB with the `mpColl_LoadECB_JObj(..., 5)` shape, then runs the shared grounded collision path.
+  - `mpColl_8004ACE4` calls the direct floor push path before the endpoint clamp path.
+  - `mpColl_800488F4` calls `mpLib_8004DD90_Floor`; that helper projects Y on the current source floor line, follows connected floor lines, tolerates endpoint drift up to `0.1` source units, and does not write X back to the fighter.
+- Runtime grounded support now refreshes exact current support first so stale platform floor ids do not leak past a real landing onto main floor, then uses source floor-line projection before falling back to the compatibility endpoint clamp.
+- Added regression coverage for the Battlefield right-platform EscapeF endpoint case. The source path keeps P2 grounded through source frame 1300 at `x=19901`, `y=27200`, rather than clamping root X to the endpoint at `20000`.
+- Replay verification:
+  - P2 source frames `1188..1208` match state and position through the landing on main floor after the stale-floor refresh fix.
+  - P2 source frames `1294..1306` now pass the previous ledge/platform endpoint barrier; frame `1300` matches `EscapeF x=19901 y=27200`.
+- Architectural pattern: source `CollData` line ids and env flags must become the authoritative map-collision state. `StageSurface` is still a compatibility projection and should be retired from gameplay decisions as more `mpColl`/`mpLib` paths are translated.
+- Known remaining gap: landing contact should eventually set source floor line identity directly at the landing point. The current exact-support refresh prevents the observed stale platform snap, but full parity needs the airborne landing collision path to populate source `CollData` fields without going through compatibility surfaces.

@@ -12,7 +12,8 @@ use crate::{
 use mole_core::{
     melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
     runtime_motion_state_for_source_key, source_binding_for_motion_state, MotionStateSourceBinding,
-    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, RUST_MOTION_STATE_VARIANTS,
+    SourceSpecialActionBinding, CANONICAL_SOURCE_ONLY_ACTION_BINDINGS,
+    FALCON_SOURCE_SPECIAL_ACTION_BINDINGS, RUST_MOTION_STATE_VARIANTS,
 };
 use mole_frame_data::{
     encode_runtime_source_frame_capsules, FrameDataSampleOptions, RuntimeFigatreeChunk,
@@ -331,14 +332,51 @@ fn compact_manifest_action(
 
 fn compact_manifest_rig(root: &Path, source_character: &str) -> (Value, Vec<String>) {
     let mut errors = Vec::new();
+    let profile_path = character_profile_path(root, source_character);
     let hurtbox_inits_path = hurtbox_inits_path(root, source_character);
     let costume_skeleton_path = costume_skeleton_path(root, source_character);
+    let common_parts_path = common_parts_path(root, source_character);
+    let profile = optional_source_json(root, &profile_path, &mut errors);
     let hurtbox_inits = optional_source_json(root, &hurtbox_inits_path, &mut errors);
     let skeleton = optional_source_json(root, &costume_skeleton_path, &mut errors);
+    let common_parts = optional_source_json(root, &common_parts_path, &mut errors);
+    let topn_scale = profile
+        .get("fields")
+        .and_then(|fields| fields.get("model_scaling"))
+        .and_then(|field| field.get("raw"))
+        .and_then(Value::as_f64)
+        .map(Value::from);
+    if topn_scale.is_none() {
+        errors.push(format!(
+            "{} is missing fields.model_scaling.raw for source live JObj setup",
+            profile_path.display()
+        ));
+    }
 
     (
         json!({
             "canonical_source": MELEE_HURTBOX_SOURCE,
+            "live_pose_setup": {
+                "source_order": "Fighter_ChangeMotionState seeds TopN rot_y; ftAnim mutates JObj/FObj state; Fighter_UpdateModelScale sets root scale before map/capture consumers read lb_8000B1CC",
+                "topn_rot_y_source": "ftPartSetRotY(fp, FtPart_TopN, M_PI_2 * fp->facing_dir) for right-facing source samples",
+                "topn_rot_y_radians": std::f64::consts::FRAC_PI_2,
+                "topn_scale_source": "Fighter_UpdateModelScale -> ftCommon_GetModelScale(fp); unmodified Falcon uses x34_scale.y == 1.0, so model_scaling is the root scale",
+                "topn_scale": topn_scale.unwrap_or(Value::Null),
+            },
+            "profile": {
+                "source_table": "ftData.x0 co_attrs",
+                "path": path_for_artifact(root, &profile_path),
+                "status": if profile.is_null() { "missing" } else { "source_extracted" },
+                "data": profile,
+            },
+            "common_parts": {
+                "source_table": "ftData.x8",
+                "path": path_for_artifact(root, &common_parts_path),
+                "status": if common_parts.is_null() { "missing" } else { "source_extracted" },
+                "source_capture_anchor": "ftCo_CatchPull_Anim -> fn_800DA1D8 stores fp->parts[fp->ft_data->x8->x11].joint in mv.co.capturedamage.x18",
+                "source_capture_delta": "ftCo_CapturePulled* / CaptureWait* use lb_8000B1CC(capturedamage.x18) - lb_8000B1CC(FtPart_XRotN)",
+                "data": common_parts,
+            },
             "hurtbox_inits": {
                 "source_table": "ftData.x30",
                 "path": path_for_artifact(root, &hurtbox_inits_path),
@@ -896,6 +934,13 @@ fn apply_compact_manifest_runtime_batch_export(
             .iter()
             .map(|binding| u64::from(binding.source_action_table_id)),
     );
+    let manifest_source_character = manifest.get("source_character").and_then(Value::as_str);
+    consumed_source_action_table_ids.extend(
+        source_special_action_bindings_for_character(manifest_source_character)
+            .iter()
+            .filter(|binding| binding.motion_state.is_none())
+            .map(|binding| u64::from(binding.source_action_table_id)),
+    );
     let mut rust_parity_gaps = Vec::new();
     let mut used_runtime_states = BTreeSet::new();
 
@@ -1208,6 +1253,13 @@ struct RuntimeHitCapsule {
     shield_damage: i16,
     hit_grounded: bool,
     hit_aerial: bool,
+    item_hit_interaction: bool,
+    ignore_thrown_fighters: bool,
+    ignore_fighter_scale: bool,
+    clank: bool,
+    rebound: bool,
+    skip_if_thrown_hitbox_owner_absent: bool,
+    hit_grabbed_victim_only: bool,
     source_handler: String,
     capsule: RuntimeCapsule,
 }
@@ -1238,6 +1290,9 @@ struct RuntimeSourcePoint {
 
 #[derive(Debug, Clone)]
 struct RuntimeSourceExportModule {
+    character: String,
+    source_character: Option<String>,
+    manifest_text: String,
     figatree_chunks: Vec<RuntimeFigatreeChunkExport>,
     baked_source_actions: Vec<RuntimeSourceActionFrameSamples>,
     state_bindings: Vec<RuntimeStateBindingExport>,
@@ -1296,6 +1351,7 @@ impl RuntimeSourceGeneratedModule {
 
 const RUNTIME_SOURCE_SIDECAR_DIR: &str = "source_frame_data";
 const RUNTIME_SOURCE_FRAME_CAPSULES_FILE: &str = "source_frame_capsules.bin";
+const RUNTIME_SOURCE_MANIFEST_FILE: &str = "source_manifest.json";
 
 impl RuntimeSourceExportModule {
     fn from_manifest(
@@ -1447,6 +1503,37 @@ impl RuntimeSourceExportModule {
             });
         }
 
+        for source_binding in
+            source_special_action_bindings_for_character(source_character.as_deref())
+                .iter()
+                .filter(|binding| binding.motion_state.is_none())
+        {
+            let source_action_key = source_binding.source_action_key.as_str();
+            if state_filter.is_some_and(|state_filter| state_filter != source_action_key) {
+                continue;
+            }
+            let source_action_table_id = u64::from(source_binding.source_action_table_id);
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            if !chunks_by_key.contains_key(source_action_key) {
+                chunks_by_key.insert(
+                    source_action_key.to_string(),
+                    RuntimeFigatreeChunkExport {
+                        source_action_key: source_action_key.to_string(),
+                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
+                    },
+                );
+            }
+            if runtime_action_keys.insert(source_action_key.to_string()) {
+                runtime_actions.push(compact_runtime_manifest_action(action)?);
+            }
+            source_only_action_count = source_only_action_count.saturating_sub(1);
+            state_bindings.push(RuntimeStateBindingExport {
+                action_state_id: u64::from(source_binding.action_state_id.get()),
+                runtime_motion_state: None,
+                source_action_key: source_action_key.to_string(),
+            });
+        }
+
         if state_filter.is_some() && state_bindings.is_empty() {
             return Err(format!(
                 "compact source manifest action `{}` has no current Rust MotionState binding",
@@ -1463,6 +1550,9 @@ impl RuntimeSourceExportModule {
         )?;
 
         Ok(Self {
+            character: character.to_string(),
+            source_character,
+            manifest_text,
             figatree_chunks,
             baked_source_actions,
             state_bindings,
@@ -1558,10 +1648,14 @@ fn bake_runtime_source_frame_capsules(
             let frames = (1..=total_frames)
                 .map(|frame| evaluator.sample_frame_capsules(frame))
                 .collect::<Result<Vec<_>, _>>()?;
+            let script_events = evaluator.script_events()?;
+            let cmd_var_events = evaluator.cmd_var_events()?;
             Ok(RuntimeSourceActionFrameSamples {
                 source_action_key: chunk.source_action_key.clone(),
                 total_frames: total_frames as u8,
                 frames,
+                cmd_var_events,
+                script_events,
             })
         })
         .collect()
@@ -1573,14 +1667,37 @@ fn generate_runtime_source_export_module(
     let mut output = String::new();
     output.push_str(concat!(
         "// Generated compact Melee source frame-data export.\n",
-        "// Runtime loads the CLI-baked action/frame capsule and DownBound hip-pose sidecar.\n",
-        "// Gameplay, rendering, collision, and player startup must not sample source FigaTrees.\n\n",
+        "// Runtime loads CLI-baked frame sidecars and compact source JObj/FigaTree artifacts.\n",
+        "// Gameplay must not depend on raw ISO/decomp paths.\n\n",
         "// Canonical Melee action-state bindings may have no Rust MotionState alias.\n",
         "use mole_core::{MeleeActionStateId, MotionState};\n",
+        "use mole_frame_data::{RuntimeFigatreeChunk, RuntimeSourceExport};\n",
         "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"runtime_source_frame_data\";\n",
     ));
     output.push_str(&format!(
         "pub(crate) const SOURCE_FRAME_CAPSULES_BYTES: &[u8] = include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_FRAME_CAPSULES_FILE}\");\n\n",
+    ));
+    output.push_str(&format!(
+        "pub(crate) const SOURCE_MANIFEST_JSON: &str = include_str!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_MANIFEST_FILE}\");\n"
+    ));
+    output.push_str(&format!(
+        "pub(crate) const SOURCE_CHARACTER: Option<&str> = {};\n",
+        option_rust_string_literal(module.source_character.as_deref())
+    ));
+    output.push_str(
+        "pub(crate) const SOURCE_FIGATREE_CHUNKS: &[RuntimeFigatreeChunk<'static>] = &[\n",
+    );
+    for chunk in &module.figatree_chunks {
+        let file_name = runtime_source_figatree_file_name(&chunk.source_action_key)?;
+        output.push_str(&format!(
+            "    RuntimeFigatreeChunk {{ source_action_key: {}, bytes: include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{file_name}\") }},\n",
+            rust_string_literal(&chunk.source_action_key)
+        ));
+    }
+    output.push_str("];\n\n");
+    output.push_str(&format!(
+        "pub(crate) fn runtime_source_export() -> RuntimeSourceExport<'static> {{\n    RuntimeSourceExport {{\n        character: {},\n        source_character: SOURCE_CHARACTER,\n        manifest_json: SOURCE_MANIFEST_JSON,\n        figatree_chunks: SOURCE_FIGATREE_CHUNKS,\n    }}\n}}\n\n",
+        rust_string_literal(&module.character)
     ));
 
     output.push_str(concat!(
@@ -1627,16 +1744,49 @@ fn generate_runtime_source_export_module(
         "}\n",
     ));
 
-    let sidecars = vec![RuntimeSourceSidecar {
-        relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
-            .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
-        bytes: encode_runtime_source_frame_capsules(&module.baked_source_actions)?,
-    }];
+    let mut sidecars = vec![
+        RuntimeSourceSidecar {
+            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+                .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
+            bytes: encode_runtime_source_frame_capsules(&module.baked_source_actions)?,
+        },
+        RuntimeSourceSidecar {
+            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+                .join(RUNTIME_SOURCE_MANIFEST_FILE),
+            bytes: module.manifest_text.as_bytes().to_vec(),
+        },
+    ];
+    for chunk in &module.figatree_chunks {
+        sidecars.push(RuntimeSourceSidecar {
+            relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
+                .join(runtime_source_figatree_file_name(&chunk.source_action_key)?),
+            bytes: chunk.bytes.clone(),
+        });
+    }
 
     Ok(RuntimeSourceGeneratedModule {
         module_text: output,
         sidecars,
     })
+}
+
+fn runtime_source_figatree_file_name(source_action_key: &str) -> Result<String, String> {
+    if !source_action_key
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(format!(
+            "source action key `{source_action_key}` cannot be used as a runtime sidecar file name"
+        ));
+    }
+    Ok(format!("{source_action_key}.figatree.bin"))
+}
+
+fn option_rust_string_literal(value: Option<&str>) -> String {
+    match value {
+        Some(value) => format!("Some({})", rust_string_literal(value)),
+        None => "None".to_string(),
+    }
 }
 
 fn compact_runtime_source_manifest(
@@ -1653,6 +1803,10 @@ fn compact_runtime_source_manifest(
             .iter()
             .map(compact_runtime_hurtbox_init)
             .collect::<Result<Vec<_>, _>>()?;
+    let common_parts = compact_runtime_common_parts(required_manifest_value(
+        manifest,
+        &["rig", "common_parts", "data"],
+    )?)?;
     let compact = json!({
         "schema_version": 2,
         "artifact_kind": "runtime_source_frame_data_manifest",
@@ -1661,6 +1815,10 @@ fn compact_runtime_source_manifest(
         "source_space": manifest.get("source_space").cloned().unwrap_or_else(|| json!("melee_xyz")),
         "projection": manifest.get("projection").cloned().unwrap_or_else(|| json!({})),
         "rig": {
+            "live_pose_setup": compact_runtime_live_pose_setup(manifest)?,
+            "common_parts": {
+                "data": common_parts,
+            },
             "skeleton": {
                 "data": {
                     "joints": skeleton_joints,
@@ -1676,6 +1834,35 @@ fn compact_runtime_source_manifest(
     });
     serde_json::to_string(&compact)
         .map_err(|error| format!("failed to serialize compact runtime source manifest: {error}"))
+}
+
+fn compact_runtime_live_pose_setup(manifest: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "topn_rot_y_radians": required_manifest_value(
+            manifest,
+            &["rig", "live_pose_setup", "topn_rot_y_radians"],
+        )?
+        .clone(),
+        "topn_scale": required_manifest_value(manifest, &["rig", "live_pose_setup", "topn_scale"])?
+            .clone(),
+    }))
+}
+
+fn compact_runtime_common_parts(common_parts: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "capture_anchor_part": required_manifest_value(common_parts, &["capture_anchor_part"])?.clone(),
+        "hipn_joint": required_manifest_value(common_parts, &["hipn_joint"])?.clone(),
+        "hipn_part": required_manifest_value(common_parts, &["hipn_part"])?.clone(),
+        "transn_joint": required_manifest_value(common_parts, &["transn_joint"])?.clone(),
+        "transn_part": required_manifest_value(common_parts, &["transn_part"])?.clone(),
+        "transn2_joint": required_manifest_value(common_parts, &["transn2_joint"])?.clone(),
+        "transn2_part": required_manifest_value(common_parts, &["transn2_part"])?.clone(),
+        "thrown_hitbox_joint": required_manifest_value(common_parts, &["thrown_hitbox_joint"])?.clone(),
+        "thrown_hitbox_part": required_manifest_value(common_parts, &["thrown_hitbox_part"])?.clone(),
+        "thrown_hitbox_scale": required_manifest_value(common_parts, &["thrown_hitbox_scale"])?.clone(),
+        "xrotn_joint": required_manifest_value(common_parts, &["xrotn_joint"])?.clone(),
+        "xrotn_part": required_manifest_value(common_parts, &["xrotn_part"])?.clone(),
+    }))
 }
 
 fn compact_runtime_manifest_action(action: &Value) -> Result<Value, String> {
@@ -1751,7 +1938,10 @@ fn compact_runtime_procedures(action: &Value) -> Result<Vec<Value>, String> {
                 name,
                 "fighter.spawn_hitbox"
                     | "fighter.clear_all_hitboxes"
+                    | "fighter.set_cmd_var"
                     | "fighter.set_hurt_state"
+                    | "fighter.set_throw_flag"
+                    | "fighter.set_throw_hitbox"
                     | "fighter.set_jab_combo"
                     | "fighter.set_jab_rapid"
             )
@@ -1767,6 +1957,45 @@ fn compact_runtime_procedures(action: &Value) -> Result<Vec<Value>, String> {
                 }
                 if let Some(state) = procedure.get("state") {
                     compact["state"] = state.clone();
+                }
+                if let Some(hit_idx) = procedure.get("hit_idx") {
+                    compact["hit_idx"] = hit_idx.clone();
+                }
+                if let Some(cmd_var) = procedure.get("cmd_var") {
+                    compact["cmd_var"] = cmd_var.clone();
+                }
+                if let Some(value) = procedure.get("value") {
+                    compact["value"] = value.clone();
+                }
+                if let Some(flag_bit) = procedure.get("flag_bit") {
+                    compact["flag_bit"] = flag_bit.clone();
+                }
+                if let Some(hitbox_idx) = procedure.get("hitbox_idx") {
+                    compact["hitbox_idx"] = hitbox_idx.clone();
+                }
+                if let Some(damage) = procedure.get("damage") {
+                    compact["damage"] = damage.clone();
+                }
+                if let Some(angle) = procedure.get("angle") {
+                    compact["angle"] = angle.clone();
+                }
+                if let Some(hit_x24) = procedure.get("hit_x24") {
+                    compact["hit_x24"] = hit_x24.clone();
+                }
+                if let Some(hit_x28) = procedure.get("hit_x28") {
+                    compact["hit_x28"] = hit_x28.clone();
+                }
+                if let Some(hit_x2c) = procedure.get("hit_x2c") {
+                    compact["hit_x2c"] = hit_x2c.clone();
+                }
+                if let Some(element) = procedure.get("element") {
+                    compact["element"] = element.clone();
+                }
+                if let Some(sfx_severity) = procedure.get("sfx_severity") {
+                    compact["sfx_severity"] = sfx_severity.clone();
+                }
+                if let Some(sfx_kind) = procedure.get("sfx_kind") {
+                    compact["sfx_kind"] = sfx_kind.clone();
                 }
                 compact
             })
@@ -1924,6 +2153,13 @@ fn generate_runtime_frame_data_module(
         "    pub(crate) shield_damage: i16,\n",
         "    pub(crate) hit_grounded: bool,\n",
         "    pub(crate) hit_aerial: bool,\n",
+        "    pub(crate) item_hit_interaction: bool,\n",
+        "    pub(crate) ignore_thrown_fighters: bool,\n",
+        "    pub(crate) ignore_fighter_scale: bool,\n",
+        "    pub(crate) clank: bool,\n",
+        "    pub(crate) rebound: bool,\n",
+        "    pub(crate) skip_if_thrown_hitbox_owner_absent: bool,\n",
+        "    pub(crate) hit_grabbed_victim_only: bool,\n",
         "    pub(crate) source_handler: &'static str,\n",
         "    pub(crate) capsule: SourceCapsule,\n",
         "}\n\n",
@@ -2139,6 +2375,16 @@ impl RuntimeHitCapsule {
             shield_damage: optional_i16(value, "shield_damage"),
             hit_grounded: optional_bool(value, "hit_grounded"),
             hit_aerial: optional_bool(value, "hit_aerial"),
+            item_hit_interaction: optional_bool(value, "item_hit_interaction"),
+            ignore_thrown_fighters: optional_bool(value, "ignore_thrown_fighters"),
+            ignore_fighter_scale: optional_bool(value, "ignore_fighter_scale"),
+            clank: optional_bool(value, "clank"),
+            rebound: optional_bool(value, "rebound"),
+            skip_if_thrown_hitbox_owner_absent: optional_bool(
+                value,
+                "skip_if_thrown_hitbox_owner_absent",
+            ),
+            hit_grabbed_victim_only: optional_bool(value, "hit_grabbed_victim_only"),
             source_handler: value
                 .get("source_handler")
                 .and_then(Value::as_str)
@@ -2155,7 +2401,7 @@ impl RuntimeHitCapsule {
     fn rust_literal(&self) -> String {
         let capsule = indent_after_first_line(&self.capsule.rust_literal(), 4);
         format!(
-            "SourceHitCapsule {{\n    id: {},\n    bone: {},\n    hit_group: {},\n    use_common_bone_ids: {},\n    damage: {},\n    angle: {},\n    kbg: {},\n    weight_set_kb: {},\n    bkb: {},\n    element: {},\n    shield_damage: {},\n    hit_grounded: {},\n    hit_aerial: {},\n    source_handler: {},\n    capsule: {},\n}}",
+            "SourceHitCapsule {{\n    id: {},\n    bone: {},\n    hit_group: {},\n    use_common_bone_ids: {},\n    damage: {},\n    angle: {},\n    kbg: {},\n    weight_set_kb: {},\n    bkb: {},\n    element: {},\n    shield_damage: {},\n    hit_grounded: {},\n    hit_aerial: {},\n    item_hit_interaction: {},\n    ignore_thrown_fighters: {},\n    ignore_fighter_scale: {},\n    clank: {},\n    rebound: {},\n    skip_if_thrown_hitbox_owner_absent: {},\n    hit_grabbed_victim_only: {},\n    source_handler: {},\n    capsule: {},\n}}",
             self.id,
             self.bone,
             self.hit_group,
@@ -2169,6 +2415,13 @@ impl RuntimeHitCapsule {
             self.shield_damage,
             self.hit_grounded,
             self.hit_aerial,
+            self.item_hit_interaction,
+            self.ignore_thrown_fighters,
+            self.ignore_fighter_scale,
+            self.clank,
+            self.rebound,
+            self.skip_if_thrown_hitbox_owner_absent,
+            self.hit_grabbed_victim_only,
             rust_string_literal(&self.source_handler),
             capsule,
         )
@@ -2543,6 +2796,8 @@ enum DecodedProcedure {
     SpawnHitbox(DecodedHitbox),
     SetHurtState(DecodedHurtState),
     SetCmdVar(DecodedCmdVar),
+    SetThrowFlag(DecodedThrowFlag),
+    SetThrowHitbox(DecodedThrowHitbox),
     SetJabCombo(DecodedJabCombo),
     SetJabRapid(DecodedJabRapid),
     ClearAllHitboxes {
@@ -2574,6 +2829,13 @@ struct DecodedHitbox {
     shield_damage: i64,
     hit_grounded: bool,
     hit_aerial: bool,
+    item_hit_interaction: bool,
+    ignore_thrown_fighters: bool,
+    ignore_fighter_scale: bool,
+    clank: bool,
+    rebound: bool,
+    skip_if_thrown_hitbox_owner_absent: bool,
+    hit_grabbed_victim_only: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -2592,6 +2854,31 @@ struct DecodedCmdVar {
     raw_word: u32,
     cmd_var: u64,
     value: u64,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedThrowFlag {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    hit_idx: u64,
+    flag_bit: Option<u8>,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedThrowHitbox {
+    frame: u64,
+    word_offset: usize,
+    raw_words: [u32; 3],
+    hitbox_idx: u64,
+    damage: u64,
+    angle: u64,
+    hit_x24: u64,
+    hit_x28: u64,
+    hit_x2c: u64,
+    element: u64,
+    sfx_severity: u64,
+    sfx_kind: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -2643,6 +2930,15 @@ fn source_binding_for_runtime_motion_state_variant(
         source_binding.map(|_| expected_action_state_id)
     );
     Ok(source_binding)
+}
+
+fn source_special_action_bindings_for_character(
+    source_character: Option<&str>,
+) -> &'static [SourceSpecialActionBinding] {
+    match source_character {
+        Some("captain" | "captain_falcon" | "falcon") => FALCON_SOURCE_SPECIAL_ACTION_BINDINGS,
+        _ => &[],
+    }
 }
 
 fn decoded_action_script_artifact(
@@ -2767,11 +3063,35 @@ fn action_ecb_samples_path(root: &Path, source_character: &str) -> PathBuf {
         .join(filename)
 }
 
+fn character_profile_path(root: &Path, source_character: &str) -> PathBuf {
+    let filename = match source_character {
+        "captain" | "captain_falcon" => "captain_falcon_profile.json".to_string(),
+        "mars" => "marth_profile.json".to_string(),
+        other => format!("{other}_profile.json"),
+    };
+    root.join("resources")
+        .join("melee")
+        .join("extracted")
+        .join(filename)
+}
+
 fn hurtbox_inits_path(root: &Path, source_character: &str) -> PathBuf {
     let filename = match source_character {
         "captain" | "captain_falcon" => "captain_falcon_hurtbox_inits.json".to_string(),
         "mars" => "marth_hurtbox_inits.json".to_string(),
         other => format!("{other}_hurtbox_inits.json"),
+    };
+    root.join("resources")
+        .join("melee")
+        .join("extracted")
+        .join(filename)
+}
+
+fn common_parts_path(root: &Path, source_character: &str) -> PathBuf {
+    let filename = match source_character {
+        "captain" | "captain_falcon" => "captain_falcon_common_parts.json".to_string(),
+        "mars" => "marth_common_parts.json".to_string(),
+        other => format!("{other}_common_parts.json"),
     };
     root.join("resources")
         .join("melee")
@@ -2979,6 +3299,21 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                             word,
                         )));
                     }
+                    10 => {
+                        procedures.push(DecodedProcedure::SetThrowFlag(decode_set_throw_flag(
+                            current_frame,
+                            word_offset,
+                            word,
+                        )));
+                    }
+                    24 => {
+                        let raw_words = read_words(raw, script_offset, word_offset, 3)?;
+                        procedures.push(DecodedProcedure::SetThrowHitbox(decode_set_throw_hitbox(
+                            current_frame,
+                            word_offset,
+                            raw_words.try_into().ok()?,
+                        )));
+                    }
                     19 => {
                         procedures.push(DecodedProcedure::SetJabCombo(decode_set_jab_combo(
                             current_frame,
@@ -3033,6 +3368,10 @@ fn decode_spawn_hitbox(frame: u64, word_offset: usize, raw_words: [u32; 5]) -> D
     let word2 = raw_words[2];
     let word3 = raw_words[3];
     let word4 = raw_words[4];
+    let item_hit_interaction = bitfield(word3, 27, 1) != 0;
+    let spawn_hitbox_skip_xf_b4 = bitfield(word3, 28, 1) != 0;
+    let rebound = bitfield(word3, 31, 1) != 0;
+    let hit_grabbed_victim_only = bitfield(word4, 12, 1) != 0;
     DecodedHitbox {
         frame,
         word_offset,
@@ -3054,6 +3393,13 @@ fn decode_spawn_hitbox(frame: u64, word_offset: usize, raw_words: [u32; 5]) -> D
         shield_damage: sign_extend(bitfield(word4, 14, 8), 8) as i64,
         hit_grounded: bitfield(word4, 30, 1) != 0,
         hit_aerial: bitfield(word4, 31, 1) != 0,
+        item_hit_interaction,
+        ignore_thrown_fighters: spawn_hitbox_skip_xf_b4,
+        ignore_fighter_scale: bitfield(word3, 29, 1) != 0,
+        clank: bitfield(word3, 30, 1) != 0,
+        rebound,
+        skip_if_thrown_hitbox_owner_absent: spawn_hitbox_skip_xf_b4,
+        hit_grabbed_victim_only,
     }
 }
 
@@ -3074,6 +3420,45 @@ fn decode_set_cmd_var(frame: u64, word_offset: usize, raw_word: u32) -> DecodedC
         raw_word,
         cmd_var: ((raw_word >> 24) & 0x03) as u64,
         value: (raw_word & 0x00ff_ffff) as u64,
+    }
+}
+
+fn decode_set_throw_flag(frame: u64, word_offset: usize, raw_word: u32) -> DecodedThrowFlag {
+    let hit_idx = (raw_word & 0x03ff_ffff) as u64;
+    DecodedThrowFlag {
+        frame,
+        word_offset,
+        raw_word,
+        hit_idx,
+        flag_bit: match hit_idx {
+            0 => Some(3),
+            1 => Some(4),
+            _ => None,
+        },
+    }
+}
+
+fn decode_set_throw_hitbox(
+    frame: u64,
+    word_offset: usize,
+    raw_words: [u32; 3],
+) -> DecodedThrowHitbox {
+    let word0 = raw_words[0];
+    let word1 = raw_words[1];
+    let word2 = raw_words[2];
+    DecodedThrowHitbox {
+        frame,
+        word_offset,
+        raw_words,
+        hitbox_idx: bitfield(word0, 6, 3) as u64,
+        damage: bitfield(word0, 9, 23) as u64,
+        angle: bitfield(word1, 0, 9) as u64,
+        hit_x24: bitfield(word1, 9, 9) as u64,
+        hit_x28: bitfield(word1, 18, 9) as u64,
+        hit_x2c: bitfield(word2, 0, 9) as u64,
+        element: bitfield(word2, 9, 4) as u64,
+        sfx_severity: bitfield(word2, 13, 3) as u64,
+        sfx_kind: bitfield(word2, 16, 4) as u64,
     }
 }
 
@@ -3162,6 +3547,13 @@ fn decoded_action_script_json(decoded: &DecodedActionScript, root: &Path) -> Val
                 "word_offset": hitbox.word_offset,
                 "raw_words": raw_words_json(&hitbox.raw_words),
                 "hitbox_id": hitbox.id,
+                "item_hit_interaction": hitbox.item_hit_interaction,
+                "ignore_thrown_fighters": hitbox.ignore_thrown_fighters,
+                "ignore_fighter_scale": hitbox.ignore_fighter_scale,
+                "clank": hitbox.clank,
+                "rebound": hitbox.rebound,
+                "skip_if_thrown_hitbox_owner_absent": hitbox.skip_if_thrown_hitbox_owner_absent,
+                "hit_grabbed_victim_only": hitbox.hit_grabbed_victim_only,
             }),
             DecodedProcedure::SetHurtState(hurt_state) => json!({
                 "procedure": "fighter.set_hurt_state",
@@ -3181,6 +3573,31 @@ fn decoded_action_script_json(decoded: &DecodedActionScript, root: &Path) -> Val
                 "raw_words": raw_words_json(&[cmd_var.raw_word]),
                 "cmd_var": cmd_var.cmd_var,
                 "value": cmd_var.value,
+            }),
+            DecodedProcedure::SetThrowFlag(throw_flag) => json!({
+                "procedure": "fighter.set_throw_flag",
+                "handler": "ftAction_800718A4",
+                "frame": throw_flag.frame,
+                "word_offset": throw_flag.word_offset,
+                "raw_words": raw_words_json(&[throw_flag.raw_word]),
+                "hit_idx": throw_flag.hit_idx,
+                "flag_bit": throw_flag.flag_bit,
+            }),
+            DecodedProcedure::SetThrowHitbox(throw_hitbox) => json!({
+                "procedure": "fighter.set_throw_hitbox",
+                "handler": "ftAction_80071E04",
+                "frame": throw_hitbox.frame,
+                "word_offset": throw_hitbox.word_offset,
+                "raw_words": raw_words_json(&throw_hitbox.raw_words),
+                "hitbox_idx": throw_hitbox.hitbox_idx,
+                "damage": throw_hitbox.damage,
+                "angle": throw_hitbox.angle,
+                "hit_x24": throw_hitbox.hit_x24,
+                "hit_x28": throw_hitbox.hit_x28,
+                "hit_x2c": throw_hitbox.hit_x2c,
+                "element": throw_hitbox.element,
+                "sfx_severity": throw_hitbox.sfx_severity,
+                "sfx_kind": throw_hitbox.sfx_kind,
             }),
             DecodedProcedure::SetJabCombo(jab_combo) => json!({
                 "procedure": "fighter.set_jab_combo",
@@ -3664,6 +4081,8 @@ where
                 }
                 DecodedProcedure::SetHurtState(_)
                 | DecodedProcedure::SetCmdVar(_)
+                | DecodedProcedure::SetThrowFlag(_)
+                | DecodedProcedure::SetThrowHitbox(_)
                 | DecodedProcedure::SetJabCombo(_)
                 | DecodedProcedure::SetJabRapid(_) => {}
             }
@@ -3709,6 +4128,8 @@ fn procedure_frame(procedure: &DecodedProcedure) -> u64 {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.frame,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.frame,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.frame,
+        DecodedProcedure::SetThrowFlag(throw_flag) => throw_flag.frame,
+        DecodedProcedure::SetThrowHitbox(throw_hitbox) => throw_hitbox.frame,
         DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.frame,
         DecodedProcedure::SetJabRapid(jab_rapid) => jab_rapid.frame,
         DecodedProcedure::ClearAllHitboxes { frame, .. } => *frame,
@@ -3720,6 +4141,8 @@ fn procedure_word_offset(procedure: &DecodedProcedure) -> usize {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.word_offset,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.word_offset,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.word_offset,
+        DecodedProcedure::SetThrowFlag(throw_flag) => throw_flag.word_offset,
+        DecodedProcedure::SetThrowHitbox(throw_hitbox) => throw_hitbox.word_offset,
         DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.word_offset,
         DecodedProcedure::SetJabRapid(jab_rapid) => jab_rapid.word_offset,
         DecodedProcedure::ClearAllHitboxes { word_offset, .. } => *word_offset,
@@ -3787,6 +4210,13 @@ fn hitbox_json(
         "shield_damage": hitbox.shield_damage,
         "hit_grounded": hitbox.hit_grounded,
         "hit_aerial": hitbox.hit_aerial,
+        "item_hit_interaction": hitbox.item_hit_interaction,
+        "ignore_thrown_fighters": hitbox.ignore_thrown_fighters,
+        "ignore_fighter_scale": hitbox.ignore_fighter_scale,
+        "clank": hitbox.clank,
+        "rebound": hitbox.rebound,
+        "skip_if_thrown_hitbox_owner_absent": hitbox.skip_if_thrown_hitbox_owner_absent,
+        "hit_grabbed_victim_only": hitbox.hit_grabbed_victim_only,
         "source": "decoded_action_script",
         "source_handler": "ftAction_8007121C",
         "source_word_offset": hitbox.word_offset,
@@ -3802,7 +4232,7 @@ fn hitbox_source_center(hitbox: &DecodedHitbox, pose_matrix: Option<[[f64; 4]; 3
 }
 
 fn right_facing_render_flattened_point(source: [f64; 3]) -> [f64; 3] {
-    [source[2], source[1], 0.0]
+    [source[0], source[1], 0.0]
 }
 
 fn source_hit_capsule_state_name(state: SourceHitCapsuleState) -> &'static str {

@@ -61,6 +61,8 @@ GLOBAL_CATEGORIES = {
         "aerial_vertical_angle_tan_milli",
         "fall_animation_drift_threshold",
         "fall_animation_blend",
+        "air_speed_clamp_friction",
+        "special_air_drift_stick_threshold",
     ],
     "collision_damage": [
         "knockback_weight_multiplier",
@@ -88,6 +90,7 @@ GLOBAL_CATEGORIES = {
         "platform_drop_delay_ticks",
         "guard_on_catch_dash_window",
         "guard_reflect_input_window",
+        "catch_ground_friction_multiplier",
     ],
     "escape_air": [
         "escapeair_deadzone_x",
@@ -98,6 +101,7 @@ GLOBAL_CATEGORIES = {
         "escapeair_landing_lag_ticks",
     ],
     "entry_and_respawn": [
+        "dead_wait_ticks",
         "dead_up_star_wait_ticks",
         "dead_up_star_rise_ticks",
         "dead_up_star_exit_ticks",
@@ -114,6 +118,15 @@ GLOBAL_CATEGORIES = {
         "entry_end_ticks",
         "entry_initial_scale_y",
         "entry_collision_landing_lag_ticks",
+    ],
+    "ledge_and_cliff": [
+        "cliff_grab_block_stick_y",
+        "cliff_option_stick_threshold",
+        "cliff_quick_percent_threshold",
+        "cliff_wait_high_percent_ticks",
+        "cliff_wait_low_percent_ticks",
+        "cliff_wait_hurt_intangible_ticks",
+        "ledge_cooldown_ticks",
     ],
 }
 
@@ -166,6 +179,7 @@ CHARACTER_CATEGORIES = {
     ],
     "entry_and_collision": [
         "weight",
+        "model_scaling",
         "entry_platform_offset_y",
     ],
 }
@@ -181,6 +195,9 @@ GLOBAL_COMBAT_CATEGORIES = {
         "knockback_result_scale",
         "knockback_result_offset",
         "damage_knockback_velocity_scale",
+        "damage_ground_knockback_friction_multiplier",
+        "damage_knockback_frame_decay",
+        "throw_knockback_weight",
     ],
     "damage_motion_thresholds": [
         "damage_landing_basic_knockback_threshold",
@@ -195,6 +212,10 @@ GLOBAL_COMBAT_CATEGORIES = {
         "damage_sakurai_ground_angle_degrees",
         "damage_sakurai_ground_max_knockback",
         "damage_sakurai_ground_min_knockback",
+        "damage_fly_top_angle_min_radians",
+        "damage_fly_top_angle_max_radians",
+        "damage_fly_top_random_chance",
+        "damage_fly_top_random_percent_threshold",
     ],
     "hitlag_and_lcancel": [
         "hitlag_base_frames",
@@ -203,12 +224,19 @@ GLOBAL_COMBAT_CATEGORIES = {
         "hitlag_max_frames",
         "lcancel_divisor",
         "lcancel_window",
+        "sdi_min_stick_mag",
+        "sdi_stick_window",
+        "sdi_pos_scale",
+        "asdi_pos_scale",
+        "di_angle_degrees",
+        "trigger_di_knockback_multiplier",
     ],
     "passive_and_recovery": [
         "down_stand_stick_y",
         "passive_input_age_threshold",
         "passive_stand_stick_x",
         "passive_window_max",
+        "landing_wait_y_velocity_threshold",
     ],
     "shield_and_defense": [
         "shield_start_health",
@@ -225,6 +253,7 @@ GLOBAL_COMBAT_CATEGORIES = {
     ],
     "damage_response": [
         "damage_duration_scale",
+        "throw_collision_lockout_ticks",
     ],
 }
 

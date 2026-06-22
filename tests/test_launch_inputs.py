@@ -86,7 +86,7 @@ def test_sdl3_runtime_vanilla_launcher_disables_ucf():
 
     assert '--features "sdl wup"' in text
     assert "-- --sdl --play --input-trace --no-ucf" in text
-    assert "Open State Graphs.cmd" in text
+    assert "Open Dev Tool.cmd" in text
 
 
 def test_sdl3_runtime_launcher_opens_state_graph_viewer():
@@ -94,9 +94,24 @@ def test_sdl3_runtime_launcher_opens_state_graph_viewer():
 
     text = launcher.read_text(encoding="utf-8")
 
-    assert "Open State Graphs.cmd" in text
+    assert "Open Dev Tool.cmd" in text
     assert 'start "Mole Game Dev Tool"' in text
     assert "tools\\state_graph_viewer.py" not in text
+
+
+def test_start_here_launcher_provides_no_terminal_handoff_menu():
+    launcher = ROOT / "START HERE - Mole Game.hta"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert "<HTA:APPLICATION" in text
+    assert "WScript.Shell" in text
+    assert "runCommandFileHidden" in text
+    assert "execs\\\\Run SDL3 Runtime.cmd" in text
+    assert "execs\\\\Open Dev Tool.cmd" in text
+    assert "playtest\\\\MoleGame-FriendPlaytest.exe" in text
+    assert "playtest\\\\MoleGame-LocalInternetPlaytest.exe" in text
+    assert "debug\\\\handoff" in text
 
 
 def test_deprecated_execs_are_out_of_the_active_launcher_folder():

@@ -1,0 +1,48 @@
+{
+  "capture_anchor_part": 61,
+  "hipn_joint": 4,
+  "hipn_part": 4,
+  "item_hold_part": 57,
+  "item_spawn_part": 39,
+  "resolved_joint_source": "ftParts_GetBoneIndex(fp, part) -> ftPartsTable[fp->kind]->part_to_joint[part]",
+  "source": {
+    "decomp_type": "struct ftData.x8 + struct ftData.x34",
+    "file": "resources/melee/raw/PlCa.dat",
+    "format": "HSD DAT, relocated ftData.x8 direct u8 indices and ftData.x34 thrown hitbox source plus PlCo ftPartsTable part-to-joint mapping",
+    "ft_data_offset": 39428,
+    "ftdata_common_parts_field_offset": 39436,
+    "ftdata_common_parts_offset": 0,
+    "ftdata_common_parts_relocated": true,
+    "ftdata_thrown_hitbox_field_offset": 39480,
+    "ftdata_thrown_hitbox_offset": 30872,
+    "ftdata_thrown_hitbox_relocated": true,
+    "source_character": "captain",
+    "symbol": "ftDataCaptain"
+  },
+  "source_notes": {
+    "capture_anchor_part": "ftCo_Attack100.c fn_800DA1D8 uses fp->parts[fp->ft_data->x8->x11].joint for mv.co.capturedamage.x18",
+    "hipn_part": "ftCo_DownBound.c/ftanim.c sample FtPart_HipN",
+    "thrown_hitbox_part": "ft_8007C17C initializes fp->x1064_thrownHitbox from fp->ft_data->x34->x0",
+    "thrown_hitbox_scale": "ft_8007C17C copies fp->ft_data->x34->scale into fp->x1064_thrownHitbox.scale",
+    "transn2_part": "ftCo_800DB368 constrains FtPart_XRotN to FtPart_TransN2",
+    "transn_part": "Fighter_UnkUpdateVecFromBones_8006876C samples FtPart_TransN for x1A70",
+    "xrotn_part": "ftCo_Attack100.c fn_800DAC78/fn_800DAD18 sample FtPart_XRotN"
+  },
+  "source_part_indices": {
+    "hipn_part": 4,
+    "transn2_part": 52,
+    "transn_part": 1,
+    "xrotn_part": 2
+  },
+  "thrown_hitbox_joint": 4,
+  "thrown_hitbox_part": 4,
+  "thrown_hitbox_scale": 2.0,
+  "transn2_joint": 61,
+  "transn2_part": 52,
+  "transn_joint": 1,
+  "transn_part": 1,
+  "visibility_part_a": 10,
+  "visibility_part_b": 16,
+  "xrotn_joint": 2,
+  "xrotn_part": 2
+}

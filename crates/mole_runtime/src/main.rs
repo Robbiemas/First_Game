@@ -43,7 +43,7 @@ use sdl3::{
     keyboard::Keycode,
     pixels::Color,
     pixels::PixelFormat,
-    rect::Point,
+    rect::{Point, Rect},
     render::{BlendMode, FRect, Texture, TextureCreator, WindowCanvas},
     video::WindowContext,
 };
@@ -68,6 +68,23 @@ fn main() {
     let debug_overlay = has_flag(&args, "--debug-overlay");
     #[cfg(feature = "sdl")]
     let frame_cap_enabled = !has_flag(&args, "--no-frame-cap");
+    #[cfg(feature = "sdl")]
+    let visual_platform_ledge_probe = has_flag(&args, "--visual-platform-ledge-probe");
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    let visual_slippi_inputs_path = value_after(&args, "--visual-slippi-inputs").map(PathBuf::from);
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    let slippi_divergence_log_path =
+        value_after(&args, "--slippi-divergence-log").map(PathBuf::from);
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    let hold_final_frame = parse_hold_final_frame(&args);
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    let screenshot_request = match parse_sdl_screenshot_request(&args) {
+        Ok(request) => request,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+    };
     #[cfg(feature = "wup")]
     let ucf_enabled = parse_ucf_enabled(&args);
     #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -314,6 +331,11 @@ fn main() {
             timing,
             debug_overlay,
             frame_cap_enabled,
+            visual_platform_ledge_probe,
+            visual_slippi_inputs_path,
+            slippi_divergence_log_path,
+            hold_final_frame,
+            screenshot_request,
             #[cfg(feature = "wup")]
             ucf_enabled,
         ) {
@@ -556,6 +578,13 @@ const FRIEND_CONNECT_RECENT_INPUT_RETAIN_FRAMES: u32 = 128;
 const FRIEND_CONNECT_NETPLAY_LOG_MAX_BYTES: usize = 5 * 1024 * 1024;
 #[cfg(all(feature = "sdl", feature = "wup"))]
 const FRIEND_CONNECT_NETPLAY_SUMMARY_INTERVAL: u32 = 60;
+
+#[cfg(feature = "sdl")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SdlScreenshotRequest {
+    frame: Frame,
+    path: PathBuf,
+}
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2887,9 +2916,16 @@ fn run_sdl_smoke(
     timing: bool,
     debug_overlay: bool,
     frame_cap_enabled: bool,
+    visual_platform_ledge_probe: bool,
+    visual_slippi_inputs_path: Option<PathBuf>,
+    slippi_divergence_log_path: Option<PathBuf>,
+    hold_final_frame: bool,
+    screenshot_request: Option<SdlScreenshotRequest>,
     ucf_enabled: bool,
 ) -> Result<(), String> {
     mole_runtime::preload_runtime_source_frame_data()?;
+    let visual_slippi_frames =
+        load_visual_slippi_replay_frames(visual_slippi_inputs_path.as_deref(), frames)?;
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -2907,9 +2943,16 @@ fn run_sdl_smoke(
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
     let mut gameplay_input_source = open_optional_wup_input_source(ucf_enabled, "local SDL");
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
-    let initial = mole_runtime::default_play_world();
+    let initial = if visual_platform_ledge_probe {
+        mole_runtime::visual_platform_ledge_probe_world()
+    } else {
+        mole_runtime::default_play_world()
+    };
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
+    let mut visual_slippi_divergence_gate = mole_runtime::SlippiVisualReplayDivergenceGate::new(
+        mole_runtime::SlippiCoreDivergenceScanConfig::default().lookahead_frames,
+    );
     let mut timing_stats = SdlFrameTimingStats::default();
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
@@ -2924,7 +2967,17 @@ fn run_sdl_smoke(
         let before_trace_frame = input_trace_writer
             .as_ref()
             .map(|_| mole_runtime::RenderFrame::from_world(&world));
-        let (inputs, wup_trace) = if input_trace_writer.is_some() {
+        let (inputs, wup_trace) = if visual_platform_ledge_probe {
+            ([PlayerInput::neutral(); 2], None)
+        } else if let Some(slippi_frames) = visual_slippi_frames.as_ref() {
+            (
+                slippi_frames
+                    .get(frame.0 as usize)
+                    .map(|slippi_frame| slippi_frame.inputs)
+                    .unwrap_or([PlayerInput::neutral(); 2]),
+                None,
+            )
+        } else if input_trace_writer.is_some() {
             poll_traced_wup_inputs(&mut gameplay_input_source, ucf_enabled, frame)
         } else {
             (
@@ -2934,13 +2987,44 @@ fn run_sdl_smoke(
         };
         let input_elapsed = input_started.elapsed();
         let sim_started = Instant::now();
-        mole_runtime::step_world_with_source_collisions(&mut world, frame, &inputs);
+        if !visual_platform_ledge_probe {
+            mole_runtime::step_world_with_source_collisions(&mut world, frame, &inputs);
+        }
         let sim_elapsed = sim_started.elapsed();
         if let Some(capture) = replay_capture.as_mut() {
             capture.record_frame(frame, inputs, world.checksum());
         }
+        let mut stop_after_draw = false;
         let scene_started = Instant::now();
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
+        if let (Some(slippi_frames), Some(log_path)) = (
+            visual_slippi_frames.as_ref(),
+            slippi_divergence_log_path.as_ref(),
+        ) {
+            if let Some(slippi_frame) = slippi_frames.get(frame.0 as usize) {
+                let divergence = mole_runtime::slippi_visual_replay_divergence_for_frame(
+                    slippi_frame,
+                    world.snapshot(),
+                    mole_runtime::SlippiCoreDivergenceScanConfig::default(),
+                );
+                if let Some(divergence) = visual_slippi_divergence_gate.observe(divergence) {
+                    write_visual_slippi_divergence_log(
+                        log_path,
+                        visual_slippi_inputs_path.as_deref(),
+                        &divergence,
+                    )?;
+                    println!(
+                        "slippi_divergence_log={} core_frame={} source_frame={} player={} kind={:?}",
+                        log_path.display(),
+                        divergence.core_frame.0,
+                        divergence.source_frame,
+                        divergence.player_index + 1,
+                        divergence.kind
+                    );
+                    stop_after_draw = true;
+                }
+            }
+        }
         if let (Some(writer), Some(trace), Some(before)) = (
             input_trace_writer.as_mut(),
             wup_trace.as_ref(),
@@ -2974,7 +3058,32 @@ fn run_sdl_smoke(
             overlay.as_ref(),
             Some(&mut texture_cache),
         )?;
+        if screenshot_request
+            .as_ref()
+            .is_some_and(|request| request.frame == frame)
+        {
+            let request = screenshot_request
+                .as_ref()
+                .expect("checked screenshot request");
+            save_sdl_canvas_png(&canvas, &request.path)?;
+            let source_frame = visual_slippi_frames
+                .as_ref()
+                .and_then(|slippi_frames| slippi_frames.get(frame.0 as usize))
+                .map(|slippi_frame| slippi_frame.source_frame);
+            println!(
+                "screenshot_path={} frame={} source_frame={}",
+                request.path.display(),
+                frame.0,
+                source_frame
+                    .map(|frame| frame.to_string())
+                    .unwrap_or_else(|| "null".to_string())
+            );
+        }
         let draw_elapsed = draw_started.elapsed();
+
+        if stop_after_draw {
+            break;
+        }
 
         if sdl_shell_input.quit_requested() {
             break;
@@ -3009,7 +3118,166 @@ fn run_sdl_smoke(
     if timing {
         println!("{}", timing_stats.summary_json(frame_cap_enabled));
     }
+    if hold_final_frame {
+        let hold_frame = Frame(frames.saturating_sub(1));
+        loop {
+            let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, hold_frame);
+            if sdl_shell_input.quit_requested() {
+                break;
+            }
+            wait_until_frame_deadline(Instant::now() + frame_budget);
+        }
+    }
     Ok(())
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn write_visual_slippi_divergence_log(
+    path: &Path,
+    input_export_path: Option<&Path>,
+    divergence: &mole_runtime::SlippiVisualReplayDivergence,
+) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+    }
+    let row = &divergence.row;
+    let input_json = serde_json::json!({
+        "stick_x": row.input_stick_x,
+        "stick_y": row.input_stick_y,
+        "button_bits": row.input_button_bits,
+        "left_trigger": row.input_left_trigger,
+        "right_trigger": row.input_right_trigger,
+        "ucf_dashback_amendment": row.input_ucf_dashback_amendment,
+    });
+    let row_json = serde_json::json!({
+        "core_frame": row.core_frame.0,
+        "source_frame": row.source_frame,
+        "player": row.player_index + 1,
+        "input": input_json,
+        "expected_slippi_state_id": row.expected_slippi_state_id,
+        "expected_action_state_id": row.expected_action_state_id.get(),
+        "actual_action_state_id": row.actual_action_state_id.map(|state| state.get()),
+        "expected_motion_state": row.expected_motion_state.map(|state| format!("{state:?}")),
+        "actual_motion_state": format!("{:?}", row.actual_motion_state),
+        "actual_motion_frame": row.actual_motion_frame,
+        "actual_motion_anim_frame_milli": row.actual_motion_anim_frame_milli,
+        "expected_position": {
+            "x_milli": row.expected_position.x,
+            "y_milli": row.expected_position.y,
+        },
+        "actual_position": {
+            "x_milli": row.actual_position.x,
+            "y_milli": row.actual_position.y,
+        },
+        "position_delta": {
+            "x_milli": row.actual_position.x - row.expected_position.x,
+            "y_milli": row.actual_position.y - row.expected_position.y,
+        },
+        "expected_source_position": {
+            "x": row.expected_source_position.x,
+            "y": row.expected_source_position.y,
+        },
+        "actual_source_position": {
+            "x": row.actual_source_position.x,
+            "y": row.actual_source_position.y,
+        },
+        "expected_composed_velocity_x": row.expected_composed_velocity_x,
+        "expected_composed_velocity_y": row.expected_composed_velocity_y,
+        "actual_velocity_x": row.actual_velocity_x,
+        "actual_velocity_y": row.actual_velocity_y,
+        "composed_velocity_delta": {
+            "x_milli": row.actual_velocity_x - row.expected_composed_velocity_x,
+            "y_milli": row.actual_velocity_y - row.expected_composed_velocity_y,
+        },
+        "expected_ground_velocity_x": row.expected_ground_velocity_x,
+        "expected_air_velocity_x": row.expected_air_velocity_x,
+        "expected_velocity_y": row.expected_velocity_y,
+        "actual_ground_velocity_x": row.actual_ground_velocity_x,
+        "actual_source_self_velocity_x": row.actual_source_self_velocity_x,
+        "actual_source_self_velocity_y": row.actual_source_self_velocity_y,
+        "actual_source_knockback_velocity_x": row.actual_source_knockback_velocity_x,
+        "actual_source_knockback_velocity_y": row.actual_source_knockback_velocity_y,
+        "actual_source_ground_knockback_velocity": row.actual_source_ground_knockback_velocity,
+        "actual_source_floor_surface": row.actual_source_floor_surface,
+        "actual_source_floor_line": row.actual_source_floor_line,
+        "actual_source_coll_env_flags": row.actual_source_coll_env_flags,
+        "actual_source_coll_prev_env_flags": row.actual_source_coll_prev_env_flags,
+    });
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "event": "slippi_runtime_divergence",
+        "input_export_path": input_export_path.map(|path| path.display().to_string()),
+        "kind": slippi_divergence_kind_label(divergence.kind),
+        "player": divergence.player_index + 1,
+        "core_frame": divergence.core_frame.0,
+        "source_frame": divergence.source_frame,
+        "max_abs_position_delta_milli": divergence.max_abs_position_delta_milli,
+        "max_abs_velocity_delta_milli": divergence.max_abs_velocity_delta_milli,
+        "row": row_json,
+    });
+    let text = serde_json::to_string_pretty(&report)
+        .map_err(|error| format!("failed to format divergence log: {error}"))?;
+    fs::write(path, format!("{text}\n"))
+        .map_err(|error| format!("failed to write {}: {error}", path.display()))
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn slippi_divergence_kind_label(kind: mole_runtime::SlippiCoreDivergenceKind) -> &'static str {
+    match kind {
+        mole_runtime::SlippiCoreDivergenceKind::UnsupportedState => "unsupported_state",
+        mole_runtime::SlippiCoreDivergenceKind::StateMismatch => "state_mismatch",
+        mole_runtime::SlippiCoreDivergenceKind::PositionDrift => "position_drift",
+        mole_runtime::SlippiCoreDivergenceKind::VelocityDrift => "velocity_drift",
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn load_visual_slippi_replay_frames(
+    path: Option<&Path>,
+    frames: u32,
+) -> Result<Option<Vec<mole_runtime::SlippiVisualReplayFrame>>, String> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let text = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let max_frames = (frames != u32::MAX).then_some(frames as usize);
+    let frames = mole_runtime::slippi_visual_replay_inputs_from_match_start(&text, max_frames)
+        .map_err(|error| error.to_string())?;
+    Ok(Some(frames))
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn save_sdl_canvas_png(canvas: &WindowCanvas, path: &Path) -> Result<(), String> {
+    let surface = canvas
+        .read_pixels(None::<Rect>)
+        .map_err(|error| error.to_string())?;
+    let converted = surface
+        .convert_format(PixelFormat::RGBA32)
+        .map_err(|error| error.to_string())?;
+    let (width, height) = converted.size();
+    let pitch = converted.pitch() as usize;
+    let row_bytes = width as usize * 4;
+    let mut rgba = Vec::with_capacity(row_bytes * height as usize);
+    converted.with_lock(|pixels| {
+        for y in 0..height as usize {
+            let start = y * pitch;
+            rgba.extend_from_slice(&pixels[start..start + row_bytes]);
+        }
+    });
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    image::save_buffer_with_format(
+        path,
+        &rgba,
+        width,
+        height,
+        image::ColorType::Rgba8,
+        image::ImageFormat::Png,
+    )
+    .map_err(|error| format!("failed to write {}: {error}", path.display()))
 }
 
 #[cfg(all(feature = "sdl", not(feature = "wup")))]
@@ -3021,6 +3289,11 @@ fn run_sdl_smoke(
     _timing: bool,
     _debug_overlay: bool,
     _frame_cap_enabled: bool,
+    _visual_platform_ledge_probe: bool,
+    _visual_slippi_inputs_path: Option<PathBuf>,
+    _slippi_divergence_log_path: Option<PathBuf>,
+    _hold_final_frame: bool,
+    _screenshot_request: Option<SdlScreenshotRequest>,
     #[cfg(feature = "wup")] _ucf_enabled: bool,
 ) -> Result<(), String> {
     Err(
@@ -3818,6 +4091,11 @@ fn parse_frames(args: &[String]) -> u32 {
     120
 }
 
+#[cfg_attr(not(all(feature = "sdl", feature = "wup")), allow(dead_code))]
+fn parse_hold_final_frame(args: &[String]) -> bool {
+    has_flag(args, "--hold-final-frame")
+}
+
 #[cfg_attr(not(feature = "wup"), allow(dead_code))]
 fn parse_ucf_enabled(args: &[String]) -> bool {
     !has_flag(args, "--no-ucf")
@@ -3922,6 +4200,25 @@ fn parse_replay_path(args: &[String], frames: u32) -> Option<PathBuf> {
         })
 }
 
+#[cfg(feature = "sdl")]
+fn parse_sdl_screenshot_request(args: &[String]) -> Result<Option<SdlScreenshotRequest>, String> {
+    let frame = value_after(args, "--screenshot-frame");
+    let path = value_after(args, "--screenshot-path");
+    match (frame, path) {
+        (None, None) => Ok(None),
+        (Some(frame), Some(path)) => {
+            let frame = frame
+                .parse::<u32>()
+                .map_err(|error| format!("invalid --screenshot-frame: {error}"))?;
+            Ok(Some(SdlScreenshotRequest {
+                frame: Frame(frame),
+                path: PathBuf::from(path),
+            }))
+        }
+        _ => Err("--screenshot-frame and --screenshot-path must be provided together".to_string()),
+    }
+}
+
 fn value_after(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag)
@@ -3982,6 +4279,38 @@ mod tests {
             ]),
             2
         );
+    }
+
+    #[test]
+    fn parse_hold_final_frame_keeps_sdl_replay_window_open() {
+        assert!(super::parse_hold_final_frame(&[
+            "--sdl".to_string(),
+            "--hold-final-frame".to_string()
+        ]));
+        assert!(!super::parse_hold_final_frame(&["--sdl".to_string()]));
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn parse_sdl_screenshot_request_requires_frame_and_path() {
+        assert_eq!(
+            super::parse_sdl_screenshot_request(&[
+                "--screenshot-frame".to_string(),
+                "1825".to_string(),
+                "--screenshot-path".to_string(),
+                "debug\\visual\\frame-1825.png".to_string()
+            ]),
+            Ok(Some(super::SdlScreenshotRequest {
+                frame: Frame(1825),
+                path: std::path::PathBuf::from("debug\\visual\\frame-1825.png"),
+            }))
+        );
+        assert_eq!(super::parse_sdl_screenshot_request(&[]), Ok(None));
+        assert!(super::parse_sdl_screenshot_request(&[
+            "--screenshot-frame".to_string(),
+            "1825".to_string(),
+        ])
+        .is_err());
     }
 
     #[cfg(all(feature = "sdl", feature = "wup"))]

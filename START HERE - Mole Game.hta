@@ -1,0 +1,278 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="x-ua-compatible" content="IE=11">
+<title>Mole Game Start Here</title>
+<HTA:APPLICATION
+    ID="MoleGameStartHere"
+    APPLICATIONNAME="Mole Game Start Here"
+    BORDER="thin"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+    SCROLL="no"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    WINDOWSTATE="normal"
+/>
+<style>
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 760px;
+        height: 560px;
+        overflow: hidden;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #f4f7fb;
+        color: #172033;
+    }
+
+    .shell {
+        padding: 22px;
+    }
+
+    h1 {
+        margin: 0 0 6px 0;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .sub {
+        margin: 0 0 18px 0;
+        color: #526176;
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .button {
+        border: 1px solid #c9d5e6;
+        background: #ffffff;
+        color: #172033;
+        text-align: left;
+        padding: 14px 16px;
+        min-height: 82px;
+        cursor: pointer;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(18, 33, 56, 0.08);
+    }
+
+    .button:hover {
+        border-color: #6b8fc7;
+        background: #f9fbff;
+    }
+
+    .primary {
+        background: #17365d;
+        border-color: #17365d;
+        color: #ffffff;
+    }
+
+    .primary:hover {
+        background: #1f477a;
+        border-color: #1f477a;
+    }
+
+    .label {
+        display: block;
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+
+    .desc {
+        display: block;
+        font-size: 12px;
+        line-height: 17px;
+        color: inherit;
+        opacity: 0.82;
+    }
+
+    .status {
+        margin-top: 18px;
+        padding: 12px 14px;
+        min-height: 42px;
+        border: 1px solid #d6e0ef;
+        background: #ffffff;
+        border-radius: 6px;
+        color: #344258;
+        font-size: 13px;
+        line-height: 18px;
+    }
+
+    .note {
+        margin-top: 14px;
+        font-size: 12px;
+        line-height: 17px;
+        color: #63718a;
+    }
+</style>
+<script language="javascript">
+    var shell = new ActiveXObject("WScript.Shell");
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+
+    function launcherPath() {
+        var path = decodeURIComponent(location.pathname);
+        if (path.charAt(0) === "/" && path.charAt(2) === ":") {
+            path = path.substring(1);
+        }
+        return path.replace(/\//g, "\\");
+    }
+
+    function repoRoot() {
+        return fso.GetParentFolderName(launcherPath());
+    }
+
+    var ROOT = repoRoot();
+
+    function join(root, relative) {
+        return root + "\\" + relative;
+    }
+
+    function quote(value) {
+        return "\"" + value + "\"";
+    }
+
+    function setStatus(message) {
+        document.getElementById("status").innerText = message;
+    }
+
+    function run(command, windowStyle) {
+        try {
+            shell.Run(command, windowStyle, false);
+        } catch (error) {
+            alert("Could not start this action.\n\n" + error.message);
+        }
+    }
+
+    function runCommandFileHidden(relativePath, label) {
+        var target = join(ROOT, relativePath);
+        if (!fso.FileExists(target)) {
+            alert("Missing launcher:\n" + target);
+            return;
+        }
+        setStatus(label + " is starting. If Rust needs to build, the window may take a moment.");
+        var cmd = shell.ExpandEnvironmentStrings("%ComSpec%");
+        run(quote(cmd) + " /d /c " + quote(target), 0);
+    }
+
+    function runVisible(relativePath, label) {
+        var target = join(ROOT, relativePath);
+        if (!fso.FileExists(target)) {
+            alert("Missing file:\n" + target);
+            return;
+        }
+        setStatus(label + " is starting.");
+        run(quote(target), 1);
+    }
+
+    function openFolder(relativePath, label) {
+        var target = join(ROOT, relativePath);
+        if (!fso.FolderExists(target)) {
+            alert("Missing folder:\n" + target);
+            return;
+        }
+        setStatus(label + " opened.");
+        run("explorer.exe " + quote(target), 1);
+    }
+
+    function openText(relativePath, label) {
+        var target = join(ROOT, relativePath);
+        if (!fso.FileExists(target)) {
+            alert("Missing file:\n" + target);
+            return;
+        }
+        setStatus(label + " opened.");
+        run("notepad.exe " + quote(target), 1);
+    }
+
+    function launchLocalPlay() {
+        runCommandFileHidden("execs\\Run SDL3 Runtime.cmd", "Local play");
+    }
+
+    function launchDevtool() {
+        runCommandFileHidden("execs\\Open Dev Tool.cmd", "Devtool / replay viewer");
+    }
+
+    function launchFriendPlaytest() {
+        runVisible("playtest\\MoleGame-FriendPlaytest.exe", "Friend playtest");
+    }
+
+    function launchLocalInternetPlaytest() {
+        runVisible("playtest\\MoleGame-LocalInternetPlaytest.exe", "Local internet playtest");
+    }
+
+    function openReplayScreenshots() {
+        openFolder("debug\\handoff", "Replay screenshot folder");
+    }
+
+    function openPlaytestFolder() {
+        openFolder("playtest", "Playtest folder");
+    }
+
+    function openNotes() {
+        openText("docs\\worklogs\\gameplay_parity_scratchpad.md", "Current parity notes");
+    }
+</script>
+</head>
+<body>
+    <div class="shell">
+        <h1>Mole Game</h1>
+        <p class="sub">
+            Double-click actions for playtesting and replay inspection. No terminal typing required.
+        </p>
+
+        <div class="grid">
+            <button class="button primary" onclick="launchLocalPlay()">
+                <span class="label">Play Locally</span>
+                <span class="desc">Starts the current Rust SDL3/WUP local playtest from source.</span>
+            </button>
+
+            <button class="button primary" onclick="launchDevtool()">
+                <span class="label">Replay Viewer / Devtool</span>
+                <span class="desc">Opens the Rust devtool. Use the Slippi Replay tab to step and play replay windows visually.</span>
+            </button>
+
+            <button class="button" onclick="launchFriendPlaytest()">
+                <span class="label">Friend Playtest</span>
+                <span class="desc">Starts the packaged Friend Connect build for online testing with another computer.</span>
+            </button>
+
+            <button class="button" onclick="launchLocalInternetPlaytest()">
+                <span class="label">Local Internet Test</span>
+                <span class="desc">Starts the one-click local host plus peer internet-path test.</span>
+            </button>
+
+            <button class="button" onclick="openReplayScreenshots()">
+                <span class="label">Replay Screenshots</span>
+                <span class="desc">Opens the folder with visual replay captures from the current handoff.</span>
+            </button>
+
+            <button class="button" onclick="openPlaytestFolder()">
+                <span class="label">Playtest Files</span>
+                <span class="desc">Opens the folder containing the current handoff executables.</span>
+            </button>
+
+            <button class="button" onclick="openNotes()">
+                <span class="label">Current Notes</span>
+                <span class="desc">Opens the scratchpad with the current replay blocker and recent verification notes.</span>
+            </button>
+        </div>
+
+        <div id="status" class="status">
+            Ready. Choose an action above.
+        </div>
+
+        <div class="note">
+            First launch can take longer if Rust is compiling. Friend Playtest uses the packaged executable, so it should start without building from source.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
@@ -12,6 +14,7 @@ use std::{
 use mole_devtool::ParityLedgerViewModel;
 use mole_ledger::LedgerMap;
 
+mod action_motion_tables;
 mod decomp;
 mod fighter_common;
 mod formatting;
@@ -78,6 +81,7 @@ enum AgentCommand {
 pub(crate) enum GraphCommand {
     Missing,
     Next,
+    Completeness,
     Inspect { target: String },
     Layout,
     LayoutSave { write: bool },
@@ -99,6 +103,7 @@ pub(crate) enum GeneratedCommand {
     WriteValueSheets { write: bool },
     WriteStageAsset { stage: String, write: bool },
     WriteLedgerMap { write: bool },
+    WriteActionMotionTables { write: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,6 +154,7 @@ pub(crate) struct StageExtractIsoOptions {
 pub(crate) enum ReplayCommand {
     Artifacts,
     Check(ReplayCheckOptions),
+    Scan(ReplayScanOptions),
     Trace(ReplayTraceOptions),
 }
 
@@ -173,6 +179,7 @@ pub(crate) enum FrameDataCommand {
 pub(crate) enum PackageCommand {
     FriendPlaytest { verify: bool, dry_run: bool },
     LocalInternetPlaytest { verify: bool, dry_run: bool },
+    LinuxFriendPlaytest { dry_run: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -262,6 +269,16 @@ pub(crate) struct ReplayTraceOptions {
     pub player_index: usize,
     pub source_frame_start: i32,
     pub source_frame_end: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReplayScanOptions {
+    pub inputs: String,
+    pub frames: Option<usize>,
+    pub lookahead_frames: usize,
+    pub max_scenarios: Option<usize>,
+    pub position_tolerance_milli: i32,
+    pub velocity_tolerance_milli: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -625,9 +642,25 @@ fn parse_package_command(args: &[String]) -> Result<PackageCommand, String> {
             }
             if subcommand == "friend-playtest" {
                 Ok(PackageCommand::FriendPlaytest { verify, dry_run })
-            } else {
+            } else if subcommand == "local-internet-playtest" {
                 Ok(PackageCommand::LocalInternetPlaytest { verify, dry_run })
+            } else {
+                unreachable!("handled package subcommand")
             }
+        }
+        "linux-friend-playtest" => {
+            let mut dry_run = false;
+            for arg in &args[1..] {
+                match arg.as_str() {
+                    "--dry-run" => dry_run = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for package {subcommand}: {other}"
+                        ))
+                    }
+                }
+            }
+            Ok(PackageCommand::LinuxFriendPlaytest { dry_run })
         }
         other => Err(format!("unknown mole package command: {other}")),
     }
@@ -923,6 +956,9 @@ fn parse_graph_command(args: &[String]) -> Result<GraphCommand, String> {
     match subcommand {
         "missing" => ensure_no_extra_args("graph missing", rest).map(|()| GraphCommand::Missing),
         "next" => ensure_no_extra_args("graph next", rest).map(|()| GraphCommand::Next),
+        "completeness" => {
+            ensure_no_extra_args("graph completeness", rest).map(|()| GraphCommand::Completeness)
+        }
         "layout" => parse_graph_layout_command(rest),
         "inspect" => {
             let target = rest.join(" ");
@@ -1028,6 +1064,20 @@ fn parse_generated_command(args: &[String]) -> Result<GeneratedCommand, String> 
                 }
             }
             Ok(GeneratedCommand::WriteLedgerMap { write })
+        }
+        "write-action-motion-tables" => {
+            let mut write = false;
+            for arg in rest {
+                match arg.as_str() {
+                    "--write" => write = true,
+                    other => {
+                        return Err(format!(
+                            "unexpected argument for generated write-action-motion-tables: {other}"
+                        ))
+                    }
+                }
+            }
+            Ok(GeneratedCommand::WriteActionMotionTables { write })
         }
         other => Err(format!("unknown mole generated command: {other}")),
     }
@@ -1152,6 +1202,7 @@ fn parse_replay_command(args: &[String]) -> Result<ReplayCommand, String> {
             ensure_no_extra_args("replay artifacts", rest).map(|()| ReplayCommand::Artifacts)
         }
         "check" => parse_replay_check(rest).map(ReplayCommand::Check),
+        "scan" => parse_replay_scan(rest).map(ReplayCommand::Scan),
         "trace" => parse_replay_trace(rest).map(ReplayCommand::Trace),
         other => Err(format!("unknown mole replay command: {other}")),
     }
@@ -1208,6 +1259,63 @@ fn parse_replay_check(args: &[String]) -> Result<ReplayCheckOptions, String> {
             mode,
         }),
     }
+}
+
+fn parse_replay_scan(args: &[String]) -> Result<ReplayScanOptions, String> {
+    let mut inputs = None;
+    let mut frames = None;
+    let mut lookahead_frames = 5usize;
+    let mut max_scenarios = None;
+    let mut position_tolerance_milli = 100i32;
+    let mut velocity_tolerance_milli = 1i32;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--inputs" => inputs = Some(take_flag_value(args, &mut index, "--inputs")?),
+            "--frames" => {
+                frames = Some(parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--frames")?,
+                    "--frames",
+                )?)
+            }
+            "--lookahead" => {
+                lookahead_frames = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--lookahead")?,
+                    "--lookahead",
+                )?
+            }
+            "--max-scenarios" => {
+                max_scenarios = Some(parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--max-scenarios")?,
+                    "--max-scenarios",
+                )?)
+            }
+            "--position-tolerance-milli" => {
+                position_tolerance_milli = parse_positive_i32(
+                    &take_flag_value(args, &mut index, "--position-tolerance-milli")?,
+                    "--position-tolerance-milli",
+                )?
+            }
+            "--velocity-tolerance-milli" => {
+                velocity_tolerance_milli = parse_positive_i32(
+                    &take_flag_value(args, &mut index, "--velocity-tolerance-milli")?,
+                    "--velocity-tolerance-milli",
+                )?
+            }
+            other => return Err(format!("unexpected argument for replay scan: {other}")),
+        }
+        index += 1;
+    }
+
+    Ok(ReplayScanOptions {
+        inputs: inputs.ok_or_else(|| "replay scan requires --inputs <path>".to_string())?,
+        frames,
+        lookahead_frames,
+        max_scenarios,
+        position_tolerance_milli,
+        velocity_tolerance_milli,
+    })
 }
 
 fn parse_replay_trace(args: &[String]) -> Result<ReplayTraceOptions, String> {
@@ -1276,6 +1384,14 @@ fn parse_i32(value: &str, flag: &str) -> Result<i32, String> {
     value
         .parse::<i32>()
         .map_err(|_| format!("{flag} must be an integer"))
+}
+
+fn parse_positive_i32(value: &str, flag: &str) -> Result<i32, String> {
+    value
+        .parse::<i32>()
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| format!("{flag} must be a positive integer"))
 }
 
 fn subcommand_args(args: &[String]) -> &[String] {
@@ -2261,10 +2377,12 @@ fn expected_command_names() -> Vec<&'static str> {
         "agent brief",
         "graph missing",
         "graph next",
+        "graph completeness",
         "graph inspect",
         "graph layout",
         "verify changed",
         "generated check",
+        "generated write-action-motion-tables",
         "devtool ledger",
         "finish check",
         "frame-data extract",
@@ -2272,6 +2390,7 @@ fn expected_command_names() -> Vec<&'static str> {
         "frame-data show",
         "package friend-playtest",
         "package local-internet-playtest",
+        "package linux-friend-playtest",
         "friend-connect status",
         "doctor",
         "tests",
@@ -2523,6 +2642,7 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- finish check --format markdown",
             "cargo run -p mole_cli -- replay check --replay replays\\Game_20260530T214929.slp --frames 1800 --json",
             "cargo run -p mole_cli -- replay check --inputs debug\\slippi\\Game_20260530T214929.inputs.json --mode seeded --json",
+            "cargo run -p mole_cli -- replay scan --inputs debug\\slippi\\Game_20260530T214929.inputs.json --lookahead 5 --json",
             "cargo run -p mole_cli -- replay trace --inputs debug\\slippi\\Game_20260530T214929.inputs.json --player 1 --start 392 --end 402 --format markdown",
             "cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json",
             "cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown",
@@ -2533,6 +2653,7 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- frame-data show --character dolphin_mole --state AttackAirN --format markdown",
             "cargo run -p mole_cli -- package friend-playtest --json",
             "cargo run -p mole_cli -- package local-internet-playtest --json",
+            "cargo run -p mole_cli -- package linux-friend-playtest --json",
             "cargo run -p mole_cli -- friend-connect status --json",
             "cargo run -p mole_cli -- friend-connect diagnostics --log logs\\netplay\\visible_host.jsonl --json",
             "cargo run -p mole_cli -- request next --json",
@@ -2541,7 +2662,7 @@ fn help_report() -> Value {
         ],
         "ai_contract": {
             "read_only_by_default": true,
-            "mutating_commands": ["generated write-stage-asset", "generated write-value-sheets", "frame-data extract", "frame-data export-runtime", "package friend-playtest", "package local-internet-playtest", "replay check", "request add", "request done", "stage extract", "stage extract-iso"],
+            "mutating_commands": ["generated write-action-motion-tables", "generated write-stage-asset", "generated write-value-sheets", "frame-data extract", "frame-data export-runtime", "package friend-playtest", "package local-internet-playtest", "package linux-friend-playtest", "replay check", "request add", "request done", "stage extract", "stage extract-iso"],
             "no_interactive_prompts": true,
             "stable_json_schema_version": SCHEMA_VERSION,
             "nonzero_exit_on_cli_usage_error": true
@@ -2646,6 +2767,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Use when choosing the next graph-backed parity target."
+        },
+        {
+            "name": "graph completeness",
+            "usage": "mole graph completeness [--json]",
+            "purpose": "Separate structural graph presence from source action coverage and Rust implementation parity status counts.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use when graph missing reports zero entries but source artifacts still contain unrepresented action or motion states."
         },
         {
             "name": "graph inspect",
@@ -2809,6 +2942,18 @@ fn command_help_catalog() -> Value {
             "agent_notes": "Use this when the ledger tab contract changes so both human and agentic surfaces keep reading the same Rust-owned registry."
         },
         {
+            "name": "generated write-action-motion-tables",
+            "usage": "mole generated write-action-motion-tables [--write] [--json]",
+            "purpose": "Write the compact source action/motion table artifact consumed by graph completeness and the Rust devtool State Graphs tab.",
+            "mutates_workspace": true,
+            "writes": ["docs/state_graphs/action_motion_tables.json"],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--write", "--root", "--json", "--text", "--format"],
+            "aliases": ["generated"],
+            "agent_notes": "Run this after refreshing Falcon frame-data imports so source-backed graph completeness is populated from artifacts instead of hand-edited notes."
+        },
+        {
             "name": "finish check",
             "usage": "mole finish check [--json|--format markdown]",
             "purpose": "Run a read-only completion gate over repository anchor, help catalog freshness, doctor status, request queue, and changed-file verification plan.",
@@ -2843,6 +2988,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Use before replay trace or when wiring GUI artifact selectors; returns paths plus available export metadata."
+        },
+        {
+            "name": "replay scan",
+            "usage": "mole replay scan --inputs PATH [--frames N] [--lookahead N] [--max-scenarios N] [--position-tolerance-milli N] [--velocity-tolerance-milli N] [--json|--format markdown]",
+            "purpose": "Replay an existing Slippi input export from match start and group every divergence into scenario runs with rollback lookahead realignment diagnostics.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--inputs"],
+            "optional_flags": ["--frames", "--lookahead", "--max-scenarios", "--position-tolerance-milli", "--velocity-tolerance-milli", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use before picking a decomp parity fix. The scan records first divergent source frames, whether rollback replay is deterministic, and whether each scenario realigns within the lookahead window."
         },
         {
             "name": "replay trace",
@@ -2951,6 +3108,18 @@ fn command_help_catalog() -> Value {
             "optional_flags": ["--verify", "--no-verify", "--dry-run", "--root", "--json", "--text", "--format"],
             "aliases": [],
             "agent_notes": "Use this when the solo visible-host plus headless-peer EXE needs to be refreshed after runtime or package changes."
+        },
+        {
+            "name": "package linux-friend-playtest",
+            "usage": "mole package linux-friend-playtest [--dry-run] [--json]",
+            "purpose": "Build the Linux Friend Connect playtest tarball from the same runtime/package contract as the Windows friend playtest.",
+            "mutates_workspace": true,
+            "writes": ["dist/MoleGame-LinuxFriendPlaytest", "playtest/MoleGame-LinuxFriendPlaytest.tar.gz"],
+            "output_modes": ["json", "text"],
+            "required_flags": [],
+            "optional_flags": ["--dry-run", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Run this on a Linux build host or CI runner with SDL3 runtime libraries available; the resulting tarball is intended to connect to the Windows Friend Connect playtest via the same direct UDP/friend code flow."
         },
         {
             "name": "friend-connect status",
@@ -3625,6 +3794,10 @@ fn artifact_paths() -> Vec<(&'static str, &'static str)> {
             "falcon generated ecb rust",
             "crates/mole_core/src/generated/falcon_ecb.rs",
         ),
+        (
+            "source root motion generated rust",
+            "crates/mole_core/src/generated/source_root_motion.rs",
+        ),
         ("state graph viewer", "tools/state_graph_viewer.py"),
         (
             "slippi replay converter",
@@ -3667,6 +3840,10 @@ fn generated_artifact_paths() -> Vec<(&'static str, &'static str)> {
             "docs/state_graphs/parity_reports/falcon_ecb_coverage.json",
         ),
         (
+            "action motion tables",
+            "docs/state_graphs/action_motion_tables.json",
+        ),
+        (
             "global value sheet",
             "docs/state_graphs/value_sheets/global_common_values.json",
         ),
@@ -3701,6 +3878,10 @@ fn generated_artifact_paths() -> Vec<(&'static str, &'static str)> {
         (
             "falcon generated ecb rust",
             "crates/mole_core/src/generated/falcon_ecb.rs",
+        ),
+        (
+            "source root motion generated rust",
+            "crates/mole_core/src/generated/source_root_motion.rs",
         ),
         (
             "captain falcon extracted action ecb samples",
@@ -3861,7 +4042,11 @@ pub fn parity_summary(root: &Path) -> ParitySummary {
 fn ledger_map_summary(root: &Path) -> Value {
     let path = root.join("docs/state_graphs/parity_ledger_map.json");
     match LedgerMap::load(&path) {
-        Ok(ledger_map) => serde_json::to_value(ledger_map).expect("ledger map serializes"),
+        Ok(ledger_map) => {
+            let mut value = serde_json::to_value(ledger_map).expect("ledger map serializes");
+            value["loadable"] = json!(true);
+            value
+        }
         Err(error) => json!({
             "schema_version": 1,
             "path": path.display().to_string(),
@@ -3937,9 +4122,12 @@ fn recommended_test_commands() -> Vec<&'static str> {
     vec![
         "cargo test --workspace",
         ".venv\\Scripts\\python.exe -m pytest tests\\test_state_graph_viewer.py tests\\test_launch_inputs.py tests\\test_parity_diff_report.py tests\\test_generate_falcon_ecb_rust.py -q",
+        ".venv\\Scripts\\python.exe -m pytest tests\\test_generate_source_root_motion_rust.py -q",
         ".venv\\Scripts\\python.exe tools\\state_graph_viewer.py --check",
+        ".venv\\Scripts\\python.exe tools\\generate_source_root_motion_rust.py",
         "cargo run -p mole_cli -- generated write-value-sheets --write --json",
         "cargo run -p mole_cli -- generated write-stage-asset --stage battlefield --write --json",
+        "cargo run -p mole_cli -- generated write-action-motion-tables --write --json",
         "cargo run -p mole_cli -- generated write-ledger-map --write --json",
         "cargo run -p mole_cli -- devtool ledger --json",
         "cargo run -p mole_devtool",

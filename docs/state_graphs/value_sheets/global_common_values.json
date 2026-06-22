@@ -494,6 +494,30 @@
           "comparison_value_kind": "source_f32",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
+        },
+        {
+          "rust_name": "air_speed_clamp_friction",
+          "source_name": "x1FC",
+          "offset": 508,
+          "offset_hex": "0x1fc",
+          "kind": "source_f32",
+          "raw": 0.029999999329447743,
+          "converted_value": 0.029999999329447743,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "special_air_drift_stick_threshold",
+          "source_name": "x258",
+          "offset": 600,
+          "offset_hex": "0x258",
+          "kind": "source_f32",
+          "raw": 0.10000000149011612,
+          "converted_value": 0.10000000149011612,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
         }
       ]
     },
@@ -782,6 +806,18 @@
           "comparison_value_kind": "ticks",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"
+        },
+        {
+          "rust_name": "catch_ground_friction_multiplier",
+          "source_name": "x64",
+          "offset": 100,
+          "offset_hex": "0x64",
+          "kind": "source_f32",
+          "raw": 1.0,
+          "converted_value": 1.0,
+          "comparison_value_kind": "source_f32",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
         }
       ]
     },
@@ -868,6 +904,162 @@
       "label": "Entry And Respawn",
       "fields": [
         {
+          "rust_name": "dead_wait_ticks",
+          "source_name": "x500",
+          "offset": 1280,
+          "offset_hex": "0x500",
+          "kind": "i32_ticks",
+          "raw": 60,
+          "converted_value": 60,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_star_wait_ticks",
+          "source_name": "x504",
+          "offset": 1284,
+          "offset_hex": "0x504",
+          "kind": "i32_ticks",
+          "raw": 1,
+          "converted_value": 1,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_star_rise_ticks",
+          "source_name": "x508",
+          "offset": 1288,
+          "offset_hex": "0x508",
+          "kind": "i32_ticks",
+          "raw": 130,
+          "converted_value": 130,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_star_exit_ticks",
+          "source_name": "x50C",
+          "offset": 1292,
+          "offset_hex": "0x50c",
+          "kind": "i32_ticks",
+          "raw": 45,
+          "converted_value": 45,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "top_blast_fall_ko_chance",
+          "source_name": "x520",
+          "offset": 1312,
+          "offset_hex": "0x520",
+          "kind": "i32_ticks",
+          "raw": 16,
+          "converted_value": 16,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_fall_wait_ticks",
+          "source_name": "x524",
+          "offset": 1316,
+          "offset_hex": "0x524",
+          "kind": "i32_ticks",
+          "raw": 1,
+          "converted_value": 1,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_fall_anim_ticks",
+          "source_name": "x528",
+          "offset": 1320,
+          "offset_hex": "0x528",
+          "kind": "i32_ticks",
+          "raw": 50,
+          "converted_value": 50,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_fall_hit_camera_ticks",
+          "source_name": "x52C",
+          "offset": 1324,
+          "offset_hex": "0x52c",
+          "kind": "i32_ticks",
+          "raw": 3,
+          "converted_value": 3,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_fall_drift_ticks",
+          "source_name": "x530",
+          "offset": 1328,
+          "offset_hex": "0x530",
+          "kind": "i32_ticks",
+          "raw": 40,
+          "converted_value": 40,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "dead_up_fall_exit_ticks",
+          "source_name": "x534",
+          "offset": 1332,
+          "offset_hex": "0x534",
+          "kind": "i32_ticks",
+          "raw": 35,
+          "converted_value": 35,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "rebirth_ticks",
+          "source_name": "x5D0",
+          "offset": 1488,
+          "offset_hex": "0x5d0",
+          "kind": "i32_ticks",
+          "raw": 60,
+          "converted_value": 60,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "rebirth_wait_ticks",
+          "source_name": "x5D4",
+          "offset": 1492,
+          "offset_hex": "0x5d4",
+          "kind": "i32_ticks",
+          "raw": 240,
+          "converted_value": 240,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "rebirth_hurt_intangible_ticks",
+          "source_name": "x5D8",
+          "offset": 1496,
+          "offset_hex": "0x5d8",
+          "kind": "i32_ticks",
+          "raw": 120,
+          "converted_value": 120,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
           "rust_name": "entry_start_ticks",
           "source_name": "x6BC",
           "offset": 1724,
@@ -911,6 +1103,96 @@
           "kind": "i32_ticks",
           "raw": 120,
           "converted_value": 120,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        }
+      ]
+    },
+    {
+      "id": "ledge_and_cliff",
+      "label": "Ledge And Cliff",
+      "fields": [
+        {
+          "rust_name": "cliff_grab_block_stick_y",
+          "source_name": "x480",
+          "offset": 1152,
+          "offset_hex": "0x480",
+          "kind": "stick",
+          "raw": 0.6600000262260437,
+          "converted_value": 84,
+          "comparison_value_kind": "stick_byte",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "cliff_option_stick_threshold",
+          "source_name": "x494",
+          "offset": 1172,
+          "offset_hex": "0x494",
+          "kind": "stick",
+          "raw": 0.25,
+          "converted_value": 32,
+          "comparison_value_kind": "stick_byte",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "cliff_quick_percent_threshold",
+          "source_name": "x488",
+          "offset": 1160,
+          "offset_hex": "0x488",
+          "kind": "i32_ticks",
+          "raw": 100,
+          "converted_value": 100,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "cliff_wait_high_percent_ticks",
+          "source_name": "x490",
+          "offset": 1168,
+          "offset_hex": "0x490",
+          "kind": "f32_ticks",
+          "raw": 480.0,
+          "converted_value": 480,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "cliff_wait_low_percent_ticks",
+          "source_name": "x48C",
+          "offset": 1164,
+          "offset_hex": "0x48c",
+          "kind": "f32_ticks",
+          "raw": 640.0,
+          "converted_value": 640,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "cliff_wait_hurt_intangible_ticks",
+          "source_name": "x49C",
+          "offset": 1180,
+          "offset_hex": "0x49c",
+          "kind": "i32_ticks",
+          "raw": 30,
+          "converted_value": 30,
+          "comparison_value_kind": "ticks",
+          "provenance": "extracted_melee_dat",
+          "owner_scope": "global"
+        },
+        {
+          "rust_name": "ledge_cooldown_ticks",
+          "source_name": "ledge_cooldown",
+          "offset": 1176,
+          "offset_hex": "0x498",
+          "kind": "i32_ticks",
+          "raw": 30,
+          "converted_value": 30,
           "comparison_value_kind": "ticks",
           "provenance": "extracted_melee_dat",
           "owner_scope": "global"

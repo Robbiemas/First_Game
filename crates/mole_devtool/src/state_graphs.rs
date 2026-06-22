@@ -1,6 +1,7 @@
 use crate::{LedgerTabTemplate, LedgerTabTemplateRow};
+use mole_core::{source_state_sequence_for_motion_state, MotionState};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::{fs, path::Path};
 
@@ -10,6 +11,7 @@ pub struct StateGraphsSurface {
     pub missing_edge_count: usize,
     pub missing_node_count: usize,
     pub nodes: Vec<StateGraphEntry>,
+    pub source_gap_count: usize,
     pub total_edge_count: usize,
     pub total_node_count: usize,
 }
@@ -128,6 +130,11 @@ impl StateGraphsSurface {
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
         let graph: serde_json::Value = serde_json::from_str(&text)
             .map_err(|error| format!("failed to parse state graph: {error}"))?;
+        let source_gap_count = count_action_motion_source_gaps(
+            &root
+                .as_ref()
+                .join("docs/state_graphs/action_motion_tables.json"),
+        );
 
         let nodes = graph
             .get("nodes")
@@ -167,6 +174,7 @@ impl StateGraphsSurface {
                 .map_or(0, Vec::len),
             missing_node_count: nodes.len(),
             missing_edge_count: edges.len(),
+            source_gap_count,
             nodes,
             edges,
         })
@@ -174,11 +182,12 @@ impl StateGraphsSurface {
 
     pub fn summary(&self) -> String {
         format!(
-            "Nodes: {} total | {} missing | Edges: {} total | {} missing",
+            "Nodes: {} total | {} missing | Edges: {} total | {} missing | {} source gaps",
             self.total_node_count,
             self.missing_node_count,
             self.total_edge_count,
-            self.missing_edge_count
+            self.missing_edge_count,
+            self.source_gap_count
         )
     }
 
@@ -190,15 +199,41 @@ impl StateGraphsSurface {
     }
 }
 
+fn count_action_motion_source_gaps(path: &Path) -> usize {
+    let Some(artifact) = load_optional_action_motion_tables(path) else {
+        return 0;
+    };
+    artifact
+        .get("entries")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|entry| {
+                    matches!(
+                        entry.get("completeness_class").and_then(Value::as_str),
+                        Some("absent" | "placeholder" | "present_partial")
+                    )
+                })
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 impl StateGraphCanvasPair {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let root = root.as_ref();
         let layout_path = root.join("config/state_graph_layout.json");
         let layout = load_state_graph_layout(&layout_path)?;
+        let action_motion_tables = load_optional_action_motion_tables(
+            &root.join("docs/state_graphs/action_motion_tables.json"),
+        );
         let mut graphs = Vec::new();
         for filename in ["melee_reference_graph.json", "mole_current_graph.json"] {
             let path = root.join("docs/state_graphs").join(filename);
             let mut graph = load_state_graph_document(&path)?;
+            overlay_source_state_sequences(&mut graph);
+            overlay_action_motion_tables(&mut graph, action_motion_tables.as_ref());
             apply_state_graph_layout(&mut graph, &layout);
             graphs.push(graph);
         }
@@ -682,6 +717,118 @@ fn load_state_graph_document(path: &Path) -> Result<StateGraphDocument, String> 
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))
 }
 
+fn load_optional_action_motion_tables(path: &Path) -> Option<Value> {
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn overlay_action_motion_tables(graph: &mut StateGraphDocument, artifact: Option<&Value>) {
+    let Some(entries) = artifact
+        .and_then(|artifact| artifact.get("entries"))
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+    let entries_by_state = entries
+        .iter()
+        .filter_map(|entry| Some((entry.get("state")?.as_str()?.to_string(), entry)))
+        .collect::<BTreeMap<_, _>>();
+    for node in &mut graph.nodes {
+        let Some(entry) = entries_by_state.get(&node.id) else {
+            continue;
+        };
+        if let Some(value) = entry.get("source_action_key").cloned() {
+            node.metadata.insert("source_action_key".to_string(), value);
+        }
+        if let Some(value) = entry.get("source_action_name").cloned() {
+            node.metadata
+                .insert("source_action_name".to_string(), value);
+        }
+        if let Some(value) = entry.get("runtime_binding").cloned() {
+            node.metadata
+                .insert("source_runtime_binding".to_string(), value);
+        }
+        if let Some(value) = entry.get("completeness_class").cloned() {
+            node.metadata
+                .insert("source_completeness_class".to_string(), value);
+        }
+    }
+}
+
+fn overlay_source_state_sequences(graph: &mut StateGraphDocument) {
+    for node in &mut graph.nodes {
+        let Some(motion_state) = motion_state_from_graph_id(&node.id) else {
+            continue;
+        };
+        let Some(sequence) = source_state_sequence_for_motion_state(motion_state) else {
+            continue;
+        };
+        node.metadata.insert(
+            "source_sequence_file".to_string(),
+            Value::String(sequence.source_file.to_string()),
+        );
+        node.metadata.insert(
+            "source_callback_order".to_string(),
+            Value::Array(
+                sequence
+                    .callbacks
+                    .iter()
+                    .map(|callback| {
+                        json!({
+                            "phase": callback.phase,
+                            "function": callback.function,
+                            "effect": callback.effect,
+                        })
+                    })
+                    .collect(),
+            ),
+        );
+    }
+
+    for edge in &mut graph.edges {
+        let Some(from) = motion_state_from_graph_id(&edge.from) else {
+            continue;
+        };
+        let Some(to) = motion_state_from_graph_id(&edge.to) else {
+            continue;
+        };
+        let Some(sequence) = source_state_sequence_for_motion_state(from) else {
+            continue;
+        };
+        let Some(transition) = sequence
+            .transitions
+            .iter()
+            .find(|transition| transition.to == to)
+        else {
+            continue;
+        };
+        edge.metadata.insert(
+            "source_transition_trigger".to_string(),
+            Value::String(transition.trigger.to_string()),
+        );
+        edge.metadata.insert(
+            "source_transition_function".to_string(),
+            Value::String(transition.function.to_string()),
+        );
+        edge.metadata.insert(
+            "source_transition_ordering".to_string(),
+            Value::String(transition.ordering.to_string()),
+        );
+    }
+}
+
+fn motion_state_from_graph_id(id: &str) -> Option<MotionState> {
+    match id {
+        "Landing" => Some(MotionState::Landing),
+        "KneeBend" => Some(MotionState::KneeBend),
+        "Wait" => Some(MotionState::Wait),
+        "Fall" => Some(MotionState::Fall),
+        "JumpF" => Some(MotionState::JumpF),
+        "JumpB" => Some(MotionState::JumpB),
+        _ => None,
+    }
+}
+
 fn load_state_graph_layout(path: &Path) -> Result<StateGraphLayoutFile, String> {
     let text = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
@@ -734,6 +881,7 @@ mod tests {
             template.rows.len(),
             surface.nodes.len() + surface.edges.len()
         );
+        assert!(surface.summary().contains("source gaps"));
     }
 
     #[test]
@@ -911,6 +1059,129 @@ mod tests {
         assert!(edge_detail.contains("edge: Wait -> Wait"));
         assert!(edge_detail.contains("input: none"));
         assert!(edge_detail.contains("label: loop"));
+    }
+
+    #[test]
+    fn state_graph_canvas_pair_overlays_source_state_sequence_metadata() {
+        let pair = StateGraphCanvasPair::load(workspace_root()).unwrap();
+        let melee = pair.graph("melee_reference").expect("melee graph");
+        let landing = melee
+            .nodes
+            .iter()
+            .find(|node| node.id == "Landing")
+            .expect("Landing node");
+        assert!(landing
+            .metadata
+            .get("source_callback_order")
+            .and_then(Value::as_array)
+            .is_some_and(|callbacks| {
+                callbacks
+                    .iter()
+                    .filter_map(|callback| callback.get("phase").and_then(Value::as_str))
+                    .collect::<Vec<_>>()
+                    == ["Anim", "IASA", "Phys", "Coll"]
+            }));
+
+        let jump_edge = melee
+            .edges
+            .iter()
+            .find(|edge| edge.from == "KneeBend" && edge.to == "JumpF")
+            .expect("KneeBend -> JumpF edge");
+        assert_eq!(
+            jump_edge
+                .metadata
+                .get("source_transition_function")
+                .and_then(Value::as_str),
+            Some("ftCo_KneeBend_Anim / ftCo_Jump_Enter")
+        );
+    }
+
+    #[test]
+    fn state_graph_canvas_pair_overlays_action_motion_table_metadata() {
+        let root = std::env::temp_dir().join(format!(
+            "mole_devtool_state_graph_action_motion_{}",
+            std::process::id()
+        ));
+        if root.exists() {
+            fs::remove_dir_all(&root).unwrap();
+        }
+        let graphs_dir = root.join("docs/state_graphs");
+        let config_dir = root.join("config");
+        fs::create_dir_all(&graphs_dir).unwrap();
+        fs::create_dir_all(&config_dir).unwrap();
+        let graph = |id: &str, title: &str| {
+            serde_json::json!({
+                "id": id,
+                "title": title,
+                "root": "Wait",
+                "nodes": [
+                    {"id": "Wait", "label": "Wait", "pos": [0.0, 0.0], "status": "reference"},
+                    {"id": "Attack12", "label": "Attack12", "pos": [1.0, 0.0], "status": "reference"}
+                ],
+                "edges": []
+            })
+        };
+        fs::write(
+            graphs_dir.join("melee_reference_graph.json"),
+            serde_json::to_string_pretty(&graph("melee_reference", "Melee Reference")).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            graphs_dir.join("mole_current_graph.json"),
+            serde_json::to_string_pretty(&graph("mole_current", "Mole Current")).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            graphs_dir.join("action_motion_tables.json"),
+            serde_json::to_string_pretty(&serde_json::json!({
+                "artifact_kind": "action_motion_tables",
+                "entries": [
+                    {
+                        "state": "Attack12",
+                        "source_action_key": "Attack12",
+                        "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+                        "runtime_binding": null,
+                        "completeness_class": "absent"
+                    }
+                ]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            config_dir.join("state_graph_layout.json"),
+            serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1,
+                "graphs": {
+                    "melee_reference": {"zoom": 1.0, "nodes": {"Wait": [0.0, 0.0], "Attack12": [1.0, 0.0]}},
+                    "mole_current": {"zoom": 1.0, "nodes": {"Wait": [0.0, 0.0], "Attack12": [1.0, 0.0]}}
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let pair = StateGraphCanvasPair::load(&root).unwrap();
+        let graph = pair.graph("melee_reference").unwrap();
+        let node = graph
+            .nodes
+            .iter()
+            .find(|node| node.id == "Attack12")
+            .unwrap();
+
+        assert_eq!(
+            node.metadata
+                .get("source_action_key")
+                .and_then(Value::as_str),
+            Some("Attack12")
+        );
+        assert_eq!(
+            node.metadata
+                .get("source_completeness_class")
+                .and_then(Value::as_str),
+            Some("absent")
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

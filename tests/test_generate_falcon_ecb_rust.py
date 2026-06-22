@@ -1,4 +1,69 @@
-from tools.generate_falcon_ecb_rust import build_coverage_payload, render_generated_rust
+import struct
+
+from tools.generate_falcon_ecb_rust import (
+    build_coverage_payload,
+    render_generated_rust,
+    render_live_jobj_payload,
+)
+
+
+def f32_bits(value: float) -> str:
+    bits = struct.unpack(">I", struct.pack(">f", value))[0]
+    return f"f32::from_bits(0x{bits:08x})"
+
+
+def test_live_jobj_payload_clears_transn_per_action_anim_flags():
+    rust = "\n".join(
+        render_live_jobj_payload(
+            {
+                "joints": [
+                    {
+                        "parent_index": None,
+                        "flags_raw": "0x00000000",
+                        "rotation_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+                        "scale_raw": {"x": 1.0, "y": 1.0, "z": 1.0},
+                        "position_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    },
+                    {
+                        "parent_index": 0,
+                        "flags_raw": "0x00000000",
+                        "rotation_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+                        "scale_raw": {"x": 1.0, "y": 1.0, "z": 1.0},
+                        "position_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    },
+                ],
+                "ecb_source": {
+                    "joint_indices": [1, 1, 1, 1, 1, 1],
+                    "side_midpoint_offset_raw": 0.0,
+                },
+                "model_scaling": 1.0,
+                "transn_joint_index": 1,
+                "actions": {
+                    36: {
+                        "clear_transn_after_anim": False,
+                        "tracks": [],
+                    },
+                    307: {
+                        "clear_transn_after_anim": True,
+                        "tracks": [],
+                    },
+                },
+            }
+        )
+    )
+
+    assert "clear_transn_after_anim: bool" in rust
+    assert (
+        "const FALCON_FIGA_ACTION_36: FalconFigaAction = FalconFigaAction { "
+        "clear_transn_after_anim: false, tracks: &FALCON_FIGA_TRACKS_ACTION_36 "
+        "};"
+    ) in rust
+    assert (
+        "const FALCON_FIGA_ACTION_307: FalconFigaAction = FalconFigaAction { "
+        "clear_transn_after_anim: true, tracks: &FALCON_FIGA_TRACKS_ACTION_307 "
+        "};"
+    ) in rust
+    assert "if action.clear_transn_after_anim {" in rust
 
 
 def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
@@ -187,6 +252,32 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
                 ],
             },
             {
+                "action_state_id": 216,
+                "name": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
+                "frames": [
+                    {
+                        "frame": 0,
+                        "top_milli": {"x": 0, "y": 42},
+                        "right_milli": {"x": 18, "y": 21},
+                        "bottom_milli": {"x": 0, "y": 11},
+                        "left_milli": {"x": -18, "y": 21},
+                    }
+                ],
+            },
+            {
+                "action_state_id": 217,
+                "name": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
+                "frames": [
+                    {
+                        "frame": 0,
+                        "top_milli": {"x": 0, "y": 44},
+                        "right_milli": {"x": 19, "y": 22},
+                        "bottom_milli": {"x": 0, "y": 12},
+                        "left_milli": {"x": -19, "y": 22},
+                    }
+                ],
+            },
+            {
                 "action_state_id": 303,
                 "name": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
                 "frames": [
@@ -241,10 +332,41 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
         ]
     }
 
+    for action in samples["actions"]:
+        for frame in action["frames"]:
+            for point in ("top", "right", "bottom", "left"):
+                milli = frame[f"{point}_milli"]
+                frame[f"{point}_raw"] = {
+                    "x": milli["x"] / 1000.0,
+                    "y": milli["y"] / 1000.0,
+                }
+    samples["actions"][0]["frames"][0]["right_raw"] = {
+        "x": 2.125,
+        "y": 5.25,
+    }
+
     rust = render_generated_rust(samples)
 
-    assert "pub(crate) const FALCON_ECB_MAPPED_ACTION_COUNT: usize = 18;" in rust
+    assert "pub(crate) const FALCON_ECB_MAPPED_ACTION_COUNT: usize = 20;" in rust
     assert "const FALCON_ECB_ACTION_12" in rust
+    assert "const FALCON_SOURCE_ECB_ACTION_12" in rust
+    assert "SourceFighterEcb" in rust
+    assert (
+        f"right: SourceVec2 {{ x: {f32_bits(2.125)}, y: {f32_bits(5.25)} }}"
+        in rust
+    )
+    assert (
+        "pub(crate) fn falcon_source_ecb_samples_for_motion_state" in rust
+    )
+    assert "mut p0: f32" in rust
+    assert "else { *d0 = 0.0; p0 = p1; }" in rust
+    assert "length: u16" in rust
+    assert "if pos >= track.length as usize { state = 6; continue; }" in rust
+    assert "const FALCON_MODEL_SCALE: f32 = f32::from_bits(" in rust
+    assert "srts[0].scale = FALCON_TOPN_COLLISION_SCALE;" in rust
+    assert "const FALCON_TRANSN_JOINT_INDEX: usize = 1;" in rust
+    assert "srts[FALCON_TRANSN_JOINT_INDEX].translation = SourceVec3Gen::default();" in rust
+    assert "MotionState::Dash => Some(&FALCON_SOURCE_ECB_ACTION_12)" in rust
     assert "MotionState::Dash => Some(&FALCON_ECB_ACTION_12)" in rust
     assert "MotionState::KneeBend => Some(&FALCON_ECB_ACTION_15)" in rust
     assert "MotionState::EscapeAir => Some(&FALCON_ECB_ACTION_44)" in rust
@@ -261,6 +383,8 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     assert "MotionState::Entry => Some(&FALCON_ECB_ACTION_238)" in rust
     assert "MotionState::EntryStart => Some(&FALCON_ECB_ACTION_238)" in rust
     assert "MotionState::EntryEnd => Some(&FALCON_ECB_ACTION_238)" in rust
+    assert "MotionState::CliffCatch => Some(&FALCON_ECB_ACTION_216)" in rust
+    assert "MotionState::CliffWait => Some(&FALCON_ECB_ACTION_217)" in rust
     assert "MotionState::SpecialSStart => Some(&FALCON_ECB_ACTION_303)" in rust
     assert "MotionState::SpecialS => Some(&FALCON_ECB_ACTION_304)" in rust
     assert "MotionState::SpecialAirSStart => Some(&FALCON_ECB_ACTION_305)" in rust
@@ -273,6 +397,20 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     assert "EntryStart" not in coverage["unmapped_derived_motion_states"]
     assert "EntryEnd" not in coverage["unmapped_derived_motion_states"]
     assert coverage["unmapped_derived_motion_states"] == []
+    assert coverage["special_action_bindings"][0] == {
+        "motion_state": "SpecialN",
+        "runtime_action_state_id": 347,
+        "source_action_table_id": 301,
+        "source_action_key": "SpecialN",
+        "total_frames": 100,
+    }
+    assert coverage["special_action_bindings"][-1] == {
+        "motion_state": None,
+        "runtime_action_state_id": 363,
+        "source_action_table_id": 317,
+        "source_action_key": "SpecialHiThrow",
+        "total_frames": 60,
+    }
     assert sorted(coverage.keys()) == [
         "id",
         "mapped_action_count",
@@ -280,6 +418,7 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
         "mapped_motion_states",
         "missing_sampled_mappings",
         "source",
+        "special_action_bindings",
         "title",
         "unmapped_derived_motion_states",
     ]

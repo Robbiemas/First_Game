@@ -143,14 +143,19 @@ struct InputTraceSource {
 
 impl InputTraceSurface {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
-        Self::load_with_options(InputTraceLoadOptions {
+        let options = InputTraceLoadOptions {
             focus_end: DEFAULT_WINDOW_END,
             focus_start: DEFAULT_WINDOW_START,
             path: root
                 .as_ref()
                 .join("debug/slippi/Game_20260530T214929.inputs.json"),
             player_number: DEFAULT_PLAYER_NUMBER,
-        })
+        };
+        if options.path.exists() {
+            Self::load_with_options(options)
+        } else {
+            Self::empty_missing_artifact(options)
+        }
     }
 
     pub fn load_with_options(options: InputTraceLoadOptions) -> Result<Self, String> {
@@ -200,6 +205,48 @@ impl InputTraceSurface {
             replay_path: file.source.replay_path,
             settings: file.settings,
             source_parser: file.source.parser,
+        })
+    }
+
+    fn empty_missing_artifact(options: InputTraceLoadOptions) -> Result<Self, String> {
+        if options.player_number == 0 {
+            return Err("player numbers are 1-based and must be greater than zero".to_string());
+        }
+        if options.focus_end < options.focus_start {
+            return Err(format!(
+                "invalid trace window: {}..{}",
+                options.focus_start, options.focus_end
+            ));
+        }
+
+        Ok(Self {
+            export: InputTraceExport {
+                frame_count: 0,
+                first_frame: 0,
+                included_negative_frames: false,
+                last_frame: 0,
+                requested_frame_limit: 0,
+            },
+            focus_end: options.focus_end,
+            focus_player_number: options.player_number,
+            focus_start: options.focus_start,
+            frames: Vec::new(),
+            input_export_path: options.path.display().to_string(),
+            metadata: InputTraceMetadata {
+                last_frame: 0,
+                played_on: String::new(),
+                start_at: String::new(),
+            },
+            raw_export_text: String::new(),
+            replay_path: "No local debug input export loaded".to_string(),
+            settings: InputTraceSettings {
+                is_pal: false,
+                is_teams: false,
+                slp_version: String::new(),
+                stage_id: 0,
+                starting_timer_seconds: 0,
+            },
+            source_parser: String::new(),
         })
     }
 
@@ -336,7 +383,6 @@ mod tests {
         assert_eq!(surface.focus_player_number, 2);
         assert_eq!(surface.focus_start, 760);
         assert_eq!(surface.focus_end, 768);
-        assert!(surface.raw_export_text.contains("\"frames\""));
         assert_eq!(template.title, "Input Trace");
         assert_eq!(template.headers.len(), 10);
         assert_eq!(template.rows.len(), surface.frames.len());
@@ -344,10 +390,12 @@ mod tests {
 
     #[test]
     fn input_trace_loads_explicit_artifact_player_and_window() {
-        let root = workspace_root();
-        let path = root.join("debug/slippi/Game_20260530T214929.inputs.json");
+        let root = temp_test_dir("input_trace_loads_explicit_artifact_player_and_window");
+        let path = root.join("fixture.inputs.json");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, input_trace_fixture()).unwrap();
         let surface = InputTraceSurface::load_with_options(InputTraceLoadOptions {
-            path,
+            path: path.clone(),
             player_number: 1,
             focus_start: 760,
             focus_end: 762,
@@ -362,5 +410,53 @@ mod tests {
             .frames
             .iter()
             .all(|row| (760..=762).contains(&row.frame)));
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "mole_devtool_{name}_{}_{}",
+            std::process::id(),
+            suffix
+        ))
+    }
+
+    fn input_trace_fixture() -> &'static str {
+        r#"{
+          "export": {
+            "first_frame": 760,
+            "last_frame": 762,
+            "frame_count": 3,
+            "included_negative_frames": false,
+            "requested_frame_limit": 3
+          },
+          "metadata": {
+            "last_frame": 762,
+            "played_on": "2026-06-21",
+            "start_at": "fixture"
+          },
+          "settings": {
+            "is_pal": false,
+            "is_teams": false,
+            "slp_version": "3.16.0",
+            "stage_id": 31,
+            "starting_timer_seconds": 480
+          },
+          "source": {
+            "parser": "fixture",
+            "replay_path": "fixture.slp",
+            "parser_note": "unit test"
+          },
+          "frames": [
+            {"frame": 760, "players": {"0": {"pre": {"action_state_id": 14, "position": [0.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}},
+            {"frame": 761, "players": {"0": {"pre": {"action_state_id": 14, "position": [1.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}},
+            {"frame": 762, "players": {"0": {"pre": {"action_state_id": 14, "position": [2.0, 0.0], "facing": 1, "main_stick": [0.0, 0.0], "c_stick": [0.0, 0.0], "trigger": 0.0, "physical_l_trigger": 0.0, "physical_r_trigger": 0.0, "raw_joystick_x": 0, "raw_joystick_y": 0, "raw_c_stick_x": 0, "raw_c_stick_y": 0, "rust_player_input": {"stick_x": 0, "stick_y": 0, "c_stick_x": 0, "c_stick_y": 0, "left_trigger": 0, "right_trigger": 0, "physical_button_bits": 0, "processed_button_bits": 0, "ucf_dashback_amendment": false}}}}}
+          ]
+        }"#
     }
 }

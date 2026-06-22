@@ -572,10 +572,10 @@ def test_parity_ledger_overview_summarizes_value_sheets_and_grounded_coverage():
     text = build_parity_ledger_overview(graphs, sheets)
 
     assert "Parity Ledger" in text
-    assert "global_common_values: 7 categories, 72 fields" in text
-    assert "captain_falcon_values: 5 categories, 40 fields" in text
+    assert "global_common_values: 8 categories, 95 fields" in text
+    assert "captain_falcon_values: 5 categories, 41 fields" in text
     assert "physics_engine_values: 3 categories, 36 fields" in text
-    assert "global_combat_values: 7 categories, 41 fields" in text
+    assert "global_combat_values: 7 categories, 56 fields" in text
     assert "captain_falcon_combat_values: 1 categories, 1 fields" in text
     assert "battlefield_stage_values: 3 categories, 36 fields" in text
     assert "Grounded ledger coverage: 9/9 nodes" in text
@@ -589,7 +589,7 @@ def test_ecb_coverage_summary_keeps_unmapped_derived_states_visible():
     text = format_ecb_coverage(coverage)
 
     assert "Captain Falcon ECB Coverage" in text
-    assert "Mapped exact action-table states: 72" in text
+    assert "Mapped exact action-table states: 74" in text
     assert "Missing sampled mappings: 0" in text
     assert "Shared source-action aliases:" in text
     assert "Entry" in text
@@ -653,7 +653,7 @@ def test_global_value_comparison_rows_include_decomp_and_current_rust_values():
         row for row in rows if row["field"] == "run_brake_animation_pause_velocity"
     )
 
-    assert len(rows) == 72
+    assert len(rows) == 95
     assert dash_x["source_field"] == "x3C"
     assert dash_x["decomp_value"] == 102
     assert dash_x["rust_field"] == "dash_x"
@@ -706,7 +706,7 @@ def test_character_value_comparison_rows_include_falcon_and_dolphin_mole_values(
     entry_offset = next(row for row in rows if row["field"] == "entry_platform_offset_y")
     landing_air_f = next(row for row in rows if row["field"] == "landingairf_lag")
 
-    assert len(rows) == 40
+    assert len(rows) == 41
     assert dash_initial["decomp_value"] == 2.0
     assert dash_initial["rust_field"] == "dash_initial_velocity"
     assert dash_initial["rust_value"] == 2.0

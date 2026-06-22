@@ -578,7 +578,7 @@ mod tests {
         assert!(surface.tabs[6]
             .rows
             .iter()
-            .any(|row| row.cells.iter().any(|cell| cell == "action_motion_tables")));
+            .any(|row| row.cells.iter().any(|cell| cell == "collision_volumes")));
         assert!(surface.tabs[6]
             .rows
             .iter()

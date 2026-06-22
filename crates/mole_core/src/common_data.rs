@@ -108,9 +108,13 @@ pub struct MeleeCommonData {
     pub knockback_damage_scale: f32,
     pub knockback_hit_count_scale: f32,
     pub knockback_weight_set_damage: f32,
+    pub throw_knockback_weight: f32,
     pub knockback_result_scale: f32,
     pub knockback_result_offset: f32,
+    pub stale_move_damage_reductions: [f32; 9],
     pub damage_knockback_velocity_scale: f32,
+    pub damage_ground_knockback_friction_multiplier: f32,
+    pub damage_knockback_frame_decay: f32,
     pub damage_sakurai_air_angle_radians: f32,
     pub damage_sakurai_ground_angle_degrees: f32,
     pub damage_sakurai_ground_min_knockback: f32,
@@ -119,11 +123,16 @@ pub struct MeleeCommonData {
     pub damage_motion_tier_1_threshold: f32,
     pub damage_motion_tier_2_threshold: f32,
     pub damage_motion_tier_3_threshold: f32,
+    pub damage_fly_top_angle_min_radians: f32,
+    pub damage_fly_top_angle_max_radians: f32,
+    pub damage_fly_top_random_percent_threshold: u16,
+    pub damage_fly_top_random_chance: f32,
     pub damage_landing_down_bound_knockback_threshold: f32,
     pub damage_landing_basic_knockback_threshold: f32,
     pub passive_input_age_threshold: u8,
     pub passive_window_max: f32,
     pub passive_stand_stick_x: f32,
+    pub special_air_drift_stick_threshold: f32,
     pub down_stand_stick_y: i8,
     pub down_wait_timer: f32,
     pub hitlag_max_frames: f32,
@@ -132,6 +141,7 @@ pub struct MeleeCommonData {
     pub hitlag_crouch_multiplier: f32,
     pub di_angle_degrees: f32,
     pub trigger_di_knockback_multiplier: f32,
+    pub air_speed_clamp_friction: f32,
     pub c_stick: i8,
     pub aerial_neutral_x: i8,
     pub aerial_neutral_y: i8,
@@ -150,16 +160,19 @@ pub struct MeleeCommonData {
     pub escapeair_force: f32,
     pub escapeair_decay: f32,
     pub escapeair_landing_lag_ticks: u8,
+    pub throw_collision_lockout_ticks: u16,
     pub walk_middle_velocity_ratio: f32,
     pub walk_fast_velocity_ratio: f32,
     pub walk_accel_taper: f32,
     pub run_accel_taper: f32,
     pub run_ground_friction_multiplier: f32,
+    pub catch_ground_friction_multiplier: f32,
     pub high_speed_ground_friction_multiplier: f32,
     pub run_brake_animation_pause_velocity: f32,
     pub animation_velocity_scale: f32,
     pub fall_animation_drift_threshold: f32,
     pub fall_animation_blend: f32,
+    pub landing_wait_y_velocity_threshold: f32,
     pub player_nudge_x: f32,
     pub player_nudge_z: f32,
     pub player_nudge_z_clamp: f32,
@@ -196,6 +209,7 @@ pub struct MeleeCommonData {
     pub rebirth_wait_ticks: u8,
     pub rebirth_hurt_intangible_ticks: u16,
     pub top_blast_fall_ko_chance: u8,
+    pub dead_wait_ticks: u8,
     pub dead_up_star_wait_ticks: u8,
     pub dead_up_star_rise_ticks: u8,
     pub dead_up_star_exit_ticks: u8,
@@ -256,9 +270,23 @@ impl MeleeCommonData {
         knockback_damage_scale: 0.10000000149011612,
         knockback_hit_count_scale: 0.05000000074505806,
         knockback_weight_set_damage: 10.0,
+        throw_knockback_weight: 100.0,
         knockback_result_scale: 1.399999976158142,
         knockback_result_offset: 18.0,
+        stale_move_damage_reductions: [
+            0.09000000357627869,
+            0.07999999821186066,
+            0.07000000029802322,
+            0.05999999865889549,
+            0.05000000074505806,
+            0.03999999910593033,
+            0.029999999329447746,
+            0.019999999552965164,
+            0.009999999776482582,
+        ],
         damage_knockback_velocity_scale: 0.029999999329447746,
+        damage_ground_knockback_friction_multiplier: 1.0,
+        damage_knockback_frame_decay: 0.050999999046325684,
         damage_sakurai_air_angle_radians: 0.7853981852531433,
         damage_sakurai_ground_angle_degrees: 44.0,
         damage_sakurai_ground_min_knockback: 32.0,
@@ -267,11 +295,16 @@ impl MeleeCommonData {
         damage_motion_tier_1_threshold: 10.0,
         damage_motion_tier_2_threshold: 21.0,
         damage_motion_tier_3_threshold: 32.0,
+        damage_fly_top_angle_min_radians: 1.2217304706573486,
+        damage_fly_top_angle_max_radians: 1.919862151145935,
+        damage_fly_top_random_percent_threshold: 100,
+        damage_fly_top_random_chance: 0.30000001192092896,
         damage_landing_down_bound_knockback_threshold: 5.0,
         damage_landing_basic_knockback_threshold: 0.5,
         passive_input_age_threshold: 40,
         passive_window_max: 20.0,
         passive_stand_stick_x: 0.20000000298023224,
+        special_air_drift_stick_threshold: 0.10000000149011612,
         down_stand_stick_y: 25,
         down_wait_timer: 220.0,
         hitlag_max_frames: 20.0,
@@ -280,6 +313,7 @@ impl MeleeCommonData {
         hitlag_crouch_multiplier: 0.6666666865348816,
         di_angle_degrees: 18.0,
         trigger_di_knockback_multiplier: 1.0,
+        air_speed_clamp_friction: 0.029999999329447746,
         c_stick: 40,
         aerial_neutral_x: 32,
         aerial_neutral_y: 32,
@@ -298,16 +332,19 @@ impl MeleeCommonData {
         escapeair_force: 3.0999999046325684,
         escapeair_decay: 0.8999999761581421,
         escapeair_landing_lag_ticks: 10,
+        throw_collision_lockout_ticks: 8,
         walk_middle_velocity_ratio: 0.4000000059604645,
         walk_fast_velocity_ratio: 0.800000011920929,
         walk_accel_taper: 0.5,
         run_accel_taper: 0.4000000059604645,
         run_ground_friction_multiplier: 1.0,
+        catch_ground_friction_multiplier: 1.0,
         high_speed_ground_friction_multiplier: 2.0,
         run_brake_animation_pause_velocity: 0.0,
         animation_velocity_scale: 1.2999999523162842,
         fall_animation_drift_threshold: 0.10000000149011612,
         fall_animation_blend: 0.5,
+        landing_wait_y_velocity_threshold: 1.0,
         player_nudge_x: 0.30000001192092896,
         player_nudge_z: 0.10000000149011612,
         player_nudge_z_clamp: 1.399999976158142,
@@ -344,6 +381,7 @@ impl MeleeCommonData {
         rebirth_wait_ticks: 240,
         rebirth_hurt_intangible_ticks: 120,
         top_blast_fall_ko_chance: 16,
+        dead_wait_ticks: 60,
         dead_up_star_wait_ticks: 1,
         dead_up_star_rise_ticks: 130,
         dead_up_star_exit_ticks: 45,
@@ -400,6 +438,7 @@ impl MeleeCommonData {
         data.run_x = read_stick_i8(bytes, 0x58, "x58_someLStickXThreshold")?;
         data.run_accel_taper = read_f32(bytes, 0x5c, "x5C")?;
         data.run_ground_friction_multiplier = read_f32(bytes, 0x60, "x60_someFrictionMul")?;
+        data.catch_ground_friction_multiplier = read_f32(bytes, 0x64, "x64")?;
         data.guard_on_catch_dash_window = read_u8_from_f32(bytes, 0x68, "x68")?;
         data.high_speed_ground_friction_multiplier = read_f32(bytes, 0x6c, "x6C")?;
         data.tap_jump_y = read_stick_i8(bytes, 0x70, "tap_jump_threshold")?;
@@ -419,12 +458,15 @@ impl MeleeCommonData {
         data.knockback_weight_multiplier = read_f32(bytes, 0xf4, "xF4")?;
         data.knockback_decay = read_f32(bytes, 0xf8, "xF8")?;
         data.knockback_cap = read_f32(bytes, 0x108, "x108")?;
+        data.throw_knockback_weight = read_f32(bytes, 0x10c, "x10C")?;
         data.knockback_damage_scale = read_f32(bytes, 0x110, "x110")?;
         data.knockback_hit_count_scale = read_f32(bytes, 0x114, "x114")?;
         data.knockback_weight_set_damage = read_f32(bytes, 0x118, "x118")?;
         data.knockback_result_scale = read_f32(bytes, 0x11c, "x11C")?;
         data.knockback_result_offset = read_f32(bytes, 0x120, "x120")?;
         data.damage_knockback_velocity_scale = read_f32(bytes, 0x100, "x100")?;
+        data.damage_ground_knockback_friction_multiplier = read_f32(bytes, 0x200, "x200")?;
+        data.damage_knockback_frame_decay = read_f32(bytes, 0x204, "x204_knockbackFrameDecay")?;
         data.damage_sakurai_air_angle_radians = read_f32(bytes, 0x144, "x144_radians")?;
         data.damage_sakurai_ground_angle_degrees = read_f32(bytes, 0x148, "x148")?;
         data.damage_sakurai_ground_min_knockback = read_f32(bytes, 0x14c, "x14C")?;
@@ -433,23 +475,30 @@ impl MeleeCommonData {
         data.damage_motion_tier_1_threshold = read_f32(bytes, 0x158, "x158")?;
         data.damage_motion_tier_2_threshold = read_f32(bytes, 0x15c, "x15C")?;
         data.damage_motion_tier_3_threshold = read_f32(bytes, 0x160, "x160")?;
+        data.damage_fly_top_angle_min_radians = read_f32(bytes, 0x234, "x234")?;
+        data.damage_fly_top_angle_max_radians = read_f32(bytes, 0x238, "x238")?;
+        data.damage_fly_top_random_percent_threshold = read_u16_from_i32(bytes, 0x23c, "x23C")?;
+        data.damage_fly_top_random_chance = read_f32(bytes, 0x240, "x240")?;
         data.hitlag_max_frames = read_f32(bytes, 0x194, "x194_unkHitLagFrames")?;
         data.hitlag_damage_scale = read_f32(bytes, 0x198, "x198")?;
         data.hitlag_base_frames = read_f32(bytes, 0x19c, "x19C")?;
         data.hitlag_crouch_multiplier = read_f32(bytes, 0x1a0, "x1A0")?;
         data.di_angle_degrees = read_f32(bytes, 0x1a8, "x1A8")?;
         data.trigger_di_knockback_multiplier = read_f32(bytes, 0x1ac, "x1AC")?;
+        data.air_speed_clamp_friction = read_f32(bytes, 0x1fc, "x1FC")?;
         data.damage_landing_down_bound_knockback_threshold = read_f32(bytes, 0x1e0, "x1E0")?;
         data.damage_landing_basic_knockback_threshold = read_f32(bytes, 0x1e4, "x1E4")?;
         data.down_stand_stick_y = read_stick_i8(bytes, 0x244, "x244")?;
         data.passive_window_max = read_f32(bytes, 0x250, "x250")?;
         data.passive_stand_stick_x = read_f32(bytes, 0x254, "x254")?;
+        data.special_air_drift_stick_threshold = read_f32(bytes, 0x258, "x258")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
         data.guard_reflect_input_window = read_u8_from_i32(bytes, 0x2a0, "x2A0")?;
         data.escape_y = read_stick_i8(bytes, 0x314, "x314")?;
         data.escape_y_tap_window = read_u8_from_i32(bytes, 0x318, "x318")?;
         data.escape_x = read_stick_i8(bytes, 0x31c, "x31C")?;
         data.escape_x_tap_window = read_u8_from_i32(bytes, 0x320, "x320")?;
+        data.landing_wait_y_velocity_threshold = read_f32(bytes, 0x310, "x310")?;
 
         data.escapeair_deadzone_x = read_stick_i8(bytes, 0x32c, "escapeair_deadzone.x")?;
         data.escapeair_deadzone_y = read_stick_i8(bytes, 0x330, "escapeair_deadzone.y")?;
@@ -458,6 +507,7 @@ impl MeleeCommonData {
         data.escapeair_force = read_f32(bytes, 0x338, "escapeair_force")?;
         data.escapeair_decay = read_f32(bytes, 0x33c, "escapeair_decay")?;
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
+        data.throw_collision_lockout_ticks = read_u16_from_i32(bytes, 0x348, "x348")?;
         data.down_wait_timer = read_f32(bytes, 0x424, "x424")?;
         data.run_brake_animation_pause_velocity = read_f32(bytes, 0x42c, "x42C")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
@@ -499,6 +549,7 @@ impl MeleeCommonData {
         data.rebirth_wait_ticks = read_u8_from_i32(bytes, 0x5d4, "x5D4")?;
         data.rebirth_hurt_intangible_ticks = read_u16_from_i32(bytes, 0x5d8, "x5D8")?;
         data.top_blast_fall_ko_chance = read_u8_from_i32(bytes, 0x520, "x520")?;
+        data.dead_wait_ticks = read_u8_from_i32(bytes, 0x500, "x500")?;
         data.dead_up_star_wait_ticks = read_u8_from_i32(bytes, 0x504, "x504")?;
         data.dead_up_star_rise_ticks = read_u8_from_i32(bytes, 0x508, "x508")?;
         data.dead_up_star_exit_ticks = read_u8_from_i32(bytes, 0x50c, "x50C")?;
@@ -890,6 +941,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "catch_ground_friction_multiplier",
+        source_name: "x64",
+        offset: 0x64,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "guard_on_catch_dash_window",
         source_name: "x68",
         offset: 0x68,
@@ -905,6 +962,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "guard_reflect_input_window",
         source_name: "x2A0",
         offset: 0x2a0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "throw_collision_lockout_ticks",
+        source_name: "x348",
+        offset: 0x348,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1076,9 +1139,27 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "damage_ground_knockback_friction_multiplier",
+        source_name: "x200",
+        offset: 0x200,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_knockback_frame_decay",
+        source_name: "x204_knockbackFrameDecay",
+        offset: 0x204,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "knockback_cap",
         source_name: "x108",
         offset: 0x108,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "throw_knockback_weight",
+        source_name: "x10C",
+        offset: 0x10c,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1160,6 +1241,30 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "damage_fly_top_angle_min_radians",
+        source_name: "x234",
+        offset: 0x234,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_fly_top_angle_max_radians",
+        source_name: "x238",
+        offset: 0x238,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_fly_top_random_percent_threshold",
+        source_name: "x23C",
+        offset: 0x23c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_fly_top_random_chance",
+        source_name: "x240",
+        offset: 0x240,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "hitlag_max_frames",
         source_name: "x194_unkHitLagFrames",
         offset: 0x194,
@@ -1196,6 +1301,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "air_speed_clamp_friction",
+        source_name: "x1FC",
+        offset: 0x1fc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "damage_landing_down_bound_knockback_threshold",
         source_name: "x1E0",
         offset: 0x1e0,
@@ -1223,6 +1334,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "passive_stand_stick_x",
         source_name: "x254",
         offset: 0x254,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "special_air_drift_stick_threshold",
+        source_name: "x258",
+        offset: 0x258,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1314,6 +1431,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         source_name: "x320",
         offset: 0x320,
         provenance: CommonDataProvenance::ProvisionalMole,
+    },
+    CommonDataFieldSource {
+        rust_name: "landing_wait_y_velocity_threshold",
+        source_name: "x310",
+        offset: 0x310,
+        provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
         rust_name: "escape_x_cstick",
@@ -1475,6 +1598,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "rebirth_hurt_intangible_ticks",
         source_name: "x5D8",
         offset: 0x5d8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "dead_wait_ticks",
+        source_name: "x500",
+        offset: 0x500,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {

@@ -4,25 +4,28 @@ use std::{
     process::Command,
 };
 
-use mole_core::Vec2;
+use mole_core::{source_units_to_milli, SourceCollEcbSnapshot, SourceVec2, Vec2};
 use mole_runtime::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
-    slippi_core_report_path, trace_slippi_export_from_match_start_with_core,
-    write_slippi_core_report, SlippiCoreComparison, SlippiCoreComparisonConfig,
-    SlippiCoreComparisonMode, SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace,
-    SlippiCoreTraceConfig, SlippiCoreTraceRow,
+    scan_slippi_export_from_match_start_with_core, slippi_core_report_path,
+    trace_slippi_export_from_match_start_with_core, write_slippi_core_report, SlippiCoreComparison,
+    SlippiCoreComparisonConfig, SlippiCoreComparisonMode, SlippiCoreDivergenceKind,
+    SlippiCoreDivergenceScan, SlippiCoreDivergenceScanConfig, SlippiCoreDivergenceScenario,
+    SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace, SlippiCoreTraceConfig,
+    SlippiCoreTraceRow,
 };
 use serde_json::{json, Value};
 
 use crate::{
-    base_report, ReplayCheckMode, ReplayCheckOptions, ReplayCommand, ReplayTraceOptions,
-    SCHEMA_VERSION,
+    base_report, ReplayCheckMode, ReplayCheckOptions, ReplayCommand, ReplayScanOptions,
+    ReplayTraceOptions, SCHEMA_VERSION,
 };
 
 pub(crate) fn replay_report(root: &Path, command: &ReplayCommand) -> Value {
     match command {
         ReplayCommand::Artifacts => replay_artifacts_report(root),
         ReplayCommand::Check(options) => replay_check_report(root, options),
+        ReplayCommand::Scan(options) => replay_scan_report(root, options),
         ReplayCommand::Trace(options) => replay_trace_report(root, options),
     }
 }
@@ -77,6 +80,62 @@ fn run_replay_check(root: &Path, options: &ReplayCheckOptions) -> Result<Value, 
         comparison,
         core_report_path,
     ))
+}
+
+fn replay_scan_report(root: &Path, options: &ReplayScanOptions) -> Value {
+    match run_replay_scan(root, options) {
+        Ok(report) => report,
+        Err(error) => {
+            let mut report = base_report("replay scan", root);
+            report["ok"] = json!(false);
+            report["source"] = json!({
+                "input_export_path": options.inputs,
+                "frames_requested": options.frames,
+                "lookahead_frames": options.lookahead_frames,
+            });
+            report["errors"] = json!([error]);
+            report
+        }
+    }
+}
+
+fn run_replay_scan(root: &Path, options: &ReplayScanOptions) -> Result<Value, String> {
+    let input_export_path = resolve_project_path(root, &options.inputs);
+    let text = fs::read_to_string(&input_export_path).map_err(|error| {
+        format!(
+            "failed to read Slippi input export {}: {error}",
+            input_export_path.display()
+        )
+    })?;
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &text,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, true],
+            max_frames: options.frames,
+            lookahead_frames: options.lookahead_frames,
+            max_scenarios: options.max_scenarios,
+            position_tolerance_milli: options.position_tolerance_milli,
+            velocity_tolerance_milli: options.velocity_tolerance_milli,
+        },
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "replay scan",
+        "project_root": root.display().to_string(),
+        "ok": scan.scenarios.is_empty(),
+        "source": {
+            "input_export_path": input_export_path.display().to_string(),
+            "frames_requested": options.frames,
+            "lookahead_frames": options.lookahead_frames,
+            "max_scenarios": options.max_scenarios,
+            "position_tolerance_milli": options.position_tolerance_milli,
+            "velocity_tolerance_milli": options.velocity_tolerance_milli,
+        },
+        "scan": divergence_scan_json(&scan),
+        "errors": [],
+    }))
 }
 
 fn replay_trace_report(root: &Path, options: &ReplayTraceOptions) -> Value {
@@ -344,6 +403,22 @@ fn vec2_json(value: Vec2) -> Value {
     })
 }
 
+fn source_vec2_json(value: SourceVec2) -> Value {
+    json!({
+        "x": value.x,
+        "y": value.y,
+    })
+}
+
+fn source_coll_ecb_json(value: SourceCollEcbSnapshot) -> Value {
+    json!({
+        "top": source_vec2_json(value.top),
+        "right": source_vec2_json(value.right),
+        "bottom": source_vec2_json(value.bottom),
+        "left": source_vec2_json(value.left),
+    })
+}
+
 fn vec2_delta_json(actual: Vec2, expected: Vec2) -> Value {
     json!({
         "x_milli": actual.x - expected.x,
@@ -376,6 +451,50 @@ fn trace_json(trace: &SlippiCoreTrace) -> Value {
     })
 }
 
+fn divergence_scan_json(scan: &SlippiCoreDivergenceScan) -> Value {
+    json!({
+        "source_replay_path": scan.source_replay_path.as_deref(),
+        "frames_scanned": scan.frames_scanned,
+        "scenario_count": scan.scenarios.len(),
+        "lookahead_frames": scan.config.lookahead_frames,
+        "position_tolerance_milli": scan.config.position_tolerance_milli,
+        "velocity_tolerance_milli": scan.config.velocity_tolerance_milli,
+        "scenarios": scan.scenarios
+            .iter()
+            .map(divergence_scenario_json)
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn divergence_scenario_json(scenario: &SlippiCoreDivergenceScenario) -> Value {
+    json!({
+        "scenario_index": scenario.scenario_index,
+        "kind": divergence_kind_label(scenario.kind),
+        "player": scenario.player_index + 1,
+        "core_frame": scenario.core_frame.0,
+        "source_frame": scenario.source_frame,
+        "end_core_frame": scenario.end_core_frame.0,
+        "end_source_frame": scenario.end_source_frame,
+        "duration_frames": scenario.duration_frames,
+        "realigned_within_lookahead": scenario.realigned_within_lookahead,
+        "realign_core_frame": scenario.realign_core_frame.map(|frame| frame.0),
+        "realign_source_frame": scenario.realign_source_frame,
+        "rollback_replay_deterministic": scenario.rollback_replay_deterministic,
+        "max_abs_position_delta_milli": scenario.max_abs_position_delta_milli,
+        "max_abs_velocity_delta_milli": scenario.max_abs_velocity_delta_milli,
+        "first_frame": trace_row_json(&scenario.first_frame),
+    })
+}
+
+fn divergence_kind_label(kind: SlippiCoreDivergenceKind) -> &'static str {
+    match kind {
+        SlippiCoreDivergenceKind::UnsupportedState => "unsupported_state",
+        SlippiCoreDivergenceKind::StateMismatch => "state_mismatch",
+        SlippiCoreDivergenceKind::PositionDrift => "position_drift",
+        SlippiCoreDivergenceKind::VelocityDrift => "velocity_drift",
+    }
+}
+
 fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
     json!({
         "core_frame": row.core_frame.0,
@@ -388,6 +507,10 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
             "left_trigger": row.input_left_trigger,
             "right_trigger": row.input_right_trigger,
             "ucf_dashback_amendment": row.input_ucf_dashback_amendment,
+            "actual_jump_pressed": row.actual_input_jump_pressed,
+            "actual_normal_jump_pressed": row.actual_input_normal_jump_pressed,
+            "actual_shield_held": row.actual_input_shield_held,
+            "actual_shield_pressed": row.actual_input_shield_pressed,
         },
         "expected_slippi_state_id": row.expected_slippi_state_id,
         "expected_action_state_id": row.expected_action_state_id.get(),
@@ -396,18 +519,60 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
             .expected_motion_state
             .map(|state| format!("{state:?}")),
         "actual_motion_state": format!("{:?}", row.actual_motion_state),
+        "actual_grounded": row.actual_grounded,
         "actual_motion_frame": row.actual_motion_frame,
+        "actual_motion_anim_frame_milli": row.actual_motion_anim_frame_milli,
+        "expected_facing": row.expected_facing,
+        "actual_facing": row.actual_facing,
         "expected_position": vec2_json(row.expected_position),
         "actual_position": vec2_json(row.actual_position),
+        "expected_source_position": source_vec2_json(row.expected_source_position),
+        "actual_source_position": source_vec2_json(row.actual_source_position),
         "position_delta": vec2_delta_json(row.actual_position, row.expected_position),
         "expected_ground_velocity_x": row.expected_ground_velocity_x,
         "expected_air_velocity_x": row.expected_air_velocity_x,
         "expected_velocity_y": row.expected_velocity_y,
+        "expected_attack_velocity_x": row.expected_attack_velocity_x,
+        "expected_attack_velocity_y": row.expected_attack_velocity_y,
+        "expected_composed_velocity_x": row.expected_composed_velocity_x,
+        "expected_composed_velocity_y": row.expected_composed_velocity_y,
+        "expected_ground_velocity_x_source": row.expected_ground_velocity_x_source,
+        "expected_air_velocity_x_source": row.expected_air_velocity_x_source,
+        "expected_velocity_y_source": row.expected_velocity_y_source,
+        "expected_attack_velocity_x_source": row.expected_attack_velocity_x_source,
+        "expected_attack_velocity_y_source": row.expected_attack_velocity_y_source,
         "actual_velocity_x": row.actual_velocity_x,
         "actual_velocity_y": row.actual_velocity_y,
-        "ground_velocity_x_delta": row.actual_velocity_x - row.expected_ground_velocity_x,
+        "actual_source_self_velocity_x": row.actual_source_self_velocity_x,
+        "actual_source_self_velocity_y": row.actual_source_self_velocity_y,
+        "actual_source_knockback_velocity_x": row.actual_source_knockback_velocity_x,
+        "actual_source_knockback_velocity_y": row.actual_source_knockback_velocity_y,
+        "actual_source_ground_knockback_velocity": row.actual_source_ground_knockback_velocity,
+        "actual_ground_velocity_x": row.actual_ground_velocity_x,
+        "actual_ground_accel_x": row.actual_ground_accel_x,
+        "actual_ground_accel_x2": row.actual_ground_accel_x2,
+        "actual_dash_entry_velocity_delta": row.actual_dash_entry_velocity_delta,
+        "actual_dash_x0": row.actual_dash_x0,
+        "actual_source_coll_last_pos": source_vec2_json(row.actual_source_coll_last_pos),
+        "actual_source_coll_cur_pos": source_vec2_json(row.actual_source_coll_cur_pos),
+        "actual_source_coll_prev_pos": source_vec2_json(row.actual_source_coll_prev_pos),
+        "actual_source_coll_ecb": source_coll_ecb_json(row.actual_source_coll_ecb),
+        "actual_source_coll_prev_ecb": source_coll_ecb_json(row.actual_source_coll_prev_ecb),
+        "actual_source_coll_desired_ecb": source_coll_ecb_json(row.actual_source_coll_desired_ecb),
+        "actual_ecb_bottom_lock_timer": row.actual_ecb_bottom_lock_timer,
+        "actual_source_coll_x130_locked": row.actual_source_coll_x130_locked,
+        "actual_source_floor_surface": row.actual_source_floor_surface,
+        "actual_source_floor_line": row.actual_source_floor_line,
+        "actual_source_coll_env_flags": row.actual_source_coll_env_flags,
+        "actual_source_coll_prev_env_flags": row.actual_source_coll_prev_env_flags,
+        "actual_ground_velocity_x_milli": source_units_to_milli(row.actual_ground_velocity_x),
+        "ground_velocity_x_delta": source_units_to_milli(row.actual_ground_velocity_x) - row.expected_ground_velocity_x,
         "air_velocity_x_delta": row.actual_velocity_x - row.expected_air_velocity_x,
         "velocity_y_delta": row.actual_velocity_y - row.expected_velocity_y,
+        "attack_velocity_x_delta": source_units_to_milli(row.actual_source_knockback_velocity_x) - row.expected_attack_velocity_x,
+        "attack_velocity_y_delta": source_units_to_milli(row.actual_source_knockback_velocity_y) - row.expected_attack_velocity_y,
+        "composed_velocity_x_delta": row.actual_velocity_x - row.expected_composed_velocity_x,
+        "composed_velocity_y_delta": row.actual_velocity_y - row.expected_composed_velocity_y,
     })
 }
 
@@ -501,4 +666,99 @@ struct ReplayExportPaths {
     replay_path: Option<PathBuf>,
     input_export_path: PathBuf,
     export_report_path: Option<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mole_core::{Frame, MeleeActionStateId, MotionState, SourceVec2};
+
+    #[test]
+    fn trace_row_json_reports_ground_delta_from_actual_ground_velocity() {
+        let row = SlippiCoreTraceRow {
+            core_frame: Frame(0),
+            source_frame: 525,
+            player_index: 0,
+            input_stick_x: 0,
+            input_stick_y: 0,
+            input_button_bits: 0,
+            input_left_trigger: 0,
+            input_right_trigger: 0,
+            input_ucf_dashback_amendment: false,
+            actual_input_jump_pressed: false,
+            actual_input_normal_jump_pressed: false,
+            actual_input_shield_held: false,
+            actual_input_shield_pressed: false,
+            expected_slippi_state_id: 26,
+            expected_action_state_id: MeleeActionStateId::new(26),
+            actual_action_state_id: Some(MeleeActionStateId::new(26)),
+            expected_motion_state: Some(MotionState::JumpB),
+            actual_motion_state: MotionState::JumpB,
+            actual_grounded: false,
+            actual_motion_frame: 22,
+            actual_motion_anim_frame_milli: 22_000,
+            expected_facing: -1,
+            actual_facing: 1,
+            expected_position: Vec2 { x: 0, y: 0 },
+            actual_position: Vec2 { x: 0, y: 0 },
+            expected_source_position: SourceVec2 { x: 1.25, y: -2.5 },
+            actual_source_position: SourceVec2 { x: 1.5, y: -2.25 },
+            expected_ground_velocity_x: 0,
+            expected_air_velocity_x: 50,
+            expected_velocity_y: -960,
+            expected_attack_velocity_x: 1_250,
+            expected_attack_velocity_y: 2_500,
+            expected_composed_velocity_x: 1_300,
+            expected_composed_velocity_y: 1_540,
+            expected_ground_velocity_x_source: 0.0,
+            expected_air_velocity_x_source: 0.0495,
+            expected_velocity_y_source: -0.96,
+            expected_attack_velocity_x_source: 1.25,
+            expected_attack_velocity_y_source: 2.5,
+            actual_velocity_x: 49,
+            actual_velocity_y: -960,
+            actual_source_self_velocity_x: 0.04949987,
+            actual_source_self_velocity_y: -0.9599999,
+            actual_source_knockback_velocity_x: 1.25,
+            actual_source_knockback_velocity_y: 2.5,
+            actual_source_ground_knockback_velocity: 3.75,
+            actual_ground_velocity_x: 0.0,
+            actual_ground_accel_x: 0.0,
+            actual_ground_accel_x2: 0.0,
+            actual_dash_entry_velocity_delta: 0.0,
+            actual_dash_x0: 0.0,
+            actual_source_coll_last_pos: SourceVec2 { x: 1.0, y: 2.0 },
+            actual_source_coll_cur_pos: SourceVec2 { x: 3.0, y: 4.0 },
+            actual_source_coll_prev_pos: SourceVec2 { x: 5.0, y: 6.0 },
+            actual_source_coll_ecb: SourceCollEcbSnapshot::default(),
+            actual_source_coll_prev_ecb: SourceCollEcbSnapshot::default(),
+            actual_source_coll_desired_ecb: SourceCollEcbSnapshot::default(),
+            actual_ecb_bottom_lock_timer: 0,
+            actual_source_coll_x130_locked: false,
+            actual_source_floor_surface: Some(0),
+            actual_source_floor_line: Some(12),
+            actual_source_coll_env_flags: 0x20,
+            actual_source_coll_prev_env_flags: 0x10,
+        };
+
+        let json = trace_row_json(&row);
+
+        assert_eq!(json["ground_velocity_x_delta"], 0);
+        assert_eq!(json["air_velocity_x_delta"], -1);
+        assert_eq!(json["expected_facing"], -1);
+        assert_eq!(json["actual_facing"], 1);
+        assert_eq!(json["expected_source_position"]["x"], 1.25);
+        assert_eq!(json["actual_source_position"]["y"], -2.25);
+        assert_eq!(json["actual_motion_anim_frame_milli"], 22_000);
+        assert_eq!(json["actual_grounded"], false);
+        assert_eq!(json["actual_source_coll_cur_pos"]["x"], 3.0);
+        assert_eq!(json["actual_source_coll_env_flags"], 0x20);
+        assert_eq!(json["actual_source_floor_surface"], 0);
+        assert_eq!(json["actual_source_floor_line"], 12);
+        assert_eq!(json["actual_source_knockback_velocity_x"], 1.25);
+        assert_eq!(json["actual_source_knockback_velocity_y"], 2.5);
+        assert_eq!(json["actual_source_ground_knockback_velocity"], 3.75);
+        assert_eq!(json["actual_ecb_bottom_lock_timer"], 0);
+        assert_eq!(json["actual_source_coll_x130_locked"], false);
+    }
 }

@@ -1,3 +1,4 @@
+import math
 import struct
 from pathlib import Path
 
@@ -9,9 +10,12 @@ from tools.extract_melee_resources import (
     character_resource_spec,
     compute_ecb_from_jobj_pose,
     extract_character_action_animation_table,
+    extract_character_common_parts_from_dat,
     extract_character_costume_skeleton_from_dat,
     extract_character_hurtbox_inits_from_dat,
     extract_character_profile_from_dat,
+    extract_character_special_attrs_from_dat,
+    extract_fighter_parts_tables_from_plco,
     extract_resources,
     extract_action_script_cmd_var_events,
     extract_action_script_hitbox_bone_indices,
@@ -22,6 +26,7 @@ from tools.extract_melee_resources import (
     extract_captain_ecb_source_from_plca,
     extract_captain_hurtbox_inits_from_plca,
     extract_captain_profile_from_plca,
+    extract_captain_special_attrs_from_plca,
     extract_common_data_from_plco,
     extract_figatree_summary,
     extract_file_from_gamecube_iso,
@@ -31,6 +36,7 @@ from tools.extract_melee_resources import (
     sample_figatree_node_tracks,
     sample_figatree_skeleton_pose,
     sample_hurtboxes_from_pose,
+    source_create_x1a70_from_pose,
 )
 
 
@@ -46,22 +52,31 @@ def put_i32(data, offset, value):
     data[offset : offset + 4] = struct.pack(">i", value)
 
 
+def put_u32(data, offset, value):
+    data[offset : offset + 4] = struct.pack(">I", value)
+
+
 def hitbox_word0(*, bone, use_common_bone_ids=False):
     return (11 << 26) | (bone << 11) | ((1 if use_common_bone_ids else 0) << 10)
 
 
-def make_dat(root_name, data_block, root_data_offset):
+def make_dat(root_name, data_block, root_data_offset, relocation_offsets=()):
     header = bytearray(0x20)
-    header[0x00:0x04] = be32(0x20 + len(data_block))
-    header[0x04:0x08] = be32(len(data_block))
-    header[0x08:0x0C] = be32(0)
-    header[0x0C:0x10] = be32(1)
-    header[0x10:0x14] = be32(0)
+    relocation_table = bytearray()
+    for relocation_offset in relocation_offsets:
+        relocation_table += be32(relocation_offset)
     root_table = bytearray()
     root_table += be32(root_data_offset)
     root_table += be32(0)
     string_table = root_name.encode("ascii") + b"\0"
-    return bytes(header + data_block + root_table + string_table)
+    header[0x00:0x04] = be32(
+        0x20 + len(data_block) + len(relocation_table) + len(root_table) + len(string_table)
+    )
+    header[0x04:0x08] = be32(len(data_block))
+    header[0x08:0x0C] = be32(len(relocation_offsets))
+    header[0x0C:0x10] = be32(1)
+    header[0x10:0x14] = be32(0)
+    return bytes(header + data_block + relocation_table + root_table + string_table)
 
 
 def make_gamecube_iso_with_root_file(file_name, payload):
@@ -82,6 +97,30 @@ def make_gamecube_iso_with_root_file(file_name, payload):
     iso[fst_offset + 24 : fst_offset + 24 + len(string_table)] = string_table
     iso[file_offset : file_offset + len(payload)] = payload
     return bytes(iso)
+
+
+def make_plco_with_parts_table(*, kind_index, joint_to_part, part_to_joint):
+    data_block = bytearray(0x800)
+    root_offset = 0x40
+    parts_pointer_table_offset = 0x100
+    table_offset = 0x200
+    joint_to_part_offset = 0x240
+    part_to_joint_offset = 0x280
+
+    data_block[root_offset + 4 * 4 : root_offset + 5 * 4] = be32(parts_pointer_table_offset)
+    data_block[
+        parts_pointer_table_offset + kind_index * 4 : parts_pointer_table_offset + kind_index * 4 + 4
+    ] = be32(table_offset)
+    data_block[table_offset : table_offset + 4] = be32(joint_to_part_offset)
+    data_block[table_offset + 4 : table_offset + 8] = be32(part_to_joint_offset)
+    data_block[table_offset + 8 : table_offset + 12] = be32(len(joint_to_part))
+    data_block[joint_to_part_offset : joint_to_part_offset + len(joint_to_part)] = bytes(
+        joint_to_part
+    )
+    data_block[part_to_joint_offset : part_to_joint_offset + len(part_to_joint)] = bytes(
+        part_to_joint
+    )
+    return make_dat("ftLoadCommonData", data_block, root_offset)
 
 
 def make_figatree_chunk(root_name="PlyCaptain5K_Share_ACTION_Test_figatree"):
@@ -165,6 +204,27 @@ def make_sampled_figatree_chunk():
     return make_dat("PlyCaptain5K_Share_ACTION_Sampled_figatree", data_block, root_offset)
 
 
+def make_transn_translation_figatree_chunk():
+    data_block = bytearray(0x180)
+    root_offset = 0x100
+    nodes_offset = 0x80
+    tracks_offset = 0xC0
+    data_block[nodes_offset : nodes_offset + 3] = bytes([0, 1, 0xFF])
+    data_block[root_offset : root_offset + 0x14] = (
+        be32(1)
+        + be32(0)
+        + struct.pack(">f", 12.0)
+        + be32(nodes_offset)
+        + be32(tracks_offset)
+    )
+    linear_0_to_20 = bytes([0x12, 0x00, 0x00, 0x0A, 0x14, 0x00])
+    data_block[0x20 : 0x20 + len(linear_0_to_20)] = linear_0_to_20
+    data_block[tracks_offset : tracks_offset + 0x0C] = (
+        b"\x00\x06\x00\x00\x06\x40\x40\x00" + be32(0x20)
+    )
+    return make_dat("PlyCaptain5K_Share_ACTION_TransN_figatree", data_block, root_offset)
+
+
 def test_extract_file_from_gamecube_iso_reads_root_fst_file():
     payload = b"captain action figatree bytes"
     iso = make_gamecube_iso_with_root_file("PlCaAJ.dat", payload)
@@ -210,6 +270,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x48, 7.0)
     put_f32(data_block, common_offset + 0x4C, 16.0)
     put_f32(data_block, common_offset + 0x58, 0.66)
+    put_f32(data_block, common_offset + 0x64, 0.25)
     put_f32(data_block, common_offset + 0x68, 4.0)
     put_f32(data_block, common_offset + 0x6C, 2.0)
     put_f32(data_block, common_offset + 0x70, 0.81)
@@ -224,6 +285,11 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0xAC, 0.26)
     put_f32(data_block, common_offset + 0xDC, 0.43)
     put_f32(data_block, common_offset + 0xE0, 0.44)
+    put_f32(data_block, common_offset + 0x1FC, 0.04)
+    put_f32(data_block, common_offset + 0x200, 1.5)
+    put_f32(data_block, common_offset + 0x204, 0.051)
+    put_f32(data_block, common_offset + 0x10C, 109.36)
+    put_f32(data_block, common_offset + 0x258, 0.1)
     put_f32(data_block, common_offset + 0x25C, -0.62)
     put_i32(data_block, common_offset + 0x2A0, 2)
     put_f32(data_block, common_offset + 0x314, 0.84)
@@ -236,6 +302,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x338, 3.1)
     put_f32(data_block, common_offset + 0x33C, 0.915)
     put_f32(data_block, common_offset + 0x344, 10.0)
+    put_i32(data_block, common_offset + 0x348, 9)
     put_f32(data_block, common_offset + 0x42C, 1.25)
     put_f32(data_block, common_offset + 0x430, 2.0)
     put_f32(data_block, common_offset + 0x444, 0.18)
@@ -244,6 +311,7 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x468, 5.0)
     put_f32(data_block, common_offset + 0x46C, -1.25)
     put_f32(data_block, common_offset + 0x470, 6.0)
+    put_i32(data_block, common_offset + 0x500, 60)
     put_i32(data_block, common_offset + 0x6BC, 30)
     put_i32(data_block, common_offset + 0x6C0, 31)
     put_f32(data_block, common_offset + 0x6C4, 0.01)
@@ -262,6 +330,11 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["fields"]["escapeair_decay"]["kind"] == "source_f32"
     assert extracted["fields"]["escapeair_decay"]["raw"] == 0.9150000214576721
     assert extracted["fields"]["escapeair_landing_lag_ticks"]["ticks"] == 10
+    assert extracted["fields"]["throw_collision_lockout_ticks"]["source_name"] == "x348"
+    assert extracted["fields"]["throw_collision_lockout_ticks"]["ticks"] == 9
+    assert extracted["fields"]["catch_ground_friction_multiplier"]["kind"] == "source_f32"
+    assert extracted["fields"]["catch_ground_friction_multiplier"]["source_name"] == "x64"
+    assert extracted["fields"]["catch_ground_friction_multiplier"]["raw"] == 0.25
     assert extracted["fields"]["high_speed_ground_friction_multiplier"]["kind"] == "source_f32"
     assert extracted["fields"]["high_speed_ground_friction_multiplier"]["raw"] == 2.0
     assert extracted["fields"]["turn_run_x"]["stick_byte"] == -44
@@ -270,14 +343,114 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["fields"]["turn_run_x"]["source_name"] == "x38_someLStickXThreshold"
     assert extracted["fields"]["fall_animation_drift_threshold"]["kind"] == "source_f32"
     assert extracted["fields"]["fall_animation_drift_threshold"]["raw"] == 0.18000000715255737
+    assert extracted["fields"]["air_speed_clamp_friction"]["source_name"] == "x1FC"
+    assert extracted["fields"]["air_speed_clamp_friction"]["raw"] == 0.03999999910593033
+    assert (
+        extracted["fields"]["damage_ground_knockback_friction_multiplier"]["source_name"]
+        == "x200"
+    )
+    assert (
+        extracted["fields"]["damage_ground_knockback_friction_multiplier"]["raw"]
+        == 1.5
+    )
+    assert (
+        extracted["fields"]["damage_knockback_frame_decay"]["source_name"]
+        == "x204_knockbackFrameDecay"
+    )
+    assert extracted["fields"]["damage_knockback_frame_decay"]["raw"] == 0.050999999046325684
+    assert extracted["fields"]["throw_knockback_weight"]["source_name"] == "x10C"
+    assert extracted["fields"]["throw_knockback_weight"]["raw"] == 109.36000061035156
+    assert extracted["fields"]["special_air_drift_stick_threshold"]["source_name"] == "x258"
+    assert extracted["fields"]["special_air_drift_stick_threshold"]["raw"] == 0.10000000149011612
     assert extracted["fields"]["fall_animation_blend"]["kind"] == "source_f32"
     assert extracted["fields"]["fall_animation_blend"]["raw"] == 0.41999998688697815
     assert extracted["fields"]["guard_reflect_input_window"]["ticks"] == 2
+    assert extracted["fields"]["dead_wait_ticks"]["source_name"] == "x500"
+    assert extracted["fields"]["dead_wait_ticks"]["ticks"] == 60
     assert extracted["fields"]["entry_start_ticks"]["ticks"] == 30
     assert extracted["fields"]["entry_end_ticks"]["ticks"] == 31
     assert extracted["fields"]["entry_initial_scale_y"]["kind"] == "source_f32"
     assert extracted["fields"]["entry_initial_scale_y"]["raw"] == 0.009999999776482582
     assert extracted["fields"]["entry_collision_landing_lag_ticks"]["ticks"] == 120
+
+
+def test_extract_common_data_from_plco_exports_stale_move_reductions_from_ftload_pointer():
+    data_block = bytearray(0x940)
+    ftload_offset = 0x40
+    common_offset = 0x100
+    stale_table_offset = 0x850
+    data_block[ftload_offset : ftload_offset + 4] = be32(common_offset)
+    data_block[ftload_offset + 0x0C : ftload_offset + 0x10] = be32(stale_table_offset)
+    for index, value in enumerate((0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01)):
+        put_f32(data_block, stale_table_offset + index * 4, value)
+
+    dat = make_dat("ftLoadCommonData", data_block, ftload_offset)
+    extracted = extract_common_data_from_plco(
+        dat, source_path=PROJECT_ROOT / "resources" / "melee" / "raw" / "PlCo.dat"
+    )
+
+    stale_table = extracted["tables"]["stale_move_damage_reductions"]
+    assert stale_table["source_name"] == "Fighter_804D6548"
+    assert stale_table["ft_load_common_data_index"] == 3
+    assert stale_table["offset"] == stale_table_offset
+    assert stale_table["values"] == [
+        0.09000000357627869,
+        0.07999999821186066,
+        0.07000000029802322,
+        0.05999999865889549,
+        0.05000000074505806,
+        0.03999999910593033,
+        0.029999999329447746,
+        0.019999999552965164,
+        0.009999999776482582,
+    ]
+
+
+def test_extract_fighter_parts_tables_from_plco_reads_source_part_to_joint_mapping():
+    joint_to_part = [0, 1, 2, 255, 4, 5]
+    part_to_joint = [0, 1, 2, 4, 5, 255]
+    dat = make_plco_with_parts_table(
+        kind_index=2,
+        joint_to_part=joint_to_part,
+        part_to_joint=part_to_joint,
+    )
+
+    extracted = extract_fighter_parts_tables_from_plco(
+        dat, source_path=PROJECT_ROOT / "resources" / "melee" / "raw" / "PlCo.dat"
+    )
+
+    captain = extracted["tables"]["2"]
+    assert extracted["source"]["symbol"] == "ftLoadCommonData"
+    assert extracted["source"]["ft_load_common_data_index"] == 4
+    assert extracted["source"]["parts_table_pointer_array_offset"] == 0x100
+    assert captain["source_name"] == "FTKIND_CAPTAIN"
+    assert captain["parts_num"] == 6
+    assert captain["joint_to_part"] == joint_to_part
+    assert captain["part_to_joint"] == part_to_joint
+
+
+def test_source_create_x1a70_uses_ftparts_part_to_joint_world_positions():
+    pose = {
+        "joints": [
+            {"index": 0, "world_position_raw": {"x": 0.0, "y": 0.0, "z": 0.0}},
+            {"index": 1, "world_position_raw": {"x": 10.0, "y": 20.0, "z": 30.0}},
+            {"index": 2, "world_position_raw": {"x": -99.0, "y": -99.0, "z": -99.0}},
+            {"index": 3, "world_position_raw": {"x": 7.5, "y": 15.25, "z": 25.75}},
+        ]
+    }
+    parts_table = {
+        "part_to_joint": [0, 3, 1],
+    }
+
+    x1a70 = source_create_x1a70_from_pose(pose, parts_table)
+
+    assert x1a70["source"] == "Fighter_UnkUpdateVecFromBones_8006876C"
+    assert x1a70["transn_part"] == 1
+    assert x1a70["xrotn_part"] == 2
+    assert x1a70["transn_joint"] == 3
+    assert x1a70["xrotn_joint"] == 1
+    assert x1a70["raw"] == {"x": -2.5, "y": -4.75, "z": -4.25}
+    assert x1a70["milli"] == {"x": -2500, "y": -4750, "z": -4250}
 
 
 def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
@@ -328,6 +501,175 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     assert extracted["fields"]["landingairhi_lag"]["ticks"] == 15
     assert extracted["fields"]["landingairlw_lag"]["ticks"] == 24
     assert extracted["fields"]["entry_platform_offset_y"]["milli"] == 1647
+
+
+def test_extract_captain_special_attrs_from_plca_reads_ftdata_ext_attr():
+    data_block = bytearray(0x340)
+    ftdata_offset = 0x40
+    common_attrs_offset = 0x100
+    ext_attrs_offset = 0x180
+    data_block[ftdata_offset : ftdata_offset + 4] = be32(common_attrs_offset)
+    data_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(ext_attrs_offset)
+
+    put_f32(data_block, ext_attrs_offset + 0x00, -0.35)
+    put_f32(data_block, ext_attrs_offset + 0x08, 0.72)
+    put_f32(data_block, ext_attrs_offset + 0x10, 1.4)
+    put_f32(data_block, ext_attrs_offset + 0x40, 0.85)
+    put_f32(data_block, ext_attrs_offset + 0x44, 0.55)
+    put_f32(data_block, ext_attrs_offset + 0x48, 0.8)
+    put_f32(data_block, ext_attrs_offset + 0x4C, 30.0)
+    put_f32(data_block, ext_attrs_offset + 0x58, 0.25)
+    put_i32(data_block, ext_attrs_offset + 0x64, 18)
+    put_u32(data_block, ext_attrs_offset + 0x6C, 0x1234ABCD)
+    put_f32(data_block, ext_attrs_offset + 0x88, 0.09)
+
+    dat = make_dat("ftDataCaptain", data_block, ftdata_offset)
+    extracted = extract_captain_special_attrs_from_plca(dat, source_path=Path("PlCa.dat"))
+
+    assert extracted["source"]["symbol"] == "ftDataCaptain"
+    assert extracted["source"]["ftdata_ext_attr_offset"] == ext_attrs_offset
+    assert extracted["source"]["source_character"] == "captain"
+    assert extracted["fields"]["specialn_stick_range_y_neg"]["raw"] == -0.3499999940395355
+    assert extracted["fields"]["specialn_angle_diff"]["raw"] == 0.7200000286102295
+    assert extracted["fields"]["specialn_vel_mul"]["raw"] == 1.399999976158142
+    assert extracted["fields"]["specialhi_air_friction_mul"]["raw"] == 0.8500000238418579
+    assert extracted["fields"]["specialhi_horz_vel"]["raw"] == 0.550000011920929
+    assert extracted["fields"]["specialhi_freefall_air_spd_mul"]["raw"] == 0.800000011920929
+    assert extracted["fields"]["specialhi_landing_lag"]["raw"] == 30.0
+    assert extracted["fields"]["specialhi_input_var"]["raw"] == 0.25
+    assert extracted["fields"]["specialhi_air_var"]["raw"] == 18
+    assert extracted["fields"]["speciallw_unk1"]["raw"] == 0x1234ABCD
+    assert extracted["fields"]["speciallw_air_landing_traction"]["raw"] == 0.09000000357627869
+
+
+def test_extract_character_common_parts_allows_relocated_offset_zero_ftdata_x8():
+    data_block = bytearray(0x220)
+    ftdata_offset = 0x40
+    ftdata_x8_offset = 0x00
+    thrown_hitbox_offset = 0x180
+    data_block[ftdata_offset + 0x08 : ftdata_offset + 0x0C] = be32(ftdata_x8_offset)
+    data_block[ftdata_offset + 0x34 : ftdata_offset + 0x38] = be32(thrown_hitbox_offset)
+    data_block[ftdata_x8_offset : ftdata_x8_offset + 0x18] = (
+        be32(1)
+        + be32(0x120)
+        + be32(0)
+        + be32(0x140)
+        + bytes([57, 61, 39, 10, 16, 0, 0, 0])
+    )
+    data_block[thrown_hitbox_offset : thrown_hitbox_offset + 0x04] = be32(14)
+    put_f32(data_block, thrown_hitbox_offset + 0x04, 3.5)
+
+    dat = make_dat(
+        "ftDataCaptain",
+        data_block,
+        ftdata_offset,
+        relocation_offsets=(ftdata_offset + 0x08, ftdata_offset + 0x34),
+    )
+    extracted = extract_character_common_parts_from_dat(
+        dat, Path("resources/melee/raw/PlCa.dat"), character_resource_spec("captain")
+    )
+
+    assert extracted["source"]["ftdata_common_parts_offset"] == 0
+    assert extracted["source"]["ftdata_common_parts_relocated"] is True
+    assert extracted["item_hold_part"] == 57
+    assert extracted["capture_anchor_part"] == 61
+    assert extracted["item_spawn_part"] == 39
+    assert extracted["visibility_part_a"] == 10
+    assert extracted["visibility_part_b"] == 16
+    assert extracted["thrown_hitbox_part"] == 14
+    assert extracted["thrown_hitbox_scale"] == 3.5
+
+
+def test_extract_character_common_parts_resolves_source_parts_through_ftparts_table():
+    data_block = bytearray(0x220)
+    ftdata_offset = 0x40
+    ftdata_x8_offset = 0x00
+    thrown_hitbox_offset = 0x180
+    data_block[ftdata_offset + 0x08 : ftdata_offset + 0x0C] = be32(ftdata_x8_offset)
+    data_block[ftdata_offset + 0x34 : ftdata_offset + 0x38] = be32(thrown_hitbox_offset)
+    data_block[ftdata_x8_offset : ftdata_x8_offset + 0x18] = (
+        be32(1)
+        + be32(0x120)
+        + be32(0)
+        + be32(0x140)
+        + bytes([57, 61, 39, 10, 16, 0, 0, 0])
+    )
+    data_block[thrown_hitbox_offset : thrown_hitbox_offset + 0x04] = be32(14)
+    put_f32(data_block, thrown_hitbox_offset + 0x04, 3.5)
+    part_to_joint = list(range(56))
+    part_to_joint[14] = 27
+    part_to_joint[52] = 61
+
+    dat = make_dat(
+        "ftDataCaptain",
+        data_block,
+        ftdata_offset,
+        relocation_offsets=(ftdata_offset + 0x08, ftdata_offset + 0x34),
+    )
+    extracted = extract_character_common_parts_from_dat(
+        dat,
+        Path("resources/melee/raw/PlCa.dat"),
+        character_resource_spec("captain"),
+        parts_table={"part_to_joint": part_to_joint},
+    )
+
+    assert extracted["source_part_indices"] == {
+        "transn_part": 1,
+        "xrotn_part": 2,
+        "hipn_part": 4,
+        "transn2_part": 52,
+    }
+    assert extracted["transn_part"] == 1
+    assert extracted["xrotn_part"] == 2
+    assert extracted["hipn_part"] == 4
+    assert extracted["transn2_part"] == 52
+    assert extracted["transn_joint"] == 1
+    assert extracted["xrotn_joint"] == 2
+    assert extracted["hipn_joint"] == 4
+    assert extracted["transn2_joint"] == 61
+    assert extracted["thrown_hitbox_part"] == 14
+    assert extracted["thrown_hitbox_joint"] == 27
+    assert extracted["thrown_hitbox_scale"] == 3.5
+
+
+def test_extract_character_common_parts_reads_ftdata_x34_thrown_hitbox_source():
+    data_block = bytearray(0x220)
+    ftdata_offset = 0x40
+    ftdata_x8_offset = 0x00
+    thrown_hitbox_offset = 0x180
+    data_block[ftdata_offset + 0x08 : ftdata_offset + 0x0C] = be32(ftdata_x8_offset)
+    data_block[ftdata_offset + 0x34 : ftdata_offset + 0x38] = be32(thrown_hitbox_offset)
+    data_block[ftdata_x8_offset : ftdata_x8_offset + 0x18] = (
+        be32(1)
+        + be32(0x120)
+        + be32(0)
+        + be32(0x140)
+        + bytes([57, 61, 39, 10, 16, 0, 0, 0])
+    )
+    data_block[thrown_hitbox_offset : thrown_hitbox_offset + 0x04] = be32(14)
+    put_f32(data_block, thrown_hitbox_offset + 0x04, 4.25)
+    part_to_joint = list(range(64))
+    part_to_joint[14] = 27
+
+    dat = make_dat(
+        "ftDataCaptain",
+        data_block,
+        ftdata_offset,
+        relocation_offsets=(ftdata_offset + 0x08, ftdata_offset + 0x34),
+    )
+    extracted = extract_character_common_parts_from_dat(
+        dat,
+        Path("resources/melee/raw/PlCa.dat"),
+        character_resource_spec("captain"),
+        parts_table={"part_to_joint": part_to_joint},
+    )
+
+    assert extracted["source"]["ftdata_thrown_hitbox_field_offset"] == ftdata_offset + 0x34
+    assert extracted["source"]["ftdata_thrown_hitbox_offset"] == thrown_hitbox_offset
+    assert extracted["source"]["ftdata_thrown_hitbox_relocated"] is True
+    assert extracted["thrown_hitbox_part"] == 14
+    assert extracted["thrown_hitbox_joint"] == 27
+    assert extracted["thrown_hitbox_scale"] == 4.25
 
 
 def test_extract_captain_ecb_source_from_plca_records_joint_indices_and_animation_dependency():
@@ -481,6 +823,21 @@ def test_sample_fobj_value_keeps_loading_data_after_slope_opcode():
     ) == 5.0
 
 
+def test_sample_fobj_value_allows_value_read_to_cross_declared_length_like_hsd():
+    # HSD checks FObjDesc.length before starting a token. parseFloat can still
+    # consume the bytes required by that token after the boundary.
+    animation_data = bytes([0x12, 0x00, 0x00, 0x0A, 0x0A, 0x00])
+
+    assert sample_fobj_value(
+        animation_data,
+        length=len(animation_data) - 1,
+        startframe=0,
+        frac_value=0x40,
+        frac_slope=0x40,
+        frame=10.0,
+    ) == 10.0
+
+
 def test_sample_figatree_node_tracks_maps_tracks_to_jobj_channels():
     chunk = make_sampled_figatree_chunk()
 
@@ -514,6 +871,74 @@ def test_sample_figatree_skeleton_pose_concatenates_hsd_jobj_transforms():
     assert pose["joints"][1]["world_position_milli"] == {"x": 5000, "y": 12000, "z": 0}
 
 
+def test_sample_figatree_skeleton_pose_applies_topn_rot_y_before_world_matrices():
+    chunk = make_sampled_figatree_chunk()
+    data_block = bytearray(0x100)
+    root_offset = 0x20
+    child_offset = 0x60
+    put_joint(data_block, root_offset, flags=0, child=child_offset, position=(0.0, 0.0, 0.0))
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 0.0, 3.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+
+    pose = sample_figatree_skeleton_pose(chunk, skeleton, frame=5.0, topn_rot_y=math.pi / 2)
+
+    assert pose["joints"][1]["world_position_milli"] == {"x": 8000, "y": 10000, "z": 0}
+
+
+def test_sample_figatree_skeleton_pose_applies_topn_scale_before_world_matrices():
+    chunk = make_sampled_figatree_chunk()
+    data_block = bytearray(0x100)
+    root_offset = 0x20
+    child_offset = 0x60
+    put_joint(data_block, root_offset, flags=0, child=child_offset, position=(0.0, 0.0, 0.0))
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 0.0, 3.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+
+    pose = sample_figatree_skeleton_pose(
+        chunk,
+        skeleton,
+        frame=5.0,
+        topn_rot_y=math.pi / 2,
+        topn_scale=2.0,
+    )
+
+    assert pose["joints"][1]["world_position_milli"] == {"x": 11000, "y": 10000, "z": 0}
+
+
+def test_sample_figatree_skeleton_pose_can_clear_transn_after_fobj_sampling():
+    chunk = make_transn_translation_figatree_chunk()
+    data_block = bytearray(0x140)
+    root_offset = 0x20
+    transn_offset = 0x60
+    child_offset = 0xA0
+    put_joint(data_block, root_offset, flags=0, child=transn_offset)
+    put_joint(data_block, transn_offset, flags=0, child=child_offset)
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 3.0, 0.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+
+    raw_pose = sample_figatree_skeleton_pose(chunk, skeleton, frame=5.0)
+    collision_pose = sample_figatree_skeleton_pose(
+        chunk,
+        skeleton,
+        frame=5.0,
+        clear_after_anim_joint_indices=(1,),
+    )
+
+    assert raw_pose["joints"][1]["translation"] == {"x": 0.0, "y": 10.0, "z": 0.0}
+    assert raw_pose["joints"][2]["world_position_milli"] == {"x": 0, "y": 13000, "z": 0}
+    assert collision_pose["joints"][1]["translation"] == {"x": 0.0, "y": 0.0, "z": 0.0}
+    assert collision_pose["joints"][2]["world_position_milli"] == {"x": 0, "y": 3000, "z": 0}
+
+
 def test_compute_ecb_from_jobj_pose_matches_mpcoll_jobj_reduction():
     pose = {
         "joints": [
@@ -534,12 +959,12 @@ def test_compute_ecb_from_jobj_pose_matches_mpcoll_jobj_reduction():
 
     assert ecb["top"] == {"x": 0.0, "y": 10.0}
     assert ecb["bottom"] == {"x": 0.0, "y": 0.0}
-    assert ecb["right"] == {"x": 4.0, "y": 5.25}
-    assert ecb["left"] == {"x": -4.0, "y": 5.25}
+    assert ecb["right"] == {"x": 30.0, "y": 5.25}
+    assert ecb["left"] == {"x": -50.0, "y": 5.25}
     assert ecb["source_points"][1] == {"x": 30.0, "y": 10.0, "z": 3.0}
     assert "render_points" not in ecb
-    assert ecb["source_render_transform"] == "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
-    assert ecb["flatten_after_render"] == "right_facing_melee_xy"
+    assert ecb["source_render_transform"] == "none; mpColl_LoadECB_JObj uses lb_8000B1CC world positions"
+    assert ecb["flatten_after_render"] == "none_collision_world_xy"
     assert ecb["bottom_milli"] == {"x": 0, "y": 0}
 
 
@@ -577,6 +1002,92 @@ def test_extract_captain_action_ecb_samples_uses_figatree_skeleton_and_source_jo
     assert samples["actions"][0]["frames"][5]["source_joint_indices"] == [0, 1, 0, 1, 0, 1]
     assert "source_points" in samples["actions"][0]["frames"][5]
     assert "render_points" not in samples["actions"][0]["frames"][5]
+
+
+def test_extract_captain_action_ecb_samples_clears_transn_before_collision_ecb():
+    chunk = make_transn_translation_figatree_chunk()
+    data_block = bytearray(0x140)
+    root_offset = 0x20
+    transn_offset = 0x60
+    child_offset = 0xA0
+    put_joint(data_block, root_offset, flags=0, child=transn_offset)
+    put_joint(data_block, transn_offset, flags=0, child=child_offset)
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 3.0, 0.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+    action_table = {
+        "actions": [
+            {
+                "action_state_id": 307,
+                "name": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
+                "flags_raw": "0x82000002",
+                "figatree_archive_offset": 0,
+                "figatree_archive_size": len(chunk),
+                "figatree": {"frames_ticks": 12},
+            }
+        ]
+    }
+    ecb_source = {
+        "ecb_source": {
+            "joint_indices": [2, 2, 2, 2, 2, 2],
+            "side_midpoint_offset_raw": 0.0,
+        }
+    }
+
+    samples = extract_captain_action_ecb_samples(
+        chunk, action_table, skeleton, ecb_source, action_state_ids=(307,)
+    )
+
+    frame = samples["actions"][0]["frames"][5]
+    assert frame["bottom_milli"] == {"x": 0, "y": 3000}
+    assert frame["source_points"][0] == {"x": 0.0, "y": 3.0, "z": 0.0}
+    assert samples["actions"][0]["anim_curr_flags_raw"] == "0x82000002"
+    assert samples["actions"][0]["collision_pose_transn_cleared"] is True
+
+
+def test_extract_captain_action_ecb_samples_preserves_transn_without_anim_flag_b0():
+    chunk = make_transn_translation_figatree_chunk()
+    data_block = bytearray(0x140)
+    root_offset = 0x20
+    transn_offset = 0x60
+    child_offset = 0xA0
+    put_joint(data_block, root_offset, flags=0, child=transn_offset)
+    put_joint(data_block, transn_offset, flags=0, child=child_offset)
+    put_joint(data_block, child_offset, flags=0, position=(0.0, 3.0, 0.0))
+    dat = make_dat("PlyCaptain5K_Share_joint", data_block, root_offset)
+    skeleton = extract_captain_costume_skeleton_from_plcanr(
+        dat, source_path=Path("resources/melee/raw/PlCaNr.dat")
+    )
+    action_table = {
+        "actions": [
+            {
+                "action_state_id": 36,
+                "name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+                "flags_raw": "0x00000002",
+                "figatree_archive_offset": 0,
+                "figatree_archive_size": len(chunk),
+                "figatree": {"frames_ticks": 12},
+            }
+        ]
+    }
+    ecb_source = {
+        "ecb_source": {
+            "joint_indices": [2, 2, 2, 2, 2, 2],
+            "side_midpoint_offset_raw": 0.0,
+        }
+    }
+
+    samples = extract_captain_action_ecb_samples(
+        chunk, action_table, skeleton, ecb_source, action_state_ids=(36,)
+    )
+
+    frame = samples["actions"][0]["frames"][5]
+    assert frame["bottom_milli"] == {"x": 0, "y": 13000}
+    assert frame["source_points"][0] == {"x": 0.0, "y": 13.0, "z": 0.0}
+    assert samples["actions"][0]["anim_curr_flags_raw"] == "0x00000002"
+    assert samples["actions"][0]["collision_pose_transn_cleared"] is False
 
 
 def test_sample_hurtboxes_from_pose_renders_right_facing_before_flattening_view_z():
@@ -920,6 +1431,34 @@ def test_extract_captain_escape_air_script_skip_decay_gate_from_real_resources()
     ]
 
 
+def test_extract_captain_special_hi_scripts_preserve_cmd_var_air_transition_events():
+    plca = (PROJECT_ROOT / "resources/melee/raw/PlCa.dat").read_bytes()
+    plcaaj = (PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat").read_bytes()
+
+    extracted = extract_captain_action_animation_table(
+        plca,
+        PROJECT_ROOT / "resources/melee/raw/PlCa.dat",
+        plcaaj,
+        PROJECT_ROOT / "resources/melee/raw/PlCaAJ.dat",
+    )
+
+    special_hi = extracted["actions"][307]
+    special_air_hi = extracted["actions"][308]
+
+    assert special_hi["figatree_root"] == "PlyCaptain5K_Share_ACTION_SpecialHi_figatree"
+    assert special_hi["figatree"]["frames_ticks"] == 65
+    assert special_hi["cmd_var_events"] == [
+        {"frame": 13, "cmd_var": 0, "value": 1, "word_offset": 7},
+    ]
+    assert special_air_hi["figatree_root"] == (
+        "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree"
+    )
+    assert special_air_hi["figatree"]["frames_ticks"] == 65
+    assert special_air_hi["cmd_var_events"] == [
+        {"frame": 13, "cmd_var": 0, "value": 1, "word_offset": 7},
+    ]
+
+
 def test_extract_captain_profile_rejects_non_captain_roots():
     data_block = bytearray(0x400)
     dat = make_dat("ftDataFox", data_block, 0x60)
@@ -943,6 +1482,7 @@ def test_character_resource_spec_uses_decomp_marth_names():
         neutral_costume_dat="PlMsNr.dat",
         ft_data_symbol="ftDataMars",
         neutral_joint_root="PlyMars5K_Share_joint",
+        fighter_kind_index=18,
     )
     assert character_resource_spec("mars") == spec
     assert iso_files_for_characters(("marth",)) == (
@@ -1003,11 +1543,15 @@ def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
     hurtbox_table_offset = 0x300
     hurtbox_inits_offset = 0x340
     action_table_offset = 0x3C0
+    thrown_hitbox_offset = 0x470
     action_name_offset = 0x480
+    common_parts_offset = 0x4A0
     fighter_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
     fighter_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
+    fighter_block[ftdata_offset + 0x08 : ftdata_offset + 0x0C] = be32(common_parts_offset)
     fighter_block[ftdata_offset + 0x0C : ftdata_offset + 0x10] = be32(action_table_offset)
     fighter_block[ftdata_offset + 0x30 : ftdata_offset + 0x34] = be32(hurtbox_table_offset)
+    fighter_block[ftdata_offset + 0x34 : ftdata_offset + 0x38] = be32(thrown_hitbox_offset)
     fighter_block[ftdata_offset + 0x44 : ftdata_offset + 0x48] = be32(ecb_source_offset)
     for field_offset in (0x18, 0x1C, 0x30, 0x34, 0x3C, 0x40, 0x5C, 0x60, 0x64, 0x68, 0x6C, 0x70):
         put_f32(fighter_block, attrs_offset + field_offset, 1.0)
@@ -1034,6 +1578,15 @@ def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
     fighter_block[action_table_offset : action_table_offset + 0x18] = (
         be32(action_name_offset) + be32(0) + be32(0) + be32(0) + be32(0) + be32(0)
     )
+    fighter_block[thrown_hitbox_offset : thrown_hitbox_offset + 0x04] = be32(1)
+    put_f32(fighter_block, thrown_hitbox_offset + 0x04, 1.0)
+    fighter_block[common_parts_offset : common_parts_offset + 0x18] = (
+        be32(1)
+        + be32(0x120)
+        + be32(0)
+        + be32(0x140)
+        + bytes([57, 61, 39, 10, 16, 0, 0, 0])
+    )
     (raw_dir / "PlMs.dat").write_bytes(make_dat("ftDataMars", fighter_block, ftdata_offset))
 
     skeleton_block = bytearray(0x100)
@@ -1059,6 +1612,77 @@ def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
     assert '"source_character": "marth"' in profile
     skeleton = (out_dir / "marth_costume_skeleton.json").read_text(encoding="utf-8")
     assert "PlyMars5K_Share_joint" in skeleton
+
+
+def test_extract_resources_writes_declared_character_special_attrs(tmp_path, monkeypatch):
+    raw_dir = tmp_path / "raw"
+    out_dir = tmp_path / "extracted"
+    raw_dir.mkdir()
+
+    spec = CharacterResourceSpec(
+        id="test",
+        output_stem="test_character",
+        data_dat="Test.dat",
+        action_dat="TestAJ.dat",
+        neutral_costume_dat="TestNr.dat",
+        ft_data_symbol="ftDataTest",
+        neutral_joint_root="Test_joint",
+        special_attr_fields=(melee_resources.Field("special_x", "special_x", 0, "source_f32"),),
+    )
+    (raw_dir / spec.data_dat).write_bytes(b"fighter")
+
+    monkeypatch.setattr(melee_resources, "character_resource_spec", lambda _character: spec)
+    monkeypatch.setattr(
+        melee_resources, "extract_character_profile_from_dat", lambda *_args: {}
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_special_attrs_from_dat",
+        lambda *_args: {"fields": {"special_x": {"raw": 1.0}}},
+    )
+    monkeypatch.setattr(
+        melee_resources, "extract_character_ecb_source_from_dat", lambda *_args: {}
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_hurtbox_inits_from_dat",
+        lambda *_args: {"hurtboxes": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_common_parts_from_dat",
+        lambda *_args, **_kwargs: {"transn_part": 1, "xrotn_part": 2, "hipn_part": 4, "transn2_part": 52},
+    )
+
+    written = extract_resources(raw_dir, out_dir, ("test",))
+
+    written_names = {path.name for path in written}
+    assert "test_character_special_attrs.json" in written_names
+    assert '"special_x"' in (out_dir / "test_character_special_attrs.json").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_extract_resources_writes_plco_fighter_parts_tables(tmp_path, monkeypatch):
+    raw_dir = tmp_path / "raw"
+    out_dir = tmp_path / "extracted"
+    raw_dir.mkdir()
+    (raw_dir / "PlCo.dat").write_bytes(b"plco")
+
+    monkeypatch.setattr(melee_resources, "extract_common_data_from_plco", lambda *_args: {})
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_fighter_parts_tables_from_plco",
+        lambda *_args: {"tables": {"2": {"source_name": "FTKIND_CAPTAIN"}}},
+    )
+
+    written = extract_resources(raw_dir, out_dir, ())
+
+    written_names = {path.name for path in written}
+    assert "fighter_parts_tables.json" in written_names
+    assert '"FTKIND_CAPTAIN"' in (out_dir / "fighter_parts_tables.json").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_extract_resources_does_not_write_hurtbox_sample_cache_by_default(
@@ -1093,6 +1717,11 @@ def test_extract_resources_does_not_write_hurtbox_sample_cache_by_default(
         melee_resources,
         "extract_character_hurtbox_inits_from_dat",
         lambda *_args: {"hurtboxes": []},
+    )
+    monkeypatch.setattr(
+        melee_resources,
+        "extract_character_common_parts_from_dat",
+        lambda *_args, **_kwargs: {"transn_part": 1, "xrotn_part": 2, "hipn_part": 4, "transn2_part": 52},
     )
     monkeypatch.setattr(
         melee_resources,

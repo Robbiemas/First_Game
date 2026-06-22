@@ -4,8 +4,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use mole_core::{
-    source_units_to_milli, step_world, Frame, MeleeActionStateId, MeleeCommonData,
-    MeleeInputTimers, MotionState, PlayerInput, PlayerState, SourceVec2, Vec2, World, PLAYER_COUNT,
+    is_source_damage_action_state_id, source_units_to_milli, step_world, Frame, MeleeActionStateId,
+    MeleeCommonData, MeleeInputTimers, MotionState, PlayerInput, PlayerRenderSnapshot, PlayerState,
+    SourceCollEcbSnapshot, SourceVec2, StageProfile, Vec2, World, WorldRollbackSnapshot,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, PLAYER_COUNT,
 };
 use serde::Deserialize;
 
@@ -22,6 +24,14 @@ const HSD_X: u32 = 1 << 10;
 const HSD_Y: u32 = 1 << 11;
 const HSD_START: u32 = 1 << 12;
 const SIGNIFICANT_POSITION_DRIFT_MILLI: i32 = 100;
+
+fn step_match_start_replay_world(
+    world: &mut World,
+    core_frame: Frame,
+    inputs: &[PlayerInput; PLAYER_COUNT],
+) {
+    crate::step_world_with_source_collisions(world, core_frame, inputs);
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlippiCoreComparisonConfig {
@@ -127,7 +137,7 @@ pub struct SlippiCoreTraceConfig {
     pub max_frames: Option<usize>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlippiCoreTraceRow {
     pub core_frame: Frame,
     pub source_frame: i32,
@@ -138,26 +148,218 @@ pub struct SlippiCoreTraceRow {
     pub input_left_trigger: u8,
     pub input_right_trigger: u8,
     pub input_ucf_dashback_amendment: bool,
+    pub actual_input_jump_pressed: bool,
+    pub actual_input_normal_jump_pressed: bool,
+    pub actual_input_shield_held: bool,
+    pub actual_input_shield_pressed: bool,
     pub expected_slippi_state_id: u16,
     pub expected_action_state_id: MeleeActionStateId,
     pub actual_action_state_id: Option<MeleeActionStateId>,
     pub expected_motion_state: Option<MotionState>,
     pub actual_motion_state: MotionState,
+    pub actual_grounded: bool,
     pub actual_motion_frame: u8,
+    pub actual_motion_anim_frame_milli: i32,
+    pub expected_facing: i8,
+    pub actual_facing: i8,
     pub expected_position: Vec2,
     pub actual_position: Vec2,
+    pub expected_source_position: SourceVec2,
+    pub actual_source_position: SourceVec2,
     pub expected_ground_velocity_x: i32,
     pub expected_air_velocity_x: i32,
     pub expected_velocity_y: i32,
+    pub expected_attack_velocity_x: i32,
+    pub expected_attack_velocity_y: i32,
+    pub expected_composed_velocity_x: i32,
+    pub expected_composed_velocity_y: i32,
+    pub expected_ground_velocity_x_source: f32,
+    pub expected_air_velocity_x_source: f32,
+    pub expected_velocity_y_source: f32,
+    pub expected_attack_velocity_x_source: f32,
+    pub expected_attack_velocity_y_source: f32,
     pub actual_velocity_x: i32,
     pub actual_velocity_y: i32,
+    pub actual_source_self_velocity_x: f32,
+    pub actual_source_self_velocity_y: f32,
+    pub actual_source_knockback_velocity_x: f32,
+    pub actual_source_knockback_velocity_y: f32,
+    pub actual_source_ground_knockback_velocity: f32,
+    pub actual_ground_velocity_x: f32,
+    pub actual_ground_accel_x: f32,
+    pub actual_ground_accel_x2: f32,
+    pub actual_dash_entry_velocity_delta: f32,
+    pub actual_dash_x0: f32,
+    pub actual_source_coll_last_pos: SourceVec2,
+    pub actual_source_coll_cur_pos: SourceVec2,
+    pub actual_source_coll_prev_pos: SourceVec2,
+    pub actual_source_coll_ecb: SourceCollEcbSnapshot,
+    pub actual_source_coll_prev_ecb: SourceCollEcbSnapshot,
+    pub actual_source_coll_desired_ecb: SourceCollEcbSnapshot,
+    pub actual_ecb_bottom_lock_timer: u8,
+    pub actual_source_coll_x130_locked: bool,
+    pub actual_source_floor_surface: Option<u8>,
+    pub actual_source_floor_line: Option<u16>,
+    pub actual_source_coll_env_flags: u32,
+    pub actual_source_coll_prev_env_flags: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SlippiCoreTrace {
     pub source_replay_path: Option<String>,
     pub config: SlippiCoreTraceConfig,
     pub rows: Vec<SlippiCoreTraceRow>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlippiCoreDivergenceScanConfig {
+    pub compare_players: [bool; PLAYER_COUNT],
+    pub max_frames: Option<usize>,
+    pub lookahead_frames: usize,
+    pub max_scenarios: Option<usize>,
+    pub position_tolerance_milli: i32,
+    pub velocity_tolerance_milli: i32,
+}
+
+impl Default for SlippiCoreDivergenceScanConfig {
+    fn default() -> Self {
+        Self {
+            compare_players: [true; PLAYER_COUNT],
+            max_frames: None,
+            lookahead_frames: 5,
+            max_scenarios: None,
+            position_tolerance_milli: SIGNIFICANT_POSITION_DRIFT_MILLI,
+            velocity_tolerance_milli: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlippiCoreDivergenceKind {
+    UnsupportedState,
+    StateMismatch,
+    PositionDrift,
+    VelocityDrift,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlippiCoreDivergenceScan {
+    pub source_replay_path: Option<String>,
+    pub config: SlippiCoreDivergenceScanConfig,
+    pub frames_scanned: usize,
+    pub scenarios: Vec<SlippiCoreDivergenceScenario>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlippiVisualReplayFrame {
+    pub core_frame: Frame,
+    pub source_frame: i32,
+    pub inputs: [PlayerInput; PLAYER_COUNT],
+    pub raw_inputs: [SlippiRustPlayerInput; PLAYER_COUNT],
+    pub expected_players: [Option<SlippiPostFrame>; PLAYER_COUNT],
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlippiVisualReplayDivergence {
+    pub kind: SlippiCoreDivergenceKind,
+    pub player_index: usize,
+    pub core_frame: Frame,
+    pub source_frame: i32,
+    pub max_abs_position_delta_milli: i32,
+    pub max_abs_velocity_delta_milli: i32,
+    pub row: SlippiCoreTraceRow,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlippiVisualReplayDivergenceGate {
+    lookahead_frames: usize,
+    pending: Option<SlippiVisualReplayDivergence>,
+    divergent_frames: usize,
+}
+
+impl SlippiVisualReplayDivergenceGate {
+    pub fn new(lookahead_frames: usize) -> Self {
+        Self {
+            lookahead_frames,
+            pending: None,
+            divergent_frames: 0,
+        }
+    }
+
+    pub fn observe(
+        &mut self,
+        divergence: Option<SlippiVisualReplayDivergence>,
+    ) -> Option<SlippiVisualReplayDivergence> {
+        let Some(divergence) = divergence else {
+            self.pending = None;
+            self.divergent_frames = 0;
+            return None;
+        };
+
+        if self.pending.is_none() {
+            self.pending = Some(divergence);
+            self.divergent_frames = 1;
+        } else {
+            self.divergent_frames = self.divergent_frames.saturating_add(1);
+        }
+
+        if self.divergent_frames > self.lookahead_frames {
+            return self.pending.clone();
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlippiCoreDivergenceScenario {
+    pub scenario_index: usize,
+    pub kind: SlippiCoreDivergenceKind,
+    pub player_index: usize,
+    pub core_frame: Frame,
+    pub source_frame: i32,
+    pub end_core_frame: Frame,
+    pub end_source_frame: i32,
+    pub duration_frames: usize,
+    pub realigned_within_lookahead: bool,
+    pub realign_core_frame: Option<Frame>,
+    pub realign_source_frame: Option<i32>,
+    pub rollback_replay_deterministic: bool,
+    pub first_frame: SlippiCoreTraceRow,
+    pub max_abs_position_delta_milli: i32,
+    pub max_abs_velocity_delta_milli: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlippiCoreFirstDivergence {
+    pub kind: SlippiCoreDivergenceKind,
+    pub player_index: usize,
+    pub core_frame: Frame,
+    pub source_frame: i32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ActiveDivergenceScenario {
+    kind: SlippiCoreDivergenceKind,
+    player_index: usize,
+    core_frame: Frame,
+    source_frame: i32,
+    end_core_frame: Frame,
+    end_source_frame: i32,
+    duration_frames: usize,
+    realigned_within_lookahead: bool,
+    realign_core_frame: Option<Frame>,
+    realign_source_frame: Option<i32>,
+    rollback_replay_deterministic: bool,
+    first_frame: SlippiCoreTraceRow,
+    max_abs_position_delta_milli: i32,
+    max_abs_velocity_delta_milli: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SlippiCoreDivergenceStatus {
+    kind: SlippiCoreDivergenceKind,
+    max_abs_position_delta_milli: i32,
+    max_abs_velocity_delta_milli: i32,
 }
 
 impl SlippiCoreComparison {
@@ -535,11 +737,13 @@ pub fn compare_slippi_export_with_core(
             let actual_action_state_id = actual_player.melee_action_state_id;
             let states_match =
                 slippi_expected_state_matches(expected_state, actual, actual_action_state_id);
-            let expected_position = post
-                .position
-                .map(slippi_position_to_core_milli)
-                .unwrap_or_default();
             let actual_position = snapshot.players[player_index].position;
+            let expected_position = slippi_post_position_to_core_milli(
+                post,
+                world.stage(),
+                actual_player.source_coll_floor_surface_index,
+                actual_position.y,
+            );
             let expected_ground_velocity = post
                 .self_induced_speeds
                 .as_ref()
@@ -555,15 +759,38 @@ pub fn compare_slippi_export_with_core(
                 .as_ref()
                 .map(|speeds| slippi_units_to_core_milli(speeds.y))
                 .unwrap_or_default();
+            let expected_attack_velocity_x = post
+                .self_induced_speeds
+                .as_ref()
+                .map(|speeds| slippi_units_to_core_milli(speeds.attack_x))
+                .unwrap_or_default();
+            let expected_attack_velocity_y = post
+                .self_induced_speeds
+                .as_ref()
+                .map(|speeds| slippi_units_to_core_milli(speeds.attack_y))
+                .unwrap_or_default();
             let actual_velocity = snapshot.players[player_index].velocity.x;
             let actual_velocity_y = snapshot.players[player_index].velocity.y;
-            let expected_horizontal_velocity = expected_horizontal_velocity_x(
-                expected_state,
+            let expected_grounded_for_velocity =
+                expected_velocity_grounded(post, Some(expected_state), actual_player.grounded);
+            let expected_horizontal_velocity = expected_base_horizontal_velocity_x(
                 expected_ground_velocity,
                 expected_air_velocity,
-                actual_player.grounded,
+                expected_grounded_for_velocity,
             );
-            let velocity_diff = (expected_horizontal_velocity - actual_velocity).abs();
+            let expected_horizontal_velocity = expected_composed_horizontal_velocity_x(
+                Some(expected_state),
+                expected_horizontal_velocity,
+                expected_attack_velocity_x,
+            );
+            let expected_composed_velocity_y = expected_composed_velocity_y(
+                Some(expected_state),
+                expected_velocity_y,
+                expected_attack_velocity_y,
+            );
+            let velocity_diff = (expected_horizontal_velocity - actual_velocity)
+                .abs()
+                .max((expected_composed_velocity_y - actual_velocity_y).abs());
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
             record_first_position_drift(
@@ -650,7 +877,7 @@ pub fn compare_slippi_export_from_match_start_with_core(
         }
 
         let core_frame = Frame(core_frame_index as u32);
-        step_world(&mut world, core_frame, &inputs);
+        step_match_start_replay_world(&mut world, core_frame, &inputs);
         let snapshot = world.snapshot();
         comparison.frames_compared += 1;
 
@@ -676,11 +903,13 @@ pub fn compare_slippi_export_from_match_start_with_core(
             let actual_action_state_id = actual_player.melee_action_state_id;
             let states_match =
                 slippi_expected_state_matches(expected_state, actual, actual_action_state_id);
-            let expected_position = post
-                .position
-                .map(slippi_position_to_core_milli)
-                .unwrap_or_default();
             let actual_position = snapshot.players[player_index].position;
+            let expected_position = slippi_post_position_to_core_milli(
+                post,
+                world.stage(),
+                actual_player.source_coll_floor_surface_index,
+                actual_position.y,
+            );
             let expected_ground_velocity = post
                 .self_induced_speeds
                 .as_ref()
@@ -696,15 +925,38 @@ pub fn compare_slippi_export_from_match_start_with_core(
                 .as_ref()
                 .map(|speeds| slippi_units_to_core_milli(speeds.y))
                 .unwrap_or_default();
+            let expected_attack_velocity_x = post
+                .self_induced_speeds
+                .as_ref()
+                .map(|speeds| slippi_units_to_core_milli(speeds.attack_x))
+                .unwrap_or_default();
+            let expected_attack_velocity_y = post
+                .self_induced_speeds
+                .as_ref()
+                .map(|speeds| slippi_units_to_core_milli(speeds.attack_y))
+                .unwrap_or_default();
             let actual_velocity = snapshot.players[player_index].velocity.x;
             let actual_velocity_y = snapshot.players[player_index].velocity.y;
-            let expected_horizontal_velocity = expected_horizontal_velocity_x(
-                expected_state,
+            let expected_grounded_for_velocity =
+                expected_velocity_grounded(post, Some(expected_state), actual_player.grounded);
+            let expected_horizontal_velocity = expected_base_horizontal_velocity_x(
                 expected_ground_velocity,
                 expected_air_velocity,
-                actual_player.grounded,
+                expected_grounded_for_velocity,
             );
-            let velocity_diff = (expected_horizontal_velocity - actual_velocity).abs();
+            let expected_horizontal_velocity = expected_composed_horizontal_velocity_x(
+                Some(expected_state),
+                expected_horizontal_velocity,
+                expected_attack_velocity_x,
+            );
+            let expected_composed_velocity_y = expected_composed_velocity_y(
+                Some(expected_state),
+                expected_velocity_y,
+                expected_attack_velocity_y,
+            );
+            let velocity_diff = (expected_horizontal_velocity - actual_velocity)
+                .abs()
+                .max((expected_composed_velocity_y - actual_velocity_y).abs());
             comparison.max_abs_ground_velocity_diff[player_index] =
                 comparison.max_abs_ground_velocity_diff[player_index].max(velocity_diff);
             record_first_position_drift(
@@ -789,7 +1041,7 @@ pub fn trace_slippi_export_from_match_start_with_core(
         }
 
         let core_frame = Frame(core_frame_index as u32);
-        step_world(&mut world, core_frame, &inputs);
+        step_match_start_replay_world(&mut world, core_frame, &inputs);
         if frame.frame < config.source_frame_start || frame.frame > config.source_frame_end {
             continue;
         }
@@ -803,28 +1055,92 @@ pub fn trace_slippi_export_from_match_start_with_core(
             continue;
         };
         let snapshot = world.snapshot();
-        let expected_position = post
+        let expected_position = slippi_post_position_to_core_milli(
+            post,
+            world.stage(),
+            snapshot.players[config.player_index].source_coll_floor_surface_index,
+            snapshot.players[config.player_index].position.y,
+        );
+        let expected_source_position = post
             .position
-            .map(slippi_position_to_core_milli)
+            .map(|position| SourceVec2 {
+                x: slippi_units_to_source_f32(Some(position[0])),
+                y: slippi_units_to_source_f32(Some(position[1])),
+            })
             .unwrap_or_default();
         let expected_ground_velocity_x = post
             .self_induced_speeds
             .as_ref()
             .map(|speeds| slippi_units_to_core_milli(speeds.ground_x))
             .unwrap_or_default();
+        let expected_ground_velocity_x_source = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_source_f32(speeds.ground_x))
+            .unwrap_or_default();
         let expected_air_velocity_x = post
             .self_induced_speeds
             .as_ref()
             .map(|speeds| slippi_units_to_core_milli(speeds.air_x))
+            .unwrap_or_default();
+        let expected_air_velocity_x_source = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_source_f32(speeds.air_x))
             .unwrap_or_default();
         let expected_velocity_y = post
             .self_induced_speeds
             .as_ref()
             .map(|speeds| slippi_units_to_core_milli(speeds.y))
             .unwrap_or_default();
+        let expected_velocity_y_source = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_source_f32(speeds.y))
+            .unwrap_or_default();
+        let expected_attack_velocity_x = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_core_milli(speeds.attack_x))
+            .unwrap_or_default();
+        let expected_attack_velocity_x_source = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_source_f32(speeds.attack_x))
+            .unwrap_or_default();
+        let expected_attack_velocity_y = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_core_milli(speeds.attack_y))
+            .unwrap_or_default();
+        let expected_attack_velocity_y_source = post
+            .self_induced_speeds
+            .as_ref()
+            .map(|speeds| slippi_units_to_source_f32(speeds.attack_y))
+            .unwrap_or_default();
         let player = snapshot.players[config.player_index];
+        let actual_source_floor_surface = player.source_coll_floor_surface_index;
+        let actual_source_floor_line = player.source_coll_floor_line_index;
         let raw_input = raw_inputs[config.player_index];
         let expected_state = slippi_action_state_to_expected(post.action_state_id);
+        let expected_facing = slippi_facing_to_i8(post.facing);
+        let expected_grounded_for_velocity =
+            expected_velocity_grounded(post, expected_state, player.grounded);
+        let expected_base_horizontal_velocity_x = expected_base_horizontal_velocity_x(
+            expected_ground_velocity_x,
+            expected_air_velocity_x,
+            expected_grounded_for_velocity,
+        );
+        let expected_composed_velocity_x = expected_composed_horizontal_velocity_x(
+            expected_state,
+            expected_base_horizontal_velocity_x,
+            expected_attack_velocity_x,
+        );
+        let expected_composed_velocity_y = expected_composed_velocity_y(
+            expected_state,
+            expected_velocity_y,
+            expected_attack_velocity_y,
+        );
         rows.push(SlippiCoreTraceRow {
             core_frame,
             source_frame: frame.frame,
@@ -835,6 +1151,10 @@ pub fn trace_slippi_export_from_match_start_with_core(
             input_left_trigger: raw_input.left_trigger,
             input_right_trigger: raw_input.right_trigger,
             input_ucf_dashback_amendment: raw_input.ucf_dashback_amendment,
+            actual_input_jump_pressed: player.debug_input_facts.jump_pressed,
+            actual_input_normal_jump_pressed: player.debug_input_facts.normal_jump_pressed,
+            actual_input_shield_held: player.debug_input_facts.shield_held,
+            actual_input_shield_pressed: player.debug_input_facts.shield_pressed,
             expected_slippi_state_id: post.action_state_id,
             expected_action_state_id: expected_state
                 .map(|state| state.action_state_id)
@@ -842,14 +1162,51 @@ pub fn trace_slippi_export_from_match_start_with_core(
             actual_action_state_id: player.melee_action_state_id,
             expected_motion_state: expected_state.and_then(|state| state.motion_state),
             actual_motion_state: player.motion_state,
+            actual_grounded: player.grounded,
             actual_motion_frame: player.state_frame,
+            actual_motion_anim_frame_milli: player.animation_frame_milli,
+            expected_facing,
+            actual_facing: player.facing,
             expected_position,
             actual_position: player.position,
+            expected_source_position,
+            actual_source_position: player.source_position,
             expected_ground_velocity_x,
             expected_air_velocity_x,
             expected_velocity_y,
+            expected_attack_velocity_x,
+            expected_attack_velocity_y,
+            expected_composed_velocity_x,
+            expected_composed_velocity_y,
+            expected_ground_velocity_x_source,
+            expected_air_velocity_x_source,
+            expected_velocity_y_source,
+            expected_attack_velocity_x_source,
+            expected_attack_velocity_y_source,
             actual_velocity_x: player.velocity.x,
             actual_velocity_y: player.velocity.y,
+            actual_source_self_velocity_x: player.source_self_velocity_x,
+            actual_source_self_velocity_y: player.source_self_velocity_y,
+            actual_source_knockback_velocity_x: player.source_knockback_velocity_x,
+            actual_source_knockback_velocity_y: player.source_knockback_velocity_y,
+            actual_source_ground_knockback_velocity: player.source_ground_knockback_velocity,
+            actual_ground_velocity_x: player.ground_velocity_x,
+            actual_ground_accel_x: player.ground_accel_x,
+            actual_ground_accel_x2: player.ground_accel_x2,
+            actual_dash_entry_velocity_delta: player.dash_entry_velocity_delta,
+            actual_dash_x0: player.dash_x0,
+            actual_source_coll_last_pos: player.source_coll_last_pos,
+            actual_source_coll_cur_pos: player.source_coll_cur_pos,
+            actual_source_coll_prev_pos: player.source_coll_prev_pos,
+            actual_source_coll_ecb: player.source_coll_ecb,
+            actual_source_coll_prev_ecb: player.source_coll_prev_ecb,
+            actual_source_coll_desired_ecb: player.source_coll_desired_ecb,
+            actual_ecb_bottom_lock_timer: player.ecb_bottom_lock_timer,
+            actual_source_coll_x130_locked: player.source_coll_x130_locked,
+            actual_source_floor_surface,
+            actual_source_floor_line,
+            actual_source_coll_env_flags: player.source_coll_env_flags,
+            actual_source_coll_prev_env_flags: player.source_coll_prev_env_flags,
         });
         if rows.len() >= frame_limit {
             break;
@@ -861,6 +1218,649 @@ pub fn trace_slippi_export_from_match_start_with_core(
         config,
         rows,
     })
+}
+
+pub fn slippi_visual_replay_inputs_from_match_start(
+    text: &str,
+    max_frames: Option<usize>,
+) -> Result<Vec<SlippiVisualReplayFrame>, SlippiCoreDiagnosticError> {
+    let mut export: SlippiExport = serde_json::from_str(text)?;
+    export.frames.sort_by_key(|frame| frame.frame);
+    let frame_limit = max_frames.unwrap_or(usize::MAX);
+    let mut frames = Vec::new();
+
+    for (core_frame_index, frame) in export.frames.into_iter().take(frame_limit).enumerate() {
+        let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
+        let mut raw_inputs = [SlippiRustPlayerInput::default(); PLAYER_COUNT];
+        let mut expected_players: [Option<SlippiPostFrame>; PLAYER_COUNT] = [None, None];
+        for (player_index, input_slot) in inputs.iter_mut().enumerate() {
+            if let Some(pre) = frame
+                .players
+                .get(&player_index.to_string())
+                .and_then(|player_frame| player_frame.pre.as_ref())
+            {
+                let input = effective_slippi_player_input(pre);
+                raw_inputs[player_index] = input;
+                *input_slot = input.to_player_input();
+            }
+            expected_players[player_index] = frame
+                .players
+                .get(&player_index.to_string())
+                .and_then(|player_frame| player_frame.post.as_ref())
+                .cloned();
+        }
+        frames.push(SlippiVisualReplayFrame {
+            core_frame: Frame(core_frame_index as u32),
+            source_frame: frame.frame,
+            inputs,
+            raw_inputs,
+            expected_players,
+        });
+    }
+
+    Ok(frames)
+}
+
+pub fn slippi_visual_replay_divergence_for_frame(
+    frame: &SlippiVisualReplayFrame,
+    snapshot: crate::WorldSnapshot,
+    config: SlippiCoreDivergenceScanConfig,
+) -> Option<SlippiVisualReplayDivergence> {
+    for player_index in 0..PLAYER_COUNT {
+        if !config.compare_players[player_index] {
+            continue;
+        }
+        let Some(post) = frame.expected_players[player_index].as_ref() else {
+            continue;
+        };
+        let (row, status) = trace_row_and_divergence_status(
+            frame.core_frame,
+            frame.source_frame,
+            player_index,
+            frame.raw_inputs[player_index],
+            post,
+            snapshot.players[player_index],
+            snapshot.stage,
+            config.position_tolerance_milli,
+            config.velocity_tolerance_milli,
+        );
+        if let Some(status) = status {
+            return Some(SlippiVisualReplayDivergence {
+                kind: status.kind,
+                player_index,
+                core_frame: frame.core_frame,
+                source_frame: frame.source_frame,
+                max_abs_position_delta_milli: status.max_abs_position_delta_milli,
+                max_abs_velocity_delta_milli: status.max_abs_velocity_delta_milli,
+                row,
+            });
+        }
+    }
+    None
+}
+
+pub fn scan_slippi_export_from_match_start_with_core(
+    text: &str,
+    config: SlippiCoreDivergenceScanConfig,
+) -> Result<SlippiCoreDivergenceScan, SlippiCoreDiagnosticError> {
+    let mut export: SlippiExport = serde_json::from_str(text)?;
+    let source_replay_path = export
+        .source
+        .as_ref()
+        .and_then(|source| source.replay_path.clone());
+    let frame_limit = config.max_frames.unwrap_or(usize::MAX);
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut active: [Option<ActiveDivergenceScenario>; PLAYER_COUNT] =
+        std::array::from_fn(|_| None);
+    let mut scenarios = Vec::new();
+    let mut frames_scanned = 0usize;
+    export.frames.sort_by_key(|frame| frame.frame);
+
+    for (core_frame_index, frame) in export.frames.iter().take(frame_limit).enumerate() {
+        if config
+            .max_scenarios
+            .is_some_and(|limit| scenarios.len() >= limit)
+        {
+            break;
+        }
+
+        let before_snapshot = world.rollback_snapshot();
+        let (inputs, raw_inputs) = slippi_frame_inputs(frame);
+        let core_frame = Frame(core_frame_index as u32);
+        step_match_start_replay_world(&mut world, core_frame, &inputs);
+        let after_step_checksum = world.checksum();
+        let snapshot = world.snapshot();
+        frames_scanned += 1;
+
+        for player_index in 0..PLAYER_COUNT {
+            if !config.compare_players[player_index] {
+                continue;
+            }
+            let Some(post) = frame
+                .players
+                .get(&player_index.to_string())
+                .and_then(|player_frame| player_frame.post.as_ref())
+            else {
+                continue;
+            };
+            let (row, status) = trace_row_and_divergence_status(
+                core_frame,
+                frame.frame,
+                player_index,
+                raw_inputs[player_index],
+                post,
+                snapshot.players[player_index],
+                world.stage(),
+                config.position_tolerance_milli,
+                config.velocity_tolerance_milli,
+            );
+            update_active_divergence_scenario(
+                &mut active[player_index],
+                &mut scenarios,
+                status,
+                row,
+                &export.frames,
+                core_frame_index,
+                &before_snapshot,
+                after_step_checksum,
+                config,
+            );
+        }
+    }
+
+    for slot in active.iter_mut() {
+        finish_active_divergence(slot, &mut scenarios);
+    }
+    scenarios.sort_by(|left, right| {
+        left.source_frame
+            .cmp(&right.source_frame)
+            .then_with(|| left.player_index.cmp(&right.player_index))
+            .then_with(|| divergence_kind_rank(left.kind).cmp(&divergence_kind_rank(right.kind)))
+    });
+    for (index, scenario) in scenarios.iter_mut().enumerate() {
+        scenario.scenario_index = index + 1;
+    }
+
+    Ok(SlippiCoreDivergenceScan {
+        source_replay_path,
+        config,
+        frames_scanned,
+        scenarios,
+    })
+}
+
+pub fn first_slippi_divergence_from_match_start_with_core(
+    text: &str,
+    config: SlippiCoreDivergenceScanConfig,
+) -> Result<Option<SlippiCoreFirstDivergence>, SlippiCoreDiagnosticError> {
+    let mut export: SlippiExport = serde_json::from_str(text)?;
+    let frame_limit = config.max_frames.unwrap_or(usize::MAX);
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    export.frames.sort_by_key(|frame| frame.frame);
+
+    for (core_frame_index, frame) in export.frames.iter().take(frame_limit).enumerate() {
+        let (inputs, raw_inputs) = slippi_frame_inputs(frame);
+        let core_frame = Frame(core_frame_index as u32);
+        step_match_start_replay_world(&mut world, core_frame, &inputs);
+        let snapshot = world.snapshot();
+
+        for player_index in 0..PLAYER_COUNT {
+            if !config.compare_players[player_index] {
+                continue;
+            }
+            let Some(post) = frame
+                .players
+                .get(&player_index.to_string())
+                .and_then(|player_frame| player_frame.post.as_ref())
+            else {
+                continue;
+            };
+            let (_row, status) = trace_row_and_divergence_status(
+                core_frame,
+                frame.frame,
+                player_index,
+                raw_inputs[player_index],
+                post,
+                snapshot.players[player_index],
+                world.stage(),
+                config.position_tolerance_milli,
+                config.velocity_tolerance_milli,
+            );
+            if let Some(status) = status {
+                return Ok(Some(SlippiCoreFirstDivergence {
+                    kind: status.kind,
+                    player_index,
+                    core_frame,
+                    source_frame: frame.frame,
+                }));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn slippi_frame_inputs(
+    frame: &SlippiFrame,
+) -> (
+    [PlayerInput; PLAYER_COUNT],
+    [SlippiRustPlayerInput; PLAYER_COUNT],
+) {
+    let mut inputs = [PlayerInput::neutral(); PLAYER_COUNT];
+    let mut raw_inputs = [SlippiRustPlayerInput::default(); PLAYER_COUNT];
+    for (player_index, input_slot) in inputs.iter_mut().enumerate() {
+        if let Some(pre) = frame
+            .players
+            .get(&player_index.to_string())
+            .and_then(|player_frame| player_frame.pre.as_ref())
+        {
+            let input = effective_slippi_player_input(pre);
+            raw_inputs[player_index] = input;
+            *input_slot = input.to_player_input();
+        }
+    }
+    (inputs, raw_inputs)
+}
+
+fn trace_row_and_divergence_status(
+    core_frame: Frame,
+    source_frame: i32,
+    player_index: usize,
+    raw_input: SlippiRustPlayerInput,
+    post: &SlippiPostFrame,
+    actual_player: PlayerRenderSnapshot,
+    stage: StageProfile,
+    position_tolerance_milli: i32,
+    velocity_tolerance_milli: i32,
+) -> (SlippiCoreTraceRow, Option<SlippiCoreDivergenceStatus>) {
+    let expected_state = slippi_action_state_to_expected(post.action_state_id);
+    let expected_facing = slippi_facing_to_i8(post.facing);
+    let expected_position = slippi_post_position_to_core_milli(
+        post,
+        stage,
+        actual_player.source_coll_floor_surface_index,
+        actual_player.position.y,
+    );
+    let expected_source_position = post
+        .position
+        .map(|position| SourceVec2 {
+            x: slippi_units_to_source_f32(Some(position[0])),
+            y: slippi_units_to_source_f32(Some(position[1])),
+        })
+        .unwrap_or_default();
+    let expected_ground_velocity_x = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_core_milli(speeds.ground_x))
+        .unwrap_or_default();
+    let expected_ground_velocity_x_source = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_source_f32(speeds.ground_x))
+        .unwrap_or_default();
+    let expected_air_velocity_x = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_core_milli(speeds.air_x))
+        .unwrap_or_default();
+    let expected_air_velocity_x_source = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_source_f32(speeds.air_x))
+        .unwrap_or_default();
+    let expected_velocity_y = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_core_milli(speeds.y))
+        .unwrap_or_default();
+    let expected_velocity_y_source = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_source_f32(speeds.y))
+        .unwrap_or_default();
+    let expected_attack_velocity_x = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_core_milli(speeds.attack_x))
+        .unwrap_or_default();
+    let expected_attack_velocity_x_source = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_source_f32(speeds.attack_x))
+        .unwrap_or_default();
+    let expected_attack_velocity_y = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_core_milli(speeds.attack_y))
+        .unwrap_or_default();
+    let expected_attack_velocity_y_source = post
+        .self_induced_speeds
+        .as_ref()
+        .map(|speeds| slippi_units_to_source_f32(speeds.attack_y))
+        .unwrap_or_default();
+    let actual_source_floor_surface = actual_player.source_coll_floor_surface_index;
+    let actual_source_floor_line = actual_player.source_coll_floor_line_index;
+    let expected_grounded_for_velocity =
+        expected_velocity_grounded(post, expected_state, actual_player.grounded);
+    let expected_base_horizontal_velocity_x = expected_base_horizontal_velocity_x(
+        expected_ground_velocity_x,
+        expected_air_velocity_x,
+        expected_grounded_for_velocity,
+    );
+    let expected_composed_velocity_x = expected_composed_horizontal_velocity_x(
+        expected_state,
+        expected_base_horizontal_velocity_x,
+        expected_attack_velocity_x,
+    );
+    let expected_composed_velocity_y = expected_composed_velocity_y(
+        expected_state,
+        expected_velocity_y,
+        expected_attack_velocity_y,
+    );
+    let row = SlippiCoreTraceRow {
+        core_frame,
+        source_frame,
+        player_index,
+        input_stick_x: raw_input.stick_x,
+        input_stick_y: raw_input.stick_y,
+        input_button_bits: raw_input.physical_button_bits,
+        input_left_trigger: raw_input.left_trigger,
+        input_right_trigger: raw_input.right_trigger,
+        input_ucf_dashback_amendment: raw_input.ucf_dashback_amendment,
+        actual_input_jump_pressed: actual_player.debug_input_facts.jump_pressed,
+        actual_input_normal_jump_pressed: actual_player.debug_input_facts.normal_jump_pressed,
+        actual_input_shield_held: actual_player.debug_input_facts.shield_held,
+        actual_input_shield_pressed: actual_player.debug_input_facts.shield_pressed,
+        expected_slippi_state_id: post.action_state_id,
+        expected_action_state_id: expected_state
+            .map(|state| state.action_state_id)
+            .unwrap_or_else(|| MeleeActionStateId::new(post.action_state_id)),
+        actual_action_state_id: actual_player.melee_action_state_id,
+        expected_motion_state: expected_state.and_then(|state| state.motion_state),
+        actual_motion_state: actual_player.motion_state,
+        actual_grounded: actual_player.grounded,
+        actual_motion_frame: actual_player.state_frame,
+        actual_motion_anim_frame_milli: actual_player.animation_frame_milli,
+        expected_facing,
+        actual_facing: actual_player.facing,
+        expected_position,
+        actual_position: actual_player.position,
+        expected_source_position,
+        actual_source_position: actual_player.source_position,
+        expected_ground_velocity_x,
+        expected_air_velocity_x,
+        expected_velocity_y,
+        expected_attack_velocity_x,
+        expected_attack_velocity_y,
+        expected_composed_velocity_x,
+        expected_composed_velocity_y,
+        expected_ground_velocity_x_source,
+        expected_air_velocity_x_source,
+        expected_velocity_y_source,
+        expected_attack_velocity_x_source,
+        expected_attack_velocity_y_source,
+        actual_velocity_x: actual_player.velocity.x,
+        actual_velocity_y: actual_player.velocity.y,
+        actual_source_self_velocity_x: actual_player.source_self_velocity_x,
+        actual_source_self_velocity_y: actual_player.source_self_velocity_y,
+        actual_source_knockback_velocity_x: actual_player.source_knockback_velocity_x,
+        actual_source_knockback_velocity_y: actual_player.source_knockback_velocity_y,
+        actual_source_ground_knockback_velocity: actual_player.source_ground_knockback_velocity,
+        actual_ground_velocity_x: actual_player.ground_velocity_x,
+        actual_ground_accel_x: actual_player.ground_accel_x,
+        actual_ground_accel_x2: actual_player.ground_accel_x2,
+        actual_dash_entry_velocity_delta: actual_player.dash_entry_velocity_delta,
+        actual_dash_x0: actual_player.dash_x0,
+        actual_source_coll_last_pos: actual_player.source_coll_last_pos,
+        actual_source_coll_cur_pos: actual_player.source_coll_cur_pos,
+        actual_source_coll_prev_pos: actual_player.source_coll_prev_pos,
+        actual_source_coll_ecb: actual_player.source_coll_ecb,
+        actual_source_coll_prev_ecb: actual_player.source_coll_prev_ecb,
+        actual_source_coll_desired_ecb: actual_player.source_coll_desired_ecb,
+        actual_ecb_bottom_lock_timer: actual_player.ecb_bottom_lock_timer,
+        actual_source_coll_x130_locked: actual_player.source_coll_x130_locked,
+        actual_source_floor_surface,
+        actual_source_floor_line,
+        actual_source_coll_env_flags: actual_player.source_coll_env_flags,
+        actual_source_coll_prev_env_flags: actual_player.source_coll_prev_env_flags,
+    };
+
+    let Some(expected_state) = expected_state else {
+        return (
+            row,
+            Some(SlippiCoreDivergenceStatus {
+                kind: SlippiCoreDivergenceKind::UnsupportedState,
+                max_abs_position_delta_milli: max_abs_position_delta(&row),
+                max_abs_velocity_delta_milli: max_abs_velocity_delta_with_expected(
+                    &row,
+                    row.expected_composed_velocity_x,
+                    row.expected_composed_velocity_y,
+                ),
+            }),
+        );
+    };
+    let states_match = slippi_expected_state_matches(
+        expected_state,
+        actual_player.motion_state,
+        actual_player.melee_action_state_id,
+    );
+    let max_abs_position_delta_milli = max_abs_position_delta(&row);
+    let max_abs_velocity_delta_milli = max_abs_velocity_delta_with_expected(
+        &row,
+        expected_composed_velocity_x,
+        expected_composed_velocity_y,
+    );
+
+    let kind = if !states_match {
+        Some(SlippiCoreDivergenceKind::StateMismatch)
+    } else if max_abs_position_delta_milli >= position_tolerance_milli.max(0) {
+        Some(SlippiCoreDivergenceKind::PositionDrift)
+    } else if max_abs_velocity_delta_milli > velocity_tolerance_milli.max(0) {
+        Some(SlippiCoreDivergenceKind::VelocityDrift)
+    } else {
+        None
+    };
+
+    (
+        row,
+        kind.map(|kind| SlippiCoreDivergenceStatus {
+            kind,
+            max_abs_position_delta_milli,
+            max_abs_velocity_delta_milli,
+        }),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update_active_divergence_scenario(
+    active: &mut Option<ActiveDivergenceScenario>,
+    scenarios: &mut Vec<SlippiCoreDivergenceScenario>,
+    status: Option<SlippiCoreDivergenceStatus>,
+    row: SlippiCoreTraceRow,
+    frames: &[SlippiFrame],
+    frame_index: usize,
+    before_snapshot: &WorldRollbackSnapshot,
+    after_step_checksum: u64,
+    config: SlippiCoreDivergenceScanConfig,
+) {
+    if let Some(status) = status {
+        if let Some(active_scenario) = active.as_mut() {
+            if active_scenario.kind == status.kind {
+                active_scenario.end_core_frame = row.core_frame;
+                active_scenario.end_source_frame = row.source_frame;
+                active_scenario.duration_frames = active_scenario.duration_frames.saturating_add(1);
+                active_scenario.max_abs_position_delta_milli = active_scenario
+                    .max_abs_position_delta_milli
+                    .max(status.max_abs_position_delta_milli);
+                active_scenario.max_abs_velocity_delta_milli = active_scenario
+                    .max_abs_velocity_delta_milli
+                    .max(status.max_abs_velocity_delta_milli);
+                return;
+            }
+            finish_active_divergence(active, scenarios);
+        }
+
+        *active = Some(start_active_divergence_scenario(
+            status,
+            row,
+            frames,
+            frame_index,
+            before_snapshot,
+            after_step_checksum,
+            config,
+        ));
+        return;
+    }
+
+    if let Some(active_scenario) = active.as_mut() {
+        if active_scenario.realign_core_frame.is_none() {
+            active_scenario.realign_core_frame = Some(row.core_frame);
+            active_scenario.realign_source_frame = Some(row.source_frame);
+        }
+        finish_active_divergence(active, scenarios);
+    }
+}
+
+fn start_active_divergence_scenario(
+    status: SlippiCoreDivergenceStatus,
+    row: SlippiCoreTraceRow,
+    frames: &[SlippiFrame],
+    frame_index: usize,
+    before_snapshot: &WorldRollbackSnapshot,
+    after_step_checksum: u64,
+    config: SlippiCoreDivergenceScanConfig,
+) -> ActiveDivergenceScenario {
+    let (realigned, realign_core_frame, realign_source_frame, rollback_replay_deterministic) =
+        rollback_replay_realignment(
+            frames,
+            frame_index,
+            before_snapshot,
+            after_step_checksum,
+            row.player_index,
+            config,
+        );
+    ActiveDivergenceScenario {
+        kind: status.kind,
+        player_index: row.player_index,
+        core_frame: row.core_frame,
+        source_frame: row.source_frame,
+        end_core_frame: row.core_frame,
+        end_source_frame: row.source_frame,
+        duration_frames: 1,
+        realigned_within_lookahead: realigned,
+        realign_core_frame,
+        realign_source_frame,
+        rollback_replay_deterministic,
+        first_frame: row,
+        max_abs_position_delta_milli: status.max_abs_position_delta_milli,
+        max_abs_velocity_delta_milli: status.max_abs_velocity_delta_milli,
+    }
+}
+
+fn finish_active_divergence(
+    active: &mut Option<ActiveDivergenceScenario>,
+    scenarios: &mut Vec<SlippiCoreDivergenceScenario>,
+) {
+    let Some(active) = active.take() else {
+        return;
+    };
+    scenarios.push(SlippiCoreDivergenceScenario {
+        scenario_index: scenarios.len() + 1,
+        kind: active.kind,
+        player_index: active.player_index,
+        core_frame: active.core_frame,
+        source_frame: active.source_frame,
+        end_core_frame: active.end_core_frame,
+        end_source_frame: active.end_source_frame,
+        duration_frames: active.duration_frames,
+        realigned_within_lookahead: active.realigned_within_lookahead,
+        realign_core_frame: active.realign_core_frame,
+        realign_source_frame: active.realign_source_frame,
+        rollback_replay_deterministic: active.rollback_replay_deterministic,
+        first_frame: active.first_frame,
+        max_abs_position_delta_milli: active.max_abs_position_delta_milli,
+        max_abs_velocity_delta_milli: active.max_abs_velocity_delta_milli,
+    });
+}
+
+fn divergence_kind_rank(kind: SlippiCoreDivergenceKind) -> u8 {
+    match kind {
+        SlippiCoreDivergenceKind::UnsupportedState => 0,
+        SlippiCoreDivergenceKind::StateMismatch => 1,
+        SlippiCoreDivergenceKind::PositionDrift => 2,
+        SlippiCoreDivergenceKind::VelocityDrift => 3,
+    }
+}
+
+fn rollback_replay_realignment(
+    frames: &[SlippiFrame],
+    frame_index: usize,
+    before_snapshot: &WorldRollbackSnapshot,
+    after_step_checksum: u64,
+    player_index: usize,
+    config: SlippiCoreDivergenceScanConfig,
+) -> (bool, Option<Frame>, Option<i32>, bool) {
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    world.restore_rollback_snapshot(before_snapshot);
+    let mut rollback_replay_deterministic = true;
+    let end_index = frame_index
+        .saturating_add(config.lookahead_frames)
+        .min(frames.len().saturating_sub(1));
+
+    for (offset, replay_index) in (frame_index..=end_index).enumerate() {
+        let frame = &frames[replay_index];
+        let (inputs, raw_inputs) = slippi_frame_inputs(frame);
+        let core_frame = Frame(replay_index as u32);
+        step_match_start_replay_world(&mut world, core_frame, &inputs);
+        if offset == 0 {
+            rollback_replay_deterministic = world.checksum() == after_step_checksum;
+        }
+        let Some(post) = frame
+            .players
+            .get(&player_index.to_string())
+            .and_then(|player_frame| player_frame.post.as_ref())
+        else {
+            continue;
+        };
+        let snapshot = world.snapshot();
+        let (_, status) = trace_row_and_divergence_status(
+            core_frame,
+            frame.frame,
+            player_index,
+            raw_inputs[player_index],
+            post,
+            snapshot.players[player_index],
+            world.stage(),
+            config.position_tolerance_milli,
+            config.velocity_tolerance_milli,
+        );
+        if offset > 0 && status.is_none() {
+            return (
+                true,
+                Some(core_frame),
+                Some(frame.frame),
+                rollback_replay_deterministic,
+            );
+        }
+    }
+
+    (false, None, None, rollback_replay_deterministic)
+}
+
+fn max_abs_position_delta(row: &SlippiCoreTraceRow) -> i32 {
+    (row.actual_position.x - row.expected_position.x)
+        .abs()
+        .max((row.actual_position.y - row.expected_position.y).abs())
+}
+
+fn max_abs_velocity_delta_with_expected(
+    row: &SlippiCoreTraceRow,
+    expected_horizontal_velocity_x: i32,
+    expected_velocity_y: i32,
+) -> i32 {
+    (row.actual_velocity_x - expected_horizontal_velocity_x)
+        .abs()
+        .max((row.actual_velocity_y - expected_velocity_y).abs())
 }
 
 fn empty_comparison(export: &SlippiExport, mode: SlippiCoreComparisonMode) -> SlippiCoreComparison {
@@ -967,41 +1967,7 @@ fn player_state_from_slippi_pre(
     );
     player.source_position = source_position;
     player.set_motion_state_alias(motion_state);
-    player.grounded = !matches!(
-        motion_state,
-        MotionState::Entry
-            | MotionState::DeadDown
-            | MotionState::DeadLeft
-            | MotionState::DeadRight
-            | MotionState::DeadUp
-            | MotionState::DeadUpStar
-            | MotionState::DeadUpStarIce
-            | MotionState::DeadUpFall
-            | MotionState::DeadUpFallHitCamera
-            | MotionState::DeadUpFallHitCameraFlat
-            | MotionState::DeadUpFallIce
-            | MotionState::DeadUpFallHitCameraIce
-            | MotionState::Sleep
-            | MotionState::Rebirth
-            | MotionState::RebirthWait
-            | MotionState::EntryStart
-            | MotionState::EntryEnd
-            | MotionState::Pass
-            | MotionState::Fall
-            | MotionState::FallF
-            | MotionState::FallB
-            | MotionState::FallAerial
-            | MotionState::FallAerialF
-            | MotionState::FallAerialB
-            | MotionState::JumpF
-            | MotionState::JumpB
-            | MotionState::JumpAerialF
-            | MotionState::JumpAerialB
-            | MotionState::EscapeAir
-            | MotionState::FallSpecial
-            | MotionState::FallSpecialF
-            | MotionState::FallSpecialB
-    );
+    player.grounded = !slippi_motion_state_uses_air_velocity(motion_state);
     if matches!(
         motion_state,
         MotionState::Entry | MotionState::EntryStart | MotionState::EntryEnd
@@ -1098,6 +2064,31 @@ fn slippi_position_to_core_milli(position: [f64; 2]) -> Vec2 {
     }
 }
 
+fn slippi_post_position_to_core_milli(
+    post: &SlippiPostFrame,
+    stage: StageProfile,
+    actual_floor_surface: Option<u8>,
+    actual_y: i32,
+) -> Vec2 {
+    let Some(position) = post.position else {
+        return Vec2::default();
+    };
+    let mut expected = slippi_position_to_core_milli(position);
+    if let Some(surface_y) = actual_floor_surface.and_then(|index| stage_surface_y(stage, index)) {
+        if (actual_y - expected.y - surface_y).abs() < 100 {
+            expected.y += surface_y;
+        }
+    }
+    expected
+}
+
+fn stage_surface_y(stage: StageProfile, surface_index: u8) -> Option<i32> {
+    stage
+        .collision_surfaces()
+        .get(usize::from(surface_index))
+        .map(|surface| surface.y)
+}
+
 fn diagnostic_core_frame(slippi_frame: i32) -> Frame {
     Frame(slippi_frame.max(0) as u32)
 }
@@ -1125,7 +2116,9 @@ fn slippi_action_state_to_expected(action_state_id: u16) -> Option<SlippiExpecte
 }
 
 fn slippi_source_only_action_state_is_known(action_state_id: u16) -> bool {
-    matches!(action_state_id, 45..=49)
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS
+        .iter()
+        .any(|binding| binding.action_state_id.get() == action_state_id)
 }
 
 fn slippi_expected_state_matches(
@@ -1139,16 +2132,26 @@ fn slippi_expected_state_matches(
             .is_some_and(|motion_state| actual_motion_state == motion_state)
 }
 
-fn expected_horizontal_velocity_x(
-    expected: SlippiExpectedActionState,
+fn expected_velocity_grounded(
+    post: &SlippiPostFrame,
+    expected: Option<SlippiExpectedActionState>,
+    actual_grounded: bool,
+) -> bool {
+    if let Some(expected) = expected {
+        if let Some(motion_state) = expected.motion_state {
+            return slippi_motion_state_uses_ground_velocity(motion_state);
+        }
+    }
+    post.airborne
+        .map(|airborne| !airborne)
+        .unwrap_or(actual_grounded)
+}
+
+fn expected_base_horizontal_velocity_x(
     expected_ground_velocity_x: i32,
     expected_air_velocity_x: i32,
-    actual_grounded: bool,
+    expected_grounded: bool,
 ) -> i32 {
-    let expected_grounded = expected
-        .motion_state
-        .map(slippi_motion_state_uses_ground_velocity)
-        .unwrap_or(actual_grounded);
     if expected_grounded {
         expected_ground_velocity_x
     } else {
@@ -1156,10 +2159,56 @@ fn expected_horizontal_velocity_x(
     }
 }
 
+fn expected_composed_horizontal_velocity_x(
+    expected: Option<SlippiExpectedActionState>,
+    expected_base_horizontal_velocity_x: i32,
+    expected_attack_velocity_x: i32,
+) -> i32 {
+    if expected.is_some_and(slippi_expected_state_uses_attack_velocity) {
+        expected_base_horizontal_velocity_x + expected_attack_velocity_x
+    } else {
+        expected_base_horizontal_velocity_x
+    }
+}
+
+fn expected_composed_velocity_y(
+    expected: Option<SlippiExpectedActionState>,
+    expected_velocity_y: i32,
+    expected_attack_velocity_y: i32,
+) -> i32 {
+    if expected.is_some_and(slippi_expected_state_uses_attack_velocity) {
+        expected_velocity_y + expected_attack_velocity_y
+    } else {
+        expected_velocity_y
+    }
+}
+
+fn slippi_expected_state_uses_attack_velocity(expected: SlippiExpectedActionState) -> bool {
+    is_source_damage_action_state_id(expected.action_state_id)
+}
+
 fn slippi_motion_state_uses_ground_velocity(motion_state: MotionState) -> bool {
-    !matches!(
+    !slippi_motion_state_uses_air_velocity(motion_state)
+}
+
+fn slippi_motion_state_uses_air_velocity(motion_state: MotionState) -> bool {
+    matches!(
         motion_state,
         MotionState::Entry
+            | MotionState::DeadDown
+            | MotionState::DeadLeft
+            | MotionState::DeadRight
+            | MotionState::DeadUp
+            | MotionState::DeadUpStar
+            | MotionState::DeadUpStarIce
+            | MotionState::DeadUpFall
+            | MotionState::DeadUpFallHitCamera
+            | MotionState::DeadUpFallHitCameraFlat
+            | MotionState::DeadUpFallIce
+            | MotionState::DeadUpFallHitCameraIce
+            | MotionState::Sleep
+            | MotionState::Rebirth
+            | MotionState::RebirthWait
             | MotionState::EntryStart
             | MotionState::EntryEnd
             | MotionState::Pass
@@ -1173,10 +2222,17 @@ fn slippi_motion_state_uses_ground_velocity(motion_state: MotionState) -> bool {
             | MotionState::JumpB
             | MotionState::JumpAerialF
             | MotionState::JumpAerialB
+            | MotionState::AttackAirN
+            | MotionState::AttackAirF
+            | MotionState::AttackAirB
+            | MotionState::AttackAirHi
+            | MotionState::AttackAirLw
             | MotionState::EscapeAir
             | MotionState::FallSpecial
             | MotionState::FallSpecialF
             | MotionState::FallSpecialB
+            | MotionState::SpecialHi
+            | MotionState::SpecialAirHi
     )
 }
 
@@ -1269,6 +2325,8 @@ fn slippi_action_state_to_motion(action_state_id: u16) -> Option<MotionState> {
         235 => Some(MotionState::EscapeN),
         236 => Some(MotionState::EscapeAir),
         244 => Some(MotionState::Pass),
+        252 => Some(MotionState::CliffCatch),
+        253 => Some(MotionState::CliffWait),
         322 => Some(MotionState::Entry),
         323 => Some(MotionState::EntryStart),
         324 => Some(MotionState::EntryEnd),
@@ -1443,6 +2501,32 @@ mod tests {
     }
 
     #[test]
+    fn slippi_velocity_classifier_uses_air_speed_for_aerial_attacks() {
+        for motion_state in [
+            MotionState::AttackAirN,
+            MotionState::AttackAirF,
+            MotionState::AttackAirB,
+            MotionState::AttackAirHi,
+            MotionState::AttackAirLw,
+        ] {
+            assert!(
+                !slippi_motion_state_uses_ground_velocity(motion_state),
+                "{motion_state:?} should compare against Slippi air_x, not ground_x"
+            );
+        }
+    }
+
+    #[test]
+    fn slippi_velocity_classifier_uses_air_speed_for_captain_special_hi() {
+        for motion_state in [MotionState::SpecialHi, MotionState::SpecialAirHi] {
+            assert!(
+                !slippi_motion_state_uses_ground_velocity(motion_state),
+                "{motion_state:?} should compare against Slippi air_x; ftCa_SpecialHi_Phys drives fp->self_vel and leaves ground_x dormant"
+            );
+        }
+    }
+
+    #[test]
     fn slippi_effective_input_preserves_compact_ucf_cardinal_stick() {
         let pre = SlippiPreFrame {
             action_state_id: None,
@@ -1497,6 +2581,307 @@ mod tests {
         let input = effective_slippi_player_input(&pre);
 
         assert_eq!((input.stick_x, input.stick_y), (0, 0));
+    }
+
+    #[test]
+    fn divergence_velocity_tolerance_allows_equal_milli_rounding_delta() {
+        let mut actual_player = World::for_two_players().snapshot().players[0];
+        actual_player.position = Vec2 { x: 0, y: 0 };
+        actual_player.velocity = Vec2 { x: 0, y: 0 };
+        actual_player.grounded = true;
+        actual_player.motion_state = MotionState::Wait;
+        actual_player.melee_action_state_id = Some(MeleeActionStateId::new(14));
+        actual_player.ground_velocity_x = 0.0;
+
+        let post = SlippiPostFrame {
+            action_state_id: 14,
+            action_state_counter: Some(0.0),
+            position: Some([0.0, 0.0]),
+            facing: None,
+            airborne: Some(false),
+            self_induced_speeds: Some(SlippiSelfInducedSpeeds {
+                ground_x: Some(0.001),
+                air_x: Some(0.0),
+                y: Some(0.0),
+                attack_x: Some(0.0),
+                attack_y: Some(0.0),
+            }),
+        };
+
+        let (row, status) = trace_row_and_divergence_status(
+            Frame(0),
+            0,
+            0,
+            SlippiRustPlayerInput::default(),
+            &post,
+            actual_player,
+            StageProfile::battlefield(),
+            SIGNIFICANT_POSITION_DRIFT_MILLI,
+            1,
+        );
+
+        assert_eq!(row.expected_ground_velocity_x, 1);
+        assert_eq!(row.actual_velocity_x, 0);
+        assert!(status.is_none());
+    }
+
+    #[test]
+    fn source_damage_velocity_uses_slippi_attack_speed_channels() {
+        let mut actual_player = World::for_two_players().snapshot().players[0];
+        actual_player.position = Vec2 {
+            x: 16_350,
+            y: 1_056,
+        };
+        actual_player.velocity = Vec2 { x: 652, y: 1_056 };
+        actual_player.grounded = false;
+        actual_player.motion_state = MotionState::Wait;
+        actual_player.melee_action_state_id = Some(MeleeActionStateId::new(79));
+        actual_player.source_self_velocity_x = 0.0;
+        actual_player.source_self_velocity_y = -0.13;
+        actual_player.source_knockback_velocity_x = 0.65203;
+        actual_player.source_knockback_velocity_y = 1.186329;
+
+        let post: SlippiPostFrame = serde_json::from_str(
+            r#"{
+                "action_state_id": 79,
+                "action_state_counter": 2,
+                "position": [16.350126, 1.056429],
+                "self_induced_speeds": {
+                    "ground_x": 0,
+                    "air_x": 0,
+                    "y": -0.13,
+                    "attack_x": 0.65203,
+                    "attack_y": 1.186329
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let (row, status) = trace_row_and_divergence_status(
+            Frame(0),
+            2257,
+            1,
+            SlippiRustPlayerInput::default(),
+            &post,
+            actual_player,
+            StageProfile::battlefield(),
+            SIGNIFICANT_POSITION_DRIFT_MILLI,
+            1,
+        );
+
+        assert_eq!(row.expected_air_velocity_x, 0);
+        assert_eq!(row.expected_velocity_y, -130);
+        assert!(status.is_none());
+    }
+
+    #[test]
+    fn visual_replay_inputs_sort_export_frames_and_preserve_ucf_bits() {
+        let export = r#"{
+            "schema_version": 1,
+            "frames": [
+                {
+                    "frame": 5,
+                    "players": {
+                        "0": {
+                            "pre": {
+                                "rust_player_input": {
+                                    "stick_x": 122,
+                                    "stick_y": 0,
+                                    "physical_button_bits": 1024,
+                                    "ucf_dashback_amendment": true
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "frame": 4,
+                    "players": {
+                        "1": {
+                            "pre": {
+                                "rust_player_input": {
+                                    "stick_x": -64,
+                                    "stick_y": 8,
+                                    "physical_button_bits": 512
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }"#;
+
+        let frames = slippi_visual_replay_inputs_from_match_start(export, None).unwrap();
+
+        assert_eq!(frames.len(), 2);
+        assert_eq!((frames[0].core_frame.0, frames[0].source_frame), (0, 4));
+        assert_eq!((frames[1].core_frame.0, frames[1].source_frame), (1, 5));
+        assert_eq!(frames[0].inputs[1].stick_x(), -64);
+        assert!(frames[0].inputs[1].special());
+        assert_eq!(frames[1].inputs[0].stick_x(), 122);
+        assert!(frames[1].inputs[0].jump_primary());
+        assert!(frames[1].inputs[0].ucf_dashback_amendment());
+    }
+
+    #[test]
+    fn visual_replay_divergence_helper_compares_live_snapshot_to_post_frame() {
+        let export = r#"{
+            "frames": [
+                {
+                    "frame": 0,
+                    "players": {
+                        "0": {
+                            "pre": {
+                                "rust_player_input": {
+                                    "stick_x": 0,
+                                    "stick_y": 0,
+                                    "physical_button_bits": 0
+                                }
+                            },
+                            "post": {
+                                "action_state_id": 322,
+                                "position": [10.0, 0.0],
+                                "facing": 1.0,
+                                "self_induced_speeds": {
+                                    "ground_x": 0.0,
+                                    "air_x": 0.0,
+                                    "y": 0.0
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }"#;
+
+        let frames = slippi_visual_replay_inputs_from_match_start(export, None).unwrap();
+        let world = World::for_slippi_battlefield_singles_match_start();
+
+        let divergence = slippi_visual_replay_divergence_for_frame(
+            &frames[0],
+            world.snapshot(),
+            SlippiCoreDivergenceScanConfig::default(),
+        )
+        .expect("Wait at spawn should position-drift from source x=10");
+
+        assert_eq!(divergence.kind, SlippiCoreDivergenceKind::PositionDrift);
+        assert_eq!(divergence.player_index, 0);
+        assert_eq!(divergence.source_frame, 0);
+        assert_eq!(divergence.row.expected_position.x, 10_000);
+        assert_eq!(divergence.row.actual_motion_state, MotionState::Entry);
+    }
+
+    #[test]
+    fn visual_replay_divergence_gate_ignores_transient_realigning_drift() {
+        let mut gate = SlippiVisualReplayDivergenceGate::new(3);
+        let divergence = test_visual_replay_divergence(Frame(10), 100);
+
+        assert!(gate.observe(Some(divergence.clone())).is_none());
+        assert!(gate.observe(Some(divergence.clone())).is_none());
+        assert!(gate.observe(Some(divergence)).is_none());
+        assert!(
+            gate.observe(None).is_none(),
+            "a three-frame drift that realigns before lookahead expires should not stop visual replay"
+        );
+    }
+
+    #[test]
+    fn visual_replay_divergence_gate_reports_first_persistent_divergence() {
+        let mut gate = SlippiVisualReplayDivergenceGate::new(3);
+        let first = test_visual_replay_divergence(Frame(10), 100);
+
+        assert!(gate.observe(Some(first.clone())).is_none());
+        assert!(gate
+            .observe(Some(test_visual_replay_divergence(Frame(11), 101)))
+            .is_none());
+        assert!(gate
+            .observe(Some(test_visual_replay_divergence(Frame(12), 102)))
+            .is_none());
+        let reported = gate
+            .observe(Some(test_visual_replay_divergence(Frame(13), 103)))
+            .expect("persistent divergence should report after lookahead expires");
+
+        assert_eq!(reported.core_frame, first.core_frame);
+        assert_eq!(reported.source_frame, first.source_frame);
+    }
+
+    fn test_visual_replay_divergence(
+        core_frame: Frame,
+        source_frame: i32,
+    ) -> SlippiVisualReplayDivergence {
+        SlippiVisualReplayDivergence {
+            kind: SlippiCoreDivergenceKind::PositionDrift,
+            player_index: 1,
+            core_frame,
+            source_frame,
+            max_abs_position_delta_milli: SIGNIFICANT_POSITION_DRIFT_MILLI,
+            max_abs_velocity_delta_milli: 0,
+            row: SlippiCoreTraceRow {
+                core_frame,
+                source_frame,
+                player_index: 1,
+                input_stick_x: 0,
+                input_stick_y: 0,
+                input_button_bits: 0,
+                input_left_trigger: 0,
+                input_right_trigger: 0,
+                input_ucf_dashback_amendment: false,
+                actual_input_jump_pressed: false,
+                actual_input_normal_jump_pressed: false,
+                actual_input_shield_held: false,
+                actual_input_shield_pressed: false,
+                expected_slippi_state_id: 29,
+                expected_action_state_id: MeleeActionStateId::new(29),
+                actual_action_state_id: Some(MeleeActionStateId::new(29)),
+                expected_motion_state: Some(MotionState::Fall),
+                actual_motion_state: MotionState::Fall,
+                actual_grounded: false,
+                actual_motion_frame: 0,
+                actual_motion_anim_frame_milli: 0,
+                expected_facing: 1,
+                actual_facing: 1,
+                expected_position: Vec2 { x: 500, y: 0 },
+                actual_position: Vec2 { x: 0, y: 0 },
+                expected_source_position: SourceVec2::default(),
+                actual_source_position: SourceVec2::default(),
+                expected_ground_velocity_x: 0,
+                expected_air_velocity_x: 0,
+                expected_velocity_y: 0,
+                expected_attack_velocity_x: 0,
+                expected_attack_velocity_y: 0,
+                expected_composed_velocity_x: 0,
+                expected_composed_velocity_y: 0,
+                expected_ground_velocity_x_source: 0.0,
+                expected_air_velocity_x_source: 0.0,
+                expected_velocity_y_source: 0.0,
+                expected_attack_velocity_x_source: 0.0,
+                expected_attack_velocity_y_source: 0.0,
+                actual_velocity_x: 0,
+                actual_velocity_y: 0,
+                actual_source_self_velocity_x: 0.0,
+                actual_source_self_velocity_y: 0.0,
+                actual_source_knockback_velocity_x: 0.0,
+                actual_source_knockback_velocity_y: 0.0,
+                actual_source_ground_knockback_velocity: 0.0,
+                actual_ground_velocity_x: 0.0,
+                actual_ground_accel_x: 0.0,
+                actual_ground_accel_x2: 0.0,
+                actual_dash_entry_velocity_delta: 0.0,
+                actual_dash_x0: 0.0,
+                actual_source_coll_last_pos: SourceVec2::default(),
+                actual_source_coll_cur_pos: SourceVec2::default(),
+                actual_source_coll_prev_pos: SourceVec2::default(),
+                actual_source_coll_ecb: SourceCollEcbSnapshot::default(),
+                actual_source_coll_prev_ecb: SourceCollEcbSnapshot::default(),
+                actual_source_coll_desired_ecb: SourceCollEcbSnapshot::default(),
+                actual_ecb_bottom_lock_timer: 0,
+                actual_source_coll_x130_locked: false,
+                actual_source_floor_surface: None,
+                actual_source_floor_line: None,
+                actual_source_coll_env_flags: 0,
+                actual_source_coll_prev_env_flags: 0,
+            },
+        }
     }
 }
 
@@ -1566,24 +2951,24 @@ struct SlippiPreFrame {
     rust_player_input: Option<SlippiRustPlayerInput>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
-struct SlippiRustPlayerInput {
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+pub struct SlippiRustPlayerInput {
     #[serde(default)]
-    stick_x: i8,
+    pub stick_x: i8,
     #[serde(default)]
-    stick_y: i8,
+    pub stick_y: i8,
     #[serde(default)]
-    c_stick_x: i8,
+    pub c_stick_x: i8,
     #[serde(default)]
-    c_stick_y: i8,
+    pub c_stick_y: i8,
     #[serde(default)]
-    left_trigger: u8,
+    pub left_trigger: u8,
     #[serde(default)]
-    right_trigger: u8,
+    pub right_trigger: u8,
     #[serde(default)]
-    physical_button_bits: u32,
+    pub physical_button_bits: u32,
     #[serde(default)]
-    ucf_dashback_amendment: bool,
+    pub ucf_dashback_amendment: bool,
 }
 
 impl SlippiRustPlayerInput {
@@ -1669,21 +3054,33 @@ fn slippi_trigger_to_core_u8(value: Option<f64>) -> u8 {
     (value * 255.0).round().clamp(0.0, 255.0) as u8
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct SlippiPostFrame {
-    action_state_id: u16,
-    action_state_counter: Option<f64>,
-    position: Option<[f64; 2]>,
-    self_induced_speeds: Option<SlippiSelfInducedSpeeds>,
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct SlippiPostFrame {
+    pub action_state_id: u16,
+    pub action_state_counter: Option<f64>,
+    pub position: Option<[f64; 2]>,
+    pub facing: Option<f64>,
+    pub airborne: Option<bool>,
+    pub self_induced_speeds: Option<SlippiSelfInducedSpeeds>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct SlippiSelfInducedSpeeds {
-    ground_x: Option<f64>,
-    air_x: Option<f64>,
-    y: Option<f64>,
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct SlippiSelfInducedSpeeds {
+    pub ground_x: Option<f64>,
+    pub air_x: Option<f64>,
+    pub y: Option<f64>,
+    pub attack_x: Option<f64>,
+    pub attack_y: Option<f64>,
 }
 
 fn rounded_u8(value: Option<f64>) -> u8 {
     value.unwrap_or_default().round().clamp(0.0, u8::MAX as f64) as u8
+}
+
+fn slippi_facing_to_i8(value: Option<f64>) -> i8 {
+    if value.unwrap_or(1.0) < 0.0 {
+        -1
+    } else {
+        1
+    }
 }

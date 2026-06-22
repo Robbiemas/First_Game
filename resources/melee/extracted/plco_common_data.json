@@ -28,6 +28,12 @@
       "source_name": "x78",
       "stick_byte": 16
     },
+    "air_speed_clamp_friction": {
+      "kind": "source_f32",
+      "offset": 508,
+      "raw": 0.029999999329447746,
+      "source_name": "x1FC"
+    },
     "animation_velocity_scale": {
       "kind": "source_f32",
       "offset": 1088,
@@ -53,6 +59,12 @@
       "raw": 0.2800000011920929,
       "source_name": "x4",
       "stick_byte": 36
+    },
+    "catch_ground_friction_multiplier": {
+      "kind": "source_f32",
+      "offset": 100,
+      "raw": 1.0,
+      "source_name": "x64"
     },
     "cliff_grab_block_stick_y": {
       "kind": "stick",
@@ -115,6 +127,43 @@
       "offset": 340,
       "raw": 0.4000000059604645,
       "source_name": "x154"
+    },
+    "damage_fly_top_angle_max_radians": {
+      "kind": "source_f32",
+      "offset": 568,
+      "raw": 1.919862151145935,
+      "source_name": "x238"
+    },
+    "damage_fly_top_angle_min_radians": {
+      "kind": "source_f32",
+      "offset": 564,
+      "raw": 1.2217304706573486,
+      "source_name": "x234"
+    },
+    "damage_fly_top_random_chance": {
+      "kind": "source_f32",
+      "offset": 576,
+      "raw": 0.30000001192092896,
+      "source_name": "x240"
+    },
+    "damage_fly_top_random_percent_threshold": {
+      "kind": "i32_ticks",
+      "offset": 572,
+      "raw": 100,
+      "source_name": "x23C",
+      "ticks": 100
+    },
+    "damage_ground_knockback_friction_multiplier": {
+      "kind": "source_f32",
+      "offset": 512,
+      "raw": 1.0,
+      "source_name": "x200"
+    },
+    "damage_knockback_frame_decay": {
+      "kind": "source_f32",
+      "offset": 516,
+      "raw": 0.050999999046325684,
+      "source_name": "x204_knockbackFrameDecay"
     },
     "damage_knockback_velocity_scale": {
       "kind": "source_f32",
@@ -272,6 +321,13 @@
       "raw": 1,
       "source_name": "x504",
       "ticks": 1
+    },
+    "dead_wait_ticks": {
+      "kind": "i32_ticks",
+      "offset": 1280,
+      "raw": 60,
+      "source_name": "x500",
+      "ticks": 60
     },
     "di_angle_degrees": {
       "kind": "source_f32",
@@ -512,6 +568,12 @@
       "raw": 10.0,
       "source_name": "x118"
     },
+    "landing_wait_y_velocity_threshold": {
+      "kind": "source_f32",
+      "offset": 784,
+      "raw": 1.0,
+      "source_name": "x310"
+    },
     "lcancel_divisor": {
       "kind": "source_f32",
       "offset": 232,
@@ -731,6 +793,12 @@
       "raw": 60.0,
       "source_name": "x260_startShieldHealth"
     },
+    "special_air_drift_stick_threshold": {
+      "kind": "source_f32",
+      "offset": 600,
+      "raw": 0.10000000149011612,
+      "source_name": "x258"
+    },
     "tap_jump_release_y": {
       "kind": "stick",
       "offset": 124,
@@ -765,6 +833,19 @@
       "raw": 0.25,
       "source_name": "xC",
       "stick_byte": 32
+    },
+    "throw_collision_lockout_ticks": {
+      "kind": "i32_ticks",
+      "offset": 840,
+      "raw": 8,
+      "source_name": "x348",
+      "ticks": 8
+    },
+    "throw_knockback_weight": {
+      "kind": "source_f32",
+      "offset": 268,
+      "raw": 100.0,
+      "source_name": "x10C"
     },
     "tilt_x": {
       "kind": "stick",
@@ -860,5 +941,24 @@
     "format": "HSD DAT, big-endian floats/ints",
     "ft_load_common_data_offset": 60632,
     "symbol": "ftLoadCommonData"
+  },
+  "tables": {
+    "stale_move_damage_reductions": {
+      "ft_load_common_data_index": 3,
+      "kind": "source_f32_table",
+      "offset": 43660,
+      "source_name": "Fighter_804D6548",
+      "values": [
+        0.09000000357627869,
+        0.07999999821186066,
+        0.07000000029802322,
+        0.05999999865889549,
+        0.05000000074505806,
+        0.03999999910593033,
+        0.029999999329447746,
+        0.019999999552965164,
+        0.009999999776482582
+      ]
+    }
   }
 }

@@ -4,9 +4,11 @@
       "cli_commands": [
         "graph missing",
         "graph next",
+        "graph completeness",
         "graph inspect",
         "graph layout",
-        "graph layout save"
+        "graph layout save",
+        "generated write-action-motion-tables"
       ],
       "cli_surface": "Active",
       "gui_section": "StateGraphs",
@@ -14,11 +16,13 @@
       "id": "state_graphs",
       "label": "State Graphs",
       "outputs": [
-        "docs/state_graphs/mole_current_graph.json"
+        "docs/state_graphs/mole_current_graph.json",
+        "docs/state_graphs/action_motion_tables.json"
       ],
       "source_artifacts": [
         "docs/state_graphs/melee_reference_graph.json",
         "docs/state_graphs/mole_current_graph.json",
+        "docs/state_graphs/action_motion_tables.json",
         "config/state_graph_layout.json"
       ],
       "status": "Active",
@@ -135,11 +139,11 @@
   ],
   "registry": {
     "active_devtool_surface_count": 6,
-    "active_tab_count": 6,
+    "active_tab_count": 7,
     "devtool_surface_count": 6,
     "dual_surface": true,
     "planned_devtool_surface_count": 0,
-    "planned_tab_count": 5,
+    "planned_tab_count": 4,
     "tab_count": 11
   },
   "schema_version": 1,
@@ -236,14 +240,19 @@
       "summary": "Stage geometry, blast zones, spawn points, and friction surfaces."
     },
     {
-      "cli_surface": "Planned",
-      "gui_surface": "Planned",
+      "cli_surface": "Active",
+      "gui_surface": "Active",
       "id": "action_motion_tables",
       "kind": "Motion",
       "label": "Action / Motion Tables",
-      "outputs": [],
-      "source_artifacts": [],
-      "status": "Planned",
+      "outputs": [
+        "docs/state_graphs/action_motion_tables.json"
+      ],
+      "source_artifacts": [
+        "resources/melee/frame_data/dolphin_mole/source_manifest.json",
+        "docs/state_graphs/parity_reports/falcon_ecb_coverage.json"
+      ],
+      "status": "Active",
       "summary": "Motion-state timing, callbacks, and transition windows."
     },
     {

@@ -157,6 +157,22 @@
       }
     ],
     "line_count": 23,
+    "line_flag_refs": {
+      "hi_flags": {
+        "LINE_FLAG_EMPTY": 128,
+        "LINE_FLAG_KIND": 15
+      },
+      "lo_flags": {
+        "LINE_FLAG_LEDGE": 512,
+        "LINE_FLAG_PLATFORM": 256
+      },
+      "runtime_flags": {
+        "LINE_FLAG_ENABLED": 65536,
+        "LINE_FLAG_HIDDEN": 262144,
+        "mpLibLoad": "CollLine.flags = MapLine.hi_flags | LINE_FLAG_ENABLED; MapLine.lo_flags stays source data"
+      },
+      "source": ".research/doldecomp-melee/src/melee/mp/forward.h"
+    },
     "line_ranges": {
       "ceiling": {
         "count": 5,
@@ -190,6 +206,14 @@
         "passable": false,
         "prev_id0": 17,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": true,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 6,
         "v1_idx": 25,
         "x0": -68400,
@@ -207,6 +231,14 @@
         "passable": false,
         "prev_id0": 0,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 25,
         "v1_idx": 8,
         "x0": -60000,
@@ -224,6 +256,14 @@
         "passable": true,
         "prev_id0": -1,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": false,
+          "platform": true,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 23,
         "v1_idx": 24,
         "x0": -57600,
@@ -241,6 +281,14 @@
         "passable": true,
         "prev_id0": -1,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": false,
+          "platform": true,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 0,
         "v1_idx": 1,
         "x0": -18800,
@@ -258,6 +306,14 @@
         "passable": true,
         "prev_id0": -1,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": false,
+          "platform": true,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 21,
         "v1_idx": 22,
         "x0": 20000,
@@ -275,6 +331,14 @@
         "passable": false,
         "prev_id0": 1,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 1,
+          "ledge": true,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65537
+        },
         "v0_idx": 8,
         "v1_idx": 7,
         "x0": 60000,
@@ -292,6 +356,14 @@
         "passable": false,
         "prev_id0": 18,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 2,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65538
+        },
         "v0_idx": 2,
         "v1_idx": 3,
         "x0": -35600,
@@ -309,6 +381,14 @@
         "passable": false,
         "prev_id0": 11,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 2,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65538
+        },
         "v0_idx": 12,
         "v1_idx": 18,
         "x0": -10400,
@@ -326,6 +406,14 @@
         "passable": false,
         "prev_id0": 22,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 2,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65538
+        },
         "v0_idx": 13,
         "v1_idx": 11,
         "x0": 10315,
@@ -343,6 +431,14 @@
         "passable": false,
         "prev_id0": 12,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 2,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65538
+        },
         "v0_idx": 17,
         "v1_idx": 20,
         "x0": 29200,
@@ -360,6 +456,14 @@
         "passable": false,
         "prev_id0": 16,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 2,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65538
+        },
         "v0_idx": 4,
         "v1_idx": 5,
         "x0": 64980,
@@ -377,6 +481,14 @@
         "passable": false,
         "prev_id0": 8,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 11,
         "v1_idx": 12,
         "x0": -10315,
@@ -394,6 +506,14 @@
         "passable": false,
         "prev_id0": 13,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 16,
         "v1_idx": 17,
         "x0": 30400,
@@ -411,6 +531,14 @@
         "passable": false,
         "prev_id0": 15,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 15,
         "v1_idx": 16,
         "x0": 32800,
@@ -428,6 +556,14 @@
         "passable": false,
         "prev_id0": 10,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 5,
         "v1_idx": 9,
         "x0": 35600,
@@ -445,6 +581,14 @@
         "passable": false,
         "prev_id0": 14,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 9,
         "v1_idx": 15,
         "x0": 38000,
@@ -462,6 +606,14 @@
         "passable": false,
         "prev_id0": 5,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 4,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65540
+        },
         "v0_idx": 7,
         "v1_idx": 4,
         "x0": 68400,
@@ -479,6 +631,14 @@
         "passable": false,
         "prev_id0": 6,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 3,
         "v1_idx": 6,
         "x0": -64980,
@@ -496,6 +656,14 @@
         "passable": false,
         "prev_id0": 19,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 10,
         "v1_idx": 2,
         "x0": -38000,
@@ -513,6 +681,14 @@
         "passable": false,
         "prev_id0": 20,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 14,
         "v1_idx": 10,
         "x0": -32800,
@@ -530,6 +706,14 @@
         "passable": false,
         "prev_id0": 21,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 19,
         "v1_idx": 14,
         "x0": -30400,
@@ -547,6 +731,14 @@
         "passable": false,
         "prev_id0": 7,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 18,
         "v1_idx": 19,
         "x0": -29200,
@@ -564,6 +756,14 @@
         "passable": false,
         "prev_id0": 9,
         "prev_id1": -1,
+        "source_flags": {
+          "empty": false,
+          "enabled_after_mpLibLoad": true,
+          "kind_mask": 8,
+          "ledge": false,
+          "platform": false,
+          "runtime_flags_after_mpLibLoad": 65544
+        },
         "v0_idx": 20,
         "v1_idx": 13,
         "x0": 10400,
@@ -775,19 +975,23 @@
       "line_index": 0,
       "side": "left",
       "source": {
+        "line_flag": "LINE_FLAG_LEDGE",
+        "lo_flag_mask": 512,
         "root": "coll_data",
-        "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+        "rule": "mpLib_80051BA8_Floor returns the LINE_FLAG_LEDGE floor line id; side-specific endpoint comes from mpColl_80044164/800443C4"
       },
       "x_milli": -68400,
       "y_milli": 0
     },
     {
-      "index": 1,
+      "index": 5,
       "line_index": 5,
       "side": "right",
       "source": {
+        "line_flag": "LINE_FLAG_LEDGE",
+        "lo_flag_mask": 512,
         "root": "coll_data",
-        "rule": "non-passable floor endpoint whose adjacent graph edge is not another floor"
+        "rule": "mpLib_80051BA8_Floor returns the LINE_FLAG_LEDGE floor line id; side-specific endpoint comes from mpColl_80044164/800443C4"
       },
       "x_milli": 68400,
       "y_milli": 0
@@ -3465,6 +3669,260 @@
         }
       }
     ],
+    "point_mappings": [
+      {
+        "joint_index": 1,
+        "scaled_x": 0,
+        "scaled_y": 35200,
+        "source_position": {
+          "x": 0.0,
+          "y": 44.0,
+          "z": 0.0
+        },
+        "stage_info_index": 148,
+        "tree_index": 1
+      },
+      {
+        "joint_index": 2,
+        "scaled_x": -160000,
+        "scaled_y": 136000,
+        "source_position": {
+          "x": -200.0,
+          "y": 170.0,
+          "z": 0.0
+        },
+        "stage_info_index": 149,
+        "tree_index": 2
+      },
+      {
+        "joint_index": 3,
+        "scaled_x": 160000,
+        "scaled_y": -47200,
+        "source_position": {
+          "x": 200.0,
+          "y": -59.0,
+          "z": 0.0
+        },
+        "stage_info_index": 150,
+        "tree_index": 3
+      },
+      {
+        "joint_index": 4,
+        "scaled_x": -224000,
+        "scaled_y": 200000,
+        "source_position": {
+          "x": -280.0,
+          "y": 250.0,
+          "z": 0.0
+        },
+        "stage_info_index": 151,
+        "tree_index": 4
+      },
+      {
+        "joint_index": 5,
+        "scaled_x": 224000,
+        "scaled_y": -108800,
+        "source_position": {
+          "x": 280.0,
+          "y": -136.0,
+          "z": 0.0
+        },
+        "stage_info_index": 152,
+        "tree_index": 5
+      },
+      {
+        "joint_index": 6,
+        "scaled_x": 0,
+        "scaled_y": 24000,
+        "source_position": {
+          "x": 0.0,
+          "y": 30.0,
+          "z": 0.0
+        },
+        "stage_info_index": 127,
+        "tree_index": 6
+      },
+      {
+        "joint_index": 7,
+        "scaled_x": -40000,
+        "scaled_y": 56000,
+        "source_position": {
+          "x": -50.0,
+          "y": 70.0,
+          "z": 0.0
+        },
+        "stage_info_index": 128,
+        "tree_index": 7
+      },
+      {
+        "joint_index": 8,
+        "scaled_x": 56000,
+        "scaled_y": 56000,
+        "source_position": {
+          "x": 70.0,
+          "y": 70.0,
+          "z": 0.0
+        },
+        "stage_info_index": 129,
+        "tree_index": 8
+      },
+      {
+        "joint_index": 9,
+        "scaled_x": 0,
+        "scaled_y": 72000,
+        "source_position": {
+          "x": 0.0,
+          "y": 90.0,
+          "z": 0.0
+        },
+        "stage_info_index": 130,
+        "tree_index": 9
+      },
+      {
+        "joint_index": 10,
+        "scaled_x": -56000,
+        "scaled_y": 56000,
+        "source_position": {
+          "x": -70.0,
+          "y": 70.0,
+          "z": 0.0
+        },
+        "stage_info_index": 131,
+        "tree_index": 10
+      },
+      {
+        "joint_index": 11,
+        "scaled_x": 40000,
+        "scaled_y": 56000,
+        "source_position": {
+          "x": 50.0,
+          "y": 70.0,
+          "z": 0.0
+        },
+        "stage_info_index": 132,
+        "tree_index": 11
+      },
+      {
+        "joint_index": 12,
+        "scaled_x": -24000,
+        "scaled_y": 72000,
+        "source_position": {
+          "x": -30.0,
+          "y": 90.0,
+          "z": 0.0
+        },
+        "stage_info_index": 133,
+        "tree_index": 12
+      },
+      {
+        "joint_index": 13,
+        "scaled_x": 24000,
+        "scaled_y": 72000,
+        "source_position": {
+          "x": 30.0,
+          "y": 90.0,
+          "z": 0.0
+        },
+        "stage_info_index": 134,
+        "tree_index": 13
+      },
+      {
+        "joint_index": 14,
+        "scaled_x": 0,
+        "scaled_y": 8000,
+        "source_position": {
+          "x": 0.0,
+          "y": 10.0,
+          "z": 0.0
+        },
+        "stage_info_index": 0,
+        "tree_index": 14
+      },
+      {
+        "joint_index": 15,
+        "scaled_x": 0,
+        "scaled_y": 62400,
+        "source_position": {
+          "x": 0.0,
+          "y": 78.0,
+          "z": 0.0
+        },
+        "stage_info_index": 1,
+        "tree_index": 15
+      },
+      {
+        "joint_index": 16,
+        "scaled_x": -38800,
+        "scaled_y": 35200,
+        "source_position": {
+          "x": -48.5,
+          "y": 44.0,
+          "z": 0.0
+        },
+        "stage_info_index": 2,
+        "tree_index": 16
+      },
+      {
+        "joint_index": 17,
+        "scaled_x": 38800,
+        "scaled_y": 35200,
+        "source_position": {
+          "x": 48.5,
+          "y": 44.0,
+          "z": 0.0
+        },
+        "stage_info_index": 3,
+        "tree_index": 17
+      },
+      {
+        "joint_index": 18,
+        "scaled_x": 12800,
+        "scaled_y": 80000,
+        "source_position": {
+          "x": 16.0,
+          "y": 100.0,
+          "z": 0.0
+        },
+        "stage_info_index": 4,
+        "tree_index": 18
+      },
+      {
+        "joint_index": 19,
+        "scaled_x": -40000,
+        "scaled_y": 80000,
+        "source_position": {
+          "x": -50.0,
+          "y": 100.0,
+          "z": 0.0
+        },
+        "stage_info_index": 5,
+        "tree_index": 19
+      },
+      {
+        "joint_index": 20,
+        "scaled_x": 40000,
+        "scaled_y": 80000,
+        "source_position": {
+          "x": 50.0,
+          "y": 100.0,
+          "z": 0.0
+        },
+        "stage_info_index": 6,
+        "tree_index": 20
+      },
+      {
+        "joint_index": 21,
+        "scaled_x": -12000,
+        "scaled_y": 80000,
+        "source_position": {
+          "x": -15.0,
+          "y": 100.0,
+          "z": 0.0
+        },
+        "stage_info_index": 7,
+        "tree_index": 21
+      }
+    ],
     "source_root": "map_head",
     "spline_count": 0,
     "splines_offset": 0,
@@ -3472,6 +3930,7 @@
     "stage_dat_offset_hex": "0x0000027c",
     "struct_refs": [
       ".research/doldecomp-melee/src/melee/gr/grdatfiles.c::grDatFiles_801C6038",
+      ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
       ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat",
       ".research/doldecomp-melee/src/melee/gr/types.h::UnkStageDat_x8_t",
       ".research/doldecomp-melee/src/sysdolphin/baselib/jobj.h::HSD_Joint",
@@ -3485,8 +3944,89 @@
     "unk4": 1
   },
   "pending_stage_layers": [
-    "map_plit_spawn_points",
     "itemdata"
+  ],
+  "respawn_platforms": [
+    {
+      "facing": -1,
+      "final_x": 12800,
+      "final_y": 80000,
+      "offset_x": 0,
+      "offset_y": 0,
+      "platform_index": 0,
+      "source": {
+        "decomp": [
+          ".research/doldecomp-melee/src/melee/gm/gm_1601.c::fn_8016719C",
+          ".research/doldecomp-melee/src/melee/ft/ft_0D4D.c::ftCo_800D4FF4",
+          ".research/doldecomp-melee/src/melee/gr/stage.c::Stage_80224E38",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C2D24"
+        ],
+        "rule": "normal-stage Rebirth platform uses stage_info.x280[platform_index + 4] with camera top y as the spawn start and the mapped JObj world y as the Rebirth target"
+      },
+      "stage_point_index": 4,
+      "top_y": 136000
+    },
+    {
+      "facing": 1,
+      "final_x": -40000,
+      "final_y": 80000,
+      "offset_x": 0,
+      "offset_y": 0,
+      "platform_index": 1,
+      "source": {
+        "decomp": [
+          ".research/doldecomp-melee/src/melee/gm/gm_1601.c::fn_8016719C",
+          ".research/doldecomp-melee/src/melee/ft/ft_0D4D.c::ftCo_800D4FF4",
+          ".research/doldecomp-melee/src/melee/gr/stage.c::Stage_80224E38",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C2D24"
+        ],
+        "rule": "normal-stage Rebirth platform uses stage_info.x280[platform_index + 4] with camera top y as the spawn start and the mapped JObj world y as the Rebirth target"
+      },
+      "stage_point_index": 5,
+      "top_y": 136000
+    },
+    {
+      "facing": -1,
+      "final_x": 40000,
+      "final_y": 80000,
+      "offset_x": 0,
+      "offset_y": 0,
+      "platform_index": 2,
+      "source": {
+        "decomp": [
+          ".research/doldecomp-melee/src/melee/gm/gm_1601.c::fn_8016719C",
+          ".research/doldecomp-melee/src/melee/ft/ft_0D4D.c::ftCo_800D4FF4",
+          ".research/doldecomp-melee/src/melee/gr/stage.c::Stage_80224E38",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C2D24"
+        ],
+        "rule": "normal-stage Rebirth platform uses stage_info.x280[platform_index + 4] with camera top y as the spawn start and the mapped JObj world y as the Rebirth target"
+      },
+      "stage_point_index": 6,
+      "top_y": 136000
+    },
+    {
+      "facing": 1,
+      "final_x": -12000,
+      "final_y": 80000,
+      "offset_x": 0,
+      "offset_y": 0,
+      "platform_index": 3,
+      "source": {
+        "decomp": [
+          ".research/doldecomp-melee/src/melee/gm/gm_1601.c::fn_8016719C",
+          ".research/doldecomp-melee/src/melee/ft/ft_0D4D.c::ftCo_800D4FF4",
+          ".research/doldecomp-melee/src/melee/gr/stage.c::Stage_80224E38",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C34AC",
+          ".research/doldecomp-melee/src/melee/gr/ground.c::Ground_801C2D24"
+        ],
+        "rule": "normal-stage Rebirth platform uses stage_info.x280[platform_index + 4] with camera top y as the spawn start and the mapped JObj world y as the Rebirth target"
+      },
+      "stage_point_index": 7,
+      "top_y": 136000
+    }
   ],
   "schema_version": 1,
   "soft_platforms": [
@@ -3528,7 +4068,7 @@
     ],
     "external_count": 0,
     "kind": "melee_stage_dat",
-    "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498.",
+    "notes": "Collision vertices preserve raw DAT source coordinates and scaled engine milli-units matching mpLibLoad/Ground_801C0498. Collision lines are baked after mpPruneEmptyLines topology/LINE_FLAG_EMPTY mutation.",
     "public_roots": [
       "ALDYakuAll",
       "GrdBattle2Color_RGB565_image",
@@ -3575,6 +4115,7 @@
       ".research/doldecomp-melee/src/melee/mp/types.h::MapCollData",
       ".research/doldecomp-melee/src/melee/mp/types.h::MapLine",
       ".research/doldecomp-melee/src/melee/mp/types.h::MapJoint",
+      ".research/doldecomp-melee/src/melee/mp/mplib.c::mpPruneEmptyLines",
       ".research/doldecomp-melee/src/melee/mp/mplib.c::mpLibLoad"
     ]
   },

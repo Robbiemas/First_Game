@@ -129,6 +129,10 @@ pub fn capsules_intersect_3d(hit: &Capsule3, hurt: &Capsule3) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceHitboxLifecycleId(u64);
 
+pub const SOURCE_HURT_HEIGHT_LOW: u8 = 0;
+pub const SOURCE_HURT_HEIGHT_MID: u8 = 1;
+pub const SOURCE_HURT_HEIGHT_HIGH: u8 = 2;
+
 impl SourceHitboxLifecycleId {
     pub const fn new(value: u64) -> Self {
         Self(value)
@@ -139,17 +143,128 @@ impl SourceHitboxLifecycleId {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SourceHitboxFlags {
+    bits: u8,
+}
+
+impl SourceHitboxFlags {
+    const ITEM_HIT_INTERACTION: u8 = 1 << 0;
+    const IGNORE_THROWN_FIGHTERS: u8 = 1 << 1;
+    const IGNORE_FIGHTER_SCALE: u8 = 1 << 2;
+    const CLANK: u8 = 1 << 3;
+    const REBOUND: u8 = 1 << 4;
+    const SKIP_IF_THROWN_HITBOX_OWNER_ABSENT: u8 = 1 << 5;
+    const HIT_GRABBED_VICTIM_ONLY: u8 = 1 << 6;
+    const ALL: u8 = Self::ITEM_HIT_INTERACTION
+        | Self::IGNORE_THROWN_FIGHTERS
+        | Self::IGNORE_FIGHTER_SCALE
+        | Self::CLANK
+        | Self::REBOUND
+        | Self::SKIP_IF_THROWN_HITBOX_OWNER_ABSENT
+        | Self::HIT_GRABBED_VICTIM_ONLY;
+
+    pub const fn none() -> Self {
+        Self { bits: 0 }
+    }
+
+    pub const fn from_bits_truncate(bits: u8) -> Self {
+        Self {
+            bits: bits & Self::ALL,
+        }
+    }
+
+    pub const fn from_decomp_spawn_hitbox_3(
+        item_hit_interaction: bool,
+        ignore_thrown_fighters: bool,
+        ignore_fighter_scale: bool,
+        clank: bool,
+        rebound: bool,
+    ) -> Self {
+        let mut bits = 0;
+        if item_hit_interaction {
+            bits |= Self::ITEM_HIT_INTERACTION;
+        }
+        if ignore_thrown_fighters {
+            bits |= Self::IGNORE_THROWN_FIGHTERS;
+        }
+        if ignore_fighter_scale {
+            bits |= Self::IGNORE_FIGHTER_SCALE;
+        }
+        if clank {
+            bits |= Self::CLANK;
+        }
+        if rebound {
+            bits |= Self::REBOUND;
+        }
+        Self { bits }
+    }
+
+    pub const fn with_skip_if_thrown_hitbox_owner_absent(mut self, skip: bool) -> Self {
+        if skip {
+            self.bits |= Self::SKIP_IF_THROWN_HITBOX_OWNER_ABSENT;
+        } else {
+            self.bits &= !Self::SKIP_IF_THROWN_HITBOX_OWNER_ABSENT;
+        }
+        self
+    }
+
+    pub const fn with_hit_grabbed_victim_only(mut self, enabled: bool) -> Self {
+        if enabled {
+            self.bits |= Self::HIT_GRABBED_VICTIM_ONLY;
+        } else {
+            self.bits &= !Self::HIT_GRABBED_VICTIM_ONLY;
+        }
+        self
+    }
+
+    pub const fn bits(self) -> u8 {
+        self.bits
+    }
+
+    pub const fn item_hit_interaction(self) -> bool {
+        self.bits & Self::ITEM_HIT_INTERACTION != 0
+    }
+
+    pub const fn ignore_thrown_fighters(self) -> bool {
+        self.bits & Self::IGNORE_THROWN_FIGHTERS != 0
+    }
+
+    pub const fn ignore_fighter_scale(self) -> bool {
+        self.bits & Self::IGNORE_FIGHTER_SCALE != 0
+    }
+
+    pub const fn clank(self) -> bool {
+        self.bits & Self::CLANK != 0
+    }
+
+    pub const fn rebound(self) -> bool {
+        self.bits & Self::REBOUND != 0
+    }
+
+    pub const fn skip_if_thrown_hitbox_owner_absent(self) -> bool {
+        self.bits & Self::SKIP_IF_THROWN_HITBOX_OWNER_ABSENT != 0
+    }
+
+    pub const fn hit_grabbed_victim_only(self) -> bool {
+        self.bits & Self::HIT_GRABBED_VICTIM_ONLY != 0
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceCollisionCapsule {
     pub owner_index: usize,
     pub capsule_id: u64,
     pub capsule: Capsule3,
+    pub previous_capsule: Option<Capsule3>,
     pub owner_grounded: Option<bool>,
     pub action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
     pub source_frame: Option<u8>,
     pub hitbox_lifecycle_id: Option<SourceHitboxLifecycleId>,
     pub hitbox: Option<SourceHitboxAttributes>,
+    pub hitbox_flags: SourceHitboxFlags,
+    pub hurt_height: u8,
 }
 
 impl SourceCollisionCapsule {
@@ -158,13 +273,21 @@ impl SourceCollisionCapsule {
             owner_index,
             capsule_id,
             capsule,
+            previous_capsule: None,
             owner_grounded: None,
             action_state_id: None,
             source_action_key: None,
             source_frame: None,
             hitbox_lifecycle_id: None,
             hitbox: None,
+            hitbox_flags: SourceHitboxFlags::none(),
+            hurt_height: SOURCE_HURT_HEIGHT_MID,
         }
+    }
+
+    pub const fn with_previous_capsule(mut self, previous_capsule: Capsule3) -> Self {
+        self.previous_capsule = Some(previous_capsule);
+        self
     }
 
     pub const fn with_owner_grounded(mut self, grounded: bool) -> Self {
@@ -209,6 +332,16 @@ impl SourceCollisionCapsule {
         self.hitbox = hitbox;
         self
     }
+
+    pub const fn with_hitbox_flags(mut self, hitbox_flags: SourceHitboxFlags) -> Self {
+        self.hitbox_flags = hitbox_flags;
+        self
+    }
+
+    pub const fn with_hurt_height(mut self, hurt_height: u8) -> Self {
+        self.hurt_height = hurt_height;
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -224,6 +357,26 @@ pub struct SourceHitboxAttributes {
     pub shield_damage: i16,
     pub hit_grounded: bool,
     pub hit_aerial: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceThrowHitboxAttributes {
+    pub hitbox_idx: u8,
+    pub damage: u32,
+    pub angle: u16,
+    pub hit_x24: u16,
+    pub hit_x28: u16,
+    pub hit_x2c: u16,
+    pub element: u8,
+    pub sfx_severity: u8,
+    pub sfx_kind: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SourceInstalledThrowHitbox {
+    pub hitbox: SourceThrowHitboxAttributes,
+    pub damage: f32,
+    pub unk_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -256,6 +409,22 @@ pub struct SourceHitConfirm {
     pub action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
     pub source_frame: Option<u8>,
+    pub damaged_hurt_height: u8,
+    pub hitbox: SourceHitboxAttributes,
+    pub collision: SourceCollisionHit,
+}
+
+pub const SOURCE_HIT_ELEMENT_CATCH: u8 = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SourceGrabConfirm {
+    pub grabber_index: usize,
+    pub victim_index: usize,
+    pub hitbox_id: u64,
+    pub hurtbox_id: u64,
+    pub action_state_id: Option<MeleeActionStateId>,
+    pub source_action_key: Option<SourceActionKey>,
+    pub source_frame: Option<u8>,
     pub hitbox: SourceHitboxAttributes,
     pub collision: SourceCollisionHit,
 }
@@ -269,6 +438,7 @@ pub struct SourceDamageStage {
     pub action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
     pub source_frame: Option<u8>,
+    pub damaged_hurt_height: u8,
     pub damage: f32,
     pub env_damage: u16,
     pub unk_count: u16,
@@ -319,10 +489,11 @@ pub fn source_collision_hits(frame: &SourceCollisionFrame) -> Vec<SourceCollisio
             if hit.owner_index == hurt.owner_index {
                 continue;
             }
-            if capsules_intersect_3d(&hit.capsule, &hurt.capsule) {
+            let pair_hurt = source_pair_hurt_capsule(*hit, *hurt);
+            if capsules_intersect_3d(&hit.capsule, &pair_hurt.capsule) {
                 collisions.push(SourceCollisionHit {
                     hit: *hit,
-                    hurt: *hurt,
+                    hurt: pair_hurt,
                 });
             }
         }
@@ -336,6 +507,53 @@ pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm
         let Some(hitbox) = hit.hitbox else {
             continue;
         };
+        if source_hitbox_is_catch(hitbox) {
+            continue;
+        }
+        let mut confirmed_victims = Vec::new();
+        for hurt in &frame.hurts {
+            if hit.owner_index == hurt.owner_index {
+                continue;
+            }
+            let pair_hurt = source_pair_hurt_capsule(*hit, *hurt);
+            if confirmed_victims.contains(&hurt.owner_index) {
+                continue;
+            }
+            if !source_hitbox_can_hit_hurtbox(hitbox, pair_hurt) {
+                continue;
+            }
+            if capsules_intersect_3d(&hit.capsule, &pair_hurt.capsule) {
+                confirms.push(SourceHitConfirm {
+                    attacker_index: hit.owner_index,
+                    victim_index: hurt.owner_index,
+                    hitbox_id: hit.capsule_id,
+                    hurtbox_id: hurt.capsule_id,
+                    action_state_id: hit.action_state_id,
+                    source_action_key: hit.source_action_key,
+                    source_frame: hit.source_frame,
+                    damaged_hurt_height: hurt.hurt_height,
+                    hitbox,
+                    collision: SourceCollisionHit {
+                        hit: *hit,
+                        hurt: pair_hurt,
+                    },
+                });
+                confirmed_victims.push(hurt.owner_index);
+            }
+        }
+    }
+    confirms
+}
+
+pub fn source_grab_confirms(frame: &SourceCollisionFrame) -> Vec<SourceGrabConfirm> {
+    let mut confirms = Vec::new();
+    for hit in &frame.hits {
+        let Some(hitbox) = hit.hitbox else {
+            continue;
+        };
+        if !source_hitbox_is_catch(hitbox) {
+            continue;
+        }
         let mut confirmed_victims = Vec::new();
         for hurt in &frame.hurts {
             if hit.owner_index == hurt.owner_index {
@@ -348,8 +566,8 @@ pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm
                 continue;
             }
             if capsules_intersect_3d(&hit.capsule, &hurt.capsule) {
-                confirms.push(SourceHitConfirm {
-                    attacker_index: hit.owner_index,
+                confirms.push(SourceGrabConfirm {
+                    grabber_index: hit.owner_index,
                     victim_index: hurt.owner_index,
                     hitbox_id: hit.capsule_id,
                     hurtbox_id: hurt.capsule_id,
@@ -367,6 +585,29 @@ pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm
         }
     }
     confirms
+}
+
+fn source_pair_hurt_capsule(
+    hit: SourceCollisionCapsule,
+    hurt: SourceCollisionCapsule,
+) -> SourceCollisionCapsule {
+    if hit.owner_index < hurt.owner_index && source_hitbox_lifecycle_starts_on_source_frame(hit) {
+        if let Some(previous_capsule) = hurt.previous_capsule {
+            return SourceCollisionCapsule {
+                capsule: previous_capsule,
+                ..hurt
+            };
+        }
+    }
+    hurt
+}
+
+fn source_hitbox_lifecycle_starts_on_source_frame(hit: SourceCollisionCapsule) -> bool {
+    let (Some(lifecycle_id), Some(source_frame)) = (hit.hitbox_lifecycle_id, hit.source_frame)
+    else {
+        return false;
+    };
+    (lifecycle_id.get() >> 32) == u64::from(source_frame)
 }
 
 pub fn source_env_damage(damage: f32) -> u16 {
@@ -394,6 +635,7 @@ pub fn source_damage_stages_from_confirms(confirms: &[SourceHitConfirm]) -> Vec<
                 action_state_id: confirm.action_state_id,
                 source_action_key: confirm.source_action_key,
                 source_frame: confirm.source_frame,
+                damaged_hurt_height: confirm.damaged_hurt_height,
                 damage,
                 env_damage: source_env_damage(damage),
                 unk_count: damage as u16,
@@ -507,15 +749,31 @@ fn source_hitbox_can_hit_hurtbox(
     }
 }
 
+fn source_hitbox_is_catch(hitbox: SourceHitboxAttributes) -> bool {
+    hitbox.element == SOURCE_HIT_ELEMENT_CATCH
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EcbDiamond {
+pub struct FighterEcb {
     pub top: Vec2,
     pub right: Vec2,
     pub bottom: Vec2,
     pub left: Vec2,
 }
 
-impl EcbDiamond {
+impl FighterEcb {
+    /// Decomp `ftECB` bootstrap used by `mpColl_SetECBSource_JObj` and
+    /// `mpColl_SetECBSource_Fixed` when `CollData.x34_flags.b0` is set.
+    pub const SOURCE_DEFAULT: Self = Self {
+        top: Vec2 { x: 0, y: 8_000 },
+        right: Vec2 { x: 4_000, y: 4_000 },
+        bottom: Vec2 { x: 0, y: 0 },
+        left: Vec2 {
+            x: -4_000,
+            y: 4_000,
+        },
+    };
+
     pub const fn from_bottom_center_and_size(bottom_center: Vec2, width: i32, height: i32) -> Self {
         let half_width = width / 2;
         let half_height = height / 2;
@@ -540,7 +798,30 @@ impl EcbDiamond {
     pub const fn points(self) -> [Vec2; 4] {
         [self.top, self.right, self.bottom, self.left]
     }
+
+    pub const fn debug_root_cross(self, root: Vec2, radius: i32) -> [Vec2; 4] {
+        [
+            Vec2 {
+                x: root.x - radius,
+                y: root.y,
+            },
+            Vec2 {
+                x: root.x + radius,
+                y: root.y,
+            },
+            Vec2 {
+                x: root.x,
+                y: root.y - radius,
+            },
+            Vec2 {
+                x: root.x,
+                y: root.y + radius,
+            },
+        ]
+    }
 }
+
+pub type EcbDiamond = FighterEcb;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StageLandingContact {
@@ -631,66 +912,75 @@ pub fn source_ledge_grab_contact(
     ledge_snap_y_milli: i32,
     ledge_snap_height_milli: i32,
 ) -> Option<SourceLedgeGrabContact> {
-    stage.ledges.iter().copied().find_map(|ledge| {
-        source_ledge_grab_reaches_collision_edge(
-            stage,
-            previous_root_position,
-            current_root_position,
-            current_ecb,
-            ledge,
-            ledge_snap_x_milli,
-            ledge_snap_y_milli,
-            ledge_snap_height_milli,
-        )
-        .then_some(SourceLedgeGrabContact {
-            ledge,
-            side: ledge.side,
-        })
-    })
+    source_ledge_grab_contact_for_facing(
+        stage,
+        previous_root_position,
+        current_root_position,
+        current_ecb,
+        ledge_snap_x_milli,
+        ledge_snap_y_milli,
+        ledge_snap_height_milli,
+        0,
+    )
 }
 
-fn source_ledge_grab_reaches_collision_edge(
+pub fn source_ledge_grab_contact_for_facing(
     stage: StageProfile,
     previous_root_position: Vec2,
     current_root_position: Vec2,
     current_ecb: EcbDiamond,
-    ledge: StageLedge,
     ledge_snap_x_milli: i32,
     ledge_snap_y_milli: i32,
     ledge_snap_height_milli: i32,
-) -> bool {
+    facing: i8,
+) -> Option<SourceLedgeGrabContact> {
+    if facing >= 0 {
+        if let Some(contact) = source_ledge_grab_contact_on_side(
+            stage,
+            previous_root_position,
+            current_root_position,
+            current_ecb,
+            ledge_snap_x_milli,
+            ledge_snap_y_milli,
+            ledge_snap_height_milli,
+            StageLedgeSide::Left,
+        ) {
+            return Some(contact);
+        }
+    }
+    if facing <= 0 {
+        return source_ledge_grab_contact_on_side(
+            stage,
+            previous_root_position,
+            current_root_position,
+            current_ecb,
+            ledge_snap_x_milli,
+            ledge_snap_y_milli,
+            ledge_snap_height_milli,
+            StageLedgeSide::Right,
+        );
+    }
+    None
+}
+
+fn source_ledge_grab_contact_on_side(
+    stage: StageProfile,
+    previous_root_position: Vec2,
+    current_root_position: Vec2,
+    current_ecb: EcbDiamond,
+    ledge_snap_x_milli: i32,
+    ledge_snap_y_milli: i32,
+    ledge_snap_height_milli: i32,
+    side: StageLedgeSide,
+) -> Option<SourceLedgeGrabContact> {
     let Some(melee_stage) = stage.melee_stage_profile() else {
-        return false;
+        return None;
     };
-    let Some(source_line) = melee_stage.collision.lines.get(ledge.line_index as usize) else {
-        return false;
-    };
-    if source_line.kind != StageCollisionLineKind::Floor || source_line.passable {
-        return false;
-    }
-    let Some(line) = melee_stage.collision.scaled_line(ledge.line_index as usize) else {
-        return false;
-    };
-
-    let edge = match ledge.side {
-        StageLedgeSide::Left => Vec2 {
-            x: line.x0_milli,
-            y: line.y0_milli,
-        },
-        StageLedgeSide::Right => Vec2 {
-            x: line.x1_milli,
-            y: line.y1_milli,
-        },
-    };
-    if edge.x != ledge.x_milli || edge.y != ledge.y_milli {
-        return false;
-    }
-
     let half_height = ledge_snap_height_milli / 2;
     let local_left_x = current_ecb.left.x - current_root_position.x;
     let local_right_x = current_ecb.right.x - current_root_position.x;
 
-    let (left, right) = match ledge.side {
+    let (left, right) = match side {
         StageLedgeSide::Left => {
             if previous_root_position.x < current_root_position.x {
                 (
@@ -719,7 +1009,7 @@ fn source_ledge_grab_reaches_collision_edge(
             }
         }
     };
-    let (bottom, top) = if previous_root_position.y < current_root_position.y {
+    let (bounds_bottom, bounds_top) = if previous_root_position.y < current_root_position.y {
         (
             previous_root_position.y + ledge_snap_y_milli - half_height,
             current_root_position.y + ledge_snap_y_milli + half_height,
@@ -730,13 +1020,103 @@ fn source_ledge_grab_reaches_collision_edge(
             previous_root_position.y + ledge_snap_y_milli + half_height,
         )
     };
-    if edge.x < left || edge.x > right || edge.y < bottom || edge.y > top {
-        return false;
+
+    let mut best: Option<(StageLedge, Vec2)> = None;
+    for ledge in stage
+        .ledges
+        .iter()
+        .copied()
+        .filter(|ledge| ledge.side == side)
+    {
+        let Some((line_array_index, source_line)) = melee_stage
+            .collision
+            .lines
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, line)| line.index == ledge.line_index)
+        else {
+            continue;
+        };
+        if source_line.kind != StageCollisionLineKind::Floor
+            || source_line.passable
+            || !source_line.has_ledge_flag()
+        {
+            continue;
+        }
+        let Some(line) = melee_stage.collision.scaled_line(line_array_index) else {
+            continue;
+        };
+        if !source_ledge_line_bounds_overlap(
+            line.x0_milli,
+            line.y0_milli,
+            line.x1_milli,
+            line.y1_milli,
+            left,
+            bounds_bottom,
+            right,
+            bounds_top,
+        ) {
+            continue;
+        }
+        let edge = Vec2 {
+            x: ledge.x_milli,
+            y: ledge.y_milli,
+        };
+        let replace = match (side, best) {
+            (_, None) => true,
+            (StageLedgeSide::Left, Some((_, current_edge))) => edge.x < current_edge.x,
+            (StageLedgeSide::Right, Some((_, current_edge))) => edge.x > current_edge.x,
+        };
+        if replace {
+            best = Some((ledge, edge));
+        }
     }
 
-    match ledge.side {
-        StageLedgeSide::Left => current_ecb.bottom.x < edge.x && current_ecb.bottom.y < edge.y,
-        StageLedgeSide::Right => current_ecb.bottom.x > edge.x && current_ecb.bottom.y < edge.y,
+    let (ledge, edge) = best?;
+    if !source_ledge_grab_reaches_collision_edge(current_root_position, current_ecb, edge, side) {
+        return None;
+    }
+
+    Some(SourceLedgeGrabContact { ledge, side })
+}
+
+fn source_ledge_line_bounds_overlap(
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    left: i32,
+    bottom: i32,
+    right: i32,
+    top: i32,
+) -> bool {
+    let line_left = x0.min(x1);
+    let line_right = x0.max(x1);
+    let line_bottom = y0.min(y1);
+    let line_top = y0.max(y1);
+    (line_right + line_left - (right + left)).abs() < (line_right - line_left) + (right - left)
+        && (line_top + line_bottom - (top + bottom)).abs()
+            < (line_top - line_bottom) + (top - bottom)
+}
+
+fn source_ledge_grab_reaches_collision_edge(
+    current_root_position: Vec2,
+    current_ecb: EcbDiamond,
+    edge: Vec2,
+    side: StageLedgeSide,
+) -> bool {
+    match side {
+        StageLedgeSide::Left => {
+            edge.x - current_root_position.x < 5_000
+                && current_ecb.bottom.x < edge.x
+                && current_ecb.bottom.y < edge.y
+        }
+        StageLedgeSide::Right => {
+            current_root_position.x - edge.x < 5_000
+                && current_ecb.bottom.x > edge.x
+                && current_ecb.bottom.y < edge.y
+        }
     }
 }
 

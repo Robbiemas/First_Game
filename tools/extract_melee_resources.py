@@ -58,6 +58,46 @@ JOBJ_ANIM_CHANNELS = {
     9: ("scale", "y"),
     10: ("scale", "z"),
 }
+FIGHTER_KIND_NAMES = (
+    "FTKIND_MARIO",
+    "FTKIND_FOX",
+    "FTKIND_CAPTAIN",
+    "FTKIND_DONKEY",
+    "FTKIND_KIRBY",
+    "FTKIND_KOOPA",
+    "FTKIND_LINK",
+    "FTKIND_SEAK",
+    "FTKIND_NESS",
+    "FTKIND_PEACH",
+    "FTKIND_POPO",
+    "FTKIND_NANA",
+    "FTKIND_PIKACHU",
+    "FTKIND_SAMUS",
+    "FTKIND_YOSHI",
+    "FTKIND_PURIN",
+    "FTKIND_MEWTWO",
+    "FTKIND_LUIGI",
+    "FTKIND_MARS",
+    "FTKIND_ZELDA",
+    "FTKIND_CLINK",
+    "FTKIND_DRMARIO",
+    "FTKIND_FALCO",
+    "FTKIND_PICHU",
+    "FTKIND_GAMEWATCH",
+    "FTKIND_GANON",
+    "FTKIND_EMBLEM",
+    "FTKIND_MASTERH",
+    "FTKIND_CREZYH",
+    "FTKIND_BOY",
+    "FTKIND_GIRL",
+    "FTKIND_GKOOPS",
+    "FTKIND_SANDBAG",
+)
+FTPART_TRANSN = 1
+FTPART_XROTN = 2
+FTPART_HIPN = 4
+FTPART_TRANSN2 = 52
+FIGHTER_PART_TO_JOINT_SOURCE_COUNT = 56
 
 
 @dataclass(frozen=True)
@@ -95,6 +135,7 @@ COMMON_FIELDS = (
     Field("run_x", "x58_someLStickXThreshold", 0x58, "stick"),
     Field("run_accel_taper", "x5C", 0x5C, "source_f32"),
     Field("run_ground_friction_multiplier", "x60_someFrictionMul", 0x60, "source_f32"),
+    Field("catch_ground_friction_multiplier", "x64", 0x64, "source_f32"),
     Field("guard_on_catch_dash_window", "x68", 0x68, "f32_ticks"),
     Field("high_speed_ground_friction_multiplier", "x6C", 0x6C, "source_f32"),
     Field("tap_jump_y", "tap_jump_threshold", 0x70, "stick"),
@@ -114,12 +155,15 @@ COMMON_FIELDS = (
     Field("knockback_weight_multiplier", "xF4", 0xF4, "source_f32"),
     Field("knockback_decay", "xF8", 0xF8, "source_f32"),
     Field("knockback_cap", "x108", 0x108, "source_f32"),
+    Field("throw_knockback_weight", "x10C", 0x10C, "source_f32"),
     Field("knockback_damage_scale", "x110", 0x110, "source_f32"),
     Field("knockback_hit_count_scale", "x114", 0x114, "source_f32"),
     Field("knockback_weight_set_damage", "x118", 0x118, "source_f32"),
     Field("knockback_result_scale", "x11C", 0x11C, "source_f32"),
     Field("knockback_result_offset", "x120", 0x120, "source_f32"),
     Field("damage_knockback_velocity_scale", "x100", 0x100, "source_f32"),
+    Field("damage_ground_knockback_friction_multiplier", "x200", 0x200, "source_f32"),
+    Field("damage_knockback_frame_decay", "x204_knockbackFrameDecay", 0x204, "source_f32"),
     Field("damage_sakurai_air_angle_radians", "x144_radians", 0x144, "source_f32"),
     Field("damage_sakurai_ground_angle_degrees", "x148", 0x148, "source_f32"),
     Field("damage_sakurai_ground_min_knockback", "x14C", 0x14C, "source_f32"),
@@ -128,17 +172,23 @@ COMMON_FIELDS = (
     Field("damage_motion_tier_1_threshold", "x158", 0x158, "source_f32"),
     Field("damage_motion_tier_2_threshold", "x15C", 0x15C, "source_f32"),
     Field("damage_motion_tier_3_threshold", "x160", 0x160, "source_f32"),
+    Field("damage_fly_top_angle_min_radians", "x234", 0x234, "source_f32"),
+    Field("damage_fly_top_angle_max_radians", "x238", 0x238, "source_f32"),
+    Field("damage_fly_top_random_percent_threshold", "x23C", 0x23C, "i32_ticks"),
+    Field("damage_fly_top_random_chance", "x240", 0x240, "source_f32"),
     Field("hitlag_max_frames", "x194_unkHitLagFrames", 0x194, "source_f32"),
     Field("hitlag_damage_scale", "x198", 0x198, "source_f32"),
     Field("hitlag_base_frames", "x19C", 0x19C, "source_f32"),
     Field("hitlag_crouch_multiplier", "x1A0", 0x1A0, "source_f32"),
     Field("di_angle_degrees", "x1A8", 0x1A8, "source_f32"),
     Field("trigger_di_knockback_multiplier", "x1AC", 0x1AC, "source_f32"),
+    Field("air_speed_clamp_friction", "x1FC", 0x1FC, "source_f32"),
     Field("damage_landing_down_bound_knockback_threshold", "x1E0", 0x1E0, "source_f32"),
     Field("damage_landing_basic_knockback_threshold", "x1E4", 0x1E4, "source_f32"),
     Field("down_stand_stick_y", "x244", 0x244, "stick"),
     Field("passive_window_max", "x250", 0x250, "source_f32"),
     Field("passive_stand_stick_x", "x254", 0x254, "source_f32"),
+    Field("special_air_drift_stick_threshold", "x258", 0x258, "source_f32"),
     Field("fallspecial_platform_landing_y", "x25C", 0x25C, "stick"),
     Field("shield_start_health", "x260_startShieldHealth", 0x260, "source_f32"),
     Field("shield_release_lockout_frames", "x268", 0x268, "f32_ticks"),
@@ -156,12 +206,14 @@ COMMON_FIELDS = (
     Field("escape_y_tap_window", "x318", 0x318, "i32_ticks"),
     Field("escape_x", "x31C", 0x31C, "stick"),
     Field("escape_x_tap_window", "x320", 0x320, "i32_ticks"),
+    Field("landing_wait_y_velocity_threshold", "x310", 0x310, "source_f32"),
     Field("escapeair_deadzone_x", "escapeair_deadzone.x", 0x32C, "stick"),
     Field("escapeair_deadzone_y", "escapeair_deadzone.y", 0x330, "stick"),
     Field("escapeair_iasa_timer_ticks", "x334", 0x334, "i32_ticks"),
     Field("escapeair_force", "escapeair_force", 0x338, "source_f32"),
     Field("escapeair_decay", "escapeair_decay", 0x33C, "source_f32"),
     Field("escapeair_landing_lag_ticks", "x344", 0x344, "f32_ticks"),
+    Field("throw_collision_lockout_ticks", "x348", 0x348, "i32_ticks"),
     Field("down_wait_timer", "x424", 0x424, "source_f32"),
     Field("run_brake_animation_pause_velocity", "x42C", 0x42C, "source_f32"),
     Field("run_turn_run_no_interrupt_frames", "x430", 0x430, "f32_ticks"),
@@ -183,6 +235,7 @@ COMMON_FIELDS = (
     Field("sdi_stick_window", "sdi_stick_window", 0x4B4, "i32_ticks"),
     Field("sdi_pos_scale", "sdi_pos_scale", 0x4B8, "source_f32"),
     Field("asdi_pos_scale", "x4BC", 0x4BC, "source_f32"),
+    Field("dead_wait_ticks", "x500", 0x500, "i32_ticks"),
     Field("dead_up_star_wait_ticks", "x504", 0x504, "i32_ticks"),
     Field("dead_up_star_rise_ticks", "x508", 0x508, "i32_ticks"),
     Field("dead_up_star_exit_ticks", "x50C", 0x50C, "i32_ticks"),
@@ -289,6 +342,7 @@ PROFILE_FIELDS = (
     Field("air_max_horizontal_velocity", "air_max_horizontal_velocity", 0x78, "source_f32"),
     Field("frames_to_change_direction_on_standing_turn", "frames_to_change_direction_on_standing_turn", 0x84, "f32_ticks"),
     Field("weight", "weight", 0x88, "source_f32"),
+    Field("model_scaling", "model_scaling", 0x8C, "source_f32"),
     Field("normal_landing_lag", "normal_landing_lag", 0xE4, "f32_ticks"),
     Field("landingairn_lag", "landingairn_lag", 0xE8, "f32_ticks"),
     Field("landingairf_lag", "landingairf_lag", 0xEC, "f32_ticks"),
@@ -296,6 +350,44 @@ PROFILE_FIELDS = (
     Field("landingairhi_lag", "landingairhi_lag", 0xF4, "f32_ticks"),
     Field("landingairlw_lag", "landingairlw_lag", 0xF8, "f32_ticks"),
     Field("entry_platform_offset_y", "trophy_scale*1.497345", 0x110, "entry_platform_offset_milli"),
+)
+
+CAPTAIN_SPECIAL_ATTR_FIELDS = (
+    Field("specialn_stick_range_y_neg", "specialn_stick_range_y_neg", 0x00, "source_f32"),
+    Field("specialn_stick_range_y_pos", "specialn_stick_range_y_pos", 0x04, "source_f32"),
+    Field("specialn_angle_diff", "specialn_angle_diff", 0x08, "source_f32"),
+    Field("specialn_vel_x", "specialn_vel_x", 0x0C, "source_f32"),
+    Field("specialn_vel_mul", "specialn_vel_mul", 0x10, "source_f32"),
+    Field("specials_gr_vel_x", "specials_gr_vel_x", 0x14, "source_f32"),
+    Field("specials_grav", "specials_grav", 0x18, "source_f32"),
+    Field("specials_terminal_vel", "specials_terminal_vel", 0x1C, "source_f32"),
+    Field("specials_unk0", "specials_unk0", 0x20, "source_f32"),
+    Field("specials_unk1", "specials_unk1", 0x24, "source_f32"),
+    Field("specials_unk2", "specials_unk2", 0x28, "source_f32"),
+    Field("specials_unk3", "specials_unk3", 0x2C, "source_f32"),
+    Field("specials_unk4", "specials_unk4", 0x30, "source_f32"),
+    Field("specials_unk5", "specials_unk5", 0x34, "source_f32"),
+    Field("specials_miss_landing_lag", "specials_miss_landing_lag", 0x38, "source_f32"),
+    Field("specials_hit_landing_lag", "specials_hit_landing_lag", 0x3C, "source_f32"),
+    Field("specialhi_air_friction_mul", "specialhi_air_friction_mul", 0x40, "source_f32"),
+    Field("specialhi_horz_vel", "specialhi_horz_vel", 0x44, "source_f32"),
+    Field("specialhi_freefall_air_spd_mul", "specialhi_freefall_air_spd_mul", 0x48, "source_f32"),
+    Field("specialhi_landing_lag", "specialhi_landing_lag", 0x4C, "source_f32"),
+    Field("specialhi_unk0", "specialhi_unk0", 0x50, "source_f32"),
+    Field("specialhi_unk1", "specialhi_unk1", 0x54, "source_f32"),
+    Field("specialhi_input_var", "specialhi_input_var", 0x58, "source_f32"),
+    Field("specialhi_unk2", "specialhi_unk2", 0x5C, "source_f32"),
+    Field("specialhi_catch_grav", "specialhi_catch_grav", 0x60, "source_f32"),
+    Field("specialhi_air_var", "specialhi_air_var", 0x64, "source_i32"),
+    Field("x68", "x68", 0x68, "source_f32"),
+    Field("speciallw_unk1", "speciallw_unk1", 0x6C, "source_u32"),
+    Field("speciallw_flame_particle_angle", "speciallw_flame_particle_angle", 0x70, "source_f32"),
+    Field("speciallw_on_hit_spd_modifier", "speciallw_on_hit_spd_modifier", 0x74, "source_f32"),
+    Field("speciallw_unk2", "speciallw_unk2", 0x78, "source_i32"),
+    Field("speciallw_ground_lag_mul", "speciallw_ground_lag_mul", 0x7C, "source_f32"),
+    Field("speciallw_landing_lag_mul", "speciallw_landing_lag_mul", 0x80, "source_f32"),
+    Field("speciallw_ground_traction", "speciallw_ground_traction", 0x84, "source_f32"),
+    Field("speciallw_air_landing_traction", "speciallw_air_landing_traction", 0x88, "source_f32"),
 )
 
 
@@ -314,8 +406,10 @@ class CharacterResourceSpec:
     neutral_costume_dat: str
     ft_data_symbol: str
     neutral_joint_root: str
+    fighter_kind_index: int | None = None
     action_count: int = CAPTAIN_ACTION_COUNT
     derived_sample_action_state_ids: tuple[int, ...] = ()
+    special_attr_fields: tuple[Field, ...] = ()
 
 
 # Source anchors:
@@ -330,7 +424,9 @@ CHARACTER_RESOURCE_SPECS: dict[str, CharacterResourceSpec] = {
         neutral_costume_dat="PlCaNr.dat",
         ft_data_symbol="ftDataCaptain",
         neutral_joint_root="PlyCaptain5K_Share_joint",
+        fighter_kind_index=2,
         derived_sample_action_state_ids=ECB_SAMPLE_ACTION_STATE_IDS,
+        special_attr_fields=CAPTAIN_SPECIAL_ATTR_FIELDS,
     ),
     "marth": CharacterResourceSpec(
         id="marth",
@@ -340,6 +436,7 @@ CHARACTER_RESOURCE_SPECS: dict[str, CharacterResourceSpec] = {
         neutral_costume_dat="PlMsNr.dat",
         ft_data_symbol="ftDataMars",
         neutral_joint_root="PlyMars5K_Share_joint",
+        fighter_kind_index=18,
     ),
 }
 CHARACTER_ALIASES = {
@@ -382,6 +479,18 @@ def read_f32(data: bytes | bytearray, offset: int) -> float:
     return struct.unpack(">f", data[offset : offset + 4])[0]
 
 
+def read_f32_table(data: bytes | bytearray, offset: int, count: int, field: str) -> list[float]:
+    if offset < 0 or offset + count * 4 > len(data):
+        raise DatExtractError(f"{field} at 0x{offset:x} is outside the source bytes")
+    return [read_f32(data, offset + index * 4) for index in range(count)]
+
+
+def read_u8_table(data: bytes | bytearray, offset: int, count: int, field: str) -> list[int]:
+    if offset < 0 or offset + count > len(data):
+        raise DatExtractError(f"{field} at 0x{offset:x} is outside the source bytes")
+    return list(data[offset : offset + count])
+
+
 def checked_u32(data: bytes | bytearray, offset: int, field: str) -> int:
     if offset < 0 or offset + 4 > len(data):
         raise DatExtractError(f"{field} at 0x{offset:x} is outside the source bytes")
@@ -404,6 +513,15 @@ def dat_header_counts(dat: bytes) -> tuple[int, int, int, int]:
     root_count = read_u32(dat, 0x0C)
     external_count = read_u32(dat, 0x10)
     return data_block_size, relocation_count, root_count, external_count
+
+
+def dat_relocation_offsets(dat: bytes) -> set[int]:
+    data_block_size, relocation_count, _root_count, _external_count = dat_header_counts(dat)
+    relocation_table_offset = 0x20 + data_block_size
+    return {
+        read_u32(dat, relocation_table_offset + index * 4)
+        for index in range(relocation_count)
+    }
 
 
 def dat_string(dat: bytes, string_table_offset: int, relative_offset: int) -> str:
@@ -492,7 +610,12 @@ def find_root(dat: bytes, predicate: Callable[[str], bool], description: str) ->
 
 
 def field_value(block: bytes, field: Field) -> dict[str, object]:
-    raw = read_i32(block, field.offset) if field.kind == "i32_ticks" else read_f32(block, field.offset)
+    if field.kind in ("i32_ticks", "source_i32"):
+        raw = read_i32(block, field.offset)
+    elif field.kind == "source_u32":
+        raw = read_u32(block, field.offset)
+    else:
+        raw = read_f32(block, field.offset)
     result: dict[str, object] = {
         "source_name": field.source_name,
         "offset": field.offset,
@@ -505,7 +628,7 @@ def field_value(block: bytes, field: Field) -> dict[str, object]:
         result["trigger_byte"] = rust_round(float(raw) * 255.0)
     elif field.kind == "milli":
         result["milli"] = rust_round(float(raw) * 1000.0)
-    elif field.kind == "source_f32":
+    elif field.kind in ("source_f32", "source_i32", "source_u32"):
         pass
     elif field.kind == "f32_ticks":
         result["ticks"] = rust_round(float(raw))
@@ -639,6 +762,57 @@ def vec3_milli(raw: dict[str, float]) -> dict[str, int]:
     return {axis: rust_round(value * 1000.0) for axis, value in raw.items()}
 
 
+def _fighter_part_to_joint(parts_table: dict[str, object], part: int, name: str) -> int:
+    part_to_joint = parts_table.get("part_to_joint")
+    if not isinstance(part_to_joint, list) or part >= len(part_to_joint):
+        raise DatExtractError(f"ftPartsTable part_to_joint is missing {name} index {part}")
+    return int(part_to_joint[part])
+
+
+def _pose_joint_world_position(pose: dict[str, object], joint_index: int, name: str) -> dict[str, float]:
+    joints = pose.get("joints")
+    if not isinstance(joints, list):
+        raise DatExtractError("pose does not contain a joints list")
+    for joint in joints:
+        if not isinstance(joint, dict):
+            continue
+        if int(joint.get("index", len(joints))) != joint_index:
+            continue
+        position = joint.get("world_position_raw")
+        if not isinstance(position, dict):
+            raise DatExtractError(f"pose joint {joint_index} for {name} is missing world_position_raw")
+        return {
+            "x": float(position["x"]),
+            "y": float(position["y"]),
+            "z": float(position["z"]),
+        }
+    raise DatExtractError(f"pose is missing {name} joint {joint_index}")
+
+
+def source_create_x1a70_from_pose(
+    pose: dict[str, object], parts_table: dict[str, object]
+) -> dict[str, object]:
+    xrotn_joint = _fighter_part_to_joint(parts_table, FTPART_XROTN, "FtPart_XRotN")
+    transn_joint = _fighter_part_to_joint(parts_table, FTPART_TRANSN, "FtPart_TransN")
+    xrotn = _pose_joint_world_position(pose, xrotn_joint, "FtPart_XRotN")
+    transn = _pose_joint_world_position(pose, transn_joint, "FtPart_TransN")
+    raw = {
+        "x": transn["x"] - xrotn["x"],
+        "y": transn["y"] - xrotn["y"],
+        "z": transn["z"] - xrotn["z"],
+    }
+    return {
+        "source": "Fighter_UnkUpdateVecFromBones_8006876C",
+        "source_formula": "lb_8000B1CC(FtPart_TransN) - lb_8000B1CC(FtPart_XRotN)",
+        "transn_part": FTPART_TRANSN,
+        "xrotn_part": FTPART_XROTN,
+        "transn_joint": transn_joint,
+        "xrotn_joint": xrotn_joint,
+        "raw": raw,
+        "milli": vec3_milli(raw),
+    }
+
+
 def _require_fobj_bytes(data: bytes, pos: int, count: int) -> None:
     if pos < 0 or pos + count > len(data):
         raise DatExtractError("FObj animation data ended mid-token")
@@ -723,7 +897,7 @@ def sample_fobj_value(
 ) -> float:
     """Sample one HSD FObj track using the decomp's first-play request flow."""
 
-    data = animation_data[:length]
+    data = animation_data
     pos = 0
     time = float(startframe) + frame
     flags = 0
@@ -773,7 +947,7 @@ def sample_fobj_value(
 
     while True:
         if state in (FOBJ_LOAD_DATA0, FOBJ_LOAD_DATA):
-            if pos >= len(data):
+            if pos >= length:
                 state = 6
                 continue
             load_state = state
@@ -825,7 +999,7 @@ def sample_fobj_value(
                 updated = update_anim()
                 if updated is not None:
                     last_value = updated
-            if pos >= len(data):
+            if pos >= length:
                 state = 6
             else:
                 fterm, pos = _parse_fobj_wait(data, pos)
@@ -875,10 +1049,17 @@ def source_path_for_json(source_path: Path) -> str:
 def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, object]:
     symbol, ftload_offset = find_root(dat, lambda name: name == "ftLoadCommonData", "ftLoadCommonData")
     common_offset = read_u32(dat, 0x20 + ftload_offset)
+    stale_table_offset = read_u32(dat, 0x20 + ftload_offset + 0x0C)
     data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
     required_len = common_offset + max(field.offset for field in COMMON_FIELDS) + 4
     if required_len > data_block_size:
         raise DatExtractError("CommonAttributes pointer does not cover required common-data fields")
+    stale_table_values = read_f32_table(
+        dat,
+        0x20 + stale_table_offset,
+        9,
+        "ftLoadCommonData[3] Fighter_804D6548",
+    )
     block = dat[0x20 + common_offset : 0x20 + data_block_size]
     return {
         "source": {
@@ -889,6 +1070,77 @@ def extract_common_data_from_plco(dat: bytes, source_path: Path) -> dict[str, ob
             "format": "HSD DAT, big-endian floats/ints",
         },
         "fields": {field.rust_name: field_value(block, field) for field in COMMON_FIELDS},
+        "tables": {
+            "stale_move_damage_reductions": {
+                "source_name": "Fighter_804D6548",
+                "ft_load_common_data_index": 3,
+                "offset": stale_table_offset,
+                "kind": "source_f32_table",
+                "values": stale_table_values,
+            }
+        },
+    }
+
+
+def extract_fighter_parts_tables_from_plco(dat: bytes, source_path: Path) -> dict[str, object]:
+    symbol, ftload_offset = find_root(dat, lambda name: name == "ftLoadCommonData", "ftLoadCommonData")
+    parts_table_pointer_array_offset = read_u32(dat, 0x20 + ftload_offset + 4 * 4)
+    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
+    pointer_array_end = parts_table_pointer_array_offset + len(FIGHTER_KIND_NAMES) * 4
+    if parts_table_pointer_array_offset == 0 or pointer_array_end > data_block_size:
+        raise DatExtractError("ftLoadCommonData[4] ftPartsTable pointer array is outside PlCo.dat")
+
+    tables: dict[str, object] = {}
+    for kind_index, source_name in enumerate(FIGHTER_KIND_NAMES):
+        table_offset = read_u32(
+            dat,
+            0x20 + parts_table_pointer_array_offset + kind_index * 4,
+        )
+        if table_offset == 0:
+            continue
+        if table_offset + 0x0C > data_block_size:
+            raise DatExtractError(
+                f"ftPartsTable[{kind_index}] header at 0x{table_offset:x} is outside PlCo.dat"
+            )
+
+        table_header = 0x20 + table_offset
+        joint_to_part_offset = read_u32(dat, table_header)
+        part_to_joint_offset = read_u32(dat, table_header + 4)
+        parts_num = read_u32(dat, table_header + 8)
+        part_to_joint_count = min(parts_num, FIGHTER_PART_TO_JOINT_SOURCE_COUNT)
+
+        tables[str(kind_index)] = {
+            "source_name": source_name,
+            "table_offset": table_offset,
+            "joint_to_part_offset": joint_to_part_offset,
+            "part_to_joint_offset": part_to_joint_offset,
+            "parts_num": parts_num,
+            "joint_to_part": read_u8_table(
+                dat,
+                0x20 + joint_to_part_offset,
+                parts_num,
+                f"ftPartsTable[{kind_index}].joint_to_part",
+            ),
+            "part_to_joint": read_u8_table(
+                dat,
+                0x20 + part_to_joint_offset,
+                part_to_joint_count,
+                f"ftPartsTable[{kind_index}].part_to_joint",
+            ),
+        }
+
+    return {
+        "source": {
+            "file": source_path_for_json(source_path),
+            "symbol": symbol,
+            "ft_load_common_data_offset": ftload_offset,
+            "ft_load_common_data_index": 4,
+            "parts_table_pointer_array_offset": parts_table_pointer_array_offset,
+            "format": "HSD DAT, ftLoadCommonData[4] FighterPartsTable*[]",
+            "decomp_type": "struct FighterPartsTable { u8* joint_to_part; u8* part_to_joint; u32 parts_num; }",
+            "source_handler": "Fighter_LoadCommonData -> ftPartsTable = pData[4]",
+        },
+        "tables": tables,
     }
 
 
@@ -926,6 +1178,147 @@ def extract_character_profile_from_dat(
 
 def extract_captain_profile_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
     return extract_character_profile_from_dat(dat, source_path, character_resource_spec("captain"))
+
+
+def extract_character_special_attrs_from_dat(
+    dat: bytes, source_path: Path, spec: CharacterResourceSpec
+) -> dict[str, object]:
+    if not spec.special_attr_fields:
+        raise DatExtractError(f"{spec.id} does not declare source special attributes")
+    symbol, ftdata_offset = find_root(
+        dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
+    header_offset = 0x20 + ftdata_offset
+    ext_attr_offset = read_u32(dat, header_offset + 4)
+    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
+    required_len = ext_attr_offset + max(field.offset for field in spec.special_attr_fields) + 4
+    if ext_attr_offset == 0 or required_len > data_block_size:
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.ext_attr does not cover source special attributes"
+        )
+    attrs = dat[0x20 + ext_attr_offset : 0x20 + data_block_size]
+    return {
+        "source": {
+            "file": source_path_for_json(source_path),
+            "symbol": symbol,
+            "ft_data_offset": ftdata_offset,
+            "ftdata_ext_attr_offset": ext_attr_offset,
+            "special_dat_attrs_len": data_block_size - ext_attr_offset,
+            "format": "HSD DAT, big-endian fighter ext_attr floats/ints",
+            "source_character": spec.id,
+            "decomp_type": "ftCaptain_DatAttrs" if spec.id == "captain" else "unknown",
+        },
+        "fields": {
+            field.rust_name: field_value(attrs, field) for field in spec.special_attr_fields
+        },
+    }
+
+
+def extract_captain_special_attrs_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
+    return extract_character_special_attrs_from_dat(
+        dat, source_path, character_resource_spec("captain")
+    )
+
+
+def extract_character_common_parts_from_dat(
+    dat: bytes,
+    source_path: Path,
+    spec: CharacterResourceSpec,
+    parts_table: dict[str, object] | None = None,
+) -> dict[str, object]:
+    symbol, ftdata_offset = find_root(
+        dat, lambda name: name == spec.ft_data_symbol, spec.ft_data_symbol
+    )
+    header_offset = 0x20 + ftdata_offset
+    common_parts_offset = read_u32(dat, header_offset + 0x08)
+    common_parts_field_offset = ftdata_offset + 0x08
+    thrown_hitbox_offset = read_u32(dat, header_offset + 0x34)
+    thrown_hitbox_field_offset = ftdata_offset + 0x34
+    common_parts_relocated = common_parts_field_offset in dat_relocation_offsets(dat)
+    thrown_hitbox_relocated = thrown_hitbox_field_offset in dat_relocation_offsets(dat)
+    data_block_size, _relocation_count, _root_count, _external_count = dat_header_counts(dat)
+    required_len = common_parts_offset + 0x15
+    if (common_parts_offset == 0 and not common_parts_relocated) or required_len > data_block_size:
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.x8 does not cover ftData_x8 common fighter part indices"
+        )
+    thrown_hitbox_required_len = thrown_hitbox_offset + 0x08
+    if (
+        (thrown_hitbox_offset == 0 and not thrown_hitbox_relocated)
+        or thrown_hitbox_required_len > data_block_size
+    ):
+        raise DatExtractError(
+            f"{spec.ft_data_symbol}.x34 does not cover ftData.x34 thrown hitbox source data"
+        )
+
+    block_offset = 0x20 + common_parts_offset
+    item_hold_part = dat[block_offset + 0x10]
+    capture_anchor_part = dat[block_offset + 0x11]
+    item_spawn_part = dat[block_offset + 0x12]
+    visibility_part_a = dat[block_offset + 0x13]
+    visibility_part_b = dat[block_offset + 0x14]
+    thrown_hitbox_block_offset = 0x20 + thrown_hitbox_offset
+    thrown_hitbox_part = read_u32(dat, thrown_hitbox_block_offset + 0x00)
+    thrown_hitbox_scale = read_f32(dat, thrown_hitbox_block_offset + 0x04)
+
+    result: dict[str, object] = {
+        "source": {
+            "file": source_path_for_json(source_path),
+            "symbol": symbol,
+            "ft_data_offset": ftdata_offset,
+            "ftdata_common_parts_field_offset": common_parts_field_offset,
+            "ftdata_common_parts_offset": common_parts_offset,
+            "ftdata_common_parts_relocated": common_parts_relocated,
+            "ftdata_thrown_hitbox_field_offset": thrown_hitbox_field_offset,
+            "ftdata_thrown_hitbox_offset": thrown_hitbox_offset,
+            "ftdata_thrown_hitbox_relocated": thrown_hitbox_relocated,
+            "format": "HSD DAT, relocated ftData.x8 direct u8 indices and ftData.x34 thrown hitbox source plus PlCo ftPartsTable part-to-joint mapping",
+            "source_character": spec.id,
+            "decomp_type": "struct ftData.x8 + struct ftData.x34",
+        },
+        "item_hold_part": item_hold_part,
+        "capture_anchor_part": capture_anchor_part,
+        "item_spawn_part": item_spawn_part,
+        "visibility_part_a": visibility_part_a,
+        "visibility_part_b": visibility_part_b,
+        "thrown_hitbox_part": thrown_hitbox_part,
+        "thrown_hitbox_scale": thrown_hitbox_scale,
+        "source_part_indices": {
+            "transn_part": FTPART_TRANSN,
+            "xrotn_part": FTPART_XROTN,
+            "hipn_part": FTPART_HIPN,
+            "transn2_part": FTPART_TRANSN2,
+        },
+        "transn_part": FTPART_TRANSN,
+        "xrotn_part": FTPART_XROTN,
+        "hipn_part": FTPART_HIPN,
+        "transn2_part": FTPART_TRANSN2,
+        "source_notes": {
+            "capture_anchor_part": "ftCo_Attack100.c fn_800DA1D8 uses fp->parts[fp->ft_data->x8->x11].joint for mv.co.capturedamage.x18",
+            "transn_part": "Fighter_UnkUpdateVecFromBones_8006876C samples FtPart_TransN for x1A70",
+            "xrotn_part": "ftCo_Attack100.c fn_800DAC78/fn_800DAD18 sample FtPart_XRotN",
+            "hipn_part": "ftCo_DownBound.c/ftanim.c sample FtPart_HipN",
+            "transn2_part": "ftCo_800DB368 constrains FtPart_XRotN to FtPart_TransN2",
+            "thrown_hitbox_part": "ft_8007C17C initializes fp->x1064_thrownHitbox from fp->ft_data->x34->x0",
+            "thrown_hitbox_scale": "ft_8007C17C copies fp->ft_data->x34->scale into fp->x1064_thrownHitbox.scale",
+        },
+    }
+    if parts_table is not None:
+        result["transn_joint"] = _fighter_part_to_joint(parts_table, FTPART_TRANSN, "FtPart_TransN")
+        result["xrotn_joint"] = _fighter_part_to_joint(parts_table, FTPART_XROTN, "FtPart_XRotN")
+        result["hipn_joint"] = _fighter_part_to_joint(parts_table, FTPART_HIPN, "FtPart_HipN")
+        result["transn2_joint"] = _fighter_part_to_joint(parts_table, FTPART_TRANSN2, "FtPart_TransN2")
+        result["thrown_hitbox_joint"] = _fighter_part_to_joint(
+            parts_table, thrown_hitbox_part, "ftData.x34 thrown hitbox part"
+        )
+        result["resolved_joint_source"] = "ftParts_GetBoneIndex(fp, part) -> ftPartsTable[fp->kind]->part_to_joint[part]"
+    return result
+
+
+def extract_captain_common_parts_from_plca(dat: bytes, source_path: Path) -> dict[str, object]:
+    return extract_character_common_parts_from_dat(
+        dat, source_path, character_resource_spec("captain")
+    )
 
 
 def extract_character_ecb_source_from_dat(
@@ -1278,8 +1671,12 @@ def sample_figatree_node_tracks(
         frac_slope = int(str(track["frac_slope_raw"]), 16)
         data_offset = int(track["data_offset"])
         length = int(track["length"])
+        data_start = 0x20 + data_offset
+        data_end = data_start + length
+        if data_end > len(figatree_chunk):
+            raise DatExtractError("FigaTree track data range is outside the archive")
         value = sample_fobj_value(
-            figatree_chunk[0x20 + data_offset : 0x20 + data_offset + length],
+            figatree_chunk[data_start:],
             length=length,
             startframe=int(track["startframe"]),
             frac_value=frac_value,
@@ -1399,6 +1796,8 @@ def _matrix_transform_point(
 
 MELEE_RIGHT_FACING_RENDER_TRANSFORM = "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)"
 MELEE_RIGHT_FACING_FLATTEN_POLICY = "right_facing_melee_xy"
+MELEE_ECB_COLLISION_TRANSFORM = "none; mpColl_LoadECB_JObj uses lb_8000B1CC world positions"
+MELEE_ECB_COLLISION_FLATTEN_POLICY = "none_collision_world_xy"
 MELEE_HURTBOX_SAMPLE_METADATA = {
     "source_init_handler": "ftColl_8007B3A0/ftColl_8007B4E0 ftData.x30",
     "source_update_handler": "lbColl_800083C4/lbColl_8000A244/lbColl_8000A584",
@@ -1428,13 +1827,20 @@ def _vec2_milli(raw: dict[str, float]) -> dict[str, int]:
 
 
 def sample_figatree_skeleton_pose(
-    figatree_chunk: bytes, skeleton: dict[str, object], *, frame: float
+    figatree_chunk: bytes,
+    skeleton: dict[str, object],
+    *,
+    frame: float,
+    topn_rot_y: float | None = None,
+    topn_scale: float | None = None,
+    clear_after_anim_joint_indices: tuple[int, ...] = (),
 ) -> dict[str, object]:
     """Apply a FigaTree to an extracted HSD_Joint skeleton and return world positions."""
 
     joints = skeleton.get("joints")
     if not isinstance(joints, list):
         raise DatExtractError("skeleton does not contain a joints list")
+    clear_after_anim = {int(index) for index in clear_after_anim_joint_indices}
 
     summary = extract_figatree_summary(figatree_chunk)
     track_counts = summary["track_counts_by_node"]
@@ -1456,6 +1862,12 @@ def sample_figatree_skeleton_pose(
         rotation = _vec3_from_mapping(rotation_raw, (0.0, 0.0, 0.0))
         scale = _vec3_from_mapping(scale_raw, (1.0, 1.0, 1.0))
         translation = _vec3_from_mapping(position_raw, (0.0, 0.0, 0.0))
+        if index == 0 and topn_rot_y is not None:
+            rotation["y"] = topn_rot_y
+        if index == 0 and topn_scale is not None:
+            scale["x"] = topn_scale
+            scale["y"] = topn_scale
+            scale["z"] = topn_scale
         tracks: list[dict[str, object]] = []
         if index < len(track_counts):
             sampled = sample_figatree_node_tracks(figatree_chunk, node_index=index, frame=frame)
@@ -1473,6 +1885,10 @@ def sample_figatree_skeleton_pose(
             if not isinstance(raw_tracks, list):
                 raise DatExtractError("sampled FigaTree track metadata is malformed")
             tracks = raw_tracks
+        if index in clear_after_anim:
+            translation["x"] = 0.0
+            translation["y"] = 0.0
+            translation["z"] = 0.0
 
         parent_index = joint.get("parent_index")
         parent_scale = None
@@ -1549,9 +1965,8 @@ def compute_ecb_from_jobj_pose(
             "y": float(raw_position["y"]) - float(position.get("y", 0.0)),
             "z": float(raw_position["z"]),
         }
-        rendered = _flatten_right_facing_melee_render(source_point)
         source_points.append(source_point)
-        points.append({"x": rendered["x"], "y": rendered["y"]})
+        points.append({"x": source_point["x"], "y": source_point["y"]})
 
     left_x = right_x = points[0]["x"]
     bottom_y = top_y = points[0]["y"]
@@ -1613,8 +2028,8 @@ def compute_ecb_from_jobj_pose(
         "left": {"x": left_x, "y": midpoint_y},
         "source_points": source_points,
         "flags": flags,
-        "source_render_transform": MELEE_RIGHT_FACING_RENDER_TRANSFORM,
-        "flatten_after_render": MELEE_RIGHT_FACING_FLATTEN_POLICY,
+        "source_render_transform": MELEE_ECB_COLLISION_TRANSFORM,
+        "flatten_after_render": MELEE_ECB_COLLISION_FLATTEN_POLICY,
     }
     result["top_milli"] = _vec2_milli(result["top"])
     result["bottom_milli"] = _vec2_milli(result["bottom"])
@@ -1702,6 +2117,24 @@ def compact_pose_for_collision(
         "source": pose.get("source", "HSD_JObj FigaTree sampled pose"),
         "joints": compact_joints,
     }
+
+
+def source_transn_joint_index_from_skeleton(skeleton: dict[str, object]) -> int:
+    joints = skeleton.get("joints")
+    if not isinstance(joints, list):
+        raise DatExtractError("skeleton does not contain a joints list")
+    for joint in joints:
+        if not isinstance(joint, dict):
+            raise DatExtractError("skeleton joint metadata is malformed")
+        if joint.get("parent_index") == 0:
+            return int(joint["index"])
+    raise DatExtractError("skeleton does not contain a TopN child for FtPart_TransN")
+
+
+def action_anim_flags_clear_transn_after_sampling(flags_raw: int) -> bool:
+    """Fighter_WaitAnimData.x10_animCurrFlags bit 0 feeds Fighter.x594_b0."""
+
+    return (flags_raw & 0x80000000) != 0
 
 
 def extract_captain_action_animation_table(
@@ -1823,6 +2256,7 @@ def extract_captain_action_ecb_samples(
     *,
     action_state_ids: tuple[int, ...] = ECB_SAMPLE_ACTION_STATE_IDS,
     flags: int = 6,
+    model_scale: float = 1.0,
 ) -> dict[str, object]:
     ecb_source = ecb_source_snapshot.get("ecb_source", ecb_source_snapshot)
     if not isinstance(ecb_source, dict):
@@ -1830,6 +2264,7 @@ def extract_captain_action_ecb_samples(
     actions = action_table.get("actions")
     if not isinstance(actions, list):
         raise DatExtractError("Captain action animation table is malformed")
+    transn_joint_index = source_transn_joint_index_from_skeleton(skeleton)
 
     sampled_actions: list[dict[str, object]] = []
     for action_state_id in action_state_ids:
@@ -1854,9 +2289,21 @@ def extract_captain_action_ecb_samples(
             )
         chunk = plcaaj[offset : offset + size]
         frame_count = int(figatree["frames_ticks"])
+        anim_curr_flags = int(str(action.get("flags_raw", "0x00000000")), 16)
+        clear_transn_after_anim = action_anim_flags_clear_transn_after_sampling(anim_curr_flags)
+        clear_after_anim_joint_indices = (
+            (transn_joint_index,) if clear_transn_after_anim else ()
+        )
         frames: list[dict[str, object]] = []
         for frame in range(frame_count):
-            pose = sample_figatree_skeleton_pose(chunk, skeleton, frame=float(frame))
+            pose = sample_figatree_skeleton_pose(
+                chunk,
+                skeleton,
+                frame=float(frame),
+                topn_rot_y=math.pi / 2.0,
+                topn_scale=model_scale,
+                clear_after_anim_joint_indices=clear_after_anim_joint_indices,
+            )
             ecb = compute_ecb_from_jobj_pose(pose, ecb_source, flags=flags)
             frames.append(
                 {
@@ -1880,6 +2327,8 @@ def extract_captain_action_ecb_samples(
                 "action_state_id": action_state_id,
                 "name": action.get("name", ""),
                 "figatree_root": action.get("figatree_root"),
+                "anim_curr_flags_raw": f"0x{anim_curr_flags:08x}",
+                "collision_pose_transn_cleared": clear_transn_after_anim,
                 "flags": flags,
                 "frames": frames,
             }
@@ -1889,6 +2338,15 @@ def extract_captain_action_ecb_samples(
         "source": {
             "format": "Captain Falcon per-frame ECB samples from PlCaAJ FigaTree, PlCaNr HSD_Joint skeleton, and ftDataCaptain.x44 JObj source joints",
             "mpcoll_flags": flags,
+            "collision_pose_transn_joint_index": transn_joint_index,
+            "collision_pose_policy": (
+                "Fighter_ChangeMotionState copies Fighter_WaitAnimData.x10_animCurrFlags "
+                "into Fighter.x594; only x594_b0 actions run ftAnim_8006E054, which samples "
+                "FtPart_TransN into Fighter.x68C_transNPos and clears the TransN JObj "
+                "translation before mpColl_LoadECB_JObj reads live world positions"
+            ),
+            "topn_scale_source": "ftCommon_GetModelScale base model_scaling for unmodified Falcon",
+            "topn_scale": model_scale,
         },
         "actions": sampled_actions,
     }
@@ -1981,9 +2439,16 @@ def extract_resources(
 ) -> list[Path]:
     written: list[Path] = []
     plco = raw_dir / "PlCo.dat"
+    fighter_parts_tables: dict[str, object] | None = None
     if plco.exists():
+        plco_bytes = plco.read_bytes()
         out_path = out_dir / "plco_common_data.json"
-        write_json(out_path, extract_common_data_from_plco(plco.read_bytes(), plco))
+        write_json(out_path, extract_common_data_from_plco(plco_bytes, plco))
+        written.append(out_path)
+
+        fighter_parts_tables = extract_fighter_parts_tables_from_plco(plco_bytes, plco)
+        out_path = out_dir / "fighter_parts_tables.json"
+        write_json(out_path, fighter_parts_tables)
         written.append(out_path)
 
     for character in characters:
@@ -1997,6 +2462,33 @@ def extract_resources(
             fighter_bytes = fighter_dat.read_bytes()
             out_path = out_dir / f"{spec.output_stem}_profile.json"
             write_json(out_path, extract_character_profile_from_dat(fighter_bytes, fighter_dat, spec))
+            written.append(out_path)
+
+            if spec.special_attr_fields:
+                out_path = out_dir / f"{spec.output_stem}_special_attrs.json"
+                write_json(
+                    out_path,
+                    extract_character_special_attrs_from_dat(fighter_bytes, fighter_dat, spec),
+            )
+            written.append(out_path)
+
+            out_path = out_dir / f"{spec.output_stem}_common_parts.json"
+            parts_table = None
+            if fighter_parts_tables is not None and spec.fighter_kind_index is not None:
+                tables = fighter_parts_tables.get("tables", {})
+                if isinstance(tables, dict):
+                    candidate = tables.get(str(spec.fighter_kind_index))
+                    if isinstance(candidate, dict):
+                        parts_table = candidate
+            write_json(
+                out_path,
+                extract_character_common_parts_from_dat(
+                    fighter_bytes,
+                    fighter_dat,
+                    spec,
+                    parts_table=parts_table,
+                ),
+            )
             written.append(out_path)
 
             out_path = out_dir / f"{spec.output_stem}_ecb_source.json"
@@ -2051,6 +2543,12 @@ def extract_resources(
                 costume_dat.read_bytes(), costume_dat, spec
             )
             ecb_source = extract_character_ecb_source_from_dat(fighter_bytes, fighter_dat, spec)
+            profile = extract_character_profile_from_dat(fighter_bytes, fighter_dat, spec)
+            model_scale = float(
+                profile.get("fields", {})
+                .get("model_scaling", {})
+                .get("raw", 1.0)
+            )
             if hurtbox_inits is None:
                 hurtbox_inits = extract_character_hurtbox_inits_from_dat(
                     fighter_bytes, fighter_dat, spec
@@ -2058,7 +2556,13 @@ def extract_resources(
             out_path = out_dir / f"{spec.output_stem}_action_ecb_samples.json"
             write_json(
                 out_path,
-                extract_captain_action_ecb_samples(action_bytes, action_table, skeleton, ecb_source),
+                extract_captain_action_ecb_samples(
+                    action_bytes,
+                    action_table,
+                    skeleton,
+                    ecb_source,
+                    model_scale=model_scale,
+                ),
             )
             written.append(out_path)
     return written

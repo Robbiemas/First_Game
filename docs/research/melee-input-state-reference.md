@@ -941,13 +941,14 @@ short-hop release/takeoff. The core contract suite pins digital trigger not
 cancelling jumpsquat into `EscapeAir`, up special during jumpsquat, grab
 beating up smash, and jump-cancel up smash.
 
-Shield IASA has its own state-local ladder. In source, steady `Guard` checks
-shield release first, then item throw, spotdodge, roll, shield-grab, jump, and
-platform shield drop. `GuardOn` has the same broad shape but inserts early guard
-reflect and a catch-dash window. The current no-item Rust slice preserves the
-input-critical order as release, spotdodge, roll, shield-grab, then jump:
-release enters `MotionState::GuardOff`; down tap or C-stick down enters
-`MotionState::EscapeN`; horizontal tap or C-stick side enters
+Shield IASA has its own state-local ladder. In source, steady `Guard` and
+`GuardOn` both route through the guard helper chain in `ftCo_Guard.c`, and
+platform shield drop is gated by `ftCo_8009A080 -> ftCo_80099F1C`: LR held,
+down-stick below `x464`, y-tap inside `x468`, and `mpColl_IsOnPlatform`.
+Replay oracle frame 1002 of `Game_20260530T214929.slp` confirms that this
+soft-platform shield-drop path must beat Rust's generic main-stick spotdodge
+fact for shield-held down on a platform. Off-platform down tap or C-stick down
+still enters `MotionState::EscapeN`; horizontal tap or C-stick side enters
 `MotionState::EscapeF` or `MotionState::EscapeB` based on facing; A or Z while
 shield is held enters `MotionState::Catch`; jump enters `MotionState::KneeBend`.
 `GuardOn` is now an explicit state. Ordinary standing/walking/squat shield entry

@@ -120,7 +120,7 @@ def test_combat_value_sheets_split_global_and_falcon_fields():
 
     assert global_combat["id"] == "global_combat_values"
     assert global_combat["scope"] == "global_combat"
-    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 41
+    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 56
     assert all(
         field.get("owner_scope") == "global"
         for category in global_combat["categories"]

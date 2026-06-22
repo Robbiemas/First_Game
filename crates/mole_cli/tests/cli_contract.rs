@@ -10,7 +10,7 @@ use mole_cli::{
     count_graph_statuses, find_project_root, parity_summary, parse_git_status, run_cli,
     verification_plan_for_changed_paths,
 };
-use mole_frame_data::decode_runtime_source_frame_capsules;
+use mole_frame_data::{decode_runtime_source_frame_capsules, RuntimeSourceScriptEvent};
 use mole_ledger::{LedgerMap, LedgerRegistry};
 use serde_json::json;
 
@@ -580,6 +580,28 @@ fn frame_data_extract_all_states_creates_compact_source_manifest() {
         }),
     );
     write_json(
+        &root.join("resources/melee/extracted/test_source_profile.json"),
+        &json!({
+            "fields": {
+                "model_scaling": {"raw": 1.0}
+            }
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/test_source_common_parts.json"),
+        &json!({
+            "capture_anchor_part": 14,
+            "hipn_part": 4,
+            "hipn_joint": 4,
+            "transn_part": 1,
+            "transn_joint": 1,
+            "transn2_part": 52,
+            "transn2_joint": 14,
+            "xrotn_part": 2,
+            "xrotn_joint": 2
+        }),
+    );
+    write_json(
         &root.join("resources/melee/extracted/test_source_costume_skeleton.json"),
         &json!({
             "source": "JObj",
@@ -918,7 +940,7 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert_eq!(parsed["ok"], true);
     assert_eq!(parsed["compact_manifest_detected"], true);
     assert_eq!(parsed["runtime_export_kind"], "compact_source_export");
-    assert_eq!(parsed["state_count"], 107);
+    assert_eq!(parsed["state_count"], 134);
     let gap_action_ids = parsed["rust_parity_gaps"]
         .as_array()
         .unwrap()
@@ -948,8 +970,12 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert_eq!(parsed["wrote_output"], true);
     assert!(parsed["figatree_chunk_count"].as_u64().unwrap() >= 65);
     assert!(parsed["figatree_chunk_bytes"].as_u64().unwrap() > 0);
-    assert!(!generated.contains("RuntimeSourceExport"));
-    assert!(!generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("RuntimeSourceExport"));
+    assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("SOURCE_MANIFEST_JSON"));
+    assert!(generated.contains("runtime_source_export"));
+    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(generated.contains(".figatree.bin"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("MeleeActionStateId::new(75)"));
@@ -970,6 +996,13 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("MeleeActionStateId::new(199)"));
     assert!(generated.contains("MeleeActionStateId::new(200)"));
     assert!(generated.contains("MeleeActionStateId::new(201)"));
+    assert!(generated.contains("MeleeActionStateId::new(355)"));
+    assert!(generated.contains("MeleeActionStateId::new(356)"));
+    assert!(generated.contains("MeleeActionStateId::new(358)"));
+    assert!(generated.contains("MeleeActionStateId::new(360)"));
+    assert!(generated.contains("MeleeActionStateId::new(361)"));
+    assert!(generated.contains("MeleeActionStateId::new(362)"));
+    assert!(generated.contains("MeleeActionStateId::new(363)"));
     assert!(generated.contains("source_action_key: \"DamageHi1\""));
     assert!(generated.contains("source_action_key: \"Attack12\""));
     assert!(generated.contains("source_action_key: \"Attack13\""));
@@ -988,6 +1021,12 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("source_action_key: \"Passive\""));
     assert!(generated.contains("source_action_key: \"PassiveStandF\""));
     assert!(generated.contains("source_action_key: \"PassiveStandB\""));
+    assert!(generated.contains("source_action_key: \"SpecialHiCatch\""));
+    assert!(generated.contains("source_action_key: \"SpecialHiThrow\""));
+    assert!(generated.contains("source_action_key: \"SpecialLwEnd\""));
+    assert!(generated.contains("source_action_key: \"SpecialAirLwEnd\""));
+    assert!(generated.contains("source_action_key: \"SpecialAirLwEndAir\""));
+    assert!(generated.contains("source_action_key: \"SpecialLwEndAir\""));
     assert!(generated.contains("source_action_key: \"CliffCatch\""));
     assert!(generated.contains("source_action_key: \"CliffWait1\""));
     assert!(generated.contains(
@@ -1044,6 +1083,27 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains(
         "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(201), source_action_key: \"PassiveStandB\", motion_state: None }"
     ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(355), source_action_key: \"SpecialHiCatch\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(356), source_action_key: \"SpecialHiThrow\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(358), source_action_key: \"SpecialLwEnd\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(360), source_action_key: \"SpecialAirLwEnd\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(361), source_action_key: \"SpecialAirLwEndAir\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(362), source_action_key: \"SpecialLwEndAir\", motion_state: None }"
+    ));
+    assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(363), source_action_key: \"SpecialHiThrow\", motion_state: None }"
+    ));
     assert!(generated.contains("MeleeActionStateId::new(322)"));
     assert!(generated.contains("MeleeActionStateId::new(323)"));
     assert!(generated.contains("MeleeActionStateId::new(324)"));
@@ -1060,10 +1120,10 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
     assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
-    assert!(!generated.contains("SOURCE_MANIFEST_JSON"));
-    assert!(!generated.contains("SOURCE_EXPORT"));
-    assert!(!generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
-    assert!(!generated.contains(".figatree.bin"));
+    assert!(generated.contains("SOURCE_MANIFEST_JSON"));
+    assert!(generated.contains("runtime_source_export"));
+    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(generated.contains(".figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
@@ -1076,6 +1136,49 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
         .unwrap()
         .join("source_frame_data/source_frame_capsules.bin")
         .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_manifest.json")
+        .exists());
+    let compact_manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(
+            output_path
+                .parent()
+                .unwrap()
+                .join("source_frame_data/source_manifest.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        compact_manifest["rig"]["live_pose_setup"]["topn_rot_y_radians"],
+        json!(std::f64::consts::FRAC_PI_2)
+    );
+    assert!(
+        compact_manifest["rig"]["live_pose_setup"]["topn_scale"]
+            .as_f64()
+            .unwrap()
+            > 0.0,
+        "compact runtime manifest must preserve decomp live TopN scale for lb_8000B1CC consumers"
+    );
+    assert!(
+        compact_manifest["rig"]["common_parts"]["data"]["thrown_hitbox_joint"]
+            .as_u64()
+            .is_some(),
+        "compact runtime manifest must preserve ftData.x34->x0 through ftParts_GetBoneIndex for x1064_thrownHitbox"
+    );
+    assert!(
+        compact_manifest["rig"]["common_parts"]["data"]["thrown_hitbox_scale"]
+            .as_f64()
+            .is_some(),
+        "compact runtime manifest must preserve ftData.x34->scale for x1064_thrownHitbox"
+    );
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/AttackAirN.figatree.bin")
+        .exists());
     let source_frame_capsules = fs::read(
         output_path
             .parent()
@@ -1084,6 +1187,117 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     )
     .unwrap();
     let decoded_capsules = decode_runtime_source_frame_capsules(&source_frame_capsules).unwrap();
+    let special_hi = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "SpecialHi")
+        .expect("all-states runtime export should bake SpecialHi");
+    assert_eq!(special_hi.cmd_var_events.len(), 1);
+    assert_eq!(special_hi.cmd_var_events[0].source_frame, 13);
+    assert_eq!(special_hi.cmd_var_events[0].cmd_var, 0);
+    assert_eq!(special_hi.cmd_var_events[0].value, 1);
+    assert_eq!(special_hi.cmd_var_events[0].word_offset, 7);
+    assert_eq!(special_hi.cmd_var_events[0].raw_word, 0x4c000001);
+    assert!(special_hi.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetCmdVar(event)
+            if event.source_frame == 13
+                && event.cmd_var == 0
+                && event.value == 1
+                && event.word_offset == 7
+                && event.raw_word == 0x4c000001
+    )));
+    let throw_hi = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "ThrowHi")
+        .expect("all-states runtime export should bake ThrowHi");
+    assert!(throw_hi.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetThrowHitbox(event)
+            if event.source_frame == 0
+                && event.hitbox.hitbox_idx == 0
+                && event.hitbox.damage == 3
+                && event.hitbox.angle == 85
+                && event.hitbox.hit_x24 == 105
+                && event.hitbox.hit_x28 == 0
+                && event.hitbox.hit_x2c == 70
+                && event.hitbox.element == 0
+                && event.hitbox.sfx_severity == 2
+                && event.hitbox.sfx_kind == 2
+    )));
+    let special_air_s_start = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "SpecialAirSStart")
+        .expect("all-states runtime export should bake SpecialAirSStart");
+    assert!(special_air_s_start
+        .script_events
+        .iter()
+        .any(|event| matches!(
+            event,
+            RuntimeSourceScriptEvent::SetCmdVar(event)
+                if event.source_frame == 30
+                    && event.cmd_var == 1
+                    && event.value == 1
+                    && event.word_offset == 31
+                    && event.raw_word == 0x4d000001
+        )));
+    let special_lw_end = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "SpecialLwEnd")
+        .expect("all-states runtime export should bake source-only SpecialLwEnd");
+    assert!(special_lw_end.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetCmdVar(event)
+            if event.source_frame == 2
+                && event.cmd_var == 2
+                && event.value == 1
+                && event.word_offset == 1
+                && event.raw_word == 0x4e000001
+    )));
+    let attack11 = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "Attack11")
+        .expect("all-states runtime export should bake Attack11");
+    assert!(attack11.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetJabCombo(event)
+            if event.source_frame == 5
+                && event.disabled
+                && event.word_offset == 22
+                && event.raw_word == 0x74000001
+    )));
+    assert!(attack11.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetJabCombo(event)
+            if event.source_frame == 9
+                && !event.disabled
+                && event.word_offset == 26
+                && event.raw_word == 0x74000000
+    )));
+    let attack13 = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "Attack13")
+        .expect("all-states runtime export should bake Attack13");
+    assert!(attack13.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::SetJabRapid(event)
+            if event.source_frame == 10
+                && event.state
+                && event.word_offset == 30
+                && event.raw_word == 0x78000001
+    )));
+    for source_action_key in [
+        "SpecialHiCatch",
+        "SpecialHiThrow",
+        "SpecialLwEnd",
+        "SpecialAirLwEnd",
+        "SpecialAirLwEndAir",
+        "SpecialLwEndAir",
+    ] {
+        decoded_capsules
+            .iter()
+            .find(|action| action.source_action_key == source_action_key)
+            .unwrap_or_else(|| panic!("all-states runtime export should bake {source_action_key}"));
+    }
     let damage_air1 = decoded_capsules
         .iter()
         .find(|action| action.source_action_key == "DamageAir1")
@@ -1125,6 +1339,83 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
         .down_bound_pose;
     assert!(down_bound_pose.hip_mtx_1_1.is_finite());
     assert!(down_bound_pose.hip_mtx_1_1.abs() > 0.001);
+    let wait1 = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "Wait1")
+        .expect("all-states runtime export should bake Wait1");
+    let wait1_capture_pose = wait1
+        .frames
+        .first()
+        .expect("Wait1 should have a first source frame")
+        .capture_pose;
+    assert!(
+        wait1_capture_pose.x1a70.y.is_finite() && wait1_capture_pose.x1a70.z.is_finite(),
+        "Fighter_UnkUpdateVecFromBones_8006876C derives persistent x1A70 from create-pose FtPart_TransN - FtPart_XRotN"
+    );
+    assert!(
+        (wait1_capture_pose.x1a70.z - 0.0).abs() <= 0.000_01,
+        "temporary red assertion: actual Wait1 x1A70={:?}",
+        wait1_capture_pose.x1a70
+    );
+    let catch_wait = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "CatchWait")
+        .expect("all-states runtime export should bake CatchWait");
+    let catch_capture_pose = catch_wait
+        .frames
+        .first()
+        .expect("CatchWait should have a first source frame")
+        .capture_pose;
+    assert!(catch_capture_pose.capture_anchor.x.is_finite());
+    assert!((catch_capture_pose.capture_anchor.x - 7.868_107).abs() <= 0.000_01,
+        "ftCo capture physics reads lb_8000B1CC(capturedamage.x18); the compact runtime pose must bake ftData.x8->x11 live JObj world X, not the projected render X"
+    );
+    assert!((catch_capture_pose.capture_anchor.y - 11.029_806).abs() <= 0.000_01);
+    assert!((catch_capture_pose.capture_anchor.z + 0.098_516).abs() <= 0.000_01);
+    assert!(
+        (catch_capture_pose.transn2.x - 7.868_107).abs() <= 0.000_01,
+        "actual CatchWait capture pose={:?}",
+        catch_capture_pose
+    );
+    assert!(
+        (catch_capture_pose.transn2.y - 11.029_806).abs() <= 0.000_01,
+        "actual CatchWait capture pose={:?}",
+        catch_capture_pose
+    );
+    assert!(
+        (catch_capture_pose.transn2.z + 0.098_516).abs() <= 0.000_01,
+        "actual CatchWait capture pose={:?}",
+        catch_capture_pose
+    );
+    assert!(
+        (catch_capture_pose.x1a70.y + 13.432_073).abs() <= 0.000_01,
+        "actual CatchWait capture pose={:?}",
+        catch_capture_pose
+    );
+    assert!(
+        (catch_capture_pose.thrown_hitbox.x + 0.072_347).abs() <= 0.000_01,
+        "ft_8007C224 samples x1064_thrownHitbox from live ftData.x34 JObj world X; actual thrown_hitbox={:?}",
+        catch_capture_pose.thrown_hitbox
+    );
+    assert!((catch_capture_pose.thrown_hitbox.y - 9.612_460).abs() <= 0.000_01);
+    assert!((catch_capture_pose.thrown_hitbox.z + 0.628_984).abs() <= 0.000_01);
+    assert!(
+        (catch_capture_pose.thrown_hitbox_scale - 2.0).abs() <= 0.000_01,
+        "ft_8007C17C copies ftData.x34->scale into x1064_thrownHitbox.scale"
+    );
+    let capture_pulled_lw = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "CapturePulledLw")
+        .expect("all-states runtime export should bake CapturePulledLw");
+    let victim_capture_pose = capture_pulled_lw
+        .frames
+        .first()
+        .expect("CapturePulledLw should have a first source frame")
+        .capture_pose;
+    assert!(victim_capture_pose.xrotn.x.is_finite());
+    assert!((victim_capture_pose.xrotn.x - 0.0).abs() <= 0.000_01);
+    assert!((victim_capture_pose.xrotn.y - 13.431_990).abs() <= 0.000_01);
+    assert!((victim_capture_pose.xrotn.z - 0.0).abs() <= 0.000_01);
     assert_eq!(parsed["companion_manifest_path"], serde_json::Value::Null);
 }
 
@@ -1162,16 +1453,18 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
         PathBuf::from(parsed["source_manifest_path"].as_str().unwrap()),
         manifest_path
     );
-    assert!(!generated.contains("RuntimeSourceExport"));
-    assert!(!generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("RuntimeSourceExport"));
+    assert!(generated.contains("RuntimeFigatreeChunk"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("source_action_key: \"AttackAirN\""));
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
     assert!(generated.contains("include_bytes!(\"source_frame_data/source_frame_capsules.bin\")"));
-    assert!(!generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
-    assert!(!generated.contains(".figatree.bin"));
+    assert!(generated.contains("SOURCE_MANIFEST_JSON"));
+    assert!(generated.contains("runtime_source_export"));
+    assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
+    assert!(generated.contains("AttackAirN.figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
@@ -1180,6 +1473,16 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
         .parent()
         .unwrap()
         .join("source_frame_data/source_frame_capsules.bin")
+        .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_manifest.json")
+        .exists());
+    assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/AttackAirN.figatree.bin")
         .exists());
 }
 
@@ -1298,7 +1601,7 @@ fn frame_data_extract_decodes_source_action_script_hitbox_procedures() {
     assert_eq!(frame_7["hitboxes"][0]["kbg"], 100);
     assert_eq!(frame_7["hitboxes"][0]["bkb"], 0);
     assert_eq!(frame_7["hitboxes"][0]["radius"], 4.296875);
-    assert_eq!(frame_7["hitboxes"][0]["center"]["x"], 0.0);
+    assert_eq!(frame_7["hitboxes"][0]["center"]["x"], 5.859375);
     assert_eq!(frame_7["hitboxes"][0]["center"]["y"], 0.0);
     assert_eq!(frame_7["hitboxes"][0]["center"]["z"], 0.0);
     assert_eq!(frame_7["hitboxes"][0]["source_center"]["x"], 5.859375);
@@ -1632,10 +1935,13 @@ fn frame_data_extract_transforms_hitbox_offsets_through_sampled_jobj_pose() {
         hitbox["source_previous_center"],
         json!({"x": 15.859375, "y": 20.0, "z": 30.0})
     );
-    assert_eq!(hitbox["center"], json!({"x": 30.0, "y": 20.0, "z": 0.0}));
+    assert_eq!(
+        hitbox["center"],
+        json!({"x": 15.859375, "y": 20.0, "z": 0.0})
+    );
     assert_eq!(
         hitbox["previous_center"],
-        json!({"x": 30.0, "y": 20.0, "z": 0.0})
+        json!({"x": 15.859375, "y": 20.0, "z": 0.0})
     );
     assert!(hitbox["source_center"]["x"].as_f64().is_some());
     assert!(hitbox["source_offset"]["x"].as_f64().is_some());
@@ -1670,11 +1976,11 @@ fn frame_data_extract_transforms_hitbox_offsets_through_sampled_jobj_pose() {
     );
     assert_eq!(
         active_hitbox["center"],
-        json!({"x": 60.0, "y": 50.0, "z": 0.0})
+        json!({"x": 45.859375, "y": 50.0, "z": 0.0})
     );
     assert_eq!(
         active_hitbox["previous_center"],
-        json!({"x": 30.0, "y": 20.0, "z": 0.0})
+        json!({"x": 15.859375, "y": 20.0, "z": 0.0})
     );
     assert_eq!(active_hitbox["source_hit_capsule_state"], "HitCapsule_Unk3");
 }
@@ -1852,6 +2158,89 @@ fn frame_data_extract_decodes_source_jab_script_procedures() {
             && procedure["frame"] == 10
             && procedure["raw_words"] == json!(["0x78000001"])
             && procedure["state"] == true
+    }));
+}
+
+#[test]
+fn frame_data_extract_decodes_source_throw_hitbox_procedures() {
+    let root = temp_project_root("frame_data_source_throw_hitbox");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/ThrowHi.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "ThrowHi",
+            "label": "Up Throw",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 705}],
+            "summary": {"total_frames": 45, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 88,
+                "name": "PlyCaptain5K_Share_ACTION_ThrowHi_figatree",
+                "subaction_script_offset": 19908
+            }]
+        }),
+    );
+    let script_start = 0x20 + 19908;
+    let script_words = [
+        0x0400000bu32,
+        0x8880000d,
+        0x2d1903c0,
+        0x169d7000,
+        0x00000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "ThrowHi".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let procedures = parsed["artifact"]["decoded_action_script"]["procedures"]
+        .as_array()
+        .unwrap();
+
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_throw_hitbox"
+            && procedure["handler"] == "ftAction_80071E04"
+            && procedure["frame"] == 11
+            && procedure["raw_words"] == json!(["0x8880000d", "0x2d1903c0", "0x169d7000"])
+            && procedure["hitbox_idx"] == 1
+            && procedure["damage"] == 13
+            && procedure["angle"] == 90
+            && procedure["hit_x24"] == 100
+            && procedure["hit_x28"] == 30
+            && procedure["hit_x2c"] == 45
+            && procedure["element"] == 3
+            && procedure["sfx_severity"] == 5
+            && procedure["sfx_kind"] == 7
     }));
 }
 
@@ -2315,6 +2704,32 @@ fn package_local_internet_playtest_dry_run_reports_secondary_launcher_artifacts(
 }
 
 #[test]
+fn package_linux_friend_playtest_dry_run_reports_linux_tarball_artifact() {
+    let root = temp_project_root("package_linux_friend_playtest_dry_run");
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "package".to_string(),
+        "linux-friend-playtest".to_string(),
+        "--dry-run".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "package linux-friend-playtest");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["dry_run"], true);
+    assert!(parsed["artifacts"]["playtest_tarball"]
+        .as_str()
+        .unwrap()
+        .ends_with("playtest\\MoleGame-LinuxFriendPlaytest.tar.gz"));
+    assert!(parsed["build_command"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("tools/package_linux_friend_playtest.sh")));
+}
+
+#[test]
 fn friend_connect_status_reports_role_controller_and_package_contract() {
     let root = temp_project_root("friend_connect_status");
     fs::create_dir_all(root.join("playtest")).unwrap();
@@ -2501,11 +2916,13 @@ fn help_command_exposes_full_agent_command_catalog() {
         "stage inspect",
         "finish check",
         "replay check",
+        "replay scan",
         "frame-data extract",
         "frame-data export-runtime",
         "frame-data show",
         "package friend-playtest",
         "package local-internet-playtest",
+        "package linux-friend-playtest",
         "friend-connect status",
         "decomp search",
         "decomp show",
@@ -2574,6 +2991,24 @@ fn help_command_exposes_full_agent_command_catalog() {
         .unwrap()
         .iter()
         .any(|example| example.as_str().unwrap().contains("replay trace")));
+    let replay_scan = commands
+        .iter()
+        .find(|command| command["name"] == "replay scan")
+        .unwrap();
+    assert_eq!(replay_scan["mutates_workspace"], false);
+    assert!(replay_scan["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("divergence"));
+    assert!(replay_scan["optional_flags"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("--lookahead")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("replay scan")));
     let decomp_search = commands
         .iter()
         .find(|command| command["name"] == "decomp search")
@@ -2753,6 +3188,33 @@ fn help_command_exposes_full_agent_command_catalog() {
                 .as_str()
                 .unwrap()
                 .contains("package local-internet-playtest")
+        }));
+    let package_linux_friend_playtest = commands
+        .iter()
+        .find(|command| command["name"] == "package linux-friend-playtest")
+        .unwrap();
+    assert_eq!(package_linux_friend_playtest["mutates_workspace"], true);
+    assert!(package_linux_friend_playtest["purpose"]
+        .as_str()
+        .unwrap()
+        .contains("Linux Friend Connect playtest tarball"));
+    assert!(package_linux_friend_playtest["writes"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("playtest/MoleGame-LinuxFriendPlaytest.tar.gz")));
+    assert!(package_linux_friend_playtest["optional_flags"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("--dry-run")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| {
+            example
+                .as_str()
+                .unwrap()
+                .contains("package linux-friend-playtest")
         }));
     let friend_connect_status = commands
         .iter()
@@ -3043,6 +3505,36 @@ fn generated_check_markdown_summarizes_groups_and_commands() {
 }
 
 #[test]
+fn generated_check_tracks_core_source_root_motion_tables() {
+    let root = temp_project_root("generated_check_root_motion");
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "check".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let groups = parsed["artifact_groups"].as_array().unwrap();
+    let source_root_motion = groups
+        .iter()
+        .find(|group| group["id"] == "source_root_motion_generated_tables")
+        .expect("source root motion generated artifact group");
+
+    assert!(source_root_motion["recommended_command"]
+        .as_str()
+        .unwrap()
+        .contains("generate_source_root_motion_rust.py"));
+    assert!(source_root_motion["outputs"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(
+            "crates/mole_core/src/generated/source_root_motion.rs"
+        )));
+}
+
+#[test]
 fn generated_write_stage_asset_emits_battlefield_stage_blob() {
     let root = temp_project_root("generated_write_stage_asset");
 
@@ -3103,10 +3595,7 @@ fn generated_write_stage_asset_prefers_raw_dat_extraction_when_available() {
     assert_eq!(stage_asset["source"]["kind"], "melee_stage_dat");
     assert_eq!(stage_asset["collision"]["scale"], 0.5);
     assert_eq!(stage_asset["collision"]["line_count"], 2);
-    assert_eq!(stage_asset["ledges"].as_array().unwrap().len(), 2);
-    assert_eq!(stage_asset["ledges"][0]["line_index"], 0);
-    assert_eq!(stage_asset["ledges"][0]["side"], "left");
-    assert_eq!(stage_asset["ledges"][1]["side"], "right");
+    assert!(stage_asset["ledges"].as_array().unwrap().is_empty());
     assert_eq!(stage_asset["dynamic_collision"]["line_count"], 0);
     assert_eq!(stage_asset["camera"]["cam_bounds"]["left"], -170.0);
     assert_eq!(stage_asset["camera"]["cam_zoom_rate"], 0.0);
@@ -3246,9 +3735,22 @@ fn stage_extract_emits_map_coll_data_stage_blob_from_registered_raw_dat() {
     assert_eq!(asset["collision"]["vertex_count"], 4);
     assert_eq!(asset["collision"]["line_count"], 2);
     assert_eq!(asset["collision"]["joint_count"], 1);
+    assert_eq!(
+        asset["collision"]["line_flag_refs"]["lo_flags"]["LINE_FLAG_LEDGE"],
+        512
+    );
     assert_eq!(asset["collision"]["vertices"][0]["source_x"], -10.0);
     assert_eq!(asset["collision"]["vertices"][0]["x"], -5000);
+    assert_eq!(
+        asset["collision"]["lines"][0]["source_flags"]["ledge"],
+        false
+    );
+    assert_eq!(
+        asset["collision"]["lines"][1]["source_flags"]["platform"],
+        true
+    );
     assert_eq!(asset["collision"]["lines"][1]["kind"], "soft_floor");
+    assert!(asset["ledges"].as_array().unwrap().is_empty());
     assert_eq!(asset["map_head_object_tree"]["entry_count_decoded"], 1);
     assert_eq!(asset["main_floor"]["left_x"], -5000);
     assert_eq!(asset["main_floor"]["right_x"], 5000);
@@ -3260,6 +3762,51 @@ fn stage_extract_emits_map_coll_data_stage_blob_from_registered_raw_dat() {
     assert!(engine_stage_blob.contains("BATTLEFIELD_COLLISION_VERTICES: [StageCollisionVertex; 4]"));
     assert!(engine_stage_blob.contains("StageCollisionLineKind::SoftFloor"));
     assert!(!engine_stage_blob.contains("serde_json"));
+}
+
+#[test]
+fn stage_extract_applies_mp_lib_load_empty_line_prune_to_runtime_topology() {
+    let root = temp_project_root("stage_extract_empty_line_prune");
+    let raw_dir = root.join("resources/melee/raw");
+    fs::create_dir_all(&raw_dir).unwrap();
+    fs::write(
+        raw_dir.join("GrNBa.dat"),
+        make_stage_dat_fixture_with_empty_line(1.0),
+    )
+    .unwrap();
+
+    run_cli(&[
+        "stage".to_string(),
+        "extract".to_string(),
+        "--stage".to_string(),
+        "battlefield".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let asset_path = root.join("resources/melee/extracted/stages/battlefield_stage.json");
+    let asset: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(asset_path).unwrap()).unwrap();
+    let engine_stage_path = root.join("crates/mole_core/src/generated/stages.rs");
+    let engine_stage_blob = fs::read_to_string(&engine_stage_path).unwrap();
+
+    let lines = asset["collision"]["lines"].as_array().unwrap();
+    assert_eq!(lines[0]["next_id0"], 2);
+    assert_eq!(lines[0]["next_id1"], 2);
+    assert_eq!(lines[1]["hi_flags"], 0x81);
+    assert_eq!(lines[1]["prev_id0"], -1);
+    assert_eq!(lines[1]["next_id0"], -1);
+    assert_eq!(lines[1]["prev_id1"], -1);
+    assert_eq!(lines[1]["next_id1"], -1);
+    assert_eq!(lines[1]["source_flags"]["empty"], true);
+    assert_eq!(
+        lines[1]["source_flags"]["runtime_flags_after_mpLibLoad"],
+        0x10081
+    );
+    assert_eq!(lines[2]["prev_id0"], 0);
+    assert_eq!(lines[2]["prev_id1"], 0);
+    assert!(engine_stage_blob.contains("hi_flags: 129"));
 }
 
 #[test]
@@ -3454,6 +4001,111 @@ fn generated_write_ledger_map_emits_the_dual_surface_registry() {
     assert!(ledger_map.contains("\"cli_surface\""));
     assert!(ledger_map.contains("\"gui_surface\""));
     assert!(ledger_map.contains("\"action_motion_tables\""));
+    assert!(ledger_map.contains("\"docs/state_graphs/action_motion_tables.json\""));
+    assert!(ledger_map.contains("\"generated write-action-motion-tables\""));
+}
+
+#[test]
+fn generated_write_action_motion_tables_emits_source_authority_artifact() {
+    let root = temp_project_root("generated_write_action_motion_tables");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        &json!({
+            "actions": {
+                "Wait": {
+                    "state": "Wait",
+                    "source_action_key": "Wait1",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+                    "runtime_motion_state": "Wait"
+                },
+                "Attack12": {
+                    "state": "Attack12",
+                    "source_action_key": "Attack12",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+                    "runtime_motion_state": null
+                }
+            },
+            "rust_parity_gaps": [
+                {
+                    "state": "Attack12",
+                    "source_action_key": "Attack12",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+                    "reason": "source action imported but no current Rust MotionState binding exists"
+                }
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "write-action-motion-tables".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let artifact_path = root.join("docs/state_graphs/action_motion_tables.json");
+    let artifact: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(artifact_path).unwrap()).unwrap();
+
+    assert_eq!(parsed["command"], "generated write-action-motion-tables");
+    assert_eq!(parsed["mutated"], true);
+    assert_eq!(artifact["artifact_kind"], "action_motion_tables");
+    assert_eq!(artifact["imported_action_count"], 2);
+    assert_eq!(artifact["entries"][0]["state"], "Attack12");
+    assert_eq!(
+        artifact["entries"][0]["runtime_binding"],
+        serde_json::Value::Null
+    );
+    assert_eq!(artifact["entries"][0]["completeness_class"], "absent");
+}
+
+#[test]
+fn generated_write_action_motion_tables_accepts_array_manifest_actions() {
+    let root = temp_project_root("generated_write_action_motion_tables_array");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        &json!({
+            "actions": [
+                {
+                    "state": "Wait",
+                    "source_action_key": "Wait1",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+                    "runtime_motion_state": "Wait"
+                },
+                {
+                    "state": "Wait2",
+                    "source_action_key": "Wait2",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Wait2_figatree",
+                    "runtime_motion_state": null
+                }
+            ],
+            "rust_parity_gaps": [
+                {
+                    "state": "Wait2",
+                    "reason": "source action imported but no current Rust MotionState binding exists"
+                }
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "generated".to_string(),
+        "write-action-motion-tables".to_string(),
+        "--write".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let artifact = &parsed["artifact"];
+
+    assert_eq!(artifact["imported_action_count"], 2);
+    assert_eq!(artifact["entries"][0]["state"], "Wait");
+    assert_eq!(artifact["entries"][0]["completeness_class"], "aligned");
+    assert_eq!(artifact["entries"][1]["state"], "Wait2");
+    assert_eq!(artifact["entries"][1]["completeness_class"], "absent");
 }
 
 #[test]
@@ -3681,6 +4333,139 @@ fn graph_missing_lists_missing_nodes_and_edges_with_refs_and_recommendations() {
         .unwrap()
         .iter()
         .any(|item| item.as_str().unwrap().contains("RunDirect -> Run")));
+}
+
+#[test]
+fn graph_completeness_distinguishes_presence_from_source_coverage() {
+    let root = temp_project_root("graph_completeness");
+    write_json(
+        &root.join("docs/state_graphs/melee_reference_graph.json"),
+        &json!({
+            "id": "melee_reference",
+            "nodes": [
+                {"id": "Wait", "status": "reference"},
+                {"id": "Attack12", "status": "reference"}
+            ],
+            "edges": [
+                {"from": "Wait", "to": "Attack12", "status": "reference"}
+            ]
+        }),
+    );
+    write_json(
+        &root.join("docs/state_graphs/mole_current_graph.json"),
+        &json!({
+            "id": "mole_current",
+            "nodes": [
+                {"id": "Wait", "status": "aligned"}
+            ],
+            "edges": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        &json!({
+            "actions": {
+                "Wait": {
+                    "state": "Wait",
+                    "source_action_key": "Wait1",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+                    "runtime_motion_state": "Wait"
+                },
+                "Attack12": {
+                    "state": "Attack12",
+                    "source_action_key": "Attack12",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+                    "runtime_motion_state": null
+                }
+            },
+            "rust_parity_gaps": [
+                {
+                    "state": "Attack12",
+                    "source_action_key": "Attack12",
+                    "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+                    "reason": "source action imported but no current Rust MotionState binding exists"
+                }
+            ]
+        }),
+    );
+    write_json(
+        &root.join("docs/state_graphs/parity_reports/falcon_ecb_coverage.json"),
+        &json!({
+            "mapped_motion_state_count": 1,
+            "mapped_motion_states": [
+                {
+                    "motion_state": "Wait",
+                    "source_action": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+                    "status": "mapped_exact_action_table"
+                }
+            ],
+            "missing_sampled_mappings": []
+        }),
+    );
+
+    let output = run_cli(&[
+        "graph".to_string(),
+        "completeness".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "graph completeness");
+    assert_eq!(parsed["mutated"], false);
+    assert_eq!(parsed["reference_presence"]["missing_node_count"], 1);
+    assert_eq!(parsed["reference_presence"]["missing_edge_count"], 1);
+    assert_eq!(parsed["source_completeness"]["imported_action_count"], 2);
+    assert_eq!(parsed["source_completeness"]["unbound_action_count"], 1);
+    assert_eq!(
+        parsed["source_completeness"]["unbound_actions"][0]["state"],
+        "Attack12"
+    );
+    assert_eq!(parsed["rust_implementation_parity"]["aligned_count"], 1);
+    assert_eq!(parsed["rust_implementation_parity"]["partial_count"], 0);
+    assert!(parsed["recommended_next"][0]
+        .as_str()
+        .unwrap()
+        .contains("action_motion_tables"));
+}
+
+#[test]
+fn graph_completeness_counts_array_manifest_actions() {
+    let root = temp_project_root("graph_completeness_array_manifest");
+    write_json(
+        &root.join("docs/state_graphs/melee_reference_graph.json"),
+        &json!({"nodes": [], "edges": []}),
+    );
+    write_json(
+        &root.join("docs/state_graphs/mole_current_graph.json"),
+        &json!({"nodes": [], "edges": []}),
+    );
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        &json!({
+            "actions": [
+                {"state": "Wait", "runtime_motion_state": "Wait"},
+                {"state": "Wait2", "runtime_motion_state": null}
+            ],
+            "rust_parity_gaps": []
+        }),
+    );
+    write_json(
+        &root.join("docs/state_graphs/parity_reports/falcon_ecb_coverage.json"),
+        &json!({"mapped_motion_states": [], "missing_sampled_mappings": []}),
+    );
+
+    let output = run_cli(&[
+        "graph".to_string(),
+        "completeness".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["source_completeness"]["imported_action_count"], 2);
 }
 
 #[test]
@@ -4359,6 +5144,104 @@ fn replay_trace_returns_match_start_trace_rows() {
     );
     assert_eq!(parsed["trace"]["rows"][0]["expected_motion_state"], "Dash");
     assert!(parsed["trace"]["rows"][0]["actual_motion_frame"].is_u64());
+    assert!(parsed["trace"]["rows"][0]["expected_air_velocity_x_source"].is_number());
+    assert!(parsed["trace"]["rows"][0]["actual_source_self_velocity_x"].is_number());
+    assert!(parsed["trace"]["rows"][0]["actual_ground_velocity_x"].is_number());
+}
+
+#[test]
+fn replay_scan_returns_grouped_divergence_scenarios() {
+    let root = temp_project_root("replay_scan");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "source": {"replay_path": "fixture.slp"},
+            "settings": {
+                "stage_id": 31,
+                "players": {
+                    "0": {"controller_fix": "UCF"},
+                    "1": {"controller_fix": "UCF"}
+                }
+            },
+            "frames": [
+                {"frame": 0, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 322,
+                        "position": [-38.8, 35.2],
+                        "facing": 1.0,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 14,
+                        "position": [-38.8, 35.2],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}},
+                {"frame": 1, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 322,
+                        "position": [-38.8, 35.2],
+                        "facing": 1.0,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 322,
+                        "position": [-38.8, 35.2],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}}
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "scan".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--lookahead".to_string(),
+        "3".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay scan");
+    assert_eq!(parsed["ok"], false);
+    assert_eq!(parsed["scan"]["frames_scanned"], 2);
+    assert_eq!(parsed["scan"]["scenario_count"], 1);
+    assert_eq!(parsed["scan"]["scenarios"][0]["kind"], "state_mismatch");
+    assert_eq!(parsed["scan"]["scenarios"][0]["source_frame"], 0);
+    assert_eq!(parsed["scan"]["scenarios"][0]["duration_frames"], 1);
+    assert_eq!(parsed["scan"]["scenarios"][0]["realign_source_frame"], 1);
+    assert_eq!(
+        parsed["scan"]["scenarios"][0]["rollback_replay_deterministic"],
+        true
+    );
 }
 
 #[test]
@@ -4502,8 +5385,8 @@ fn parity_report_includes_owned_ledger_map_summary() {
 
     assert_eq!(parsed["command"], "parity");
     assert_eq!(parsed["ledger_map"]["registry"]["tab_count"], 11);
-    assert_eq!(parsed["ledger_map"]["registry"]["active_tab_count"], 6);
-    assert_eq!(parsed["ledger_map"]["registry"]["planned_tab_count"], 5);
+    assert_eq!(parsed["ledger_map"]["registry"]["active_tab_count"], 7);
+    assert_eq!(parsed["ledger_map"]["registry"]["planned_tab_count"], 4);
     assert!(parsed["ledger_map"]["registry"]["dual_surface"]
         .as_bool()
         .unwrap());
@@ -4551,9 +5434,9 @@ fn parity_gaps_reports_planned_surfaces_and_partial_graph_entries() {
 
     assert_eq!(parsed["command"], "parity gaps");
     assert_eq!(parsed["mutated"], false);
-    assert_eq!(parsed["summary"]["planned_surface_count"], 5);
+    assert_eq!(parsed["summary"]["planned_surface_count"], 4);
     assert_eq!(parsed["summary"]["partial_graph_count"], 2);
-    assert_eq!(parsed["planned_surfaces"][0]["id"], "action_motion_tables");
+    assert_eq!(parsed["planned_surfaces"][0]["id"], "collision_volumes");
     assert_eq!(parsed["partial_graph_entries"][0]["id"], "GuardReflect");
     assert_eq!(
         parsed["partial_graph_entries"][1]["id"],
@@ -4562,7 +5445,7 @@ fn parity_gaps_reports_planned_surfaces_and_partial_graph_entries() {
     assert!(parsed["recommended_next"][0]
         .as_str()
         .unwrap()
-        .contains("action_motion_tables"));
+        .contains("collision_volumes"));
 }
 
 #[test]
@@ -4744,6 +5627,8 @@ fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
     let map_head_models_offset = 0xE0;
     let map_head_root_node_offset = 0x110;
     let map_head_child_node_offset = 0x150;
+    let map_head_point_table_offset = 0x190;
+    let map_head_point_pairs_offset = 0x1A0;
 
     put_u32_be(&mut data_block, coll_offset, vertices_offset as u32);
     put_u32_be(&mut data_block, coll_offset + 0x04, 4);
@@ -4775,8 +5660,9 @@ fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
     put_u32_be(
         &mut data_block,
         map_head_offset,
-        map_head_models_offset as u32,
+        map_head_point_table_offset as u32,
     );
+    put_u32_be(&mut data_block, map_head_offset + 0x04, 1);
     put_u32_be(
         &mut data_block,
         map_head_offset + 0x08,
@@ -4807,6 +5693,142 @@ fn make_stage_dat_fixture(scale: f32) -> Vec<u8> {
     put_f32_be(&mut data_block, map_head_child_node_offset + 0x28, 1.0);
     put_f32_be(&mut data_block, map_head_child_node_offset + 0x2C, 4.0);
     put_f32_be(&mut data_block, map_head_child_node_offset + 0x30, 8.0);
+
+    put_u32_be(
+        &mut data_block,
+        map_head_point_table_offset,
+        map_head_root_node_offset as u32,
+    );
+    put_u32_be(
+        &mut data_block,
+        map_head_point_table_offset + 0x04,
+        map_head_point_pairs_offset as u32,
+    );
+    put_u32_be(&mut data_block, map_head_point_table_offset + 0x08, 4);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x02, 4);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x04, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x06, 5);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x08, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0A, 6);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0C, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0E, 7);
+
+    make_stage_dat_with_roots(
+        &[
+            ("coll_data", coll_offset as u32),
+            ("grGroundParam", ground_param_offset as u32),
+            ("map_head", map_head_offset as u32),
+        ],
+        data_block,
+    )
+}
+
+fn make_stage_dat_fixture_with_empty_line(scale: f32) -> Vec<u8> {
+    let mut data_block = vec![0_u8; 0x1C0];
+    let coll_offset = 0x00;
+    let vertices_offset = 0x40;
+    let lines_offset = 0x60;
+    let joints_offset = 0x90;
+    let ground_param_offset = 0xC0;
+    let map_head_offset = 0xD0;
+    let map_head_models_offset = 0xE0;
+    let map_head_root_node_offset = 0x110;
+    let map_head_child_node_offset = 0x150;
+    let map_head_point_table_offset = 0x190;
+    let map_head_point_pairs_offset = 0x1A0;
+
+    put_u32_be(&mut data_block, coll_offset, vertices_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x04, 3);
+    put_u32_be(&mut data_block, coll_offset + 0x08, lines_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x0C, 3);
+    put_i16_be(&mut data_block, coll_offset + 0x10, 0);
+    put_i16_be(&mut data_block, coll_offset + 0x12, 3);
+    put_u32_be(&mut data_block, coll_offset + 0x24, joints_offset as u32);
+    put_u32_be(&mut data_block, coll_offset + 0x28, 1);
+
+    put_vec2_be(&mut data_block, vertices_offset, -10.0, 0.0);
+    put_vec2_be(&mut data_block, vertices_offset + 0x08, 0.0, 0.0);
+    put_vec2_be(&mut data_block, vertices_offset + 0x10, 10.0, 0.0);
+
+    put_map_line_be(&mut data_block, lines_offset, 0, 1, 1, 0);
+    put_i16_be(&mut data_block, lines_offset + 0x06, 1);
+    put_i16_be(&mut data_block, lines_offset + 0x0A, 1);
+    put_map_line_be(&mut data_block, lines_offset + 0x10, 1, 1, 1, 0);
+    put_i16_be(&mut data_block, lines_offset + 0x14, 0);
+    put_i16_be(&mut data_block, lines_offset + 0x16, 2);
+    put_i16_be(&mut data_block, lines_offset + 0x18, 0);
+    put_i16_be(&mut data_block, lines_offset + 0x1A, 2);
+    put_map_line_be(&mut data_block, lines_offset + 0x20, 1, 2, 1, 0);
+    put_i16_be(&mut data_block, lines_offset + 0x24, 1);
+    put_i16_be(&mut data_block, lines_offset + 0x28, 1);
+
+    put_i16_be(&mut data_block, joints_offset, 0);
+    put_i16_be(&mut data_block, joints_offset + 0x02, 3);
+    put_f32_be(&mut data_block, joints_offset + 0x14, -10.0);
+    put_f32_be(&mut data_block, joints_offset + 0x18, 0.0);
+    put_f32_be(&mut data_block, joints_offset + 0x1C, 10.0);
+    put_f32_be(&mut data_block, joints_offset + 0x20, 0.0);
+    put_i16_be(&mut data_block, joints_offset + 0x24, 0);
+    put_i16_be(&mut data_block, joints_offset + 0x26, 3);
+
+    put_f32_be(&mut data_block, ground_param_offset, scale);
+    put_u32_be(
+        &mut data_block,
+        map_head_offset,
+        map_head_point_table_offset as u32,
+    );
+    put_u32_be(&mut data_block, map_head_offset + 0x04, 1);
+    put_u32_be(
+        &mut data_block,
+        map_head_offset + 0x08,
+        map_head_models_offset as u32,
+    );
+    put_u32_be(&mut data_block, map_head_offset + 0x0C, 1);
+    put_u32_be(
+        &mut data_block,
+        map_head_models_offset,
+        map_head_root_node_offset as u32,
+    );
+
+    put_u32_be(&mut data_block, map_head_root_node_offset + 0x04, 1);
+    put_u32_be(
+        &mut data_block,
+        map_head_root_node_offset + 0x08,
+        map_head_child_node_offset as u32,
+    );
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x20, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x24, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x28, 1.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x2C, 10.0);
+    put_f32_be(&mut data_block, map_head_root_node_offset + 0x30, 20.0);
+
+    put_u32_be(&mut data_block, map_head_child_node_offset + 0x04, 2);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x20, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x24, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x28, 1.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x2C, 4.0);
+    put_f32_be(&mut data_block, map_head_child_node_offset + 0x30, 8.0);
+
+    put_u32_be(
+        &mut data_block,
+        map_head_point_table_offset,
+        map_head_root_node_offset as u32,
+    );
+    put_u32_be(
+        &mut data_block,
+        map_head_point_table_offset + 0x04,
+        map_head_point_pairs_offset as u32,
+    );
+    put_u32_be(&mut data_block, map_head_point_table_offset + 0x08, 4);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x02, 4);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x04, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x06, 5);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x08, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0A, 6);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0C, 1);
+    put_i16_be(&mut data_block, map_head_point_pairs_offset + 0x0E, 7);
 
     make_stage_dat_with_roots(
         &[

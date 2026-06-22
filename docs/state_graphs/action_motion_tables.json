@@ -1,0 +1,1936 @@
+{
+  "absent_action_count": 209,
+  "aligned_action_count": 66,
+  "artifact_kind": "action_motion_tables",
+  "entries": [
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AppealL",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AppealL_figatree",
+      "state": "AppealL"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AppealR",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AppealR_figatree",
+      "state": "AppealR"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Attack1",
+      "source_action_key": "Attack11",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack11_figatree",
+      "state": "Attack1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Attack100End",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack100End_figatree",
+      "state": "Attack100End"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Attack100Loop",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
+      "state": "Attack100Loop"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Attack100Start",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack100Start_figatree",
+      "state": "Attack100Start"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Attack12",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
+      "state": "Attack12"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Attack13",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Attack13_figatree",
+      "state": "Attack13"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackAirB",
+      "source_action_key": "AttackAirB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirB_figatree",
+      "state": "AttackAirB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackAirF",
+      "source_action_key": "AttackAirF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirF_figatree",
+      "state": "AttackAirF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackAirHi",
+      "source_action_key": "AttackAirHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirHi_figatree",
+      "state": "AttackAirHi"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackAirLw",
+      "source_action_key": "AttackAirLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirLw_figatree",
+      "state": "AttackAirLw"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackAirN",
+      "source_action_key": "AttackAirN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
+      "state": "AttackAirN"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackDash",
+      "source_action_key": "AttackDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackDash_figatree",
+      "state": "AttackDash"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackHi3",
+      "source_action_key": "AttackHi3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackHi3_figatree",
+      "state": "AttackHi3"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackHi4",
+      "source_action_key": "AttackHi4",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackHi4_figatree",
+      "state": "AttackHi4"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackLw3",
+      "source_action_key": "AttackLw3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackLw3_figatree",
+      "state": "AttackLw3"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackLw4",
+      "source_action_key": "AttackLw4",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackLw4_figatree",
+      "state": "AttackLw4"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackS3",
+      "source_action_key": "AttackS3S",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS3S_figatree",
+      "state": "AttackS3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS3Hi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS3Hi_figatree",
+      "state": "AttackS3Hi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS3HiS",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS3HiS_figatree",
+      "state": "AttackS3HiS"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS3Lw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS3Lw_figatree",
+      "state": "AttackS3Lw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS3LwS",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS3LwS_figatree",
+      "state": "AttackS3LwS"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "AttackS4",
+      "source_action_key": "AttackS4S",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS4S_figatree",
+      "state": "AttackS4"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS4Hi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS4Hi_figatree",
+      "state": "AttackS4Hi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "AttackS4Lw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_AttackS4Lw_figatree",
+      "state": "AttackS4Lw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureCut",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureCut_figatree",
+      "state": "CaptureCut"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureDamageHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
+      "state": "CaptureDamageHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureDamageLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureDamageLw_figatree",
+      "state": "CaptureDamageLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureJump",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureJump_figatree",
+      "state": "CaptureJump"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CapturePulledHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CapturePulledHi_figatree",
+      "state": "CapturePulledHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CapturePulledLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CapturePulledLw_figatree",
+      "state": "CapturePulledLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureWaitHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
+      "state": "CaptureWaitHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CaptureWaitLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CaptureWaitLw_figatree",
+      "state": "CaptureWaitLw"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Catch",
+      "source_action_key": "Catch",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Catch_figatree",
+      "state": "Catch"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CatchAttack",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CatchAttack_figatree",
+      "state": "CatchAttack"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CatchCut",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CatchCut_figatree",
+      "state": "CatchCut"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "CatchDash",
+      "source_action_key": "CatchDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
+      "state": "CatchDash"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CatchWait",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CatchWait_figatree",
+      "state": "CatchWait"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffAttackQuick",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffAttackQuick_figatree",
+      "state": "CliffAttackQuick"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffAttackSlow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffAttackSlow_figatree",
+      "state": "CliffAttackSlow"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "CliffCatch",
+      "source_action_key": "CliffCatch",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
+      "state": "CliffCatch"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffClimbQuick",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffClimbQuick_figatree",
+      "state": "CliffClimbQuick"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffClimbSlow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffClimbSlow_figatree",
+      "state": "CliffClimbSlow"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffEscapeQuick",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffEscapeQuick_figatree",
+      "state": "CliffEscapeQuick"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffEscapeSlow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffEscapeSlow_figatree",
+      "state": "CliffEscapeSlow"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffJumpQuick1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffJumpQuick1_figatree",
+      "state": "CliffJumpQuick1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffJumpQuick2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffJumpQuick2_figatree",
+      "state": "CliffJumpQuick2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffJumpSlow1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffJumpSlow1_figatree",
+      "state": "CliffJumpSlow1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffJumpSlow2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffJumpSlow2_figatree",
+      "state": "CliffJumpSlow2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffWait1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
+      "state": "CliffWait1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "CliffWait2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_CliffWait2_figatree",
+      "state": "CliffWait2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageAir1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageAir1_figatree",
+      "state": "DamageAir1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageAir2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageAir2_figatree",
+      "state": "DamageAir2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageAir3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageAir3_figatree",
+      "state": "DamageAir3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
+      "state": "DamageFall"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
+      "state": "DamageFall_Action137"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
+      "state": "DamageFall_Action287"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
+      "state": "DamageFall_Action29"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyHi_figatree",
+      "state": "DamageFlyHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyLw_figatree",
+      "state": "DamageFlyLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyN_figatree",
+      "state": "DamageFlyN"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyRoll",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyRoll_figatree",
+      "state": "DamageFlyRoll"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyTop",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
+      "state": "DamageFlyTop"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageFlyTop",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
+      "state": "DamageFlyTop_Action286"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageHi1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageHi1_figatree",
+      "state": "DamageHi1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageHi2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageHi2_figatree",
+      "state": "DamageHi2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageHi3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageHi3_figatree",
+      "state": "DamageHi3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageLw1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageLw1_figatree",
+      "state": "DamageLw1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageLw2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageLw2_figatree",
+      "state": "DamageLw2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageLw3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageLw3_figatree",
+      "state": "DamageLw3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageN1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageN1_figatree",
+      "state": "DamageN1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageN2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageN2_figatree",
+      "state": "DamageN2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DamageN3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DamageN3_figatree",
+      "state": "DamageN3"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Dash",
+      "source_action_key": "Dash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Dash_figatree",
+      "state": "Dash"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownAttackD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownAttackD_figatree",
+      "state": "DownAttackD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownAttackU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownAttackU_figatree",
+      "state": "DownAttackU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBackD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBackD_figatree",
+      "state": "DownBackD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBackU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBackU_figatree",
+      "state": "DownBackU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBoundD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
+      "state": "DownBoundD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBoundD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
+      "state": "DownBoundD_Action289"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBoundU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
+      "state": "DownBoundU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownBoundU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
+      "state": "DownBoundU_Action288"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownDamageD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownDamageD_figatree",
+      "state": "DownDamageD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownDamageU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownDamageU_figatree",
+      "state": "DownDamageU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownFowardD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownFowardD_figatree",
+      "state": "DownFowardD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownFowardU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownFowardU_figatree",
+      "state": "DownFowardU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownSpotD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownSpotD_figatree",
+      "state": "DownSpotD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownStandD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
+      "state": "DownStandD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownStandD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
+      "state": "DownStandD_Action291"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownStandU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
+      "state": "DownStandU"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownStandU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
+      "state": "DownStandU_Action290"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownWaitD",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownWaitD_figatree",
+      "state": "DownWaitD"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "DownWaitU",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_DownWaitU_figatree",
+      "state": "DownWaitU"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Entry",
+      "source_action_key": "Entry",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Entry_figatree",
+      "state": "Entry"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "EscapeAir",
+      "source_action_key": "EscapeAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_EscapeAir_figatree",
+      "state": "EscapeAir"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "EscapeB",
+      "source_action_key": "EscapeB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_EscapeB_figatree",
+      "state": "EscapeB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "EscapeF",
+      "source_action_key": "EscapeF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_EscapeF_figatree",
+      "state": "EscapeF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "EscapeN",
+      "source_action_key": "EscapeN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_EscapeN_figatree",
+      "state": "EscapeN"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Fall",
+      "source_action_key": "Fall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Fall_figatree",
+      "state": "Fall"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallAerial",
+      "source_action_key": "FallAerial",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallAerial_figatree",
+      "state": "FallAerial"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallAerialB",
+      "source_action_key": "FallAerialB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallAerialB_figatree",
+      "state": "FallAerialB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallAerialF",
+      "source_action_key": "FallAerialF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallAerialF_figatree",
+      "state": "FallAerialF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallB",
+      "source_action_key": "FallB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallB_figatree",
+      "state": "FallB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallF",
+      "source_action_key": "FallF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallF_figatree",
+      "state": "FallF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallSpecial",
+      "source_action_key": "FallSpecial",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallSpecial_figatree",
+      "state": "FallSpecial"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallSpecialB",
+      "source_action_key": "FallSpecialB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallSpecialB_figatree",
+      "state": "FallSpecialB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "FallSpecialF",
+      "source_action_key": "FallSpecialF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FallSpecialF_figatree",
+      "state": "FallSpecialF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "FuraFura",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FuraFura_figatree",
+      "state": "FuraFura"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "FuraSleepEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FuraSleepEnd_figatree",
+      "state": "FuraSleepEnd"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "FuraSleepLoop",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FuraSleepLoop_figatree",
+      "state": "FuraSleepLoop"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "FuraSleepStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_FuraSleepStart_figatree",
+      "state": "FuraSleepStart"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Guard",
+      "source_action_key": "Guard",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Guard_figatree",
+      "state": "Guard"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "GuardDamage",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_GuardDamage_figatree",
+      "state": "GuardDamage"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "GuardOff",
+      "source_action_key": "GuardOff",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_GuardOff_figatree",
+      "state": "GuardOff"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "GuardOn",
+      "source_action_key": "GuardOn",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
+      "state": "GuardOn"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyGet",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyGet_figatree",
+      "state": "HeavyGet"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
+      "state": "HeavyThrowB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
+      "state": "HeavyThrowB_Action105"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
+      "state": "HeavyThrowF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
+      "state": "HeavyThrowF_Action104"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
+      "state": "HeavyThrowHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
+      "state": "HeavyThrowHi_Action106"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
+      "state": "HeavyThrowLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyThrowLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
+      "state": "HeavyThrowLw_Action107"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyWalk1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyWalk1_figatree",
+      "state": "HeavyWalk1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "HeavyWalk2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_HeavyWalk2_figatree",
+      "state": "HeavyWalk2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemBlind",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemBlind_figatree",
+      "state": "ItemBlind"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemHammerMove",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemHammerMove_figatree",
+      "state": "ItemHammerMove"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemHammerWait",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemHammerWait_figatree",
+      "state": "ItemHammerWait"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemParasolFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
+      "state": "ItemParasolFall"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemParasolFall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
+      "state": "ItemParasolFall_Action136"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemParasolOpen",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemParasolOpen_figatree",
+      "state": "ItemParasolOpen"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
+      "state": "ItemScopeAirEnd"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
+      "state": "ItemScopeAirEnd_Action164"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirFire",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
+      "state": "ItemScopeAirFire"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirFire",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
+      "state": "ItemScopeAirFire_Action163"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirRapid",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
+      "state": "ItemScopeAirRapid"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirRapid",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
+      "state": "ItemScopeAirRapid_Action162"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
+      "state": "ItemScopeAirStart"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeAirStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
+      "state": "ItemScopeAirStart_Action161"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
+      "state": "ItemScopeEnd"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
+      "state": "ItemScopeEnd_Action160"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeFire",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
+      "state": "ItemScopeFire"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeFire",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
+      "state": "ItemScopeFire_Action159"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeRapid",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
+      "state": "ItemScopeRapid"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeRapid",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
+      "state": "ItemScopeRapid_Action158"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
+      "state": "ItemScopeStart"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScopeStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
+      "state": "ItemScopeStart_Action157"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScrew",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScrew_figatree",
+      "state": "ItemScrew"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScrewAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScrewAir_figatree",
+      "state": "ItemScrewAir"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScrewDamage",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
+      "state": "ItemScrewDamage"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemScrewDamage",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
+      "state": "ItemScrewDamage_Action147"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShoot",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
+      "state": "ItemShoot"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShootAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
+      "state": "ItemShootAir"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShootAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
+      "state": "ItemShootAir_Action141"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShootAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
+      "state": "ItemShootAir_Action143"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShoot",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
+      "state": "ItemShoot_Action140"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ItemShoot",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
+      "state": "ItemShoot_Action142"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "JumpAerialB",
+      "source_action_key": "JumpAerialB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_JumpAerialB_figatree",
+      "state": "JumpAerialB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "JumpAerialF",
+      "source_action_key": "JumpAerialF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_JumpAerialF_figatree",
+      "state": "JumpAerialF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "JumpB",
+      "source_action_key": "JumpB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_JumpB_figatree",
+      "state": "JumpB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "JumpF",
+      "source_action_key": "JumpF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_JumpF_figatree",
+      "state": "JumpF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Landing",
+      "source_action_key": "Landing",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "state": "Landing"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "LandingAirB",
+      "source_action_key": "LandingAirB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LandingAirB_figatree",
+      "state": "LandingAirB"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "LandingAirF",
+      "source_action_key": "LandingAirF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LandingAirF_figatree",
+      "state": "LandingAirF"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "LandingAirHi",
+      "source_action_key": "LandingAirHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LandingAirHi_figatree",
+      "state": "LandingAirHi"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "LandingAirLw",
+      "source_action_key": "LandingAirLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LandingAirLw_figatree",
+      "state": "LandingAirLw"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "LandingAirN",
+      "source_action_key": "LandingAirN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LandingAirN_figatree",
+      "state": "LandingAirN"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Landing",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "state": "Landing_Action35"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Landing",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
+      "state": "Landing_Action36"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightGet",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightGet_figatree",
+      "state": "LightGet"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
+      "state": "LightThrowAirB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
+      "state": "LightThrowAirB_Action101"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
+      "state": "LightThrowAirF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
+      "state": "LightThrowAirF_Action100"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
+      "state": "LightThrowAirHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
+      "state": "LightThrowAirHi_Action102"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
+      "state": "LightThrowAirLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowAirLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
+      "state": "LightThrowAirLw_Action103"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
+      "state": "LightThrowB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
+      "state": "LightThrowB_Action97"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowDash_figatree",
+      "state": "LightThrowDash"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowDrop",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowDrop_figatree",
+      "state": "LightThrowDrop"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
+      "state": "LightThrowF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
+      "state": "LightThrowF_Action96"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
+      "state": "LightThrowHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
+      "state": "LightThrowHi_Action98"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
+      "state": "LightThrowLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "LightThrowLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
+      "state": "LightThrowLw_Action99"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "MissFoot",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_MissFoot_figatree",
+      "state": "MissFoot"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Ottotto",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Ottotto_figatree",
+      "state": "Ottotto"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "OttottoWait",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_OttottoWait_figatree",
+      "state": "OttottoWait"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Pass",
+      "source_action_key": "Pass",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Pass_figatree",
+      "state": "Pass"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Passive",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Passive_figatree",
+      "state": "Passive"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "PassiveCeil",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_PassiveCeil_figatree",
+      "state": "PassiveCeil"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "PassiveStandB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_PassiveStandB_figatree",
+      "state": "PassiveStandB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "PassiveStandF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_PassiveStandF_figatree",
+      "state": "PassiveStandF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "PassiveWall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_PassiveWall_figatree",
+      "state": "PassiveWall"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "PassiveWallJump",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_PassiveWallJump_figatree",
+      "state": "PassiveWallJump"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Rebound",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Rebound_figatree",
+      "state": "Rebound"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Run",
+      "source_action_key": "Run",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Run_figatree",
+      "state": "Run"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "RunBrake",
+      "source_action_key": "RunBrake",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_RunBrake_figatree",
+      "state": "RunBrake"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialAirHi",
+      "source_action_key": "SpecialAirHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree",
+      "state": "SpecialAirHi"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialAirLw",
+      "source_action_key": "SpecialAirLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirLw_figatree",
+      "state": "SpecialAirLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialAirLwEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirLwEnd_figatree",
+      "state": "SpecialAirLwEnd"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialAirLwEndAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirLwEndAir_figatree",
+      "state": "SpecialAirLwEndAir"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialAirN",
+      "source_action_key": "SpecialAirN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirN_figatree",
+      "state": "SpecialAirN"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialAirS",
+      "source_action_key": "SpecialAirS",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirS_figatree",
+      "state": "SpecialAirS"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialAirSStart",
+      "source_action_key": "SpecialAirSStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree",
+      "state": "SpecialAirSStart"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialHi",
+      "source_action_key": "SpecialHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
+      "state": "SpecialHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialHiCatch",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialHiCatch_figatree",
+      "state": "SpecialHiCatch"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialHiThrow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
+      "state": "SpecialHiThrow"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialHiThrow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
+      "state": "SpecialHiThrow_Action317"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialLw",
+      "source_action_key": "SpecialLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialLw_figatree",
+      "state": "SpecialLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialLwEnd",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialLwEnd_figatree",
+      "state": "SpecialLwEnd"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SpecialLwEndAir",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialLwEndAir_figatree",
+      "state": "SpecialLwEndAir"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialN",
+      "source_action_key": "SpecialN",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
+      "state": "SpecialN"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialS",
+      "source_action_key": "SpecialS",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialS_figatree",
+      "state": "SpecialS"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SpecialSStart",
+      "source_action_key": "SpecialSStart",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
+      "state": "SpecialSStart"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Squat",
+      "source_action_key": "Squat",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Squat_figatree",
+      "state": "Squat"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SquatRv",
+      "source_action_key": "SquatRv",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SquatRv_figatree",
+      "state": "SquatRv"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "SquatWait",
+      "source_action_key": "SquatWait",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SquatWait_figatree",
+      "state": "SquatWait"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "StopCeil",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_StopCeil_figatree",
+      "state": "StopCeil"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "StopWall",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_StopWall_figatree",
+      "state": "StopWall"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1_Action112"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1_Action116"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1_Action120"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1_Action124"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
+      "state": "Swing1_Action128"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3_Action113"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3_Action117"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3_Action121"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3_Action125"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
+      "state": "Swing3_Action129"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41_Action114"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41_Action118"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41_Action122"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41_Action126"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing41",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
+      "state": "Swing41_Action130"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42_Action296"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42_Action297"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42_Action298"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42_Action299"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Swing42",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
+      "state": "Swing42_Action300"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash_Action115"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash_Action119"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash_Action123"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash_Action127"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "SwingDash",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
+      "state": "SwingDash_Action131"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "TCaptainSpecialHi",
+      "source_action_name": "PlyTaro_Share_ACTION_TCaptainSpecialHi_figatree",
+      "state": "TCaptainSpecialHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "TCaptainThrowB",
+      "source_action_name": "PlyTaro_Share_ACTION_TCaptainThrowB_figatree",
+      "state": "TCaptainThrowB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "TCaptainThrowF",
+      "source_action_name": "PlyTaro_Share_ACTION_TCaptainThrowF_figatree",
+      "state": "TCaptainThrowF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "TCaptainThrowHi",
+      "source_action_name": "PlyTaro_Share_ACTION_TCaptainThrowHi_figatree",
+      "state": "TCaptainThrowHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "TCaptainThrowLw",
+      "source_action_name": "PlyTaro_Share_ACTION_TCaptainThrowLw_figatree",
+      "state": "TCaptainThrowLw"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ThrowB",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ThrowB_figatree",
+      "state": "ThrowB"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ThrowF",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ThrowF_figatree",
+      "state": "ThrowF"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ThrowHi",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ThrowHi_figatree",
+      "state": "ThrowHi"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "ThrowLw",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_ThrowLw_figatree",
+      "state": "ThrowLw"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Turn",
+      "source_action_key": "Turn",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Turn_figatree",
+      "state": "Turn"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "TurnRun",
+      "source_action_key": "TurnRun",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_TurnRun_figatree",
+      "state": "TurnRun"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "Wait",
+      "source_action_key": "Wait1",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
+      "state": "Wait"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Wait2",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Wait2_figatree",
+      "state": "Wait2"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "Wait3",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_Wait3_figatree",
+      "state": "Wait3"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "WaitItem",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WaitItem_figatree",
+      "state": "WaitItem"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "WalkFast",
+      "source_action_key": "WalkFast",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WalkFast_figatree",
+      "state": "WalkFast"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "WalkMiddle",
+      "source_action_key": "WalkMiddle",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WalkMiddle_figatree",
+      "state": "WalkMiddle"
+    },
+    {
+      "completeness_class": "aligned",
+      "runtime_binding": "WalkSlow",
+      "source_action_key": "WalkSlow",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WalkSlow_figatree",
+      "state": "WalkSlow"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "WallDamage",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
+      "state": "WallDamage"
+    },
+    {
+      "completeness_class": "absent",
+      "runtime_binding": null,
+      "source_action_key": "WallDamage",
+      "source_action_name": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
+      "state": "WallDamage_Action212"
+    }
+  ],
+  "errors": [],
+  "imported_action_count": 275,
+  "schema_version": 1,
+  "source_manifest_path": "resources/melee/frame_data/dolphin_mole/source_manifest.json"
+}

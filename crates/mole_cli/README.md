@@ -34,6 +34,7 @@ cargo run -p mole_cli -- finish check --json
 cargo run -p mole_cli -- finish check --format markdown
 cargo run -p mole_cli -- replay check --replay replays\Game_20260530T214929.slp --frames 1800 --json
 cargo run -p mole_cli -- replay check --inputs debug\slippi\Game_20260530T214929.inputs.json --mode seeded --json
+cargo run -p mole_cli -- replay scan --inputs debug\slippi\Game_20260530T214929.inputs.json --lookahead 5 --json
 cargo run -p mole_cli -- replay trace --inputs debug\slippi\Game_20260530T214929.inputs.json --player 2 --start 900 --end 934 --frames 1800 --format markdown
 cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json
 cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown
@@ -56,11 +57,11 @@ Mole CLI command is added, removed, or materially changed.
 
 Use `--root "D:\Mole Game\First_Game"` when calling from outside the repository.
 
-Replay-parity agents should use `replay trace` after `replay check` identifies a
-divergence. It runs the same sequential Slippi match-start oracle, but emits a
-bounded source-frame window with expected state, actual state, actual motion
-frame, input facts, position deltas, and velocity deltas so the next decomp
-lookup can be anchored to the exact callback boundary.
+Replay-parity agents should use `replay scan` before choosing the next parity
+fix. It groups start-to-finish replay divergences into scenario runs, replays a
+short rollback lookahead from the pre-divergence snapshot, and records whether
+the scenario realigns. Use `replay trace` on the highest-priority scenario when
+you need the bounded per-frame source window for decomp lookup.
 
 Replay-parity agents should use the `decomp` commands before falling back to
 manual repository searches:
