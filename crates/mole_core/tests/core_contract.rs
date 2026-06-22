@@ -4303,6 +4303,39 @@ fn packed_input_treats_light_analog_trigger_as_shield_held() {
 }
 
 #[test]
+fn packed_input_melee_snapshot_applies_trigger_deadzone_before_facts() {
+    let common = MeleeCommonData::provisional_mole();
+    let input = PlayerInput::neutral().with_left_trigger_analog(51);
+    let snapshot = input.melee_snapshot_with_config(
+        PlayerInput::neutral(),
+        MeleeInputTimers::expired(),
+        common.input_config(),
+    );
+    let facts = snapshot.facts(common.input_thresholds());
+
+    assert_eq!(snapshot.left_trigger, 0);
+    assert!(!snapshot.shield_held);
+    assert!(!facts.shield_held);
+}
+
+#[test]
+fn packed_input_melee_snapshot_keeps_digital_lr_as_shield_after_trigger_cleaning() {
+    let common = MeleeCommonData::provisional_mole();
+    let input = PlayerInput::neutral().with_left_trigger_digital(true);
+    let snapshot = input.melee_snapshot_with_config(
+        PlayerInput::neutral(),
+        MeleeInputTimers::expired(),
+        common.input_config(),
+    );
+    let facts = snapshot.facts(common.input_thresholds());
+
+    assert!(snapshot.shield_held);
+    assert!(facts.shield_held);
+    assert!(facts.digital_shield_held);
+    assert!(facts.source_held.lr());
+}
+
+#[test]
 fn melee_input_timer_counts_z_as_source_lr_for_lcancel() {
     let timers = MeleeInputTimers::expired().update(
         PlayerInput::neutral(),
@@ -5490,7 +5523,7 @@ fn melee_input_facts_map_held_digital_lr_to_full_shield_amount() {
     let snapshot = input.melee_snapshot(PlayerInput::neutral(), MeleeInputTimers::expired());
     let facts = snapshot.facts(thresholds);
 
-    assert_eq!(snapshot.right_trigger, 12);
+    assert_eq!(snapshot.right_trigger, 0);
     assert!(facts.right_trigger_digital_pressed);
     assert_eq!(facts.analog_shield, u8::MAX);
 }
@@ -10034,9 +10067,9 @@ fn world_melee_snapshot_preserves_y_only_jump_button() {
 }
 
 #[test]
-fn world_melee_snapshot_treats_light_analog_trigger_as_shield_not_air_dodge() {
+fn world_melee_snapshot_treats_analog_trigger_above_deadzone_as_shield_not_air_dodge() {
     let world = World::for_two_players();
-    let input = PlayerInput::neutral().with_left_trigger_analog(42);
+    let input = PlayerInput::neutral().with_left_trigger_analog(90);
 
     let snapshot = world
         .melee_input_snapshot(0, input)
@@ -10047,8 +10080,8 @@ fn world_melee_snapshot_treats_light_analog_trigger_as_shield_not_air_dodge() {
     assert!(snapshot.shield_pressed);
     assert!(snapshot.left_trigger_analog_held);
     assert!(snapshot.left_trigger_analog_pressed);
-    assert_eq!(snapshot.trigger_timer, 0xfe);
-    assert_eq!(facts.analog_shield, 42);
+    assert_eq!(snapshot.trigger_timer, 0);
+    assert_eq!(facts.analog_shield, 90);
     assert!(facts.analog_shield_pressed);
     assert!(!facts.digital_shield_pressed);
     assert!(!facts.air_dodge_pressed);
@@ -12530,7 +12563,11 @@ fn aerial_landing_air_uses_empty_iasa_and_exits_by_scaled_animation_completion()
         frame += 1;
     }
 
-    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::WalkSlow,
+        "LandingAir_IASA remains empty before completion, then ftCo_Landing_Anim falls through ft_8008A2BC so Wait_IASA can consume held walk on the completion frame"
+    );
     assert_eq!(world.players()[0].motion_frame, 0);
 }
 
@@ -15046,15 +15083,7 @@ fn grounded_dash_moving_past_floor_edge_keeps_source_floor_for_the_tick() {
 
 #[test]
 fn turn_run_floor_edge_collision_zeros_ground_velocity_like_source() {
-    let mut stage = StageProfile::battlefield_test();
-    stage.main_floor = StageSurface {
-        name: "narrow_main_floor",
-        kind: StageSurfaceKind::Solid,
-        left_x: melee_units_f32(-20.5),
-        right_x: melee_units_f32(-19.0),
-        y: 0,
-        friction_multiplier: 1.0,
-    };
+    let stage = StageProfile::battlefield();
     let mut world = World::for_two_players_on_stage(stage);
     let mut player = world.players()[0];
     player.motion_state = MotionState::TurnRun;
@@ -15066,7 +15095,17 @@ fn turn_run_floor_edge_collision_zeros_ground_velocity_like_source() {
     player.turn_run_accel_mul = 1;
     player.grounded = true;
     player.ground_velocity_x = 1.0;
+    player.source_position = SourceVec2::from_milli(player.position);
+    player.source_self_velocity_x = player.ground_velocity_x;
     player.velocity.x = source_units_to_milli(1.0);
+    player.set_source_floor_for_diagnostic(
+        Some(0),
+        Some(source_floor_line_for_surface_at_x(
+            stage,
+            stage.main_floor,
+            player.source_position.x,
+        )),
+    );
     assert!(world.set_player_state_for_diagnostic(0, player));
 
     step_world(
@@ -15076,13 +15115,69 @@ fn turn_run_floor_edge_collision_zeros_ground_velocity_like_source() {
     );
 
     assert!(world.players()[0].grounded);
-    assert_eq!(world.players()[0].position.x, stage.main_floor.right_x);
+    assert_ne!(
+        world.snapshot().players[0].source_coll_env_flags & (0x100000 | 0x200000),
+        0,
+        "ft_800827A0 owns the source edge flag before ftCommon_8007E2FC clears velocity"
+    );
     assert_eq!(
         world.players()[0].ground_velocity_x,
         0.0,
         "ftCo_TurnRun_Coll calls ftCommon_8007E2FC when Collide_RightEdge is set"
     );
     assert_eq!(world.players()[0].velocity.x, 0);
+}
+
+#[test]
+fn turn_run_collision_uses_source_floor_callback_before_generic_ledge_slip_gate() {
+    let mut world = World::for_two_players();
+    let stage = world.stage();
+    let right_platform = stage.soft_platforms[1];
+    let mut player = world.players()[1];
+    player.facing = -1;
+    player.set_motion_state_alias(MotionState::TurnRun);
+    player.motion_frame = 9;
+    player.motion_anim_frame_milli = 9_000;
+    player.grounded = true;
+    player.position = Vec2 {
+        x: right_platform.left_x + 100,
+        y: right_platform.y,
+    };
+    player.source_position = SourceVec2::from_milli(player.position);
+    player.set_source_floor_for_diagnostic(
+        Some(2),
+        Some(source_floor_line_for_surface_at_x(
+            stage,
+            right_platform,
+            player.source_position.x,
+        )),
+    );
+    player.ground_velocity_x = -0.35;
+    player.source_self_velocity_x = player.ground_velocity_x;
+    player.velocity.x = source_units_to_milli(player.ground_velocity_x);
+    player.velocity.y = 0;
+    player.turn_run_accel_mul = -1;
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[PlayerInput::neutral(), PlayerInput::neutral()],
+    );
+
+    let player = world.players()[1];
+    assert!(player.grounded);
+    assert_eq!(player.motion_state, MotionState::TurnRun);
+    assert_ne!(
+        world.snapshot().players[1].source_coll_env_flags & (0x100000 | 0x200000),
+        0,
+        "ftCo_TurnRun_Coll routes through ft_800827A0 before any generic ledge-slip stick gate"
+    );
+    assert_eq!(
+        player.ground_velocity_x, 0.0,
+        "ftCommon_8007E2FC clears TurnRun ground velocity after the source edge flag is set"
+    );
+    assert_eq!(player.velocity.x, 0);
 }
 
 #[test]
@@ -18766,6 +18861,69 @@ fn completed_landing_fall_special_dash_runs_wait_input_and_dash_physics_on_the_s
 }
 
 #[test]
+fn completed_landing_air_dash_runs_wait_input_on_completion_frame() {
+    let profile = FighterProfile::falcon_like();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, -1, profile);
+    player.motion_state = MotionState::LandingAirN;
+    player.motion_frame = profile.landing_air_n_lag_ticks - 1;
+    player.landing_lag_ticks = profile.landing_air_n_lag_ticks;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(-304);
+    player.velocity.x = -304;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let dash_left = [
+        PlayerInput::neutral()
+            .with_left_stick(-127, 0)
+            .with_ucf_dashback_amendment(true),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &dash_left);
+
+    assert_eq!(world.players()[0].motion_state, MotionState::Dash);
+    assert_eq!(
+        world.players()[0].position.x, -304,
+        "ftCo_LandingAir_Anim calls ftCo_Landing_Anim, so completion must fall through ft_8008A2BC to Wait before same-frame input/phys"
+    );
+    assert_eq!(
+        world.players()[0].velocity.x, -2_000,
+        "Wait_IASA should enter Dash on the LandingAir completion frame instead of spending a stale Wait frame"
+    );
+}
+
+#[test]
+fn completed_landing_air_light_analog_trigger_below_guard_threshold_stays_wait() {
+    let profile = FighterProfile::falcon_like();
+    let mut world = World::for_two_players_with_profiles([profile; 2]);
+    let mut player = PlayerState::new_with_profile(0, 0, 1, profile);
+    player.motion_state = MotionState::LandingAirN;
+    player.motion_frame = profile.landing_air_n_lag_ticks - 1;
+    player.landing_lag_ticks = profile.landing_air_n_lag_ticks;
+    player.grounded = true;
+    player.ground_velocity_x = milli_to_source_units(194);
+    player.velocity.x = 194;
+    world.set_player_state_for_diagnostic(0, player);
+
+    let light_analog_trigger = [
+        PlayerInput::neutral().with_left_trigger_analog(51),
+        PlayerInput::neutral(),
+    ];
+    step_world(&mut world, Frame(0), &light_analog_trigger);
+
+    assert_eq!(
+        world.players()[0].motion_state,
+        MotionState::Wait,
+        "ftCo_80091A4C should not enter GuardOn from a light analog trigger below the guard analog threshold"
+    );
+    assert_eq!(
+        world.players()[0].velocity.x,
+        114,
+        "Wait_Phys should apply source ground friction instead of spending the frame in GuardOn"
+    );
+}
+
+#[test]
 fn run_state_accepts_specials_in_source_priority_order() {
     let mut side = World::for_two_players();
     let mut up = World::for_two_players();
@@ -20982,11 +21140,11 @@ fn attack11_repeated_a_enters_canonical_attack12_like_ftco_attack1() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    step_world(&mut world, Frame(0), &jab);
+    step_world_with_falcon_jab_source_data(&mut world, 0, &jab);
     for frame in 1..=8 {
-        step_world(&mut world, Frame(frame), &neutral);
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
-    step_world(&mut world, Frame(9), &jab);
+    step_world_with_falcon_jab_source_data(&mut world, 9, &jab);
 
     let player = &world.players()[0];
     assert_eq!(
@@ -21009,15 +21167,15 @@ fn attack12_repeated_a_enters_canonical_attack13_like_ftco_attack1() {
     ];
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
-    step_world(&mut world, Frame(0), &jab);
+    step_world_with_falcon_jab_source_data(&mut world, 0, &jab);
     for frame in 1..=8 {
-        step_world(&mut world, Frame(frame), &neutral);
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
-    step_world(&mut world, Frame(9), &jab);
+    step_world_with_falcon_jab_source_data(&mut world, 9, &jab);
     for frame in 10..=16 {
-        step_world(&mut world, Frame(frame), &neutral);
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
-    step_world(&mut world, Frame(17), &jab);
+    step_world_with_falcon_jab_source_data(&mut world, 17, &jab);
 
     let player = &world.players()[0];
     assert_eq!(
@@ -21029,6 +21187,148 @@ fn attack12_repeated_a_enters_canonical_attack13_like_ftco_attack1() {
         Some(SourceActionKey::new("Attack13"))
     );
     assert_eq!(player.motion_state_alias, None);
+}
+
+fn falcon_jab_source_metadata(player: &PlayerState) -> Option<SourceActionPoseMetadata> {
+    let action_state_id = player.melee_action_state_id?.get();
+    let source_frame = if player.source_motion_anim_frame.is_finite() {
+        (player
+            .source_motion_anim_frame
+            .floor()
+            .clamp(0.0, f32::from(u8::MAX)) as u8)
+            .saturating_add(1)
+    } else {
+        1
+    };
+    let event = match (action_state_id, source_frame) {
+        (44, 5) => SourceActionScriptEvent::SetJabCombo { disabled: true },
+        (44, 9) => SourceActionScriptEvent::SetJabCombo { disabled: false },
+        (45, 4) => SourceActionScriptEvent::SetJabCombo { disabled: true },
+        (45, 8) => SourceActionScriptEvent::SetJabCombo { disabled: false },
+        (46, 10) => SourceActionScriptEvent::SetJabRapid { state: true },
+        _ => SourceActionScriptEvent::None,
+    };
+
+    Some(SourceActionPoseMetadata {
+        script_events: if event == SourceActionScriptEvent::None {
+            SourceActionScriptEvents::empty()
+        } else {
+            SourceActionScriptEvents::single(event)
+        },
+        ..SourceActionPoseMetadata::default()
+    })
+}
+
+fn falcon_jab_source_action_total_frames(action_state_id: MeleeActionStateId) -> Option<u8> {
+    match action_state_id.get() {
+        45 => Some(20),
+        46 => Some(32),
+        47 => Some(6),
+        48 => Some(40),
+        49 => Some(9),
+        _ => None,
+    }
+}
+
+fn step_world_with_falcon_jab_source_data(
+    world: &mut World,
+    frame: u32,
+    inputs: &[PlayerInput; 2],
+) {
+    step_world_with_source_runtime_data(
+        world,
+        Frame(frame),
+        inputs,
+        falcon_jab_source_metadata,
+        falcon_jab_source_action_total_frames,
+    );
+}
+
+#[test]
+fn attack13_rapid_jab_script_enters_attack100_start_like_ftco_attack100() {
+    let mut world = World::for_two_players();
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world_with_falcon_jab_source_data(&mut world, 0, &jab);
+    for frame in 1..=8 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    step_world_with_falcon_jab_source_data(&mut world, 9, &jab);
+    for frame in 10..=16 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    step_world_with_falcon_jab_source_data(&mut world, 17, &jab);
+    for frame in 18..=27 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+
+    let player = &world.players()[0];
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(47)),
+        "ftCo_Attack_800D6A50 should route Falcon Attack13 into Attack100Start once x1A54 reaches rapid_jab_window and x2218_b2 is set by the decoded Attack13 script"
+    );
+    assert_eq!(
+        player.source_action_key,
+        Some(SourceActionKey::new("Attack100Start"))
+    );
+    assert_eq!(player.source_action_total_frames, 6);
+    assert_eq!(player.motion_state_alias, None);
+}
+
+#[test]
+fn attack100_start_loop_and_end_follow_decomp_action_chain() {
+    let mut world = World::for_two_players();
+    let jab = [
+        PlayerInput::neutral().with_attack(true),
+        PlayerInput::neutral(),
+    ];
+    let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
+
+    step_world_with_falcon_jab_source_data(&mut world, 0, &jab);
+    for frame in 1..=8 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    step_world_with_falcon_jab_source_data(&mut world, 9, &jab);
+    for frame in 10..=16 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    step_world_with_falcon_jab_source_data(&mut world, 17, &jab);
+    for frame in 18..=27 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    for frame in 28..=33 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(48))
+    );
+    assert_eq!(
+        world.players()[0].source_action_key,
+        Some(SourceActionKey::new("Attack100Loop"))
+    );
+
+    for frame in 34..=73 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(49))
+    );
+    assert_eq!(
+        world.players()[0].source_action_key,
+        Some(SourceActionKey::new("Attack100End"))
+    );
+
+    for frame in 74..=82 {
+        step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
+    }
+    assert_eq!(world.players()[0].motion_state, MotionState::Wait);
 }
 
 #[test]

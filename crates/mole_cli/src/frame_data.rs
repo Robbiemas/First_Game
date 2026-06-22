@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -11,9 +11,9 @@ use crate::{
 };
 use mole_core::{
     melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
-    runtime_motion_state_for_source_key, source_binding_for_motion_state, MotionStateSourceBinding,
-    SourceSpecialActionBinding, CANONICAL_SOURCE_ONLY_ACTION_BINDINGS,
-    FALCON_SOURCE_SPECIAL_ACTION_BINDINGS, RUST_MOTION_STATE_VARIANTS,
+    runtime_motion_state_for_source_key, source_binding_for_motion_state,
+    source_special_action_bindings_for_character, MotionStateSourceBinding,
+    CANONICAL_SOURCE_ONLY_ACTION_BINDINGS, RUST_MOTION_STATE_VARIANTS,
 };
 use mole_frame_data::{
     encode_runtime_source_frame_capsules, FrameDataSampleOptions, RuntimeFigatreeChunk,
@@ -1352,6 +1352,7 @@ impl RuntimeSourceGeneratedModule {
 const RUNTIME_SOURCE_SIDECAR_DIR: &str = "source_frame_data";
 const RUNTIME_SOURCE_FRAME_CAPSULES_FILE: &str = "source_frame_capsules.bin";
 const RUNTIME_SOURCE_MANIFEST_FILE: &str = "source_manifest.json";
+const RUNTIME_SOURCE_FIGATREE_BUNDLE_FILE: &str = "source_figatree_bundle.bin";
 
 impl RuntimeSourceExportModule {
     fn from_manifest(
@@ -1374,10 +1375,10 @@ impl RuntimeSourceExportModule {
         let plcaaj_path = action_table_plcaaj_path(root, &action_table)?;
         let mut chunks_by_key = BTreeMap::<String, RuntimeFigatreeChunkExport>::new();
         let mut state_bindings = Vec::new();
+        let mut state_binding_ids = BTreeSet::new();
         let mut used_runtime_states = BTreeSet::new();
         let mut source_only_action_count = 0usize;
         let mut runtime_actions = Vec::new();
-        let mut runtime_action_keys = BTreeSet::new();
 
         for action in actions {
             if let Some(state_filter) = state_filter {
@@ -1396,6 +1397,20 @@ impl RuntimeSourceExportModule {
                 .get("runtime_motion_state")
                 .and_then(Value::as_str)
                 .filter(|state| RUST_MOTION_STATE_VARIANTS.contains(state));
+            let source_action_key = action
+                .get("source_action_key")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    "compact source manifest action requires source_action_key".to_string()
+                })?;
+            add_runtime_manifest_action(
+                &plcaaj_path,
+                action,
+                source_action_key,
+                &mut chunks_by_key,
+                &mut runtime_actions,
+                true,
+            )?;
             match runtime_motion_state {
                 Some(runtime_motion_state)
                     if used_runtime_states.insert(runtime_motion_state.to_string()) =>
@@ -1406,24 +1421,17 @@ impl RuntimeSourceExportModule {
                         source_only_action_count += 1;
                         continue;
                     };
-                    let source_action_key = source_binding.source_action_key.as_str().to_string();
-                    if !chunks_by_key.contains_key(&source_action_key) {
-                        chunks_by_key.insert(
-                            source_action_key.clone(),
-                            RuntimeFigatreeChunkExport {
-                                source_action_key: source_action_key.clone(),
-                                bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
-                            },
-                        );
+                    let action_state_id = u64::from(source_binding.action_state_id.get());
+                    if state_binding_ids.insert(action_state_id) {
+                        state_bindings.push(RuntimeStateBindingExport {
+                            action_state_id,
+                            runtime_motion_state: Some(runtime_motion_state.to_string()),
+                            source_action_key: source_binding
+                                .source_action_key
+                                .as_str()
+                                .to_string(),
+                        });
                     }
-                    if runtime_action_keys.insert(source_action_key.clone()) {
-                        runtime_actions.push(compact_runtime_manifest_action(action)?);
-                    }
-                    state_bindings.push(RuntimeStateBindingExport {
-                        action_state_id: u64::from(source_binding.action_state_id.get()),
-                        runtime_motion_state: Some(runtime_motion_state.to_string()),
-                        source_action_key,
-                    });
                 }
                 Some(_) | None => {
                     source_only_action_count += 1;
@@ -1449,18 +1457,14 @@ impl RuntimeSourceExportModule {
             let source_action_table_id = u64::from(source_binding.source_action_table_id);
             let source_action_key = source_binding.source_action_key.as_str();
             let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
-            if !chunks_by_key.contains_key(source_action_key) {
-                chunks_by_key.insert(
-                    source_action_key.to_string(),
-                    RuntimeFigatreeChunkExport {
-                        source_action_key: source_action_key.to_string(),
-                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
-                    },
-                );
-            }
-            if runtime_action_keys.insert(source_action_key.to_string()) {
-                runtime_actions.push(compact_runtime_manifest_action(action)?);
-            }
+            add_runtime_manifest_action(
+                &plcaaj_path,
+                action,
+                source_action_key,
+                &mut chunks_by_key,
+                &mut runtime_actions,
+                false,
+            )?;
             if action
                 .get("runtime_motion_state")
                 .and_then(Value::as_str)
@@ -1469,11 +1473,14 @@ impl RuntimeSourceExportModule {
             {
                 source_only_action_count = source_only_action_count.saturating_sub(1);
             }
-            state_bindings.push(RuntimeStateBindingExport {
-                action_state_id: u64::from(source_binding.action_state_id.get()),
-                runtime_motion_state: Some((*runtime_motion_state).to_string()),
-                source_action_key: source_action_key.to_string(),
-            });
+            let action_state_id = u64::from(source_binding.action_state_id.get());
+            if state_binding_ids.insert(action_state_id) {
+                state_bindings.push(RuntimeStateBindingExport {
+                    action_state_id,
+                    runtime_motion_state: Some((*runtime_motion_state).to_string()),
+                    source_action_key: source_action_key.to_string(),
+                });
+            }
         }
 
         for source_binding in CANONICAL_SOURCE_ONLY_ACTION_BINDINGS {
@@ -1483,24 +1490,23 @@ impl RuntimeSourceExportModule {
             }
             let source_action_table_id = u64::from(source_binding.source_action_table_id);
             let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
-            if !chunks_by_key.contains_key(source_action_key) {
-                chunks_by_key.insert(
-                    source_action_key.to_string(),
-                    RuntimeFigatreeChunkExport {
-                        source_action_key: source_action_key.to_string(),
-                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
-                    },
-                );
-            }
-            if runtime_action_keys.insert(source_action_key.to_string()) {
-                runtime_actions.push(compact_runtime_manifest_action(action)?);
-            }
+            add_runtime_manifest_action(
+                &plcaaj_path,
+                action,
+                source_action_key,
+                &mut chunks_by_key,
+                &mut runtime_actions,
+                false,
+            )?;
             source_only_action_count = source_only_action_count.saturating_sub(1);
-            state_bindings.push(RuntimeStateBindingExport {
-                action_state_id: u64::from(source_binding.action_state_id.get()),
-                runtime_motion_state: None,
-                source_action_key: source_action_key.to_string(),
-            });
+            let action_state_id = u64::from(source_binding.action_state_id.get());
+            if state_binding_ids.insert(action_state_id) {
+                state_bindings.push(RuntimeStateBindingExport {
+                    action_state_id,
+                    runtime_motion_state: None,
+                    source_action_key: source_action_key.to_string(),
+                });
+            }
         }
 
         for source_binding in
@@ -1514,24 +1520,23 @@ impl RuntimeSourceExportModule {
             }
             let source_action_table_id = u64::from(source_binding.source_action_table_id);
             let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
-            if !chunks_by_key.contains_key(source_action_key) {
-                chunks_by_key.insert(
-                    source_action_key.to_string(),
-                    RuntimeFigatreeChunkExport {
-                        source_action_key: source_action_key.to_string(),
-                        bytes: read_action_figatree_chunk(&plcaaj_path, action)?,
-                    },
-                );
-            }
-            if runtime_action_keys.insert(source_action_key.to_string()) {
-                runtime_actions.push(compact_runtime_manifest_action(action)?);
-            }
+            add_runtime_manifest_action(
+                &plcaaj_path,
+                action,
+                source_action_key,
+                &mut chunks_by_key,
+                &mut runtime_actions,
+                false,
+            )?;
             source_only_action_count = source_only_action_count.saturating_sub(1);
-            state_bindings.push(RuntimeStateBindingExport {
-                action_state_id: u64::from(source_binding.action_state_id.get()),
-                runtime_motion_state: None,
-                source_action_key: source_action_key.to_string(),
-            });
+            let action_state_id = u64::from(source_binding.action_state_id.get());
+            if state_binding_ids.insert(action_state_id) {
+                state_bindings.push(RuntimeStateBindingExport {
+                    action_state_id,
+                    runtime_motion_state: None,
+                    source_action_key: source_action_key.to_string(),
+                });
+            }
         }
 
         if state_filter.is_some() && state_bindings.is_empty() {
@@ -1615,12 +1620,37 @@ impl RuntimeSourceExportModule {
     }
 }
 
+fn add_runtime_manifest_action(
+    plcaaj_path: &Path,
+    action: &Value,
+    source_action_key: &str,
+    chunks_by_key: &mut BTreeMap<String, RuntimeFigatreeChunkExport>,
+    runtime_actions: &mut Vec<Value>,
+    include_in_manifest: bool,
+) -> Result<(), String> {
+    if !chunks_by_key.contains_key(source_action_key) {
+        chunks_by_key.insert(
+            source_action_key.to_string(),
+            RuntimeFigatreeChunkExport {
+                source_action_key: source_action_key.to_string(),
+                bytes: read_action_figatree_chunk(plcaaj_path, action)?,
+            },
+        );
+    }
+    if include_in_manifest {
+        runtime_actions.push(compact_runtime_manifest_action(action)?);
+    }
+    Ok(())
+}
+
 fn bake_runtime_source_frame_capsules(
     character: &str,
     source_character: Option<&str>,
     manifest_text: &str,
     figatree_chunks: &[RuntimeFigatreeChunkExport],
 ) -> Result<Vec<RuntimeSourceActionFrameSamples>, String> {
+    let manifest: Value = serde_json::from_str(manifest_text)
+        .map_err(|error| format!("compact runtime source manifest is invalid JSON: {error}"))?;
     let runtime_chunks = figatree_chunks
         .iter()
         .map(|chunk| RuntimeFigatreeChunk {
@@ -1638,6 +1668,8 @@ fn bake_runtime_source_frame_capsules(
     figatree_chunks
         .iter()
         .map(|chunk| {
+            let action =
+                manifest_action_for_source_action_key(&manifest, &chunk.source_action_key)?;
             let evaluator = source_export.action_frame_evaluator(&FrameDataSampleOptions {
                 character: character.to_string(),
                 source_character: source_character.map(str::to_string),
@@ -1653,6 +1685,7 @@ fn bake_runtime_source_frame_capsules(
             Ok(RuntimeSourceActionFrameSamples {
                 source_action_key: chunk.source_action_key.clone(),
                 total_frames: total_frames as u8,
+                loops: runtime_source_action_loops(action)?,
                 frames,
                 cmd_var_events,
                 script_events,
@@ -1670,6 +1703,7 @@ fn generate_runtime_source_export_module(
         "// Runtime loads CLI-baked frame sidecars and compact source JObj/FigaTree artifacts.\n",
         "// Gameplay must not depend on raw ISO/decomp paths.\n\n",
         "// Canonical Melee action-state bindings may have no Rust MotionState alias.\n",
+        "use std::sync::OnceLock;\n",
         "use mole_core::{MeleeActionStateId, MotionState};\n",
         "use mole_frame_data::{RuntimeFigatreeChunk, RuntimeSourceExport};\n",
         "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"runtime_source_frame_data\";\n",
@@ -1678,25 +1712,55 @@ fn generate_runtime_source_export_module(
         "pub(crate) const SOURCE_FRAME_CAPSULES_BYTES: &[u8] = include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_FRAME_CAPSULES_FILE}\");\n\n",
     ));
     output.push_str(&format!(
+        "pub(crate) const SOURCE_FIGATREE_BUNDLE_BYTES: &[u8] = include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_FIGATREE_BUNDLE_FILE}\");\n\n",
+    ));
+    output.push_str(&format!(
         "pub(crate) const SOURCE_MANIFEST_JSON: &str = include_str!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{RUNTIME_SOURCE_MANIFEST_FILE}\");\n"
     ));
     output.push_str(&format!(
         "pub(crate) const SOURCE_CHARACTER: Option<&str> = {};\n",
         option_rust_string_literal(module.source_character.as_deref())
     ));
-    output.push_str(
-        "pub(crate) const SOURCE_FIGATREE_CHUNKS: &[RuntimeFigatreeChunk<'static>] = &[\n",
-    );
+    output.push_str(concat!(
+        "#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n",
+        "pub(crate) struct SourceFigatreeBundleEntry {\n",
+        "    pub(crate) source_action_key: &'static str,\n",
+        "    pub(crate) start: usize,\n",
+        "    pub(crate) len: usize,\n",
+        "}\n\n",
+        "pub(crate) const SOURCE_FIGATREE_BUNDLE_INDEX: &[SourceFigatreeBundleEntry] = &[\n",
+    ));
+    let mut bundle_offset = 0usize;
     for chunk in &module.figatree_chunks {
-        let file_name = runtime_source_figatree_file_name(&chunk.source_action_key)?;
         output.push_str(&format!(
-            "    RuntimeFigatreeChunk {{ source_action_key: {}, bytes: include_bytes!(\"{RUNTIME_SOURCE_SIDECAR_DIR}/{file_name}\") }},\n",
-            rust_string_literal(&chunk.source_action_key)
+            "    SourceFigatreeBundleEntry {{ source_action_key: {}, start: {bundle_offset}, len: {} }},\n",
+            rust_string_literal(&chunk.source_action_key),
+            chunk.bytes.len()
         ));
+        bundle_offset += chunk.bytes.len();
     }
     output.push_str("];\n\n");
+    output.push_str(concat!(
+        "static SOURCE_FIGATREE_CHUNKS: OnceLock<Vec<RuntimeFigatreeChunk<'static>>> = OnceLock::new();\n\n",
+        "pub(crate) fn source_figatree_chunks() -> &'static [RuntimeFigatreeChunk<'static>] {\n",
+        "    SOURCE_FIGATREE_CHUNKS\n",
+        "        .get_or_init(|| {\n",
+        "            SOURCE_FIGATREE_BUNDLE_INDEX\n",
+        "                .iter()\n",
+        "                .map(|entry| {\n",
+        "                    let end = entry.start + entry.len;\n",
+        "                    RuntimeFigatreeChunk {\n",
+        "                        source_action_key: entry.source_action_key,\n",
+        "                        bytes: &SOURCE_FIGATREE_BUNDLE_BYTES[entry.start..end],\n",
+        "                    }\n",
+        "                })\n",
+        "                .collect()\n",
+        "        })\n",
+        "        .as_slice()\n",
+        "}\n\n",
+    ));
     output.push_str(&format!(
-        "pub(crate) fn runtime_source_export() -> RuntimeSourceExport<'static> {{\n    RuntimeSourceExport {{\n        character: {},\n        source_character: SOURCE_CHARACTER,\n        manifest_json: SOURCE_MANIFEST_JSON,\n        figatree_chunks: SOURCE_FIGATREE_CHUNKS,\n    }}\n}}\n\n",
+        "pub(crate) fn runtime_source_export() -> RuntimeSourceExport<'static> {{\n    RuntimeSourceExport {{\n        character: {},\n        source_character: SOURCE_CHARACTER,\n        manifest_json: SOURCE_MANIFEST_JSON,\n        figatree_chunks: source_figatree_chunks(),\n    }}\n}}\n\n",
         rust_string_literal(&module.character)
     ));
 
@@ -1744,7 +1808,7 @@ fn generate_runtime_source_export_module(
         "}\n",
     ));
 
-    let mut sidecars = vec![
+    let sidecars = vec![
         RuntimeSourceSidecar {
             relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
                 .join(RUNTIME_SOURCE_FRAME_CAPSULES_FILE),
@@ -1755,14 +1819,12 @@ fn generate_runtime_source_export_module(
                 .join(RUNTIME_SOURCE_MANIFEST_FILE),
             bytes: module.manifest_text.as_bytes().to_vec(),
         },
-    ];
-    for chunk in &module.figatree_chunks {
-        sidecars.push(RuntimeSourceSidecar {
+        RuntimeSourceSidecar {
             relative_path: PathBuf::from(RUNTIME_SOURCE_SIDECAR_DIR)
-                .join(runtime_source_figatree_file_name(&chunk.source_action_key)?),
-            bytes: chunk.bytes.clone(),
-        });
-    }
+                .join(RUNTIME_SOURCE_FIGATREE_BUNDLE_FILE),
+            bytes: figatree_bundle_bytes(&module.figatree_chunks),
+        },
+    ];
 
     Ok(RuntimeSourceGeneratedModule {
         module_text: output,
@@ -1770,16 +1832,12 @@ fn generate_runtime_source_export_module(
     })
 }
 
-fn runtime_source_figatree_file_name(source_action_key: &str) -> Result<String, String> {
-    if !source_action_key
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        return Err(format!(
-            "source action key `{source_action_key}` cannot be used as a runtime sidecar file name"
-        ));
+fn figatree_bundle_bytes(chunks: &[RuntimeFigatreeChunkExport]) -> Vec<u8> {
+    let mut bundle = Vec::with_capacity(chunks.iter().map(|chunk| chunk.bytes.len()).sum());
+    for chunk in chunks {
+        bundle.extend_from_slice(&chunk.bytes);
     }
-    Ok(format!("{source_action_key}.figatree.bin"))
+    bundle
 }
 
 fn option_rust_string_literal(value: Option<&str>) -> String {
@@ -1867,6 +1925,7 @@ fn compact_runtime_common_parts(common_parts: &Value) -> Result<Value, String> {
 
 fn compact_runtime_manifest_action(action: &Value) -> Result<Value, String> {
     let figatree = required_manifest_value(action, &["source_action", "figatree"])?;
+    let source_action = required_manifest_value(action, &["source_action"])?;
     Ok(json!({
         "state": action.get("state").cloned().unwrap_or(Value::Null),
         "runtime_motion_state": action.get("runtime_motion_state").cloned().unwrap_or(Value::Null),
@@ -1875,12 +1934,36 @@ fn compact_runtime_manifest_action(action: &Value) -> Result<Value, String> {
         "action_state_id": required_manifest_value(action, &["action_state_id"])?.clone(),
         "total_frames": required_manifest_value(action, &["total_frames"])?.clone(),
         "source_action": {
+            "flags_raw": required_manifest_value(source_action, &["flags_raw"])?.clone(),
             "figatree": compact_runtime_figatree(figatree)?,
         },
         "decoded_action_script": {
             "procedures": compact_runtime_procedures(action)?,
         },
     }))
+}
+
+fn manifest_action_for_source_action_key<'a>(
+    manifest: &'a Value,
+    source_action_key: &str,
+) -> Result<&'a Value, String> {
+    required_manifest_array(manifest, &["actions"])?
+        .iter()
+        .find(|action| {
+            action.get("source_action_key").and_then(Value::as_str) == Some(source_action_key)
+        })
+        .ok_or_else(|| {
+            format!("compact runtime source manifest is missing action `{source_action_key}`")
+        })
+}
+
+fn runtime_source_action_loops(action: &Value) -> Result<bool, String> {
+    let flags_raw = required_manifest_value(action, &["source_action", "flags_raw"])?
+        .as_str()
+        .ok_or_else(|| "source action flags_raw must be a hex string".to_string())?;
+    let flags = u32::from_str_radix(flags_raw.trim_start_matches("0x"), 16)
+        .map_err(|error| format!("source action flags_raw `{flags_raw}` is invalid: {error}"))?;
+    Ok((flags & 0x4000_0000) != 0)
 }
 
 fn compact_runtime_figatree(figatree: &Value) -> Result<Value, String> {
@@ -2902,6 +2985,8 @@ const FIGHTER_CMD_LENGTHS: [usize; 49] = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 2, 1, 4,
 ];
 const COMMON_CMD_LENGTHS: [usize; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+const ACTION_SCRIPT_DATA_BASE_OFFSET: usize = 0x20;
+const MAX_DECODED_ACTION_SCRIPT_STEPS: usize = 4096;
 const MELEE_RIGHT_FACING_RENDER_TRANSFORM: &str = "ftPartSetRotY(TopN, M_PI_2 * fp->facing_dir)";
 const MELEE_RIGHT_FACING_FLATTEN_POLICY: &str = "right_facing_melee_xy";
 const MELEE_HURTBOX_INIT_HANDLER: &str = "ftColl_8007B3A0/ftColl_8007B4E0 ftData.x30";
@@ -2930,15 +3015,6 @@ fn source_binding_for_runtime_motion_state_variant(
         source_binding.map(|_| expected_action_state_id)
     );
     Ok(source_binding)
-}
-
-fn source_special_action_bindings_for_character(
-    source_character: Option<&str>,
-) -> &'static [SourceSpecialActionBinding] {
-    match source_character {
-        Some("captain" | "captain_falcon" | "falcon") => FALCON_SOURCE_SPECIAL_ACTION_BINDINGS,
-        _ => &[],
-    }
 }
 
 fn decoded_action_script_artifact(
@@ -3234,33 +3310,59 @@ fn find_action_record<'a>(
 
 fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedProcedure>> {
     let mut procedures = Vec::new();
-    let mut word_offset = 0usize;
+    let mut cursor = script_offset;
+    let mut return_stack = Vec::new();
     let mut current_frame = 0u64;
+    let mut steps = 0usize;
+    let mut visited = HashSet::new();
 
-    while script_offset + word_offset * 4 + 4 <= raw.len() {
-        let word = read_u32(raw, script_offset + word_offset * 4)?;
+    while cursor + 4 <= raw.len() {
+        steps += 1;
+        if steps > MAX_DECODED_ACTION_SCRIPT_STEPS {
+            return None;
+        }
+        if !visited.insert((cursor, current_frame, return_stack.len())) {
+            break;
+        }
+        let word = read_u32(raw, cursor)?;
         let opcode = word >> 26;
         let value = word & 0x03ff_ffff;
+        let word_offset = decoded_word_offset(script_offset, cursor);
 
         match opcode {
             0 => break,
             1 => {
                 current_frame += command_frame_value(value);
-                word_offset += 1;
+                cursor += 4;
             }
             2 => {
                 current_frame = command_frame_value(value);
-                word_offset += 1;
+                cursor += 4;
+            }
+            5 => {
+                let target = action_script_pointer_offset(raw, cursor + 4)?;
+                return_stack.push(cursor + 8);
+                cursor = target;
+            }
+            6 => {
+                if let Some(return_cursor) = return_stack.pop() {
+                    cursor = return_cursor;
+                } else {
+                    break;
+                }
+            }
+            7 => {
+                cursor = action_script_pointer_offset(raw, cursor + 4)?;
             }
             8 => {
-                word_offset += 1;
+                cursor += 4;
             }
-            3..=7 | 9 => {
+            3 | 4 | 9 => {
                 let length = *COMMON_CMD_LENGTHS.get(opcode as usize)?;
-                if script_offset + (word_offset + length) * 4 > raw.len() {
+                if cursor + length * 4 > raw.len() {
                     return None;
                 }
-                word_offset += length;
+                cursor += length * 4;
             }
             19 => {
                 procedures.push(DecodedProcedure::SetCmdVar(decode_set_cmd_var(
@@ -3268,17 +3370,17 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                     word_offset,
                     word,
                 )));
-                word_offset += 1;
+                cursor += 4;
             }
             10.. => {
                 let fighter_index = (opcode - 10) as usize;
                 let length = *FIGHTER_CMD_LENGTHS.get(fighter_index)?;
-                if script_offset + (word_offset + length) * 4 > raw.len() {
+                if cursor + length * 4 > raw.len() {
                     return None;
                 }
                 match fighter_index {
                     1 => {
-                        let raw_words = read_words(raw, script_offset, word_offset, 5)?;
+                        let raw_words = read_words(raw, cursor, 5)?;
                         procedures.push(DecodedProcedure::SpawnHitbox(decode_spawn_hitbox(
                             current_frame,
                             word_offset,
@@ -3289,7 +3391,7 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                         procedures.push(DecodedProcedure::ClearAllHitboxes {
                             frame: current_frame,
                             word_offset,
-                            raw_words: read_words(raw, script_offset, word_offset, length)?,
+                            raw_words: read_words(raw, cursor, length)?,
                         });
                     }
                     18 => {
@@ -3307,7 +3409,7 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                         )));
                     }
                     24 => {
-                        let raw_words = read_words(raw, script_offset, word_offset, 3)?;
+                        let raw_words = read_words(raw, cursor, 3)?;
                         procedures.push(DecodedProcedure::SetThrowHitbox(decode_set_throw_hitbox(
                             current_frame,
                             word_offset,
@@ -3330,7 +3432,7 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                     }
                     _ => {}
                 }
-                word_offset += length;
+                cursor += length * 4;
             }
         }
     }
@@ -3338,19 +3440,28 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
     Some(procedures)
 }
 
+fn decoded_word_offset(script_offset: usize, cursor: usize) -> usize {
+    if cursor >= script_offset {
+        (cursor - script_offset) / 4
+    } else {
+        cursor / 4
+    }
+}
+
+fn action_script_pointer_offset(raw: &[u8], pointer_offset: usize) -> Option<usize> {
+    let pointer = read_u32(raw, pointer_offset)? as usize;
+    let target = ACTION_SCRIPT_DATA_BASE_OFFSET.checked_add(pointer)?;
+    (target + 4 <= raw.len()).then_some(target)
+}
+
 fn read_u32(raw: &[u8], offset: usize) -> Option<u32> {
     let bytes = raw.get(offset..offset + 4)?;
     Some(u32::from_be_bytes(bytes.try_into().ok()?))
 }
 
-fn read_words(
-    raw: &[u8],
-    script_offset: usize,
-    word_offset: usize,
-    length: usize,
-) -> Option<Vec<u32>> {
+fn read_words(raw: &[u8], offset: usize, length: usize) -> Option<Vec<u32>> {
     (0..length)
-        .map(|index| read_u32(raw, script_offset + (word_offset + index) * 4))
+        .map(|index| read_u32(raw, offset + index * 4))
         .collect()
 }
 

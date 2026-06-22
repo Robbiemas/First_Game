@@ -393,6 +393,14 @@ pub fn step_world_with_source_collisions(
     frame: Frame,
     inputs: &[PlayerInput; 2],
 ) {
+    let _ = step_world_with_source_collision_step(world, frame, inputs);
+}
+
+pub fn step_world_with_source_collision_step(
+    world: &mut World,
+    frame: Frame,
+    inputs: &[PlayerInput; 2],
+) -> SourceCollisionStep {
     step_world_with_source_runtime_data(
         world,
         frame,
@@ -406,6 +414,7 @@ pub fn step_world_with_source_collisions(
         runtime_source_action_total_frames_for_action_state_id,
     );
     world.commit_staged_source_damage();
+    source_step
 }
 
 pub fn preload_runtime_source_frame_data() -> Result<usize, String> {
@@ -428,8 +437,7 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
         let action_state_id = frame.player_source_pose_action_state_ids[player_index];
         let damage_hit_source_frame =
             source_collision_capsule_frame_for_player(frame, player_index, source_action_key);
-        let catch_hit_source_frame =
-            source_capsule_frame_for_player(frame, player_index, source_action_key);
+        let catch_hit_source_frame = damage_hit_source_frame;
         extend_source_hits_for_player(
             &mut hits,
             frame,
@@ -2325,32 +2333,22 @@ fn player_hitbox_pills(
         return Vec::new();
     }
     let source_action_key = source_action_key_for_player(frame, index);
-    let source_frame = source_capsule_frame_for_player(frame, index, source_action_key);
-    let previous_source_frame = source_frame.saturating_sub(1).max(1);
+    let source_frame = source_collision_capsule_frame_for_player(frame, index, source_action_key);
     let source_root = source_render_root_position(frame, index, source_action_key, source_frame);
-    let previous_source_root =
-        source_render_root_position(frame, index, source_action_key, previous_source_frame);
     runtime_source_frame_capsules_ref(source_action_key, source_frame)
         .map(|source_capsules| source_capsules.hit_capsules.as_slice())
         .unwrap_or(&[])
         .iter()
         .copied()
         .map(|hitbox| {
-            let uses_previous_root = source_hit_capsule_uses_previous_root(hitbox, source_frame);
-            render_source_hit_capsule(
-                hitbox,
-                if uses_previous_root {
-                    frame.player_source_previous_positions[index]
-                } else {
-                    frame.player_source_positions[index]
-                },
-                frame.player_source_positions[index],
+            let visual_hitbox = RuntimeSourceCapsule {
+                a: hitbox.b,
+                ..hitbox
+            };
+            render_source_capsule(
+                visual_hitbox,
+                frame.player_source_positions[index].to_milli(),
                 frame.player_model_facing(index),
-                if uses_previous_root {
-                    previous_source_root
-                } else {
-                    source_root
-                },
                 source_root,
                 transform,
                 RenderColor::HITBOX_PILL,
@@ -2369,7 +2367,8 @@ fn player_hurtbox_pills(
         return Vec::new();
     }
     let source_action_key = source_hurt_action_key_for_player(frame, index);
-    let source_frame = source_hurt_capsule_frame_for_player(frame, index, source_action_key);
+    let source_frame =
+        source_collision_hurt_capsule_frame_for_player(frame, index, source_action_key);
     let source_root = source_render_root_position(frame, index, source_action_key, source_frame);
     runtime_source_frame_capsules_ref(source_action_key, source_frame)
         .map(|source_capsules| source_capsules.hurt_capsules.as_slice())
@@ -2379,7 +2378,7 @@ fn player_hurtbox_pills(
         .map(|hurtbox| {
             render_source_capsule(
                 hurtbox,
-                frame.player_positions[index],
+                frame.player_source_positions[index].to_milli(),
                 frame.player_model_facing(index),
                 source_root,
                 transform,
@@ -2396,19 +2395,7 @@ fn source_capsule_frame_for_player(
     source_action_key: Option<SourceActionKey>,
 ) -> u8 {
     let source_frame = frame.player_source_pose_frames[index].max(1);
-    if let Some(total_frames) = source_action_key.and_then(runtime_source_action_total_frames) {
-        source_frame.min(total_frames)
-    } else {
-        source_frame
-    }
-}
-
-fn source_hurt_capsule_frame_for_player(
-    frame: &RenderFrame,
-    index: usize,
-    source_action_key: Option<SourceActionKey>,
-) -> u8 {
-    source_capsule_frame_for_player(frame, index, source_action_key)
+    normalize_runtime_source_frame(source_action_key, source_frame)
 }
 
 fn source_collision_capsule_frame_for_player(
@@ -2422,11 +2409,7 @@ fn source_collision_capsule_frame_for_player(
     } else {
         frame.player_source_pose_frames[index].max(1)
     };
-    if let Some(total_frames) = source_action_key.and_then(runtime_source_action_total_frames) {
-        source_frame.min(total_frames)
-    } else {
-        source_frame
-    }
+    normalize_runtime_source_frame(source_action_key, source_frame)
 }
 
 fn source_collision_hurt_capsule_frame_for_player(
@@ -2594,53 +2577,6 @@ fn render_source_capsule(
     }
 }
 
-fn render_source_hit_capsule(
-    capsule: RuntimeSourceCapsule,
-    previous_root_position: SourceVec2,
-    current_root_position: SourceVec2,
-    facing: i8,
-    previous_source_root: Vec3,
-    current_source_root: Vec3,
-    transform: RenderTransform,
-    color: RenderColor,
-    source_artifact_kind: &'static str,
-) -> RenderCapsule {
-    let a_world = source_point_to_world_flattened(
-        capsule.a,
-        previous_root_position.to_milli(),
-        facing,
-        previous_source_root,
-    );
-    let b_world = source_point_to_world_flattened(
-        capsule.b,
-        current_root_position.to_milli(),
-        facing,
-        current_source_root,
-    );
-    RenderCapsule {
-        a: transform.world_to_screen(a_world),
-        b: transform.world_to_screen(b_world),
-        radius: transform.core_length_to_screen(source_units_to_core_units(capsule.radius)),
-        color,
-        source: SourceRenderCapsule {
-            a: SourceRenderPoint {
-                x: f64::from(capsule.a.x),
-                y: f64::from(capsule.a.y),
-                z: f64::from(capsule.a.z),
-            },
-            b: SourceRenderPoint {
-                x: f64::from(capsule.b.x),
-                y: f64::from(capsule.b.y),
-                z: f64::from(capsule.b.z),
-            },
-            radius: f64::from(capsule.radius),
-        },
-        source_space: SOURCE_SPACE_MELEE_XYZ,
-        projected_view_kind: PROJECTED_VIEW_DERIVED_DEBUG,
-        source_artifact_kind,
-    }
-}
-
 fn source_point_to_world_flattened(
     point: RuntimeSourcePoint,
     root_position: Vec2,
@@ -2649,7 +2585,7 @@ fn source_point_to_world_flattened(
 ) -> Vec2 {
     let facing_sign = if facing < 0 { -1 } else { 1 };
     Vec2 {
-        x: root_position.x + source_units_to_core_units(point.x - source_root.x) * facing_sign,
+        x: root_position.x + source_units_to_core_units(point.x - source_root.z) * facing_sign,
         y: root_position.y + source_units_to_core_units(point.y - source_root.y),
     }
 }
@@ -2748,9 +2684,9 @@ fn source_point_to_world_3d(
 ) -> Vec3 {
     let facing_sign = if facing < 0 { -1.0_f32 } else { 1.0_f32 };
     Vec3::new(
-        source_units_to_core_units_f32(root_position.x + (point.x - source_root.x) * facing_sign),
+        source_units_to_core_units_f32(root_position.x + (point.x - source_root.z) * facing_sign),
         source_units_to_core_units_f32(root_position.y + point.y - source_root.y),
-        source_units_to_core_units_f32((point.z - source_root.z) * facing_sign),
+        source_units_to_core_units_f32((point.z - source_root.x) * facing_sign),
     )
 }
 
@@ -2801,6 +2737,7 @@ struct RuntimeSourceActionScriptEvent {
 struct RuntimeSourceAction {
     source_action_key: SourceActionKey,
     total_frames: u8,
+    loops: bool,
     frames: Vec<RuntimeSourceFrameCapsules>,
     live_pose_evaluator: RuntimeActionFrameEvaluator,
     script_events: Vec<RuntimeSourceActionScriptEvent>,
@@ -2891,11 +2828,53 @@ fn source_collision_frame_for_player_state(player: &PlayerState) -> u8 {
         0
     };
     let frame = anim_frame.saturating_add(1);
-    if player.source_action_total_frames > 0 {
-        frame.min(player.source_action_total_frames)
-    } else {
-        frame
+    let source_action_key = source_action_key_for_player_state(player);
+    normalize_runtime_source_frame(source_action_key, frame)
+}
+
+fn normalize_runtime_source_frame(
+    source_action_key: Option<SourceActionKey>,
+    source_frame: u8,
+) -> u8 {
+    let Some(source_action_key) = source_action_key else {
+        return source_frame.max(1);
+    };
+    let Some(total_frames) = runtime_source_action_total_frames(source_action_key) else {
+        return source_frame.max(1);
+    };
+    normalize_source_frame(
+        source_frame,
+        total_frames,
+        runtime_source_action_loops(source_action_key),
+    )
+}
+
+fn normalize_source_frame(source_frame: u8, total_frames: u8, loops: bool) -> u8 {
+    if total_frames == 0 {
+        return source_frame.max(1);
     }
+    let one_based = source_frame.max(1);
+    if loops {
+        one_based
+            .saturating_sub(1)
+            .checked_rem(total_frames)
+            .unwrap_or(0)
+            .saturating_add(1)
+    } else {
+        one_based.min(total_frames)
+    }
+}
+
+fn runtime_source_action_loops(source_action_key: SourceActionKey) -> bool {
+    runtime_source_actions()
+        .ok()
+        .and_then(|actions| {
+            actions
+                .iter()
+                .find(|action| action.source_action_key == source_action_key)
+                .map(|action| action.loops)
+        })
+        .unwrap_or(false)
 }
 
 fn runtime_source_live_pose(
@@ -3006,6 +2985,7 @@ fn load_all_runtime_source_actions() -> Result<Vec<RuntimeSourceAction>, String>
             Ok(RuntimeSourceAction {
                 source_action_key,
                 total_frames: action.total_frames,
+                loops: action.loops,
                 frames,
                 live_pose_evaluator,
                 script_events,

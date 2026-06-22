@@ -88,10 +88,10 @@
       "label": "Input Trace",
       "outputs": [],
       "source_artifacts": [
-        "debug/slippi/*.inputs.json"
+        "debug/slippi/*.inputs.json (diagnostic export)"
       ],
       "status": "Active",
-      "summary": "Slippi input export inspection with raw and Rust-normalized inputs."
+      "summary": "Diagnostic Slippi input export inspection with raw and Rust-normalized inputs."
     },
     {
       "cli_commands": [
@@ -108,11 +108,11 @@
         "debug/slippi/*.core.report.md"
       ],
       "source_artifacts": [
-        "debug/slippi/*.inputs.json",
-        "replays/*.slp"
+        "replays/*.slp",
+        "debug/slippi/*.inputs.json (diagnostic export)"
       ],
       "status": "Active",
-      "summary": "Replay trace comparison between exported Slippi frames and Rust runtime state."
+      "summary": "Direct .slp replay comparison against Rust runtime state, with exported JSON retained for explicit diagnostics."
     },
     {
       "cli_commands": [

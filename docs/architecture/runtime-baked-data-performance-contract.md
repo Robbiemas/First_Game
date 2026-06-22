@@ -119,6 +119,10 @@ The approved direction from the 2026-06-11 latency cleanup:
 
 - Legacy sprite paths are static string literals instead of newly allocated per-frame strings.
 - Runtime source hit/hurt capsule tables are borrowed from baked data instead of cloned per frame.
+- Runtime source frame data is baked as one Rust module plus three canonical
+  sidecars: `source_frame_capsules.bin`, `source_figatree_bundle.bin`, and
+  `source_manifest.json`. Do not reintroduce loose per-action `.figatree.bin`
+  sidecars; index the packed bundle through generated metadata instead.
 - Local SDL debug overlay construction is opt-in through `--debug-overlay`.
 - The runtime consumes generated data and does not parse `PlCo.dat`, stage DAT files, or JSON extraction artifacts during play.
 
@@ -138,4 +142,3 @@ Before accepting a new extraction, runtime, stage, character, frame-data, camera
 8. Is any larger representation justified by a measured runtime need?
 
 If the answer to any question is no, pause and reshape the boundary before adding more features.
-

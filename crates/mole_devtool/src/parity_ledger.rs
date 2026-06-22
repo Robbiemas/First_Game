@@ -83,6 +83,13 @@ struct ValueSheetField {
 }
 
 impl ParityLedgerSurface {
+    pub fn empty() -> Self {
+        Self {
+            summary: "Parity ledger not loaded yet.".to_string(),
+            tabs: Vec::new(),
+        }
+    }
+
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let root = root.as_ref();
         let diff_report = load_value_parity_diff_report(

@@ -2,22 +2,45 @@
 
 Double-click these Windows launchers from this folder.
 
-Normal development now targets the Rust runtime and crates. Deprecated Pygame,
-generic controller, and standalone smoke launchers live in `depreciated/`.
+Normal development now targets the Rust runtime and crates. The active
+launchers are listed first; deprecated Pygame, generic controller, and
+standalone smoke launchers live in `depreciated/`.
 
-- `Check WUP Native.cmd`: checks the WUP-028 adapter directly through WinUSB/libusb.
-- `Monitor WUP Native.cmd`: opens the native WUP input display with main stick, C-stick, D-pad, split L/R analog triggers, and split L/R digital trigger clicks.
+Active launchers:
+
+- `Play Slippi Replay.cmd`: launches `replays/Game_20260530T214929.slp`
+  directly through the release Rust runtime and writes
+  `debug/slippi/runtime-divergence.latest.json` when the runtime diverges.
+- `Run SDL3 Runtime.cmd`: opens the optimized native SDL3/WUP local game window
+  and starts gameplay immediately; it does not require Friend Connect or a
+  secondary client.
+- `Run SDL3 Runtime Vanilla No UCF.cmd`: opens the same optimized local
+  SDL3/WUP runtime with UCF disabled, leaving the WUP/native pre-UCF path
+  exposed for controller feel testing.
+- `Run Local SDL3 Runtime.cmd`: opens only the local SDL3 runtime with native
+  WUP controller input; it does not open the dev tool or Friend Connect.
+- `Open Dev Tool.cmd`: opens the Rust Mole Game Dev Tool without launching the
+  game.
+- `Clean Local Outputs.cmd`: dry-runs cleanup of ignored local output folders
+  such as `debug`, `logs`, `.pytest_cache`, and `__pycache__`; pass `--apply`
+  to remove exactly the listed paths.
+- `Setup SDL3.cmd`: helper used by the SDL3 launchers when the local SDL3
+  dependency is missing.
+
+Supporting utilities:
+
+- `Check WUP Native.cmd`: checks the WUP-028 adapter directly through
+  WinUSB/libusb.
+- `Monitor WUP Native.cmd`: opens the native WUP input display with main stick,
+  C-stick, D-pad, split L/R analog triggers, and split L/R digital trigger
+  clicks.
 - `Run Rust Runtime.cmd`: runs the deterministic Rust core smoke test.
-- `Run Local SDL3 Runtime.cmd`: opens only the local SDL3 runtime with native WUP controller input; it does not open the dev tool or Friend Connect.
-- `Run SDL3 Runtime.cmd`: opens the optimized native SDL3/WUP local game window and starts gameplay immediately; it does not require Friend Connect or a secondary client.
-- `Run SDL3 Runtime Vanilla No UCF.cmd`: opens the same optimized local SDL3/WUP runtime with UCF disabled, leaving the WUP/native pre-UCF path exposed for controller feel testing.
-- `Record Native Replay.cmd`: records a deterministic Rust runtime replay under `debug/replays/`.
-- `Setup SDL3.cmd`: helper used by the SDL3 launchers.
-- `Open Dev Tool.cmd`: opens the Rust Mole Game Dev Tool without launching the game.
-- `Open Python Parity Ledger.cmd`: opens the legacy Python parity ledger UI.
-  This is a supported temporary human-facing surface while the Rust parity
-  ledger catches up; it still reads repository artifacts and must not become a
-  new gameplay authority.
+- `Record Native Replay.cmd`: records a deterministic Rust runtime replay under
+  `debug/replays/`.
+- `Open Python Parity Ledger.cmd`: opens the legacy Python parity ledger UI for
+  old-reference/manual inspection only. Normal replay and parity work should use
+  `Play Slippi Replay.cmd` or `Open Dev Tool.cmd`; this Python viewer reads
+  repository artifacts and must not become a gameplay authority.
 - `Build Friend Playtest Package.cmd`: builds a self-contained Windows playtest folder,
   zip, and one-file bootstrap exe under `dist/`, then updates
   `playtest/MoleGame-FriendPlaytest.exe` and

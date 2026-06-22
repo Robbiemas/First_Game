@@ -29,6 +29,7 @@ def test_slippi_replay_tool_documents_local_dependency_install():
     assert "npm install --prefix tools/slippi" in text
     assert "@slippi/slippi-js/node" in text
     assert "--include-negative-frames" in text
+    assert "--stdout" in text
     assert "EntryStart" in text
 
 

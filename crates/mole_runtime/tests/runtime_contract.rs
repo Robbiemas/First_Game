@@ -23,15 +23,15 @@ use mole_runtime::{
     source_collision_hits_from_frame, source_collision_step_from_frame,
     source_damage_results_from_frame, source_damage_results_from_stages_for_frame,
     source_damage_stages_from_frame, source_hit_confirms_from_frame,
-    step_world_with_source_collisions, trace_slippi_export_from_match_start_with_core,
-    visual_platform_ledge_probe_world, write_slippi_core_trace_report, ControllerInputTraceLog,
-    DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout,
-    InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue, NetplayLogEvent,
-    NetplayLogRole, PhysicalInput, RenderCameraState, RenderColor, RenderFrame, RenderRect,
-    RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig,
-    SlippiCoreDivergenceKind, SlippiCoreDivergenceScanConfig, SlippiCoreTraceConfig,
-    UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig, WupInputMapper, WupPort,
-    LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    step_world_with_source_collision_step, step_world_with_source_collisions,
+    trace_slippi_export_from_match_start_with_core, visual_platform_ledge_probe_world,
+    write_slippi_core_trace_report, ControllerInputTraceLog, DebugOverlay,
+    DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout, InputSource,
+    InputTraceWriter, LegacyAnimationKey, LegacySpriteCue, NetplayLogEvent, NetplayLogRole,
+    PhysicalInput, RenderCameraState, RenderColor, RenderFrame, RenderRect, RenderScene,
+    RenderTransform, ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreDivergenceKind,
+    SlippiCoreDivergenceScanConfig, SlippiCoreTraceConfig, UdpRuntimeConfig, UdpRuntimeStats,
+    WupInputConfig, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
@@ -226,9 +226,52 @@ fn runtime_source_capsules_are_baked_during_preload_not_sampled_during_gameplay(
         generated_rs.contains("SOURCE_MANIFEST_JSON")
             && generated_rs.contains("source_manifest.json")
             && generated_rs.contains("RuntimeFigatreeChunk")
-            && generated_rs.contains(".figatree.bin"),
-        "CLI runtime export should include compact source manifest and FigaTree sidecars for live pose sampling"
+            && generated_rs.contains("SOURCE_FIGATREE_BUNDLE_BYTES")
+            && generated_rs.contains("source_figatree_bundle.bin")
+            && !generated_rs.contains(".figatree.bin"),
+        "CLI runtime export should include compact source manifest and one bundled FigaTree sidecar for live pose sampling"
     );
+}
+
+#[test]
+fn runtime_source_generated_artifacts_are_compact_bundle_only() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let sidecar_dir = manifest_dir.join("src/generated/source_frame_data");
+    let mut sidecars = fs::read_dir(&sidecar_dir)
+        .expect("runtime source frame data sidecar directory should exist")
+        .map(|entry| {
+            entry
+                .expect("runtime source frame data sidecar should be readable")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect::<Vec<_>>();
+    sidecars.sort();
+
+    assert_eq!(
+        sidecars,
+        vec![
+            "source_figatree_bundle.bin".to_string(),
+            "source_frame_capsules.bin".to_string(),
+            "source_manifest.json".to_string(),
+        ],
+        "runtime source sidecars should stay compact: one FigaTree bundle, one capsule blob, and one source manifest"
+    );
+    for sidecar in sidecars {
+        let path = sidecar_dir.join(&sidecar);
+        assert!(
+            fs::metadata(&path)
+                .expect("runtime source sidecar should have metadata")
+                .len()
+                > 0,
+            "runtime source sidecar {sidecar} should not be empty"
+        );
+        assert!(
+            !sidecar.ends_with(".figatree.bin"),
+            "loose per-action FigaTree sidecars should not reappear"
+        );
+    }
 }
 
 #[test]
@@ -248,6 +291,7 @@ fn runtime_export_includes_source_only_grab_throw_capture_bindings() {
         (240, "TCaptainThrowB"),
         (241, "TCaptainThrowHi"),
         (242, "TCaptainThrowLw"),
+        (275, "TCaptainSpecialHi"),
         (223, "CapturePulledHi"),
         (224, "CaptureWaitHi"),
         (226, "CapturePulledLw"),
@@ -2360,6 +2404,185 @@ fn slippi_match_start_frame2319_throw_hi_release_runs_decomp_damage_entry_update
 }
 
 #[test]
+fn slippi_match_start_frame2454_falcon_fair_enters_damage_n3() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let replay_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("crate should be inside workspace")
+        .join("debug")
+        .join("slippi")
+        .join("Game_20260530T214929.inputs.json");
+    let Ok(export) = fs::read_to_string(&replay_path) else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_578))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut raw_p2_fair_confirm_frames = Vec::new();
+    let mut source_step_frames = Vec::new();
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame >= 2450 {
+            source_step_frames.push((
+                frame.source_frame,
+                step.geometry_confirms
+                    .iter()
+                    .map(|confirm| {
+                        (
+                            confirm.attacker_index,
+                            confirm.victim_index,
+                            confirm.hitbox_id,
+                            confirm.hurtbox_id,
+                            confirm.source_action_key,
+                            confirm.source_frame,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.raw_confirms
+                    .iter()
+                    .map(|confirm| {
+                        (
+                            confirm.attacker_index,
+                            confirm.victim_index,
+                            confirm.hitbox_id,
+                            confirm.hurtbox_id,
+                            confirm.source_action_key,
+                            confirm.source_frame,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.logged_confirms
+                    .iter()
+                    .map(|confirm| {
+                        (
+                            confirm.attacker_index,
+                            confirm.victim_index,
+                            confirm.hitbox_id,
+                            confirm.hurtbox_id,
+                            confirm.source_action_key,
+                            confirm.source_frame,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.confirms
+                    .iter()
+                    .map(|confirm| {
+                        (
+                            confirm.attacker_index,
+                            confirm.victim_index,
+                            confirm.hitbox_id,
+                            confirm.hurtbox_id,
+                            confirm.source_action_key,
+                            confirm.source_frame,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.stages
+                    .iter()
+                    .map(|stage| {
+                        (
+                            stage.attacker_index,
+                            stage.victim_index,
+                            stage.hitbox_id,
+                            stage.hurtbox_id,
+                            stage.source_action_key,
+                            stage.source_frame,
+                            stage.damage,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.results
+                    .iter()
+                    .map(|result| {
+                        (
+                            result.stage.attacker_index,
+                            result.stage.victim_index,
+                            result.stage.hitbox_id,
+                            result.stage.hurtbox_id,
+                            result.stage.source_action_key,
+                            result.stage.source_frame,
+                            result.knockback,
+                            result.angle,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                step.applied_stage_count,
+            ));
+        }
+        let raw_confirms = source_hit_confirms_from_frame(&RenderFrame::from_world(&world));
+        if raw_confirms.iter().any(|confirm| {
+            confirm.attacker_index == 1
+                && confirm.victim_index == 0
+                && confirm.source_action_key == Some(SourceActionKey::new("AttackAirF"))
+        }) {
+            let players = world.players();
+            raw_p2_fair_confirm_frames.push((
+                frame.source_frame,
+                players[0].melee_action_state_id,
+                players[0].source_hurt_collision_state,
+                players[0].source_hurt_collision_lockout_timer,
+                players[0].source_collision_state,
+            ));
+        }
+        if frame.source_frame == 2454 {
+            break;
+        }
+    }
+
+    let render_frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&render_frame);
+    let confirms = source_hit_confirms_from_frame(&render_frame);
+    let p2_hits = collision_frame
+        .hits
+        .iter()
+        .filter(|capsule| capsule.owner_index == 1)
+        .copied()
+        .collect::<Vec<_>>();
+    let p1_hurts = collision_frame
+        .hurts
+        .iter()
+        .filter(|capsule| capsule.owner_index == 0)
+        .copied()
+        .collect::<Vec<_>>();
+    let p2_hit_summary = test_source_capsule_summary(&p2_hits);
+    let p1_hurt_summary = test_source_capsule_summary(&p1_hurts);
+    let nearest_gap = p2_hits
+        .iter()
+        .flat_map(|hit| {
+            p1_hurts.iter().map(move |hurt| {
+                (
+                    hit.capsule_id,
+                    hurt.capsule_id,
+                    test_capsule_gap_milli(&hit.capsule, &hurt.capsule),
+                )
+            })
+        })
+        .min_by(|a, b| a.2.total_cmp(&b.2));
+    let players = world.players();
+
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(80)),
+        "Slippi source frame 2454 has P1 enter ftCo_MS_DamageN3 from P2 Falcon AttackAirF late hit. p1_action={:?} p2_action={:?} p1_pos={:?} p2_pos={:?} p1_hurt_state={} p1_hurt_lockout={} p1_collision_state={} p2_hits={} p1_hurts={} nearest_gap={:?} confirms={:?} raw_p2_fair_confirm_frames={:?} source_step_frames={:?}",
+        players[0].melee_action_state_id,
+        players[1].melee_action_state_id,
+        players[0].source_position,
+        players[1].source_position,
+        players[0].source_hurt_collision_state,
+        players[0].source_hurt_collision_lockout_timer,
+        players[0].source_collision_state,
+        p2_hit_summary,
+        p1_hurt_summary,
+        nearest_gap,
+        confirms,
+        raw_p2_fair_confirm_frames,
+        source_step_frames,
+    );
+}
+
+#[test]
 fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_not_generically_damaged(
 ) {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
@@ -3937,6 +4160,120 @@ fn runtime_apply_source_collisions_for_world_makes_active_hitboxes_affect_game_s
 }
 
 #[test]
+fn runtime_source_collision_routes_falcon_dive_hit_through_capture_captain_callback() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+    attacker.grounded = false;
+    attacker.facing = 1;
+    attacker.set_motion_state_alias(MotionState::SpecialAirHi);
+    attacker.motion_frame = 13;
+    attacker.set_source_motion_anim_frame(13.0);
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+    victim.grounded = false;
+    victim.facing = -1;
+    victim.set_motion_state_alias(MotionState::Fall);
+    victim.motion_frame = 13;
+    victim.set_source_motion_anim_frame(13.0);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    let mut probe_frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&probe_frame);
+    let mut overlap_position = None;
+    'candidate: for hit in collision_frame
+        .hits
+        .iter()
+        .filter(|hit| hit.owner_index == 0 && hit.hitbox.is_some())
+    {
+        for hurt in collision_frame
+            .hurts
+            .iter()
+            .filter(|hurt| hurt.owner_index == 1)
+        {
+            for hit_point in [hit.capsule.a, hit.capsule.b] {
+                for hurt_point in [hurt.capsule.a, hurt.capsule.b] {
+                    let source_position = SourceVec2 {
+                        x: (hit_point.x - hurt_point.x) / 1_000.0,
+                        y: (hit_point.y - hurt_point.y) / 1_000.0,
+                    };
+                    probe_frame.player_positions[1] = source_position.to_milli();
+                    probe_frame.player_source_positions[1] = source_position;
+                    probe_frame.player_source_previous_positions[1] = source_position;
+                    if source_grab_confirms(&source_collision_frame_from_frame(&probe_frame))
+                        .iter()
+                        .any(|confirm| confirm.grabber_index == 0 && confirm.victim_index == 1)
+                    {
+                        overlap_position = Some(source_position);
+                        break 'candidate;
+                    }
+                }
+            }
+        }
+    }
+    let overlap_position = overlap_position.unwrap_or_else(|| {
+        panic!(
+            "test fixture should find a Falcon Dive source hit overlap; hits={}, hurts={}, first_hit={:?}, first_hurt={:?}",
+            collision_frame.hits.len(),
+            collision_frame.hurts.len(),
+            collision_frame.hits.first(),
+            collision_frame.hurts.first()
+        )
+    });
+    let mut victim = world.players()[1];
+    victim.position = overlap_position.to_milli();
+    victim.source_position = overlap_position;
+    victim.grounded = false;
+    victim.facing = -1;
+    victim.set_motion_state_alias(MotionState::Fall);
+    victim.motion_frame = 13;
+    victim.set_source_motion_anim_frame(13.0);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let step = apply_source_collisions_for_world(&mut world);
+    let attacker = world.players()[0];
+    let victim = world.players()[1];
+
+    assert!(
+        step.grab_confirms
+            .iter()
+            .any(|confirm| confirm.grabber_index == 0 && confirm.victim_index == 1),
+        "Falcon Dive active source catch hitbox should make contact before the special callback is routed"
+    );
+    assert_eq!(
+        attacker.melee_action_state_id,
+        Some(MeleeActionStateId::new(355)),
+        "ftCa_SpecialLw_800E5128 changes the attacker to ftCa_MS_SpecialHiCatch"
+    );
+    assert_eq!(
+        attacker.source_action_key,
+        Some(SourceActionKey::new("SpecialHiCatch"))
+    );
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(275)),
+        "ftCo_8009CA0C changes the victim to ftCo_MS_CaptureCaptain"
+    );
+    assert_eq!(
+        victim.source_action_key,
+        Some(SourceActionKey::new("TCaptainSpecialHi"))
+    );
+    assert_eq!(attacker.source_victim_index, Some(1));
+    assert_eq!(victim.source_victim_index, Some(0));
+    assert!(
+        victim.source_x2226_b2,
+        "ftCo_800DB368 constrains airborne CaptureCaptain victims to Captain's TransN2"
+    );
+    assert!(
+        step.stages.is_empty() && victim.damage_percent_temp == 0.0,
+        "Falcon Dive's contact hitbox is routed through the special capture callback, not generic damage"
+    );
+}
+
+#[test]
 fn runtime_source_collision_does_not_reapply_same_active_hitbox_to_same_victim() {
     let mut world = World::for_two_players();
     let mut attacker = world.players()[0];
@@ -4572,6 +4909,65 @@ fn source_collision_frame_samples_hitbox_script_capsules_from_source_pose_frame(
 }
 
 #[test]
+fn source_collision_frame_samples_catch_hitboxes_from_live_source_anim_frame() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let world = World::for_two_players();
+
+    let first_active_frame = (1..=65)
+        .find(|source_frame| {
+            let mut frame = RenderFrame::from_world(&world);
+            frame.player_motion_states[0] = MotionState::SpecialAirHi;
+            frame.player_source_pose_motion_states[0] = MotionState::SpecialAirHi;
+            frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(354));
+            frame.player_action_state_ids[0] = Some(MeleeActionStateId::new(354));
+            frame.player_source_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+            frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+            frame.player_source_pose_model_facings[0] = 1;
+            frame.player_source_pose_frames[0] = *source_frame;
+            frame.player_source_motion_anim_frames[0] = f32::from(source_frame.saturating_sub(1));
+            source_collision_frame_from_frame(&frame)
+                .hits
+                .iter()
+                .any(|capsule| {
+                    capsule.owner_index == 0
+                        && capsule
+                            .hitbox
+                            .is_some_and(|hitbox| hitbox.element == SOURCE_HIT_ELEMENT_CATCH)
+                })
+        })
+        .expect("SpecialAirHi should expose a source catch hitbox");
+    assert!(
+        first_active_frame > 1,
+        "test needs a stale inactive pose frame before Falcon Dive's active catch frame"
+    );
+
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::SpecialAirHi;
+    frame.player_source_pose_motion_states[0] = MotionState::SpecialAirHi;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(354));
+    frame.player_action_state_ids[0] = Some(MeleeActionStateId::new(354));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_source_pose_frames[0] = first_active_frame - 1;
+    frame.player_source_motion_anim_frames[0] = f32::from(first_active_frame - 1);
+
+    let collision_frame = source_collision_frame_from_frame(&frame);
+
+    assert!(
+        collision_frame.hits.iter().any(|capsule| {
+            capsule.owner_index == 0
+                && capsule.source_action_key == Some(SourceActionKey::new("SpecialAirHi"))
+                && capsule.source_frame == Some(first_active_frame)
+                && capsule
+                    .hitbox
+                    .is_some_and(|hitbox| hitbox.element == SOURCE_HIT_ELEMENT_CATCH)
+        }),
+        "ftAnim_8006EBA4 advances Falcon Dive's live pose before collision; catch-element command grab hitboxes must use the live source animation frame"
+    );
+}
+
+#[test]
 fn runtime_source_down_bound_actions_resolve_from_canonical_action_ids() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
 
@@ -4772,6 +5168,18 @@ fn runtime_source_jab_followup_actions_resolve_from_canonical_action_ids() {
         (
             MeleeActionStateId::new(46),
             SourceActionKey::new("Attack13"),
+        ),
+        (
+            MeleeActionStateId::new(47),
+            SourceActionKey::new("Attack100Start"),
+        ),
+        (
+            MeleeActionStateId::new(48),
+            SourceActionKey::new("Attack100Loop"),
+        ),
+        (
+            MeleeActionStateId::new(49),
+            SourceActionKey::new("Attack100End"),
         ),
     ] {
         let world = World::for_two_players();
@@ -5021,7 +5429,11 @@ fn turn_run_capsule_projection_uses_model_entry_facing_not_mid_action_gameplay_f
     frame.player_facings[0] = 1;
     frame.player_turn_run_accel_mul[0] = 1;
     frame.player_source_pose_motion_states[0] = MotionState::TurnRun;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(19));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("TurnRun"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("TurnRun"));
     frame.player_source_pose_frames[0] = 11;
+    frame.player_source_motion_anim_frames[0] = 10.0;
     frame.player_source_pose_model_facings[0] = 1;
     let entry_facing_scene = RenderScene::from_frame(&frame, 960, 540);
 
@@ -5051,11 +5463,16 @@ fn root_motion_capsules_render_after_melee_transn_reset() {
     player.motion_frame = 1;
     let source_root = mole_core::source_root_motion_position(MotionState::EscapeF, 2)
         .expect("EscapeF frame 2 should have sampled TransN root position");
-    player.position.x = (source_root.x * 1_000.0).round() as i32;
+    player.position.x = (source_root.z * 1_000.0).round() as i32;
     player.facing = 1;
     player.grounded = true;
     assert!(world.set_player_state_for_diagnostic(0, player));
-    let frame = RenderFrame::from_world(&world);
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(233));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("EscapeF"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("EscapeF"));
+    frame.player_source_pose_frames[0] = 2;
+    frame.player_source_motion_anim_frames[0] = 1.0;
 
     let scene = RenderScene::from_frame(&frame, 960, 540);
     let first_hurtbox = scene.player_hurtbox_pills[0][0];
@@ -5065,9 +5482,9 @@ fn root_motion_capsules_render_after_melee_transn_reset() {
     )
     .unwrap();
     let expected_world_a = Vec2 {
-        x: frame.player_positions[0].x
-            + ((first_hurtbox.source.a.x - f64::from(transn.x)) * 1_000.0).round() as i32,
-        y: frame.player_positions[0].y
+        x: frame.player_source_positions[0].to_milli().x
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: frame.player_source_positions[0].to_milli().y
             + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
     };
 
@@ -5108,7 +5525,7 @@ fn special_air_hi_capsules_render_after_melee_transn_reset() {
     };
     let expected_world_a = Vec2 {
         x: frame.player_positions[0].x
-            + ((first_hurtbox.source.a.x - f64::from(transn.x)) * facing_sign * 1_000.0).round()
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * facing_sign * 1_000.0).round()
                 as i32,
         y: frame.player_positions[0].y
             + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
@@ -5118,6 +5535,195 @@ fn special_air_hi_capsules_render_after_melee_transn_reset() {
         first_hurtbox.a,
         scene.transform.world_to_screen(expected_world_a),
         "Falcon Up-B render capsules must use the same decomp TransN reset as the core fighter root, not an additional live-root offset"
+    );
+}
+
+fn falcon_special_air_hi_render_frame(
+    source_frame: u8,
+    live_anim_frame: f32,
+    public_position: Vec2,
+    source_position: SourceVec2,
+) -> RenderFrame {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::SpecialAirHi;
+    frame.player_state_frames[0] = source_frame.saturating_sub(1).into();
+    frame.player_animation_frames[0] = source_frame;
+    frame.player_grounded[0] = false;
+    frame.player_facings[0] = 1;
+    frame.player_positions[0] = public_position;
+    frame.player_source_positions[0] = source_position;
+    frame.player_source_previous_positions[0] = source_position;
+    frame.player_source_pose_motion_states[0] = MotionState::SpecialAirHi;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(354));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("SpecialAirHi"));
+    frame.player_source_pose_frames[0] = source_frame;
+    frame.player_source_motion_anim_frames[0] = live_anim_frame;
+    frame.player_source_pose_model_facings[0] = 1;
+    frame
+}
+
+#[test]
+fn special_air_hi_hurt_pills_render_from_source_root_not_stale_public_root() {
+    let source_frame = 6;
+    let source_position = SourceVec2 { x: 32.0, y: 18.0 };
+    let frame = falcon_special_air_hi_render_frame(
+        source_frame,
+        f32::from(source_frame.saturating_sub(1)),
+        Vec2 { x: 0, y: 0 },
+        source_position,
+    );
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let first_hurtbox = scene.player_hurtbox_pills[0]
+        .first()
+        .copied()
+        .expect("SpecialAirHi should render source hurt capsules");
+    let transn = mole_core::source_root_motion_position(MotionState::SpecialAirHi, source_frame)
+        .expect("SpecialAirHi should expose TransN root position");
+    let expected_world_a = Vec2 {
+        x: source_position.to_milli().x
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: source_position.to_milli().y
+            + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
+    };
+
+    assert_eq!(
+        first_hurtbox.a,
+        scene.transform.world_to_screen(expected_world_a),
+        "decomp source capsules are recomputed from the fighter/JObj world pose each frame; Falcon Up-B hurt pills must follow source_position even when the debug public position is stale"
+    );
+}
+
+#[test]
+fn special_air_hi_hit_pills_sample_live_source_anim_frame() {
+    let first_active_frame = (1..=65)
+        .find(|source_frame| {
+            let frame = falcon_special_air_hi_render_frame(
+                *source_frame,
+                0.0,
+                Vec2 { x: 0, y: 0 },
+                SourceVec2 { x: 0.0, y: 0.0 },
+            );
+            !RenderScene::from_frame(&frame, 960, 540).player_hitbox_pills[0].is_empty()
+        })
+        .expect("SpecialAirHi should have at least one active hitbox frame");
+    assert!(
+        first_active_frame > 1,
+        "test needs an inactive previous frame to prove live-frame sampling"
+    );
+
+    let stale_pose_frame = first_active_frame - 1;
+    let frame = falcon_special_air_hi_render_frame(
+        stale_pose_frame,
+        f32::from(first_active_frame - 1),
+        Vec2 { x: 0, y: 0 },
+        SourceVec2 { x: 0.0, y: 0.0 },
+    );
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert!(
+        !scene.player_hitbox_pills[0].is_empty(),
+        "ftColl updates active hit capsules from the live fighter pose; render must use the same live source animation frame instead of the stale integer pose frame"
+    );
+}
+
+#[test]
+fn special_air_hi_hit_pills_render_current_source_pose_not_previous_sweep_root() {
+    let first_active_frame = (1..=65)
+        .find(|source_frame| {
+            let frame = falcon_special_air_hi_render_frame(
+                *source_frame,
+                0.0,
+                Vec2 { x: 0, y: 0 },
+                SourceVec2 { x: 0.0, y: 0.0 },
+            );
+            !RenderScene::from_frame(&frame, 960, 540).player_hitbox_pills[0].is_empty()
+        })
+        .expect("SpecialAirHi should have at least one active hitbox frame");
+    assert!(
+        first_active_frame > 1,
+        "test needs a previous source frame so stale sweep-root usage can move render pills"
+    );
+    let render_frame = first_active_frame + 1;
+    let current_source_position = SourceVec2 { x: 25.0, y: 40.0 };
+    let mut current_pose_frame = falcon_special_air_hi_render_frame(
+        render_frame,
+        f32::from(render_frame - 1),
+        Vec2 { x: 0, y: 0 },
+        current_source_position,
+    );
+    current_pose_frame.player_source_previous_positions[0] = current_source_position;
+    let mut stale_previous_frame = current_pose_frame;
+    stale_previous_frame.player_source_previous_positions[0] = SourceVec2 {
+        x: -200.0,
+        y: -150.0,
+    };
+
+    let current_pose_scene = RenderScene::from_frame(&current_pose_frame, 960, 540);
+    let stale_previous_scene = RenderScene::from_frame(&stale_previous_frame, 960, 540);
+
+    assert_eq!(
+        current_pose_scene.player_hitbox_pills[0][0],
+        stale_previous_scene.player_hitbox_pills[0][0],
+        "debug hitbox pills should render from the current decomp/JObj pose; swept previous-root state belongs to collision, not the visual overlay"
+    );
+    assert_eq!(
+        current_pose_scene.player_hitbox_pills[0][0].source.a,
+        current_pose_scene.player_hitbox_pills[0][0].source.b,
+        "Melee action hitboxes are current-pose spheres for debug rendering; the previous->current capsule sweep belongs to collision resolution"
+    );
+}
+
+#[test]
+fn looping_locomotion_source_capsules_wrap_baked_pose_frames() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::WalkSlow;
+    frame.player_source_pose_motion_states[0] = MotionState::WalkSlow;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(15));
+    frame.player_action_state_ids[0] = Some(MeleeActionStateId::new(15));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("WalkSlow"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("WalkSlow"));
+    frame.player_source_pose_model_facings[0] = 1;
+    frame.player_source_positions[0] = SourceVec2 { x: 0.0, y: 0.0 };
+    frame.player_source_previous_positions[0] = frame.player_source_positions[0];
+
+    frame.player_source_motion_anim_frames[0] = 0.0;
+    frame.player_source_pose_frames[0] = 1;
+    let first_cycle_scene = RenderScene::from_frame(&frame, 960, 540);
+
+    frame.player_source_motion_anim_frames[0] = 54.0;
+    frame.player_source_pose_frames[0] = 54;
+    let wrapped_scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(
+        first_cycle_scene.player_hurtbox_pills[0],
+        wrapped_scene.player_hurtbox_pills[0],
+        "ftWalkCommon leaves animation playback running; source debug capsules must wrap WalkSlow's baked FigaTree frames instead of clamping to the final pose after one cycle"
+    );
+}
+
+#[test]
+fn attack100_loop_hit_pills_render_from_decoded_subroutine_script() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::Attack1;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(48));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("Attack100Loop"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("Attack100Loop"));
+    frame.player_source_pose_frames[0] = 4;
+    frame.player_source_motion_anim_frames[0] = 3.0;
+    frame.player_source_positions[0] = SourceVec2 { x: 0.0, y: 0.0 };
+    frame.player_source_previous_positions[0] = frame.player_source_positions[0];
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+
+    assert_eq!(
+        scene.player_hitbox_pills[0].len(),
+        2,
+        "Falcon rapid jab loop hitboxes live behind lbcommand Command_05 subroutine calls and must be present in baked runtime source data"
     );
 }
 
@@ -5137,21 +5743,62 @@ fn turn_run_capsules_render_after_transn_reset_at_floor_edge() {
 
     let scene = RenderScene::from_frame(&frame, 960, 540);
     let first_hurtbox = scene.player_hurtbox_pills[0][0];
-    let transn = mole_core::source_root_motion_position(
-        MotionState::TurnRun,
-        frame.player_animation_frames[0].max(1),
-    )
-    .expect("TurnRun source pose should expose TransN root position");
+    let source_frame = frame.player_source_motion_anim_frames[0].floor().max(0.0) as u8 + 1;
+    let transn = mole_core::source_root_motion_position(MotionState::TurnRun, source_frame)
+        .expect("TurnRun source pose should expose TransN root position");
     let expected_world_a = Vec2 {
-        x: frame.player_positions[0].x
-            + ((first_hurtbox.source.a.x - f64::from(transn.x)) * 1_000.0).round() as i32,
-        y: frame.player_positions[0].y
+        x: frame.player_source_positions[0].to_milli().x
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: frame.player_source_positions[0].to_milli().y
             + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
     };
 
     assert_eq!(
         first_hurtbox.a,
         scene.transform.world_to_screen(expected_world_a)
+    );
+}
+
+#[test]
+fn turn_run_capsules_reset_projected_transn_z_not_raw_transn_x() {
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    let source_frame = 10;
+    let source_position = SourceVec2 { x: 68.4, y: 0.0 };
+    frame.player_motion_states[0] = MotionState::TurnRun;
+    frame.player_positions[0] = source_position.to_milli();
+    frame.player_source_positions[0] = source_position;
+    frame.player_source_previous_positions[0] = source_position;
+    frame.player_facings[0] = 1;
+    frame.player_turn_run_accel_mul[0] = 1;
+    frame.player_source_pose_motion_states[0] = MotionState::TurnRun;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(19));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("TurnRun"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("TurnRun"));
+    frame.player_source_pose_frames[0] = source_frame;
+    frame.player_source_motion_anim_frames[0] = f32::from(source_frame - 1);
+    frame.player_source_pose_model_facings[0] = 1;
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let first_hurtbox = scene.player_hurtbox_pills[0][0];
+    let transn = mole_core::source_root_motion_position(MotionState::TurnRun, source_frame)
+        .expect("TurnRun source pose should expose TransN root position");
+    assert_eq!(transn.x, 0.0);
+    assert!(
+        transn.z > 1.0,
+        "test needs TurnRun's projected horizontal TransN root, got {transn:?}"
+    );
+    let expected_world_a = Vec2 {
+        x: source_position.to_milli().x
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * 1_000.0).round() as i32,
+        y: source_position.to_milli().y
+            + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
+    };
+
+    assert_eq!(
+        first_hurtbox.a,
+        scene.transform.world_to_screen(expected_world_a),
+        "TurnRun source capsules are sampled after ftPartSetRotY projects TransN.z into view-space X; rendering must reset against that projected root instead of raw TransN.x"
     );
 }
 
@@ -5176,7 +5823,7 @@ fn cliffcatch_source_capsules_render_after_full_transn_reset() {
     };
     let expected_world_a = Vec2 {
         x: frame.player_positions[1].x
-            + ((first_hurtbox.source.a.x - f64::from(transn.x)) * facing_sign * 1_000.0).round()
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * facing_sign * 1_000.0).round()
                 as i32,
         y: frame.player_positions[1].y
             + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,
@@ -5487,7 +6134,7 @@ fn render_scene_source_hurtboxes_project_decomp_x_axis_for_standing_pose() {
     };
     let expected_world_a = Vec2 {
         x: frame.player_positions[0].x
-            + ((first_hurtbox.source.a.x - f64::from(transn.x)) * facing_sign * 1_000.0).round()
+            + ((first_hurtbox.source.a.x - f64::from(transn.z)) * facing_sign * 1_000.0).round()
                 as i32,
         y: frame.player_positions[0].y
             + ((first_hurtbox.source.a.y - f64::from(transn.y)) * 1_000.0).round() as i32,

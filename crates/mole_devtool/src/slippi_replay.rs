@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 const DEFAULT_PLAYER_INDEX: usize = 1;
@@ -78,6 +79,7 @@ struct SlippiInputFile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlippiRuntimeReplayLaunchPlan {
     pub input_export_path: PathBuf,
+    pub replay_path: Option<PathBuf>,
     pub divergence_log_path: PathBuf,
     pub frames_to_run: u32,
 }
@@ -95,22 +97,43 @@ impl SlippiRuntimeReplayLaunchPlan {
         let frames_to_run = (input_file.export.frame_count as u32).max(1);
         Ok(Self {
             input_export_path: path.to_path_buf(),
+            replay_path: None,
             divergence_log_path: divergence_log_path.as_ref().to_path_buf(),
             frames_to_run,
         })
     }
 
+    pub fn from_replay_path(path: impl AsRef<Path>, divergence_log_path: impl AsRef<Path>) -> Self {
+        let path = path.as_ref().to_path_buf();
+        Self {
+            input_export_path: path.clone(),
+            replay_path: Some(path),
+            divergence_log_path: divergence_log_path.as_ref().to_path_buf(),
+            frames_to_run: u32::MAX,
+        }
+    }
+
     pub fn runtime_args(&self) -> Vec<String> {
-        vec![
-            "--sdl".to_string(),
-            "--visual-slippi-inputs".to_string(),
-            self.input_export_path.display().to_string(),
+        let mut args = vec!["--sdl".to_string()];
+        if let Some(replay_path) = &self.replay_path {
+            args.extend([
+                "--visual-slippi-replay".to_string(),
+                replay_path.display().to_string(),
+            ]);
+        } else {
+            args.extend([
+                "--visual-slippi-inputs".to_string(),
+                self.input_export_path.display().to_string(),
+            ]);
+        }
+        args.extend([
             "--frames".to_string(),
             self.frames_to_run.to_string(),
             "--slippi-divergence-log".to_string(),
             self.divergence_log_path.display().to_string(),
             "--hold-final-frame".to_string(),
-        ]
+        ]);
+        args
     }
 
     pub fn cargo_args(&self) -> Vec<String> {
@@ -130,12 +153,26 @@ impl SlippiRuntimeReplayLaunchPlan {
 
 impl SlippiReplaySurface {
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
+        let root = root.as_ref();
+        let replay_options = SlippiReplayLoadOptions {
+            focus_end: DEFAULT_SOURCE_FRAME_END,
+            focus_start: DEFAULT_SOURCE_FRAME_START,
+            input_export_path: root.join("replays").join("Game_20260530T214929.slp"),
+            max_frames: Some(DEFAULT_MAX_FRAMES),
+            player_number: DEFAULT_PLAYER_INDEX + 1,
+        };
+
+        if replay_options.input_export_path.exists() {
+            return Self::load_replay_metadata_only(replay_options);
+        }
+
         let options = SlippiReplayLoadOptions {
             focus_end: DEFAULT_SOURCE_FRAME_END,
             focus_start: DEFAULT_SOURCE_FRAME_START,
             input_export_path: root
-                .as_ref()
-                .join("debug/slippi/Game_20260530T214929.full.inputs.json"),
+                .join("debug")
+                .join("slippi")
+                .join("Game_20260530T214929.full.inputs.json"),
             max_frames: Some(DEFAULT_MAX_FRAMES),
             player_number: DEFAULT_PLAYER_INDEX + 1,
         };
@@ -178,47 +215,41 @@ impl SlippiReplaySurface {
         })
     }
 
-    fn empty_missing_artifact(options: SlippiReplayLoadOptions) -> Result<Self, String> {
-        if options.player_number == 0 {
-            return Err("player numbers are 1-based and must be greater than zero".to_string());
-        }
-        if options.focus_end < options.focus_start {
-            return Err(format!(
-                "invalid replay trace window: {}..{}",
-                options.focus_start, options.focus_end
-            ));
-        }
+    pub fn load_replay_metadata_only(options: SlippiReplayLoadOptions) -> Result<Self, String> {
+        validate_load_options(&options)?;
 
         Ok(Self {
             focus_end: options.focus_end,
             focus_player_number: options.player_number,
             focus_start: options.focus_start,
             input_export_path: options.input_export_path.display().to_string(),
-            replay_path: "No local Slippi input export loaded".to_string(),
+            replay_path: options.input_export_path.display().to_string(),
             rows: Vec::new(),
             trace_report_text:
-                "No local replay export found. Press Play From Start after exporting replay inputs."
+                "Replay source loaded. Press Refresh to compute the comparison trace.".to_string(),
+        })
+    }
+
+    fn empty_missing_artifact(options: SlippiReplayLoadOptions) -> Result<Self, String> {
+        validate_load_options(&options)?;
+
+        Ok(Self {
+            focus_end: options.focus_end,
+            focus_player_number: options.player_number,
+            focus_start: options.focus_start,
+            input_export_path: options.input_export_path.display().to_string(),
+            replay_path: "No local Slippi replay source loaded".to_string(),
+            rows: Vec::new(),
+            trace_report_text:
+                "No local Slippi replay source found. Put the replay at replays/Game_20260530T214929.slp. .inputs.json is supported only for explicit diagnostics."
                     .to_string(),
         })
     }
 
     pub fn load_with_options(options: SlippiReplayLoadOptions) -> Result<Self, String> {
-        if options.player_number == 0 {
-            return Err("player numbers are 1-based and must be greater than zero".to_string());
-        }
-        if options.focus_end < options.focus_start {
-            return Err(format!(
-                "invalid replay trace window: {}..{}",
-                options.focus_start, options.focus_end
-            ));
-        }
+        validate_load_options(&options)?;
 
-        let text = fs::read_to_string(&options.input_export_path).map_err(|error| {
-            format!(
-                "failed to read {}: {error}",
-                options.input_export_path.display()
-            )
-        })?;
+        let text = load_slippi_source_text(&options.input_export_path)?;
         let input_file: SlippiInputFile = serde_json::from_str(&text)
             .map_err(|error| format!("failed to parse replay input export: {error}"))?;
         let trace = trace_slippi_export_from_match_start_with_core(
@@ -286,6 +317,72 @@ impl SlippiReplaySurface {
     pub fn first_diff_index(&self) -> Option<usize> {
         self.rows.iter().position(|row| row.status == "diff")
     }
+}
+
+fn validate_load_options(options: &SlippiReplayLoadOptions) -> Result<(), String> {
+    if options.player_number == 0 {
+        return Err("player numbers are 1-based and must be greater than zero".to_string());
+    }
+    if options.focus_end < options.focus_start {
+        return Err(format!(
+            "invalid replay trace window: {}..{}",
+            options.focus_start, options.focus_end
+        ));
+    }
+    Ok(())
+}
+
+fn load_slippi_source_text(path: &Path) -> Result<String, String> {
+    if is_slippi_replay_path(path) {
+        export_slippi_replay_to_json(path)
+    } else {
+        fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))
+    }
+}
+
+fn export_slippi_replay_to_json(replay_path: &Path) -> Result<String, String> {
+    let root = workspace_root()?;
+    let output = Command::new("node")
+        .current_dir(&root)
+        .arg(root.join("tools").join("slippi_replay_to_inputs.cjs"))
+        .arg("--replay")
+        .arg(replay_path)
+        .arg("--include-negative-frames")
+        .arg("--all-frames")
+        .arg("--stdout")
+        .output()
+        .map_err(|error| format!("failed to run Slippi replay parser with node: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        return Err(format!(
+            "Slippi replay parser failed with status {}: {}{}",
+            output.status,
+            stderr.trim(),
+            if stdout.trim().is_empty() {
+                String::new()
+            } else {
+                format!("\nstdout: {}", stdout.trim())
+            }
+        ));
+    }
+    Ok(stdout)
+}
+
+pub(crate) fn is_slippi_replay_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("slp"))
+}
+
+fn workspace_root() -> Result<PathBuf, String> {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .map(|path| path.to_path_buf())
+        .ok_or_else(|| "failed to resolve workspace root from CARGO_MANIFEST_DIR".to_string())
 }
 
 impl From<&mole_runtime::SlippiCoreTraceRow> for SlippiReplayRow {
@@ -437,20 +534,12 @@ impl From<&SlippiReplayRow> for LedgerTabTemplateRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::{Path, PathBuf};
-
-    fn workspace_root() -> PathBuf {
-        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        manifest_dir
-            .parent()
-            .and_then(Path::parent)
-            .expect("workspace root")
-            .to_path_buf()
-    }
+    use std::path::PathBuf;
 
     #[test]
     fn slippi_replay_default_load_is_metadata_only_for_fast_startup() {
-        let surface = SlippiReplaySurface::load(workspace_root()).unwrap();
+        let root = temp_test_dir("slippi_replay_default_load_is_metadata_only_for_fast_startup");
+        let surface = SlippiReplaySurface::load(&root).unwrap();
         let template = LedgerTabTemplate::from(&surface);
 
         assert_eq!(surface.focus_player_number, 2);
@@ -461,7 +550,27 @@ mod tests {
         assert!(template.rows.is_empty());
         assert!(surface
             .trace_report_text
-            .contains("No local replay export found"));
+            .contains("No local Slippi replay source found"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn slippi_replay_default_load_uses_local_replay_as_source_when_available() {
+        let root =
+            temp_test_dir("slippi_replay_default_load_uses_local_replay_as_source_when_available");
+        let replay_path = root.join("replays").join("Game_20260530T214929.slp");
+        fs::create_dir_all(replay_path.parent().expect("replay parent")).unwrap();
+        fs::write(&replay_path, []).unwrap();
+
+        let surface = SlippiReplaySurface::load(&root).unwrap();
+
+        assert_eq!(surface.input_export_path, replay_path.display().to_string());
+        assert_eq!(surface.replay_path, replay_path.display().to_string());
+        assert!(surface.rows.is_empty());
+        assert!(surface
+            .trace_report_text
+            .contains("Press Refresh to compute the comparison trace"));
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -524,6 +633,35 @@ mod tests {
             .cargo_args()
             .contains(&"--hold-final-frame".to_string()));
         let _ = fs::remove_file(path);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn slippi_replay_runtime_launch_plan_can_use_replay_source_without_export_artifact() {
+        let root = temp_test_dir(
+            "slippi_replay_runtime_launch_plan_can_use_replay_source_without_export_artifact",
+        );
+        let replay_path = root.join("replays").join("fixture.slp");
+        let log_path = root.join("debug/slippi/runtime-divergence.latest.json");
+
+        let plan = SlippiRuntimeReplayLaunchPlan::from_replay_path(&replay_path, &log_path);
+
+        assert_eq!(plan.frames_to_run, u32::MAX);
+        assert!(plan.cargo_args().windows(2).any(|pair| {
+            pair == [
+                "--visual-slippi-replay".to_string(),
+                replay_path.display().to_string(),
+            ]
+        }));
+        assert!(!plan
+            .cargo_args()
+            .contains(&"--visual-slippi-inputs".to_string()));
+        assert!(plan.cargo_args().windows(2).any(|pair| {
+            pair == [
+                "--slippi-divergence-log".to_string(),
+                log_path.display().to_string(),
+            ]
+        }));
         let _ = fs::remove_dir_all(root);
     }
 

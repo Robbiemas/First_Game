@@ -122,6 +122,18 @@ struct StateGraphLayoutGraph {
 }
 
 impl StateGraphsSurface {
+    pub fn empty() -> Self {
+        Self {
+            edges: Vec::new(),
+            missing_edge_count: 0,
+            missing_node_count: 0,
+            nodes: Vec::new(),
+            source_gap_count: 0,
+            total_edge_count: 0,
+            total_node_count: 0,
+        }
+    }
+
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let path = root
             .as_ref()

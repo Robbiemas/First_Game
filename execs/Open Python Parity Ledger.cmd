@@ -3,6 +3,10 @@ setlocal
 
 cd /d "%~dp0.."
 
+echo Opening the legacy Python parity ledger.
+echo Normal replay/parity work should use Play Slippi Replay.cmd or Open Dev Tool.cmd.
+echo.
+
 set "REQUIREMENTS=%CD%\requirements.txt"
 set "PYTHON=%CD%\.venv\Scripts\python.exe"
 set "VIEWER=%CD%\tools\state_graph_viewer.py"
@@ -14,7 +18,7 @@ if not exist "%VIEWER%" (
 )
 
 if not exist "%PYTHON%" (
-    echo Setting up the local Python environment for the legacy parity ledger...
+    echo Setting up the local Python environment for the legacy compatibility viewer...
     where py >nul 2>nul
     if errorlevel 1 (
         echo Python launcher "py" was not found. Install Python 3.10, then try again.

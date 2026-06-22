@@ -578,6 +578,9 @@ fn graph_node_screen_pos(
 
 fn render_move_keyframes(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     app.poll_move_keyframe_import_pipeline();
+    if let Err(error) = app.ensure_move_keyframes_loaded() {
+        app.move_keyframes_status = Some(error);
+    }
     ui.heading("Move Keyframes");
     render_move_keyframes_browser_controls(ui, app);
     ui.separator();
@@ -940,7 +943,7 @@ fn render_slippi_replay(ui: &mut egui::Ui, app: &mut ParityLedgerApp) {
     egui::Frame::group(ui.style()).show(ui, |ui| {
         ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
-                ui.label("Artifact");
+                ui.label("Source");
                 ui.add(
                     egui::TextEdit::singleline(&mut app.slippi_replay_path)
                         .desired_width(ui.available_width().min(520.0)),

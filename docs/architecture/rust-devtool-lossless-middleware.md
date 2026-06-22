@@ -10,6 +10,12 @@ The durable project direction is Rust-owned engine, CLI, middleware artifacts, a
 
 The Python state graph viewer is currently allowed as a supported temporary parity-ledger surface because its ledger view is still more usable than the Rust rewrite. Treat it as a compatibility UI over repository artifacts, not as the authority. Do not remove its launcher or tests until the Rust parity ledger reaches feature parity and this document is updated with the replacement milestone.
 
+The active replay-parity workflow starts from the `.slp` replay file. Runtime
+playback should launch that replay directly, stop on the first Slippi/Rust
+divergence, and write the latest divergence log for follow-up. Exported
+`.inputs.json` files are diagnostic/test artifacts only; they are not a required
+handoff step for normal replay playback.
+
 The Rust dev tool is not just a viewer. It is the middleware layer between the Melee decomp reference and the Rust engine:
 
 ```text

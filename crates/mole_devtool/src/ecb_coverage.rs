@@ -30,6 +30,22 @@ pub struct EcbCoverageSource {
 }
 
 impl EcbCoverageSurface {
+    pub fn empty() -> Self {
+        Self {
+            id: "ecb_coverage".to_string(),
+            mapped_action_count: 0,
+            mapped_motion_state_count: 0,
+            mapped_motion_states: Vec::new(),
+            missing_sampled_mappings: Vec::new(),
+            source: EcbCoverageSource {
+                generated_rust: String::new(),
+                samples: String::new(),
+            },
+            title: "ECB Coverage".to_string(),
+            unmapped_derived_motion_states: Vec::new(),
+        }
+    }
+
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let path = root
             .as_ref()

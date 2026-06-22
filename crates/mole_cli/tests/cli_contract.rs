@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -125,6 +126,76 @@ fn project_root_detection_handles_parent_workspace_directory() {
     fs::write(first_game.join("Cargo.toml"), "[workspace]\n").unwrap();
 
     assert_eq!(find_project_root(&parent), Some(first_game));
+}
+
+#[test]
+fn workspace_health_reports_replay_launcher_prerequisites_without_mutating() {
+    let root = temp_project_root("workspace_health");
+    fs::create_dir_all(root.join("execs")).unwrap();
+    fs::create_dir_all(root.join("crates/mole_runtime/src/generated/source_frame_data")).unwrap();
+    fs::write(root.join("execs/Play Slippi Replay.cmd"), "@echo off\n").unwrap();
+    fs::write(
+        root.join("crates/mole_runtime/src/generated/source_frame_data/Loose.figatree.bin"),
+        b"loose",
+    )
+    .unwrap();
+    run_git_test_command(&root, &["init"]);
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "workspace".to_string(),
+        "health".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "workspace health");
+    assert_eq!(parsed["ok"], false);
+    assert_eq!(parsed["checks"]["sdl3_runtime"]["present"], false);
+    assert_eq!(parsed["checks"]["release_runtime"]["present"], false);
+    assert_eq!(parsed["checks"]["replay_source"]["present"], false);
+    assert_eq!(
+        parsed["checks"]["required_launchers"][0]["path"],
+        "execs/Play Slippi Replay.cmd"
+    );
+    assert_eq!(parsed["checks"]["required_launchers"][0]["present"], true);
+    assert_eq!(parsed["checks"]["required_launchers"][0]["tracked"], false);
+    let launcher_paths: Vec<String> = parsed["checks"]["required_launchers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|launcher| launcher["path"].as_str().unwrap().to_string())
+        .collect();
+    assert!(launcher_paths.contains(&"execs/Clean Local Outputs.cmd".to_string()));
+    assert_eq!(
+        parsed["checks"]["generated_source_frame_data"]["extra_loose_figatree_sidecars"][0],
+        "Loose.figatree.bin"
+    );
+    assert!(!root
+        .join("debug/slippi/runtime-divergence.latest.json")
+        .exists());
+}
+
+#[test]
+fn workspace_health_markdown_names_fast_replay_prerequisites() {
+    let root = temp_project_root("workspace_health_markdown");
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "workspace".to_string(),
+        "health".to_string(),
+        "--format".to_string(),
+        "markdown".to_string(),
+    ])
+    .unwrap();
+
+    assert!(output.contains("# Mole Workspace Health"));
+    assert!(output.contains("SDL3 runtime"));
+    assert!(output.contains("Release runtime"));
+    assert!(output.contains("Replay source"));
+    assert!(output.contains("Divergence log"));
 }
 
 #[test]
@@ -940,7 +1011,18 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert_eq!(parsed["ok"], true);
     assert_eq!(parsed["compact_manifest_detected"], true);
     assert_eq!(parsed["runtime_export_kind"], "compact_source_export");
-    assert_eq!(parsed["state_count"], 134);
+    let source_manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(
+            root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        )
+        .expect("source manifest should be readable"),
+    )
+    .expect("source manifest should parse");
+    let source_manifest_action_count = source_manifest["actions"]
+        .as_array()
+        .expect("source manifest should expose actions")
+        .len();
+    assert!(parsed["state_count"].as_u64().unwrap() > 0);
     let gap_action_ids = parsed["rust_parity_gaps"]
         .as_array()
         .unwrap()
@@ -972,10 +1054,13 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(parsed["figatree_chunk_bytes"].as_u64().unwrap() > 0);
     assert!(generated.contains("RuntimeSourceExport"));
     assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("SOURCE_FIGATREE_BUNDLE_BYTES"));
+    assert!(generated.contains("SourceFigatreeBundleEntry"));
     assert!(generated.contains("SOURCE_MANIFEST_JSON"));
     assert!(generated.contains("runtime_source_export"));
     assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
-    assert!(generated.contains(".figatree.bin"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/source_figatree_bundle.bin\")"));
+    assert!(!generated.contains(".figatree.bin"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("MeleeActionStateId::new(75)"));
@@ -996,6 +1081,7 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("MeleeActionStateId::new(199)"));
     assert!(generated.contains("MeleeActionStateId::new(200)"));
     assert!(generated.contains("MeleeActionStateId::new(201)"));
+    assert!(generated.contains("MeleeActionStateId::new(275)"));
     assert!(generated.contains("MeleeActionStateId::new(355)"));
     assert!(generated.contains("MeleeActionStateId::new(356)"));
     assert!(generated.contains("MeleeActionStateId::new(358)"));
@@ -1021,6 +1107,7 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("source_action_key: \"Passive\""));
     assert!(generated.contains("source_action_key: \"PassiveStandF\""));
     assert!(generated.contains("source_action_key: \"PassiveStandB\""));
+    assert!(generated.contains("source_action_key: \"TCaptainSpecialHi\""));
     assert!(generated.contains("source_action_key: \"SpecialHiCatch\""));
     assert!(generated.contains("source_action_key: \"SpecialHiThrow\""));
     assert!(generated.contains("source_action_key: \"SpecialLwEnd\""));
@@ -1084,6 +1171,9 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
         "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(201), source_action_key: \"PassiveStandB\", motion_state: None }"
     ));
     assert!(generated.contains(
+        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(275), source_action_key: \"TCaptainSpecialHi\", motion_state: None }"
+    ));
+    assert!(generated.contains(
         "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(355), source_action_key: \"SpecialHiCatch\", motion_state: None }"
     ));
     assert!(generated.contains(
@@ -1123,7 +1213,8 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("SOURCE_MANIFEST_JSON"));
     assert!(generated.contains("runtime_source_export"));
     assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
-    assert!(generated.contains(".figatree.bin"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/source_figatree_bundle.bin\")"));
+    assert!(!generated.contains(".figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
@@ -1152,6 +1243,11 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     )
     .unwrap();
     assert_eq!(
+        compact_manifest["actions"].as_array().unwrap().len(),
+        source_manifest_action_count,
+        "compact runtime manifest should preserve every decomp action-state row for graph and source-model parity"
+    );
+    assert_eq!(
         compact_manifest["rig"]["live_pose_setup"]["topn_rot_y_radians"],
         json!(std::f64::consts::FRAC_PI_2)
     );
@@ -1177,6 +1273,11 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(output_path
         .parent()
         .unwrap()
+        .join("source_frame_data/source_figatree_bundle.bin")
+        .exists());
+    assert!(!output_path
+        .parent()
+        .unwrap()
         .join("source_frame_data/AttackAirN.figatree.bin")
         .exists());
     let source_frame_capsules = fs::read(
@@ -1187,6 +1288,18 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     )
     .unwrap();
     let decoded_capsules = decode_runtime_source_frame_capsules(&source_frame_capsules).unwrap();
+    let unique_source_action_count = source_manifest["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|action| action["source_action_key"].as_str())
+        .collect::<BTreeSet<_>>()
+        .len();
+    assert_eq!(
+        decoded_capsules.len(),
+        unique_source_action_count,
+        "all-states runtime export should bake every compact-manifest source action key, even when Rust does not yet have a MotionState transition for that action"
+    );
     let special_hi = decoded_capsules
         .iter()
         .find(|action| action.source_action_key == "SpecialHi")
@@ -1292,6 +1405,17 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
         "SpecialAirLwEnd",
         "SpecialAirLwEndAir",
         "SpecialLwEndAir",
+        "CliffAttackQuick",
+        "CliffAttackSlow",
+        "CliffClimbQuick",
+        "CliffClimbSlow",
+        "CliffEscapeQuick",
+        "CliffEscapeSlow",
+        "CliffJumpQuick1",
+        "CliffJumpQuick2",
+        "CliffJumpSlow1",
+        "CliffJumpSlow2",
+        "CliffWait2",
     ] {
         decoded_capsules
             .iter()
@@ -1455,6 +1579,8 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
     );
     assert!(generated.contains("RuntimeSourceExport"));
     assert!(generated.contains("RuntimeFigatreeChunk"));
+    assert!(generated.contains("SOURCE_FIGATREE_BUNDLE_BYTES"));
+    assert!(generated.contains("SourceFigatreeBundleEntry"));
     assert!(generated.contains("RuntimeActionBinding"));
     assert!(generated.contains("MeleeActionStateId::new(65)"));
     assert!(generated.contains("source_action_key: \"AttackAirN\""));
@@ -1464,7 +1590,8 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
     assert!(generated.contains("SOURCE_MANIFEST_JSON"));
     assert!(generated.contains("runtime_source_export"));
     assert!(generated.contains("include_str!(\"source_frame_data/source_manifest.json\")"));
-    assert!(generated.contains("AttackAirN.figatree.bin"));
+    assert!(generated.contains("include_bytes!(\"source_frame_data/source_figatree_bundle.bin\")"));
+    assert!(!generated.contains("AttackAirN.figatree.bin"));
     assert!(generated.contains("MotionState::AttackAirN"));
     assert!(generated.contains("AttackAirN"));
     assert!(!generated.contains("SourceHitCapsule"));
@@ -1480,6 +1607,11 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
         .join("source_frame_data/source_manifest.json")
         .exists());
     assert!(output_path
+        .parent()
+        .unwrap()
+        .join("source_frame_data/source_figatree_bundle.bin")
+        .exists());
+    assert!(!output_path
         .parent()
         .unwrap()
         .join("source_frame_data/AttackAirN.figatree.bin")
@@ -1618,6 +1750,116 @@ fn frame_data_extract_decodes_source_action_script_hitbox_procedures() {
         .flat_map(|frame| frame["hitboxes"].as_array().unwrap())
         .all(|hitbox| hitbox["source"]
             != "provisional_viewer_scaffold_pending_hitbox_command_extraction"));
+}
+
+#[test]
+fn frame_data_extract_decodes_attack100_loop_subroutine_hitboxes() {
+    let root = temp_project_root("frame_data_attack100_loop_subroutine_hitboxes");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/Attack100Loop.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "Attack100Loop",
+            "label": "Rapid Jab Loop",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/lb/lbcommand.c", "line": 56}],
+            "summary": {"total_frames": 40, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [{"field": "hitboxes.damage_angle_knockback", "reason": "pending source extraction"}],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 50,
+                "name": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
+                "subaction_script_offset": 0x4730
+            }]
+        }),
+    );
+    let script_start = 0x20 + 0x4730;
+    let subroutine_start = 0x20 + 0x46bc;
+    let script_words = [
+        0xd0000003u32,
+        0x08000004,
+        0x14000000,
+        0x000046bc,
+        0x0800000c,
+        0x14000000,
+        0x000046bc,
+        0x00000000,
+    ];
+    let subroutine_words = [
+        0x2c016801u32,
+        0x037e0000,
+        0x00000000,
+        0xb4918013,
+        0x00000087,
+        0x2c816801,
+        0x037e0752,
+        0x00000000,
+        0xb4918013,
+        0x00000087,
+        0x18000000,
+    ];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    for (index, word) in subroutine_words.iter().enumerate() {
+        plca[subroutine_start + index * 4..subroutine_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "Attack100Loop".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let artifact = &parsed["artifact"];
+    let procedures = artifact["decoded_action_script"]["procedures"]
+        .as_array()
+        .expect("Attack100Loop should decode script procedures");
+    let spawn_frames = procedures
+        .iter()
+        .filter(|procedure| procedure["procedure"] == "fighter.spawn_hitbox")
+        .map(|procedure| procedure["frame"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(spawn_frames, vec![4, 4, 12, 12]);
+    let frame_4 = artifact["keyframes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|frame| frame["frame"] == 4)
+        .expect("first Attack100Loop subroutine call should materialize hitboxes");
+    assert_eq!(frame_4["hitboxes"].as_array().unwrap().len(), 2);
+    assert_eq!(frame_4["hitboxes"][0]["damage"], 1);
+    assert!(artifact["gaps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|gap| gap["field"] != "hitboxes.damage_angle_knockback"));
 }
 
 #[test]
@@ -2912,6 +3154,7 @@ fn help_command_exposes_full_agent_command_catalog() {
         "graph next",
         "graph inspect",
         "verify changed",
+        "workspace health",
         "generated check",
         "stage inspect",
         "finish check",
@@ -2973,6 +3216,16 @@ fn help_command_exposes_full_agent_command_catalog() {
         .unwrap()
         .iter()
         .any(|example| example.as_str().unwrap().contains("replay check")));
+    assert!(parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| example.as_str().unwrap().contains("replay check --replay")));
+    assert!(!parsed["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|example| { example.as_str().unwrap().contains(".inputs.json") }));
     let replay_trace = commands
         .iter()
         .find(|command| command["name"] == "replay trace")
@@ -2986,11 +3239,10 @@ fn help_command_exposes_full_agent_command_catalog() {
         .as_array()
         .unwrap()
         .contains(&json!("--player")));
-    assert!(parsed["examples"]
-        .as_array()
+    assert!(replay_trace["purpose"]
+        .as_str()
         .unwrap()
-        .iter()
-        .any(|example| example.as_str().unwrap().contains("replay trace")));
+        .contains("diagnostic"));
     let replay_scan = commands
         .iter()
         .find(|command| command["name"] == "replay scan")
@@ -3004,11 +3256,10 @@ fn help_command_exposes_full_agent_command_catalog() {
         .as_array()
         .unwrap()
         .contains(&json!("--lookahead")));
-    assert!(parsed["examples"]
-        .as_array()
+    assert!(replay_scan["purpose"]
+        .as_str()
         .unwrap()
-        .iter()
-        .any(|example| example.as_str().unwrap().contains("replay scan")));
+        .contains("diagnostic"));
     let decomp_search = commands
         .iter()
         .find(|command| command["name"] == "decomp search")
@@ -3476,6 +3727,19 @@ fn generated_check_reports_missing_and_stale_artifact_groups() {
         .as_str()
         .unwrap()
         .contains("source_frame_data.rs"));
+    let runtime_outputs = runtime_source_frame_data["outputs"].as_array().unwrap();
+    assert!(runtime_outputs.contains(&json!(
+        "crates/mole_runtime/src/generated/source_frame_data/source_frame_capsules.bin"
+    )));
+    assert!(runtime_outputs.contains(&json!(
+        "crates/mole_runtime/src/generated/source_frame_data/source_manifest.json"
+    )));
+    assert!(runtime_outputs.contains(&json!(
+        "crates/mole_runtime/src/generated/source_frame_data/source_figatree_bundle.bin"
+    )));
+    assert!(!runtime_outputs.iter().any(|path| path
+        .as_str()
+        .is_some_and(|path| path.ends_with(".figatree.bin"))));
     assert!(parsed["summary"]["stale_groups"].as_u64().unwrap() >= 1);
     assert!(parsed["summary"]["missing_output_groups"].as_u64().unwrap() >= 1);
 }

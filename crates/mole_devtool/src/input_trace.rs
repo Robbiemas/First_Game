@@ -142,6 +142,27 @@ struct InputTraceSource {
 }
 
 impl InputTraceSurface {
+    pub fn placeholder(root: impl AsRef<Path>) -> Result<Self, String> {
+        let options = InputTraceLoadOptions {
+            focus_end: DEFAULT_WINDOW_END,
+            focus_start: DEFAULT_WINDOW_START,
+            path: root
+                .as_ref()
+                .join("debug/slippi/Game_20260530T214929.inputs.json"),
+            player_number: DEFAULT_PLAYER_NUMBER,
+        };
+        let mut surface = Self::empty_missing_artifact(options)?;
+        surface.replay_path =
+            "Diagnostic input trace not loaded. Press Refresh to read the selected export."
+                .to_string();
+        surface.source_parser = "lazy".to_string();
+        Ok(surface)
+    }
+
+    pub fn is_placeholder(&self) -> bool {
+        self.source_parser == "lazy"
+    }
+
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let options = InputTraceLoadOptions {
             focus_end: DEFAULT_WINDOW_END,

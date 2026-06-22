@@ -463,8 +463,8 @@ impl MeleeInputTimers {
             ),
             trigger: update_binary_timer(
                 self.trigger,
-                previous.trigger_timer_active_with_config(config),
-                current.trigger_timer_active_with_config(config),
+                player_input_trigger_timer_active_with_config(previous, config),
+                player_input_trigger_timer_active_with_config(current, config),
             ),
         }
     }
@@ -1214,18 +1214,28 @@ impl PlayerInput {
         let prev_lstick = (previous.stick_x(), previous.stick_y());
         let cstick = (self.c_stick_x(), self.c_stick_y());
         let prev_cstick = (previous.c_stick_x(), previous.c_stick_y());
-        let left_trigger = self.left_trigger_analog();
-        let right_trigger = self.right_trigger_analog();
-        let previous_left_trigger = previous.left_trigger_analog();
-        let previous_right_trigger = previous.right_trigger_analog();
+        let left_trigger = clean_trigger(self.left_trigger_analog(), config.trigger_deadzone);
+        let right_trigger = clean_trigger(self.right_trigger_analog(), config.trigger_deadzone);
+        let previous_left_trigger =
+            clean_trigger(previous.left_trigger_analog(), config.trigger_deadzone);
+        let previous_right_trigger =
+            clean_trigger(previous.right_trigger_analog(), config.trigger_deadzone);
         let left_trigger_analog_held = left_trigger >= config.trigger_threshold;
         let right_trigger_analog_held = right_trigger >= config.trigger_threshold;
         let left_trigger_analog_pressed =
             left_trigger_analog_held && previous_left_trigger < config.trigger_threshold;
         let right_trigger_analog_pressed =
             right_trigger_analog_held && previous_right_trigger < config.trigger_threshold;
-        let shield_held = self.shield_with_config(config);
-        let previous_shield_held = previous.shield_with_config(config);
+        let digital_shield_held = held.l() || held.r();
+        let previous_digital_shield_held = previous_held.l() || previous_held.r();
+        let shield_held = self.explicit_shield()
+            || digital_shield_held
+            || left_trigger_analog_held
+            || right_trigger_analog_held;
+        let previous_shield_held = previous.explicit_shield()
+            || previous_digital_shield_held
+            || previous_left_trigger >= config.trigger_threshold
+            || previous_right_trigger >= config.trigger_threshold;
 
         MeleeInputSnapshot {
             lstick,
@@ -1327,6 +1337,19 @@ const fn clean_native_axis_to_i8(value: i8, deadzone: i8) -> i8 {
 
 fn clean_trigger(value: u8, deadzone: u8) -> u8 {
     clean_native_trigger(value, deadzone)
+}
+
+fn player_input_trigger_timer_active_with_config(
+    input: PlayerInput,
+    config: MeleeInputConfig,
+) -> bool {
+    input.left_trigger_digital()
+        || input.right_trigger_digital()
+        || input.grab()
+        || clean_trigger(input.left_trigger_analog(), config.trigger_deadzone)
+            >= config.trigger_timer_threshold
+        || clean_trigger(input.right_trigger_analog(), config.trigger_deadzone)
+            >= config.trigger_timer_threshold
 }
 
 const fn clean_native_trigger(value: u8, deadzone: u8) -> u8 {

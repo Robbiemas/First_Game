@@ -10,9 +10,9 @@ but authoritative gameplay work now belongs in Rust.
 ## Download The Playtest
 
 For local testing from this checkout, double-click `START HERE - Mole Game.hta`.
-It opens a small Windows menu for local play, Friend Connect playtest builds,
-the devtool replay viewer, screenshots, and current notes without typing
-terminal commands.
+It opens a small Windows menu for the current local loop: play the reference
+Slippi replay directly through the Rust runtime, launch local SDL3 play, or open
+the Rust dev tool without typing terminal commands.
 
 For the current handoff builds, download:
 
@@ -101,6 +101,18 @@ cargo test --workspace
 cargo run -p mole_runtime -- --frames 120
 ```
 
+To run the current parity replay from the `.slp` source of truth and stop on
+the first Rust/Slippi divergence:
+
+```powershell
+.\execs\Play Slippi Replay.cmd
+```
+
+The replay launcher writes the latest stop point to
+`debug\slippi\runtime-divergence.latest.json`. It runs the release
+`mole_runtime.exe` directly when present, so it should not pre-export
+`.inputs.json` artifacts for normal playthroughs.
+
 To launch the native game window:
 
 ```powershell
@@ -110,16 +122,26 @@ To launch the native game window:
 The first SDL3 launch may download the free SDL3 development package into
 `.local/SDL3`. That folder is local-only and ignored by git.
 
+To inspect launcher/runtime prerequisites without mutating the workspace:
+
+```powershell
+cargo run -p mole_cli -- workspace health --format markdown
+```
+
 ## Recommended Playtest Launchers
 
 Use the scripts in `execs/` for normal Windows playtesting:
 
+- `Play Slippi Replay.cmd`: direct `.slp` parity playback; stops and logs the
+  first divergence against Slippi/replay expectations.
 - `Run SDL3 Runtime.cmd`: optimized native SDL3/WUP local gameplay test, UCF enabled; starts the game loop immediately without Friend Connect.
 - `Run SDL3 Runtime Vanilla No UCF.cmd`: same optimized local SDL3/WUP runtime with UCF disabled.
 - `Check WUP Native.cmd`: verifies that the WUP-028 adapter is visible.
 - `Monitor WUP Native.cmd`: opens a native GameCube input monitor.
 - `Record Native Replay.cmd`: records a deterministic runtime replay.
 - `Open Dev Tool.cmd`: opens the native Rust Mole Game Dev Tool.
+- `Clean Local Outputs.cmd`: dry-runs cleanup of ignored local outputs; pass
+  `--apply` only after reviewing the listed paths.
 - `Build Friend Playtest Package.cmd`: regenerates the one-file Windows
   handoff build under `playtest/`; the packaged default launcher starts Friend
   Connect, while local-practice and solo internet headless-peer launchers remain
@@ -317,9 +339,9 @@ The project is moving toward a source-shaped Melee data pipeline:
   Those timers and frame counts are rollback-owned core state, not render-only
   metadata.
 - The CLI/dev-tool export evaluates compact source FigaTree/JObj data and
-  writes `source_frame_capsules.bin`, a baked action/frame capsule and
-  DownBound hip-pose sidecar.
-  Player runtime only decodes that sidecar during
+  writes `source_frame_capsules.bin`, `source_figatree_bundle.bin`, and
+  `source_manifest.json` as the canonical generated runtime sidecars.
+  Player runtime only decodes those sidecars during
   `preload_runtime_source_frame_data`; gameplay, rendering, collision, and
   startup must not sample or evaluate source FigaTree/JObj data.
 
@@ -333,12 +355,15 @@ cargo run -p mole_cli -- frame-data export-runtime --all-states --character dolp
 
 `export-runtime --all-states` writes the compact runtime source asset under
 `crates/mole_runtime/src/generated/source_frame_data.rs` with generated
-`source_frame_data/` JSON/bin sidecars. The CLI/dev-tool middleware may point at
-the local decomp/raw extracts while exporting, but the game only consumes these
+`source_frame_data/` sidecars:
+`source_frame_capsules.bin`, `source_figatree_bundle.bin`, and
+`source_manifest.json`. The CLI/dev-tool middleware may point at the local
+decomp/raw extracts while exporting, but the game only consumes these
 compile-time included Rust assets at runtime. It does not read raw Melee DAT
 files during play. `preload_runtime_source_frame_data` decodes the generated
-`source_frame_capsules.bin` sidecar into the in-memory cache; it must not parse
-or evaluate the embedded compact source export.
+capsule sidecar into the in-memory cache and indexes the baked figatree bundle
+only through the generated manifest; it must not parse raw decomp assets during
+gameplay.
 
 Neutral `Wait` advances through the decomp animation-frame lane (`cur_anim_frame`
 equivalent) every fighter tick; render sprites and source capsule sampling must
@@ -357,7 +382,10 @@ or ISO files should stay local and must not be committed.
 - `crates/mole_cli`: JSON-first development helper CLI for agents and tools.
 - `crates/mole_replay`, `crates/mole_rollback`, `crates/mole_transport`,
   `crates/mole_signaling`: replay, rollback, transport, and signaling support.
-- `tools/`: legacy extraction, graph, Slippi, and generated-data helper scripts
+- `tools/`: legacy/reference extraction, graph, Slippi diagnostic export, and
+  generated-data helper scripts. `tools/state_graph_viewer.py` is a legacy
+  parity-inspection UI; normal replay work uses the direct `.slp` launcher and
+  Rust dev tool.
   pending Rust migration where they feed engine data.
 - `docs/`: architecture notes, research, state graphs, specs, and plans.
 - `resources/`: source-derived snapshots and runtime assets.

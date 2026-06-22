@@ -5,6 +5,8 @@ use std::fs;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
 #[cfg(all(feature = "sdl", feature = "wup"))]
+use std::process::Command;
+#[cfg(all(feature = "sdl", feature = "wup"))]
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc, Arc,
@@ -54,6 +56,13 @@ use mole_runtime::WupInputSource;
 #[cfg(all(feature = "sdl", feature = "wup"))]
 mod wup_monitor;
 
+#[cfg(any(test, feature = "sdl"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum VisualSlippiSource {
+    InputExport(PathBuf),
+    ReplayPath(PathBuf),
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let frames = parse_frames(&args);
@@ -71,7 +80,13 @@ fn main() {
     #[cfg(feature = "sdl")]
     let visual_platform_ledge_probe = has_flag(&args, "--visual-platform-ledge-probe");
     #[cfg(all(feature = "sdl", feature = "wup"))]
-    let visual_slippi_inputs_path = value_after(&args, "--visual-slippi-inputs").map(PathBuf::from);
+    let visual_slippi_source = match parse_visual_slippi_source(&args) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+    };
     #[cfg(all(feature = "sdl", feature = "wup"))]
     let slippi_divergence_log_path =
         value_after(&args, "--slippi-divergence-log").map(PathBuf::from);
@@ -332,7 +347,7 @@ fn main() {
             debug_overlay,
             frame_cap_enabled,
             visual_platform_ledge_probe,
-            visual_slippi_inputs_path,
+            visual_slippi_source,
             slippi_divergence_log_path,
             hold_final_frame,
             screenshot_request,
@@ -2917,15 +2932,13 @@ fn run_sdl_smoke(
     debug_overlay: bool,
     frame_cap_enabled: bool,
     visual_platform_ledge_probe: bool,
-    visual_slippi_inputs_path: Option<PathBuf>,
+    visual_slippi_source: Option<VisualSlippiSource>,
     slippi_divergence_log_path: Option<PathBuf>,
     hold_final_frame: bool,
     screenshot_request: Option<SdlScreenshotRequest>,
     ucf_enabled: bool,
 ) -> Result<(), String> {
     mole_runtime::preload_runtime_source_frame_data()?;
-    let visual_slippi_frames =
-        load_visual_slippi_replay_frames(visual_slippi_inputs_path.as_deref(), frames)?;
     configure_sdl_controller_hints();
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -2939,6 +2952,16 @@ fn run_sdl_smoke(
     let texture_creator = canvas.texture_creator();
     let mut texture_cache =
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
+    let visual_slippi_frames =
+        load_visual_slippi_replay_frames(visual_slippi_source.as_ref(), frames)?;
+    let frames_to_run = if visual_slippi_source.is_some() && frames == u32::MAX {
+        visual_slippi_frames
+            .as_ref()
+            .map(|frames| frames.len() as u32)
+            .unwrap_or(frames)
+    } else {
+        frames
+    };
 
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
     let mut gameplay_input_source = open_optional_wup_input_source(ucf_enabled, "local SDL");
@@ -2959,7 +2982,7 @@ fn run_sdl_smoke(
     let mut next_frame_deadline = Instant::now() + frame_budget;
     let mut render_camera = RenderCameraState::battlefield();
 
-    for frame in 0..frames {
+    for frame in 0..frames_to_run {
         let frame_started = Instant::now();
         let frame = Frame(frame);
         let input_started = Instant::now();
@@ -3010,7 +3033,7 @@ fn run_sdl_smoke(
                 if let Some(divergence) = visual_slippi_divergence_gate.observe(divergence) {
                     write_visual_slippi_divergence_log(
                         log_path,
-                        visual_slippi_inputs_path.as_deref(),
+                        visual_slippi_source.as_ref(),
                         &divergence,
                     )?;
                     println!(
@@ -3119,7 +3142,7 @@ fn run_sdl_smoke(
         println!("{}", timing_stats.summary_json(frame_cap_enabled));
     }
     if hold_final_frame {
-        let hold_frame = Frame(frames.saturating_sub(1));
+        let hold_frame = Frame(frames_to_run.saturating_sub(1));
         loop {
             let _ = mole_runtime::InputSource::poll_inputs(&mut sdl_shell_input, hold_frame);
             if sdl_shell_input.quit_requested() {
@@ -3134,7 +3157,7 @@ fn run_sdl_smoke(
 #[cfg(all(feature = "sdl", feature = "wup"))]
 fn write_visual_slippi_divergence_log(
     path: &Path,
-    input_export_path: Option<&Path>,
+    slippi_source: Option<&VisualSlippiSource>,
     divergence: &mole_runtime::SlippiVisualReplayDivergence,
 ) -> Result<(), String> {
     if let Some(parent) = path.parent() {
@@ -3207,7 +3230,18 @@ fn write_visual_slippi_divergence_log(
     let report = serde_json::json!({
         "schema_version": 1,
         "event": "slippi_runtime_divergence",
-        "input_export_path": input_export_path.map(|path| path.display().to_string()),
+        "slippi_source": slippi_source.map(|source| serde_json::json!({
+            "kind": visual_slippi_source_kind(source),
+            "path": visual_slippi_source_path(source).display().to_string(),
+        })),
+        "input_export_path": slippi_source.and_then(|source| match source {
+            VisualSlippiSource::InputExport(path) => Some(path.display().to_string()),
+            VisualSlippiSource::ReplayPath(_) => None,
+        }),
+        "replay_path": slippi_source.and_then(|source| match source {
+            VisualSlippiSource::ReplayPath(path) => Some(path.display().to_string()),
+            VisualSlippiSource::InputExport(_) => None,
+        }),
         "kind": slippi_divergence_kind_label(divergence.kind),
         "player": divergence.player_index + 1,
         "core_frame": divergence.core_frame.0,
@@ -3234,18 +3268,85 @@ fn slippi_divergence_kind_label(kind: mole_runtime::SlippiCoreDivergenceKind) ->
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
 fn load_visual_slippi_replay_frames(
-    path: Option<&Path>,
+    source: Option<&VisualSlippiSource>,
     frames: u32,
 ) -> Result<Option<Vec<mole_runtime::SlippiVisualReplayFrame>>, String> {
-    let Some(path) = path else {
+    let Some(source) = source else {
         return Ok(None);
     };
-    let text = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let max_frames = (frames != u32::MAX).then_some(frames as usize);
+    let text = match source {
+        VisualSlippiSource::InputExport(path) => fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?,
+        VisualSlippiSource::ReplayPath(path) => export_visual_slippi_replay_json(path, max_frames)?,
+    };
     let frames = mole_runtime::slippi_visual_replay_inputs_from_match_start(&text, max_frames)
         .map_err(|error| error.to_string())?;
     Ok(Some(frames))
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn export_visual_slippi_replay_json(
+    replay_path: &Path,
+    max_frames: Option<usize>,
+) -> Result<String, String> {
+    let root = runtime_workspace_root()?;
+    let mut command = Command::new("node");
+    command
+        .current_dir(&root)
+        .arg(root.join("tools").join("slippi_replay_to_inputs.cjs"))
+        .arg("--replay")
+        .arg(replay_path)
+        .arg("--include-negative-frames");
+    if let Some(max_frames) = max_frames {
+        command.arg("--frames").arg(max_frames.to_string());
+    } else {
+        command.arg("--all-frames");
+    }
+    command.arg("--stdout");
+    let output = command
+        .output()
+        .map_err(|error| format!("failed to run Slippi replay parser with node: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        return Err(format!(
+            "Slippi replay parser failed with status {}: {}{}",
+            output.status,
+            stderr.trim(),
+            if stdout.trim().is_empty() {
+                String::new()
+            } else {
+                format!("\nstdout: {}", stdout.trim())
+            }
+        ));
+    }
+    Ok(stdout)
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn visual_slippi_source_path(source: &VisualSlippiSource) -> &Path {
+    match source {
+        VisualSlippiSource::InputExport(path) | VisualSlippiSource::ReplayPath(path) => path,
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn visual_slippi_source_kind(source: &VisualSlippiSource) -> &'static str {
+    match source {
+        VisualSlippiSource::InputExport(_) => "input_export",
+        VisualSlippiSource::ReplayPath(_) => "replay",
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn runtime_workspace_root() -> Result<PathBuf, String> {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .map(|path| path.to_path_buf())
+        .ok_or_else(|| "failed to resolve workspace root from CARGO_MANIFEST_DIR".to_string())
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -3290,7 +3391,7 @@ fn run_sdl_smoke(
     _debug_overlay: bool,
     _frame_cap_enabled: bool,
     _visual_platform_ledge_probe: bool,
-    _visual_slippi_inputs_path: Option<PathBuf>,
+    _visual_slippi_source: Option<VisualSlippiSource>,
     _slippi_divergence_log_path: Option<PathBuf>,
     _hold_final_frame: bool,
     _screenshot_request: Option<SdlScreenshotRequest>,
@@ -4188,6 +4289,20 @@ fn parse_slippi_trace_player(args: &[String]) -> usize {
         .unwrap_or_default()
 }
 
+#[cfg(any(test, feature = "sdl"))]
+fn parse_visual_slippi_source(args: &[String]) -> Result<Option<VisualSlippiSource>, String> {
+    let input_export = value_after(args, "--visual-slippi-inputs").map(PathBuf::from);
+    let replay_path = value_after(args, "--visual-slippi-replay").map(PathBuf::from);
+    match (input_export, replay_path) {
+        (None, None) => Ok(None),
+        (Some(path), None) => Ok(Some(VisualSlippiSource::InputExport(path))),
+        (None, Some(path)) => Ok(Some(VisualSlippiSource::ReplayPath(path))),
+        (Some(_), Some(_)) => Err(
+            "--visual-slippi-inputs and --visual-slippi-replay are mutually exclusive".to_string(),
+        ),
+    }
+}
+
 fn parse_i32_after(args: &[String], flag: &str) -> Option<i32> {
     value_after(args, flag).and_then(|value| value.parse::<i32>().ok())
 }
@@ -4241,6 +4356,7 @@ mod tests {
     use mole_runtime::SlippiCoreComparisonMode;
     #[cfg(all(feature = "sdl", feature = "wup"))]
     use mole_transport::{InputPacket, InputPacketDatagram, InputPacketInbox, UdpTransport};
+    use std::path::PathBuf;
 
     #[test]
     fn parse_frames_defaults_to_smoke_length() {
@@ -5183,6 +5299,23 @@ mod tests {
         assert_eq!(
             parse_slippi_trace_player(&["--slippi-trace-player".to_string(), "2".to_string()]),
             1
+        );
+    }
+
+    #[test]
+    fn parse_visual_slippi_source_prefers_replay_path_for_oracle_playback() {
+        let source = super::parse_visual_slippi_source(&[
+            "--visual-slippi-replay".to_string(),
+            "replays/Game_20260530T214929.slp".to_string(),
+        ])
+        .unwrap()
+        .expect("visual slippi source");
+
+        assert_eq!(
+            source,
+            super::VisualSlippiSource::ReplayPath(PathBuf::from(
+                "replays/Game_20260530T214929.slp"
+            ))
         );
     }
 

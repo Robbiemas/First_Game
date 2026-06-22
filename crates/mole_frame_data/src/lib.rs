@@ -140,12 +140,14 @@ pub enum RuntimeSourceScriptEvent {
 pub struct RuntimeSourceActionFrameSamples {
     pub source_action_key: String,
     pub total_frames: u8,
+    pub loops: bool,
     pub frames: Vec<RuntimeSourceFrameSample>,
     pub cmd_var_events: Vec<RuntimeSourceCmdVarEvent>,
     pub script_events: Vec<RuntimeSourceScriptEvent>,
 }
 
-const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0012";
+const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0013";
+const RUNTIME_SOURCE_FRAME_CAPSULES_NO_PLAYBACK_MAGIC: &[u8; 8] = b"MSFC0012";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROW_HITBOX_EVENTS_MAGIC: &[u8; 8] = b"MSFC0011";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_HITBOX_FLAGS_MAGIC: &[u8; 8] = b"MSFC0010";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROWN_HITBOX_MAGIC: &[u8; 8] = b"MSFC0009";
@@ -173,6 +175,7 @@ struct RuntimeSourceFrameCapsuleFormat {
     has_source_root_position: bool,
     has_thrown_hitbox_pose: bool,
     has_hitbox_flags: bool,
+    has_action_playback: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -194,6 +197,7 @@ pub fn encode_runtime_source_frame_capsules(
     for action in actions {
         push_string(&mut bytes, &action.source_action_key)?;
         push_u8(&mut bytes, action.total_frames);
+        push_bool(&mut bytes, action.loops);
         push_u16(
             &mut bytes,
             checked_u16(action.frames.len(), "runtime source frame count")?,
@@ -221,6 +225,11 @@ pub fn decode_runtime_source_frame_capsules(
     for _ in 0..action_count {
         let source_action_key = reader.read_string()?;
         let total_frames = reader.read_u8()?;
+        let loops = if format.has_action_playback {
+            reader.read_bool()?
+        } else {
+            false
+        };
         let frame_count = reader.read_u16()? as usize;
         let mut frames = Vec::with_capacity(frame_count);
         for _ in 0..frame_count {
@@ -279,6 +288,7 @@ pub fn decode_runtime_source_frame_capsules(
         actions.push(RuntimeSourceActionFrameSamples {
             source_action_key,
             total_frames,
+            loops,
             frames,
             cmd_var_events,
             script_events,
@@ -494,6 +504,19 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: true,
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: true,
+                has_action_playback: true,
+            })
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_PLAYBACK_MAGIC {
+            Ok(RuntimeSourceFrameCapsuleFormat {
+                float_width: RuntimeSourceFloatWidth::F32,
+                script_event_format: RuntimeSourceScriptEventFormat::Generic,
+                has_hurt_height: true,
+                has_capture_pose: true,
+                has_extended_capture_pose: true,
+                has_source_root_position: true,
+                has_thrown_hitbox_pose: true,
+                has_hitbox_flags: true,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROW_HITBOX_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -505,6 +528,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: true,
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: true,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_HITBOX_FLAGS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -516,6 +540,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: true,
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROWN_HITBOX_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -527,6 +552,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: true,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_ROOT_POSE_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -538,6 +564,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_CAPTURE_POSE_V1_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -549,6 +576,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_CAPTURE_POSE_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -560,6 +588,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_CMD_VAR_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -571,6 +600,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_HURT_HEIGHT_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -582,6 +612,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_F32_NO_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -593,6 +624,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_F64_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -604,6 +636,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_source_root_position: false,
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
+                has_action_playback: false,
             })
         } else {
             Err("runtime source frame capsule sidecar has an unsupported format".to_string())
@@ -3384,6 +3417,7 @@ mod tests {
         let actions = vec![RuntimeSourceActionFrameSamples {
             source_action_key: "Attack11".to_string(),
             total_frames: 1,
+            loops: false,
             frames: vec![RuntimeSourceFrameSample {
                 source_frame: 1,
                 source_root_position: RuntimeSourcePoint::default(),
@@ -3431,6 +3465,10 @@ mod tests {
             decoded[0].frames[0].hit_capsules[0].hitbox_flags, flags,
             "compact runtime artifacts must preserve ftAction_8007121C hitbox flags instead of dropping them before runtime collision"
         );
+        assert!(
+            !decoded[0].loops,
+            "finite action playback metadata should round-trip through compact runtime sidecars"
+        );
     }
 
     #[test]
@@ -3455,6 +3493,7 @@ mod tests {
         let actions = vec![RuntimeSourceActionFrameSamples {
             source_action_key: "ThrowHi".to_string(),
             total_frames: 45,
+            loops: true,
             frames: Vec::new(),
             cmd_var_events: Vec::new(),
             script_events: vec![event],
@@ -3462,7 +3501,7 @@ mod tests {
 
         let encoded =
             encode_runtime_source_frame_capsules(&actions).expect("sidecar should encode");
-        assert_eq!(&encoded[..8], b"MSFC0012");
+        assert_eq!(&encoded[..8], b"MSFC0013");
         let decoded =
             decode_runtime_source_frame_capsules(&encoded).expect("sidecar should decode");
 
@@ -3470,6 +3509,10 @@ mod tests {
             decoded[0].script_events,
             vec![event],
             "ftAction_80071E04 throw-hitbox commands must survive compact runtime export as xDF4 state events"
+        );
+        assert!(
+            decoded[0].loops,
+            "looping action playback metadata should round-trip through compact runtime sidecars"
         );
     }
 

@@ -1,3 +1,11 @@
+"""Legacy parity-inspection UI.
+
+The active Mole parity workflow is the Rust CLI/devtool plus direct `.slp`
+runtime replay. This module stays available as a compatibility/reference viewer
+over repository artifacts while older ledger views are still useful, but it must
+not define new gameplay, extraction, import, or runtime artifact semantics.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -3000,7 +3008,9 @@ def validate_ledger_fields(item: dict[str, Any], *, item_label: str) -> list[str
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Open the Mole/Melee state graph viewer.")
+    parser = argparse.ArgumentParser(
+        description="Open the legacy Mole/Melee parity-inspection viewer."
+    )
     parser.add_argument("--graph-dir", type=Path, default=DEFAULT_GRAPH_DIR)
     parser.add_argument("--layout", type=Path, default=DEFAULT_LAYOUT_PATH)
     parser.add_argument("--value-sheets", type=Path, default=DEFAULT_VALUE_SHEET_DIR)

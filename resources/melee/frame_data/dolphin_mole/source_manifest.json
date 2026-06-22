@@ -57068,6 +57068,7 @@
             "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -57088,6 +57089,7 @@
             "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -57108,6 +57110,7 @@
             "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -58416,6 +58419,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -58436,6 +58440,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -58456,6 +58461,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -59764,6 +59770,7 @@
             "clank": true,
             "frame": 5,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -59784,6 +59791,7 @@
             "clank": true,
             "frame": 5,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -59804,6 +59812,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -59824,6 +59833,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -62375,7 +62385,318 @@
     {
       "action_state_id": 50,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c016801",
+              "0x037e0000",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4535
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c816801",
+              "0x037e0752",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4540
+          },
+          {
+            "frame": 6,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4553
+          },
+          {
+            "flag_bit": 3,
+            "frame": 6,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4554
+          },
+          {
+            "clank": true,
+            "frame": 12,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c016801",
+              "0x037e0000",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4535
+          },
+          {
+            "clank": true,
+            "frame": 12,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c816801",
+              "0x037e0752",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4540
+          },
+          {
+            "frame": 14,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4553
+          },
+          {
+            "flag_bit": 3,
+            "frame": 14,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4554
+          },
+          {
+            "clank": true,
+            "frame": 20,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c016801",
+              "0x037e0000",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4535
+          },
+          {
+            "clank": true,
+            "frame": 20,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c816801",
+              "0x037e0752",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4540
+          },
+          {
+            "frame": 22,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4553
+          },
+          {
+            "flag_bit": 3,
+            "frame": 22,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4554
+          },
+          {
+            "clank": true,
+            "frame": 28,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c016801",
+              "0x037e0000",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4535
+          },
+          {
+            "clank": true,
+            "frame": 28,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c816801",
+              "0x037e0752",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4540
+          },
+          {
+            "frame": 30,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4553
+          },
+          {
+            "flag_bit": 3,
+            "frame": 30,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4554
+          },
+          {
+            "clank": true,
+            "frame": 35,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c016801",
+              "0x037e0000",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4535
+          },
+          {
+            "clank": true,
+            "frame": 35,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c816801",
+              "0x037e0752",
+              "0x00000000",
+              "0xb4918013",
+              "0x00000087"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 4540
+          },
+          {
+            "frame": 37,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4553
+          },
+          {
+            "flag_bit": 3,
+            "frame": 37,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 4554
+          }
+        ],
         "source": {
           "action_state_id": 50,
           "kind": "fighter_action_script",
@@ -64896,6 +65217,7 @@
             "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -64916,6 +65238,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -66204,6 +66527,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -66224,6 +66548,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -66244,6 +66569,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -67433,6 +67759,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -67453,6 +67780,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -67473,6 +67801,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -68662,6 +68991,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -68682,6 +69012,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -68702,6 +69033,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -69891,6 +70223,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -69911,6 +70244,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -69931,6 +70265,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -71120,6 +71455,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -71140,6 +71476,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -71160,6 +71497,7 @@
             "clank": true,
             "frame": 9,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -72349,6 +72687,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -72369,6 +72708,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -73702,6 +74042,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -73722,6 +74063,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -73742,6 +74084,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -75075,6 +75418,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -75095,6 +75439,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -76707,6 +77052,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -76727,6 +77073,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -76742,6 +77089,15 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 23
+          },
+          {
+            "frame": 22,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4794
           }
         ],
         "source": {
@@ -78330,6 +78686,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -78350,6 +78707,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -78365,6 +78723,15 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 24
+          },
+          {
+            "frame": 22,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 4794
           }
         ],
         "source": {
@@ -79953,6 +80320,7 @@
             "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -79973,6 +80341,7 @@
             "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -79993,6 +80362,7 @@
             "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -80013,6 +80383,7 @@
             "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -80042,6 +80413,7 @@
             "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -80062,6 +80434,7 @@
             "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -80082,6 +80455,7 @@
             "clank": true,
             "frame": 27,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -81289,6 +81663,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -81309,6 +81684,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -81338,6 +81714,7 @@
             "clank": true,
             "frame": 29,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -81358,6 +81735,7 @@
             "clank": true,
             "frame": 29,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82576,6 +82954,7 @@
             "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82596,6 +82975,7 @@
             "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82616,6 +82996,7 @@
             "clank": true,
             "frame": 7,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82645,6 +83026,7 @@
             "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82665,6 +83047,7 @@
             "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -82685,6 +83068,7 @@
             "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -84242,6 +84626,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -84262,6 +84647,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -84282,6 +84668,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -84302,6 +84689,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85859,6 +86247,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85879,6 +86268,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85899,6 +86289,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85919,6 +86310,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85939,6 +86331,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -85959,6 +86352,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87516,6 +87910,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87536,6 +87931,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87556,6 +87952,7 @@
             "clank": true,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87576,6 +87973,7 @@
             "clank": true,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87596,6 +87994,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -87616,6 +88015,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -89173,6 +89573,7 @@
             "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -89193,6 +89594,7 @@
             "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -89213,6 +89615,7 @@
             "clank": true,
             "frame": 16,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -141986,6 +142389,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -142001,6 +142405,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
+          },
+          {
+            "clank": false,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c807",
+              "0x04fe0000",
+              "0x0d500000",
+              "0xb4990014",
+              "0x050c088f"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2723
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c807",
+              "0x04fe0000",
+              "0x06a80000",
+              "0xb4990017",
+              "0x050c088f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2728
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c807",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990017",
+              "0x050c088f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2733
+          },
+          {
+            "frame": 9,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 17
           }
         ],
         "source": {
@@ -143409,6 +143885,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -143424,6 +143901,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 9
+          },
+          {
+            "clank": false,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80b",
+              "0x04fe0000",
+              "0x0d500000",
+              "0xb4990014",
+              "0x078c110f"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2753
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80b",
+              "0x04fe0000",
+              "0x06a80000",
+              "0xb4990017",
+              "0x078c110f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2758
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80b",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990017",
+              "0x078c110f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2763
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 19
           }
         ],
         "source": {
@@ -144838,6 +145387,78 @@
               "0x50000000"
             ],
             "word_offset": 8
+          },
+          {
+            "clank": false,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80f",
+              "0x04fe0000",
+              "0x0d500000",
+              "0xb4990014",
+              "0x0e0c190f"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2783
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80f",
+              "0x04fe0000",
+              "0x06a80000",
+              "0xb4990017",
+              "0x0e0c190f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2788
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80f",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990017",
+              "0x0e0c190f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2793
+          },
+          {
+            "frame": 27,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 13
           }
         ],
         "source": {
@@ -146246,6 +146867,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -146261,6 +146883,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 6
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80d",
+              "0x03540000",
+              "0x00000000",
+              "0xb4918017",
+              "0x118c008f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2813
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80c",
+              "0x04530000",
+              "0x06400000",
+              "0xb4918017",
+              "0x118c008f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2818
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80b",
+              "0x04530000",
+              "0x0c800000",
+              "0xb4918017",
+              "0x118c008f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2823
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 14
           }
         ],
         "source": {
@@ -147669,6 +148363,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -147684,6 +148379,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c807",
+              "0x047e0000",
+              "0x06a80000",
+              "0xb4990017",
+              "0x02800817"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2887
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c807",
+              "0x047e0000",
+              "0x03540000",
+              "0xb4990017",
+              "0x02800817"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2892
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c807",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990017",
+              "0x02800817"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2897
+          },
+          {
+            "frame": 9,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 10
           }
         ],
         "source": {
@@ -149092,6 +149859,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -149107,6 +149875,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80c",
+              "0x047e0000",
+              "0x06a80000",
+              "0xb4990017",
+              "0x04001097"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2912
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80c",
+              "0x047e0000",
+              "0x03540000",
+              "0xb4990017",
+              "0x04001097"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2917
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80c",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990017",
+              "0x04001097"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2922
+          },
+          {
+            "frame": 9,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 12
           }
         ],
         "source": {
@@ -150510,7 +151350,112 @@
     {
       "action_state_id": 114,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 20,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 10
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c81e",
+              "0x047e0000",
+              "0x05fd0000",
+              "0xb4990157",
+              "0x0003dd0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 12
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c81e",
+              "0x047e0000",
+              "0x02fe0000",
+              "0xb4990157",
+              "0x0003dd0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 17
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c81e",
+              "0x03540000",
+              "0x00000000",
+              "0xb4990157",
+              "0x0003dd0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 22
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 3,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d81c808",
+              "0x03e80000",
+              "0xfb500000",
+              "0xb4990157",
+              "0x00001097"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 27
+          },
+          {
+            "frame": 24,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 47
+          }
+        ],
         "source": {
           "action_state_id": 114,
           "kind": "fighter_action_script",
@@ -151917,6 +152862,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -151932,6 +152878,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c810",
+              "0x03540000",
+              "0x00000000",
+              "0xb4918017",
+              "0x11800017"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2977
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80e",
+              "0x047e0000",
+              "0x02fe0000",
+              "0xb4918017",
+              "0x11800017"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2982
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80c",
+              "0x047e0000",
+              "0x05fd0000",
+              "0xb4918017",
+              "0x11800017"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 2987
+          },
+          {
+            "frame": 18,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 10
           }
         ],
         "source": {
@@ -153340,6 +154358,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -153355,6 +154374,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
+          },
+          {
+            "clank": false,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c806",
+              "0x05dc0000",
+              "0x08980000",
+              "0x1e190015",
+              "0x028c088b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3006
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c806",
+              "0x04b00000",
+              "0x05780000",
+              "0x1e190017",
+              "0x028c088b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3011
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c806",
+              "0x02580000",
+              "0x00000000",
+              "0x1e190017",
+              "0x028c088b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3016
+          },
+          {
+            "frame": 11,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 14
           }
         ],
         "source": {
@@ -154763,6 +155854,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -154778,6 +155870,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
+          },
+          {
+            "clank": false,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80d",
+              "0x05dc0000",
+              "0x08980000",
+              "0x1e190015",
+              "0x050c110b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3041
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80d",
+              "0x04b00000",
+              "0x05780000",
+              "0x1e190017",
+              "0x050c110b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3046
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80d",
+              "0x02580000",
+              "0x00000000",
+              "0x1e190017",
+              "0x050c110b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3051
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 12
           }
         ],
         "source": {
@@ -156197,6 +157361,7 @@
             "clank": true,
             "frame": 21,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -156212,6 +157377,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
+          },
+          {
+            "clank": false,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c812",
+              "0x05dc0000",
+              "0x08980000",
+              "0x1e190015",
+              "0x0c0c190b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3076
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c812",
+              "0x04b00000",
+              "0x05780000",
+              "0x1e190017",
+              "0x0c0c190b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3081
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c812",
+              "0x02580000",
+              "0x00000000",
+              "0x1e190017",
+              "0x0c0c190b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3086
+          },
+          {
+            "frame": 27,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 13
           }
         ],
         "source": {
@@ -157620,6 +158857,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -157635,6 +158873,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80b",
+              "0x05dc0000",
+              "0x08980000",
+              "0x1e118017",
+              "0x118c010b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3111
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80b",
+              "0x04b00000",
+              "0x05780000",
+              "0x1e118017",
+              "0x118c010b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3116
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80b",
+              "0x02580000",
+              "0x00000000",
+              "0x1e118017",
+              "0x118c010b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3121
+          },
+          {
+            "frame": 20,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 12
           }
         ],
         "source": {
@@ -159054,6 +160364,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -159069,6 +160380,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c802",
+              "0x05780000",
+              "0x08980000",
+              "0x571900d7",
+              "0x0000291b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3176
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c802",
+              "0x04b00000",
+              "0x03b60000",
+              "0x571900d7",
+              "0x0000291b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3181
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c802",
+              "0x03840000",
+              "0x00000000",
+              "0x57190137",
+              "0x0000291b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3186
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 11
           }
         ],
         "source": {
@@ -160495,6 +161878,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -160510,6 +161894,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c806",
+              "0x05780000",
+              "0x08980000",
+              "0x50190797",
+              "0x0000511b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3201
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c806",
+              "0x04b00000",
+              "0x03b60000",
+              "0x50190797",
+              "0x0000511b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3206
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c806",
+              "0x03840000",
+              "0x00000000",
+              "0x50190797",
+              "0x0000511b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3211
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 13
           }
         ],
         "source": {
@@ -161942,6 +163398,89 @@
             ],
             "value": 1,
             "word_offset": 5
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80a",
+              "0x05780000",
+              "0x08980000",
+              "0x3c191197",
+              "0x0001911b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3226
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80a",
+              "0x04b00000",
+              "0x03b60000",
+              "0x3c191197",
+              "0x0001911b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3231
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80a",
+              "0x03840000",
+              "0x00000000",
+              "0x3c191197",
+              "0x0001911b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3236
+          },
+          {
+            "frame": 27,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 9
+          },
+          {
+            "cmd_var": 0,
+            "frame": 29,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c000002"
+            ],
+            "value": 2,
+            "word_offset": 11
           }
         ],
         "source": {
@@ -163357,6 +164896,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -163372,6 +164912,78 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c808",
+              "0x05dc0000",
+              "0x08340000",
+              "0x3c118a17",
+              "0x1180a11b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3256
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c807",
+              "0x04b00000",
+              "0x03b60000",
+              "0x3c118a17",
+              "0x1180a11b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3261
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c806",
+              "0x03840000",
+              "0x00000000",
+              "0x3c118a17",
+              "0x1180a11b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3266
+          },
+          {
+            "frame": 18,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 10
           }
         ],
         "source": {
@@ -164780,6 +166392,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -164795,6 +166408,89 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80a",
+              "0x04b00000",
+              "0x073a0000",
+              "0xb4990017",
+              "0x02800887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3284
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80a",
+              "0x01f40000",
+              "0x03200000",
+              "0xb4990017",
+              "0x02800887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3289
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80a",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4990017",
+              "0x02800887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3294
+          },
+          {
+            "cmd_var": 0,
+            "frame": 6,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c0000e9"
+            ],
+            "value": 233,
+            "word_offset": 3315
+          },
+          {
+            "frame": 16,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 11
           }
         ],
         "source": {
@@ -166203,6 +167899,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -166218,6 +167915,100 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 5
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80d",
+              "0x04b00000",
+              "0x073a0000",
+              "0xb4990017",
+              "0x04001107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3317
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80d",
+              "0x01f40000",
+              "0x03200000",
+              "0xb4990017",
+              "0x04001107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3322
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80d",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4990017",
+              "0x04001107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3327
+          },
+          {
+            "cmd_var": 0,
+            "frame": 6,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c0000e8"
+            ],
+            "value": 232,
+            "word_offset": 3347
+          },
+          {
+            "cmd_var": 1,
+            "frame": 7,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4d000000"
+            ],
+            "value": 0,
+            "word_offset": 14
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 16
           }
         ],
         "source": {
@@ -167632,6 +169423,100 @@
               "0x50000000"
             ],
             "word_offset": 6
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c812",
+              "0x04b00000",
+              "0x073a0000",
+              "0xb4990017",
+              "0x06001907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3350
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c812",
+              "0x01f40000",
+              "0x03200000",
+              "0xb4990017",
+              "0x06001907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3355
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c812",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4990017",
+              "0x06001907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3360
+          },
+          {
+            "cmd_var": 0,
+            "frame": 21,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c0000e7"
+            ],
+            "value": 231,
+            "word_offset": 3381
+          },
+          {
+            "cmd_var": 1,
+            "frame": 21,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4d000001"
+            ],
+            "value": 1,
+            "word_offset": 11
+          },
+          {
+            "frame": 27,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 13
           }
         ],
         "source": {
@@ -169040,6 +170925,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -169055,6 +170941,89 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 3
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c810",
+              "0x04b00000",
+              "0x073a0000",
+              "0xb4918017",
+              "0x11800107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3383
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80e",
+              "0x01f40000",
+              "0x03200000",
+              "0xb4918017",
+              "0x11800107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3388
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80c",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4918017",
+              "0x11800107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3393
+          },
+          {
+            "cmd_var": 0,
+            "frame": 4,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c0000e8"
+            ],
+            "value": 232,
+            "word_offset": 3414
+          },
+          {
+            "frame": 18,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 11
           }
         ],
         "source": {
@@ -170463,6 +172432,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -170478,6 +172448,89 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c804",
+              "0x03200000",
+              "0x04b00000",
+              "0xb4a58017",
+              "0x02bc0887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3420
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c804",
+              "0x01f40000",
+              "0x02bc0000",
+              "0xb4a58017",
+              "0x02bc0887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3425
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c804",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4a58017",
+              "0x02bc0887"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3430
+          },
+          {
+            "cmd_var": 0,
+            "frame": 6,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c00011e"
+            ],
+            "value": 286,
+            "word_offset": 3436
+          },
+          {
+            "frame": 16,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 10
           }
         ],
         "source": {
@@ -171886,6 +173939,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -171901,6 +173955,100 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 4
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c807",
+              "0x03200000",
+              "0x04b00000",
+              "0xb4a58017",
+              "0x043c1107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3438
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c807",
+              "0x01f40000",
+              "0x02bc0000",
+              "0xb4a58017",
+              "0x043c1107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3443
+          },
+          {
+            "clank": true,
+            "frame": 6,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c807",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4a58017",
+              "0x043c1107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3448
+          },
+          {
+            "cmd_var": 0,
+            "frame": 6,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c00011e"
+            ],
+            "value": 286,
+            "word_offset": 3454
+          },
+          {
+            "cmd_var": 1,
+            "frame": 7,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4d000000"
+            ],
+            "value": 0,
+            "word_offset": 13
+          },
+          {
+            "frame": 10,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 15
           }
         ],
         "source": {
@@ -173315,6 +175463,100 @@
               "0x50000000"
             ],
             "word_offset": 4
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c80b",
+              "0x03200000",
+              "0x04b00000",
+              "0xb4a58017",
+              "0x063c1907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3456
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c80b",
+              "0x01f40000",
+              "0x02bc0000",
+              "0xb4a58017",
+              "0x063c1907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3461
+          },
+          {
+            "clank": true,
+            "frame": 21,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c80b",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4a58017",
+              "0x063c1907"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3466
+          },
+          {
+            "cmd_var": 0,
+            "frame": 21,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c00011e"
+            ],
+            "value": 286,
+            "word_offset": 3472
+          },
+          {
+            "cmd_var": 1,
+            "frame": 21,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4d000001"
+            ],
+            "value": 1,
+            "word_offset": 9
+          },
+          {
+            "frame": 27,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 11
           }
         ],
         "source": {
@@ -174723,6 +176965,7 @@
             "clank": true,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -174738,6 +176981,89 @@
             "rebound": true,
             "skip_if_thrown_hitbox_owner_absent": false,
             "word_offset": 2
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c806",
+              "0x03200000",
+              "0x04b00000",
+              "0xb4918017",
+              "0x11bc0107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3474
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c81c806",
+              "0x01f40000",
+              "0x02bc0000",
+              "0xb4918017",
+              "0x11bc0107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3479
+          },
+          {
+            "clank": true,
+            "frame": 4,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d01c806",
+              "0x01f40000",
+              "0x00000000",
+              "0xb4918017",
+              "0x11bc0107"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3484
+          },
+          {
+            "cmd_var": 0,
+            "frame": 4,
+            "handler": "ftAction_80071820",
+            "procedure": "fighter.set_cmd_var",
+            "raw_words": [
+              "0x4c00011e"
+            ],
+            "value": 286,
+            "word_offset": 3490
+          },
+          {
+            "frame": 18,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 10
           }
         ],
         "source": {
@@ -178639,7 +180965,29 @@
     {
       "action_state_id": 134,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": true,
+            "frame": 10,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": true,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c01c804",
+              "0x044c0000",
+              "0x076c0000",
+              "0x280a0017",
+              "0x230c008f"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 3156
+          }
+        ],
         "source": {
           "action_state_id": 134,
           "kind": "fighter_action_script",
@@ -189669,7 +192017,30 @@
     {
       "action_state_id": 143,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "flag_bit": 3,
+            "frame": 9,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 0,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000000"
+            ],
+            "word_offset": 7280
+          },
+          {
+            "flag_bit": 4,
+            "frame": 10,
+            "handler": "ftAction_800718A4",
+            "hit_idx": 1,
+            "procedure": "fighter.set_throw_flag",
+            "raw_words": [
+              "0x50000001"
+            ],
+            "word_offset": 7283
+          }
+        ],
         "source": {
           "action_state_id": 143,
           "kind": "fighter_action_script",
@@ -190878,6 +193249,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -190898,6 +193270,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -190918,6 +193291,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -190938,6 +193312,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -192190,6 +194565,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -192210,6 +194586,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -192230,6 +194607,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -192250,6 +194628,7 @@
             "clank": true,
             "frame": 0,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -193508,6 +195887,99 @@
             ],
             "value": 1,
             "word_offset": 1
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c000001",
+              "0x02580000",
+              "0x01f40578",
+              "0x32190013",
+              "0x28000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7299
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c800001",
+              "0x02580000",
+              "0x01f4fa88",
+              "0x32190013",
+              "0x28000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7304
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d000001",
+              "0x02580000",
+              "0x0ce40578",
+              "0x41190013",
+              "0x14000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7309
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d800001",
+              "0x02580000",
+              "0x0ce4fa88",
+              "0x41190013",
+              "0x14000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7314
+          },
+          {
+            "frame": 4,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 7320
           }
         ],
         "source": {
@@ -194749,6 +197221,99 @@
             ],
             "value": 1,
             "word_offset": 1
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c000001",
+              "0x02580000",
+              "0x01f40578",
+              "0x32190013",
+              "0x28000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7299
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 1,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c800001",
+              "0x02580000",
+              "0x01f4fa88",
+              "0x32190013",
+              "0x28000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7304
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 2,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d000001",
+              "0x02580000",
+              "0x0ce40578",
+              "0x41190013",
+              "0x14000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7309
+          },
+          {
+            "clank": true,
+            "frame": 2,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 3,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": false,
+            "item_hit_interaction": true,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2d800001",
+              "0x02580000",
+              "0x0ce4fa88",
+              "0x41190013",
+              "0x14000c0b"
+            ],
+            "rebound": true,
+            "skip_if_thrown_hitbox_owner_absent": false,
+            "word_offset": 7314
+          },
+          {
+            "frame": 4,
+            "handler": "ftAction_800717D8",
+            "procedure": "fighter.clear_all_hitboxes",
+            "raw_words": [
+              "0x40000000"
+            ],
+            "word_offset": 7320
           }
         ],
         "source": {
@@ -233226,7 +235791,29 @@
     {
       "action_state_id": 177,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": false,
+            "frame": 0,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": true,
+            "item_hit_interaction": false,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c002406",
+              "0x04b00000",
+              "0x02aa0000",
+              "0xb4990008",
+              "0x0f000087"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": true,
+            "word_offset": 3516
+          }
+        ],
         "source": {
           "action_state_id": 177,
           "kind": "fighter_action_script",
@@ -234529,7 +237116,29 @@
     {
       "action_state_id": 178,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": false,
+            "frame": 0,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": true,
+            "item_hit_interaction": false,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c002406",
+              "0x04b00000",
+              "0x02aa0000",
+              "0xb4990008",
+              "0x0f000087"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": true,
+            "word_offset": 3516
+          }
+        ],
         "source": {
           "action_state_id": 178,
           "kind": "fighter_action_script",
@@ -235832,7 +238441,29 @@
     {
       "action_state_id": 179,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": false,
+            "frame": 0,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": true,
+            "item_hit_interaction": false,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c002406",
+              "0x04b00000",
+              "0x02aa0000",
+              "0xb4990008",
+              "0x0f000087"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": true,
+            "word_offset": 3516
+          }
+        ],
         "source": {
           "action_state_id": 179,
           "kind": "fighter_action_script",
@@ -237135,7 +239766,29 @@
     {
       "action_state_id": 180,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": false,
+            "frame": 0,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": true,
+            "item_hit_interaction": false,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c002406",
+              "0x04b00000",
+              "0x02aa0000",
+              "0xb4990008",
+              "0x0f000087"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": true,
+            "word_offset": 3516
+          }
+        ],
         "source": {
           "action_state_id": 180,
           "kind": "fighter_action_script",
@@ -238438,7 +241091,29 @@
     {
       "action_state_id": 181,
       "decoded_action_script": {
-        "procedures": [],
+        "procedures": [
+          {
+            "clank": false,
+            "frame": 0,
+            "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
+            "hitbox_id": 0,
+            "ignore_fighter_scale": false,
+            "ignore_thrown_fighters": true,
+            "item_hit_interaction": false,
+            "procedure": "fighter.spawn_hitbox",
+            "raw_words": [
+              "0x2c002406",
+              "0x04b00000",
+              "0x02aa0000",
+              "0xb4990008",
+              "0x0f000087"
+            ],
+            "rebound": false,
+            "skip_if_thrown_hitbox_owner_absent": true,
+            "word_offset": 3516
+          }
+        ],
         "source": {
           "action_state_id": 181,
           "kind": "fighter_action_script",
@@ -245822,6 +248497,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245842,6 +248518,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245862,6 +248539,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245882,6 +248560,7 @@
             "clank": true,
             "frame": 19,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245911,6 +248590,7 @@
             "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245931,6 +248611,7 @@
             "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245951,6 +248632,7 @@
             "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -245971,6 +248653,7 @@
             "clank": true,
             "frame": 28,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -258254,6 +260937,7 @@
             "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -258274,6 +260958,7 @@
             "clank": true,
             "frame": 20,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -258303,6 +260988,7 @@
             "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -258323,6 +261009,7 @@
             "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -297052,6 +299739,7 @@
             "clank": true,
             "frame": 37,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -297072,6 +299760,7 @@
             "clank": true,
             "frame": 37,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -298630,6 +301319,7 @@
             "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -298650,6 +301340,7 @@
             "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -298670,6 +301361,7 @@
             "clank": true,
             "frame": 24,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -314097,6 +316789,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -314117,6 +316810,7 @@
             "clank": true,
             "frame": 6,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -315427,6 +318121,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -315447,6 +318142,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -315467,6 +318163,7 @@
             "clank": true,
             "frame": 10,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -318026,6 +320723,7 @@
             "clank": false,
             "frame": 4,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -320594,6 +323292,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -320614,6 +323313,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -320634,6 +323334,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -322081,6 +324782,7 @@
             "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -322101,6 +324803,7 @@
             "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -322121,6 +324824,7 @@
             "clank": false,
             "frame": 12,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -323568,6 +326272,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -323588,6 +326293,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -323608,6 +326314,7 @@
             "clank": false,
             "frame": 11,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -349894,6 +352601,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -349914,6 +352622,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -349934,6 +352643,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -349963,6 +352673,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -349983,6 +352694,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -350003,6 +352715,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351444,6 +354157,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351464,6 +354178,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351484,6 +354199,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351504,6 +354220,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351533,6 +354250,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351553,6 +354271,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351573,6 +354292,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -351593,6 +354313,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -353034,6 +355755,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -353054,6 +355776,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -353083,6 +355806,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -353103,6 +355827,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354546,6 +357271,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354566,6 +357292,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354586,6 +357313,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354606,6 +357334,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354635,6 +357364,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354655,6 +357385,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354675,6 +357406,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -354695,6 +357427,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 3,
             "ignore_fighter_scale": true,
             "ignore_thrown_fighters": false,
@@ -358994,6 +361727,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -359014,6 +361748,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -359034,6 +361769,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -360362,6 +363098,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -360382,6 +363119,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -360402,6 +363140,7 @@
             "clank": true,
             "frame": 52,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -361738,6 +364477,7 @@
             "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -361758,6 +364498,7 @@
             "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -361778,6 +364519,7 @@
             "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -363108,6 +365850,7 @@
             "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -364378,6 +367121,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -364398,6 +367142,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -364418,6 +367163,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": true,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -365765,6 +368511,7 @@
             "clank": true,
             "frame": 3,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -367046,6 +369793,7 @@
             "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -367066,6 +369814,7 @@
             "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -369445,6 +372194,7 @@
             "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -369465,6 +372215,7 @@
             "clank": true,
             "frame": 13,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -371842,6 +374593,7 @@
             "clank": true,
             "frame": 2,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376553,6 +379305,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376573,6 +379326,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376593,6 +379347,7 @@
             "clank": true,
             "frame": 14,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376624,6 +379379,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376644,6 +379400,7 @@
             "clank": true,
             "frame": 17,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376664,6 +379421,7 @@
             "clank": true,
             "frame": 25,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -376684,6 +379442,7 @@
             "clank": true,
             "frame": 25,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379445,6 +382204,7 @@
             "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379465,6 +382225,7 @@
             "clank": true,
             "frame": 15,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379485,6 +382246,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379505,6 +382267,7 @@
             "clank": true,
             "frame": 18,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379525,6 +382288,7 @@
             "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -379545,6 +382309,7 @@
             "clank": true,
             "frame": 26,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -380923,6 +383688,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 0,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -380943,6 +383709,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 1,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,
@@ -380963,6 +383730,7 @@
             "clank": true,
             "frame": 1,
             "handler": "ftAction_8007121C",
+            "hit_grabbed_victim_only": false,
             "hitbox_id": 2,
             "ignore_fighter_scale": false,
             "ignore_thrown_fighters": false,

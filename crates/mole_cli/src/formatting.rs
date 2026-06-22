@@ -122,6 +122,7 @@ pub(crate) fn format_markdown_report(report: &Value) -> String {
         Some("graph inspect") => format_graph_inspect_markdown(report),
         Some("verify changed") => format_verify_changed_markdown(report),
         Some("generated check") => format_generated_check_markdown(report),
+        Some("workspace health") => format_workspace_health_markdown(report),
         Some("stage inspect") => format_stage_inspect_markdown(report),
         Some("stage extract") => format_stage_extract_markdown(report),
         Some("stage extract-iso") => format_stage_extract_iso_markdown(report),
@@ -133,6 +134,84 @@ pub(crate) fn format_markdown_report(report: &Value) -> String {
         Some("frame-data extract") | Some("frame-data show") => format_frame_data_markdown(report),
         _ => format_handoff_markdown(report),
     }
+}
+
+fn format_workspace_health_markdown(report: &Value) -> String {
+    let mut lines = vec!["# Mole Workspace Health".to_string(), String::new()];
+    if let Some(root) = report.get("project_root").and_then(Value::as_str) {
+        lines.push(format!("- Project root: `{root}`"));
+    }
+    let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    lines.push(format!("- Ready for fast replay launch: `{ok}`"));
+    if let Some(checks) = report.get("checks") {
+        push_presence_line(&mut lines, "SDL3 runtime", checks.get("sdl3_runtime"));
+        push_presence_line(&mut lines, "Release runtime", checks.get("release_runtime"));
+        push_presence_line(&mut lines, "Replay source", checks.get("replay_source"));
+        push_presence_line(&mut lines, "Divergence log", checks.get("divergence_log"));
+        if let Some(launchers) = checks
+            .get("required_launchers")
+            .and_then(Value::as_array)
+            .filter(|launchers| !launchers.is_empty())
+        {
+            lines.push(String::new());
+            lines.push("## Required Launchers".to_string());
+            for launcher in launchers {
+                let path = launcher
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                let present = launcher
+                    .get("present")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let tracked = launcher
+                    .get("tracked")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                lines.push(format!(
+                    "- `{path}`: present `{present}`, tracked `{tracked}`"
+                ));
+            }
+        }
+        if let Some(generated) = checks.get("generated_source_frame_data") {
+            lines.push(String::new());
+            lines.push("## Generated Runtime Data".to_string());
+            push_presence_line(
+                &mut lines,
+                "Source frame capsules",
+                generated.get("source_frame_capsules"),
+            );
+            push_presence_line(
+                &mut lines,
+                "Source manifest",
+                generated.get("source_manifest"),
+            );
+            push_presence_line(
+                &mut lines,
+                "FigaTree bundle",
+                generated.get("figatree_bundle"),
+            );
+            let loose_count = generated
+                .get("extra_loose_figatree_sidecars")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            lines.push(format!("- Loose `.figatree.bin` sidecars: `{loose_count}`"));
+        }
+    }
+    lines.join("\n")
+}
+
+fn push_presence_line(lines: &mut Vec<String>, label: &str, check: Option<&Value>) {
+    let present = check
+        .and_then(|value| value.get("present"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let path = check
+        .and_then(|value| value.get("path"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    lines.push(format!("- {label}: `{present}` at `{path}`"));
 }
 
 fn format_agent_brief_markdown(report: &Value) -> String {

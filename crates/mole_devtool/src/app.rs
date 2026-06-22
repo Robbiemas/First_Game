@@ -7,7 +7,8 @@ use crate::move_keyframes::{
 };
 use crate::parity_ledger::ParityLedgerSurface;
 use crate::slippi_replay::{
-    SlippiReplayLoadOptions, SlippiReplaySurface, SlippiRuntimeReplayLaunchPlan,
+    is_slippi_replay_path, SlippiReplayLoadOptions, SlippiReplaySurface,
+    SlippiRuntimeReplayLaunchPlan,
 };
 use crate::state_graphs::{
     StateGraphCanvasPair, StateGraphCanvasView, StateGraphSelection, StateGraphsSurface,
@@ -100,6 +101,7 @@ pub struct ParityLedgerApp {
     pub(crate) slippi_replay_status: Option<String>,
     pub(crate) move_keyframes: MoveKeyframesSurface,
     pub(crate) move_keyframes_editor: MoveKeyframesEditorSurface,
+    pub(crate) move_keyframes_loaded: bool,
     pub(crate) move_keyframe_characters: Vec<MoveKeyframesCharacterRecord>,
     pub(crate) move_keyframe_states: Vec<MoveKeyframesStateRecord>,
     pub(crate) selected_move_keyframe_character_id: String,
@@ -171,16 +173,30 @@ impl ParityLedgerApp {
         let slippi_replay_player_number = slippi_replay.focus_player_number;
         let slippi_replay_start = slippi_replay.focus_start;
         let slippi_replay_end = slippi_replay.focus_end;
-        let slippi_replay_max_frames = slippi_replay.rows.len().max(1);
+        let slippi_replay_window_rows =
+            (slippi_replay.focus_end - slippi_replay.focus_start + 1).max(1) as usize;
+        let slippi_replay_max_frames = slippi_replay.rows.len().max(slippi_replay_window_rows);
+        let move_keyframes_loaded = !move_keyframes.state.is_empty();
         let move_keyframe_characters = list_move_keyframe_characters(&workspace_root);
-        let selected_move_keyframe_character_id = move_keyframes.target_character.clone();
-        let move_keyframe_states =
-            list_move_keyframe_states(&workspace_root, &selected_move_keyframe_character_id);
-        let selected_move_keyframe_state = move_keyframes.state.clone();
+        let selected_move_keyframe_character_id = if move_keyframes_loaded {
+            move_keyframes.target_character.clone()
+        } else {
+            "dolphin_mole".to_string()
+        };
+        let move_keyframe_states = if move_keyframes_loaded {
+            list_move_keyframe_states(&workspace_root, &selected_move_keyframe_character_id)
+        } else {
+            Vec::new()
+        };
+        let selected_move_keyframe_state = if move_keyframes_loaded {
+            move_keyframes.state.clone()
+        } else {
+            "AttackAirN".to_string()
+        };
         let selected_move_keyframe_import_source_id = "captain".to_string();
-        let state_graph_canvas = StateGraphCanvasPair::load(&workspace_root)
-            .unwrap_or_else(|_| StateGraphCanvasPair::empty());
+        let state_graph_canvas = StateGraphCanvasPair::empty();
         let state_graph_canvas_views = state_graph_canvas_views_from_pair(&state_graph_canvas);
+        let slippi_replay_status = None;
         Self {
             view_model,
             state_graphs,
@@ -204,9 +220,10 @@ impl ParityLedgerApp {
             slippi_replay_start,
             slippi_replay_end,
             slippi_replay_max_frames,
-            slippi_replay_status: None,
+            slippi_replay_status,
             move_keyframes,
             move_keyframes_editor,
+            move_keyframes_loaded,
             move_keyframe_characters,
             move_keyframe_states,
             selected_move_keyframe_character_id,
@@ -245,7 +262,7 @@ impl ParityLedgerApp {
         let root = workspace_root()?;
         let move_keyframes_editor =
             MoveKeyframesEditorSurface::from_surface_with_workspace(move_keyframes.clone(), &root)?;
-        Ok(Self::from_view_model_with_root(
+        let app = Self::from_view_model_with_root(
             ParityLedgerViewModel::from_ledger_map(ledger_map),
             state_graphs,
             parity_ledger,
@@ -255,22 +272,25 @@ impl ParityLedgerApp {
             move_keyframes,
             move_keyframes_editor,
             root,
-        ))
+        );
+        let state_graph_canvas = StateGraphCanvasPair::load(app.workspace_root())
+            .unwrap_or_else(|_| StateGraphCanvasPair::empty());
+        Ok(app.with_state_graph_canvas(state_graph_canvas))
     }
 
     pub fn load(root: impl AsRef<Path>) -> Result<Self, String> {
         let root = root.as_ref();
         let view_model =
             ParityLedgerViewModel::load(root.join("docs/state_graphs/parity_ledger_map.json"))?;
-        let state_graphs = StateGraphsSurface::load(root)?;
-        let state_graph_canvas = StateGraphCanvasPair::load(root)?;
+        let state_graphs = StateGraphsSurface::empty();
         let parity_ledger = ParityLedgerSurface::load(root)?;
-        let ecb_coverage = EcbCoverageSurface::load(root)?;
-        let input_trace = InputTraceSurface::load(root)?;
+        let ecb_coverage = EcbCoverageSurface::empty();
+        let input_trace = InputTraceSurface::placeholder(root)?;
         let slippi_replay = SlippiReplaySurface::load(root)?;
-        let move_keyframes = MoveKeyframesSurface::load(root)?;
+        let move_keyframes =
+            MoveKeyframesSurface::empty_for_character("dolphin_mole", "Dolphin Mole");
         let move_keyframes_editor =
-            MoveKeyframesEditorSurface::from_surface_with_workspace(move_keyframes.clone(), root)?;
+            MoveKeyframesEditorSurface::from_surface(move_keyframes.clone());
         Ok(Self::from_view_model_with_root(
             view_model,
             state_graphs,
@@ -281,8 +301,7 @@ impl ParityLedgerApp {
             move_keyframes,
             move_keyframes_editor,
             root.to_path_buf(),
-        )
-        .with_state_graph_canvas(state_graph_canvas))
+        ))
     }
 
     pub fn load_workspace_root() -> Result<Self, String> {
@@ -326,6 +345,56 @@ impl ParityLedgerApp {
         self.state_graph_canvas
             .graph(selection.graph_id())
             .and_then(|graph| selection.detail(graph))
+    }
+
+    pub fn ensure_section_loaded(&mut self, section: AppSection) -> Result<(), String> {
+        match section {
+            AppSection::StateGraphs => {
+                if self.state_graph_canvas.graphs.is_empty() {
+                    self.state_graphs = StateGraphsSurface::load(&self.workspace_root)?;
+                    let state_graph_canvas = StateGraphCanvasPair::load(&self.workspace_root)?;
+                    self.state_graph_canvas_views =
+                        state_graph_canvas_views_from_pair(&state_graph_canvas);
+                    self.state_graph_canvas = state_graph_canvas;
+                    self.state_graph_selection = None;
+                    self.state_graph_active_drag_node = None;
+                    self.state_graph_layout_dirty = false;
+                    self.state_graph_layout_status = Some("State graphs loaded.".to_string());
+                }
+            }
+            AppSection::ParityLedger => {
+                if self.parity_ledger.tabs.is_empty() {
+                    self.parity_ledger = ParityLedgerSurface::load(&self.workspace_root)?;
+                    self.selected_ledger_tab = 0;
+                    self.selected_ledger_row = 0;
+                }
+            }
+            AppSection::EcbCoverage => {
+                if self.ecb_coverage.mapped_action_count == 0
+                    && self.ecb_coverage.mapped_motion_state_count == 0
+                    && self.ecb_coverage.mapped_motion_states.is_empty()
+                {
+                    self.ecb_coverage = EcbCoverageSurface::load(&self.workspace_root)?;
+                    self.selected_ecb_row = 0;
+                }
+            }
+            AppSection::InputTrace => {
+                if self.input_trace.is_placeholder() {
+                    self.input_trace = InputTraceSurface::load(&self.workspace_root)?;
+                    self.input_trace_path = self.input_trace.input_export_path.clone();
+                    self.input_trace_player_number = self.input_trace.focus_player_number;
+                    self.input_trace_start = self.input_trace.focus_start;
+                    self.input_trace_end = self.input_trace.focus_end;
+                    self.selected_input_trace_row = 0;
+                    self.input_trace_status = Some("Input trace loaded.".to_string());
+                }
+            }
+            AppSection::SlippiReplay => {}
+            AppSection::MoveKeyframes => {
+                self.ensure_move_keyframes_loaded()?;
+            }
+        }
+        Ok(())
     }
 
     pub fn save_state_graph_layout(&mut self) -> Result<(), String> {
@@ -390,16 +459,17 @@ impl ParityLedgerApp {
     }
 
     pub fn launch_full_slippi_replay_runtime_until_first_diff(&mut self) -> Result<(), String> {
-        let input_export_path = self.resolve_workspace_path(&self.slippi_replay_path);
+        let source_path = self.resolve_workspace_path(&self.slippi_replay_path);
         let divergence_log_path = self
             .workspace_root
             .join("debug")
             .join("slippi")
             .join("runtime-divergence.latest.json");
-        let plan = SlippiRuntimeReplayLaunchPlan::from_input_export(
-            &input_export_path,
-            &divergence_log_path,
-        )?;
+        let plan = if is_slippi_replay_path(&source_path) {
+            SlippiRuntimeReplayLaunchPlan::from_replay_path(&source_path, &divergence_log_path)
+        } else {
+            SlippiRuntimeReplayLaunchPlan::from_input_export(&source_path, &divergence_log_path)?
+        };
         let command_spec = runtime_replay_command_spec(&self.workspace_root, &plan);
         let launch_log_path = self
             .workspace_root
@@ -444,6 +514,35 @@ impl ParityLedgerApp {
         self.move_keyframes.keyframes.len()
     }
 
+    pub fn ensure_move_keyframes_loaded(&mut self) -> Result<(), String> {
+        if self.move_keyframes_loaded {
+            return Ok(());
+        }
+        self.move_keyframe_characters = list_move_keyframe_characters(&self.workspace_root);
+        self.move_keyframe_states = list_move_keyframe_states(
+            &self.workspace_root,
+            &self.selected_move_keyframe_character_id,
+        );
+        let state_to_load = if self
+            .move_keyframe_states
+            .iter()
+            .any(|state| state.state == self.selected_move_keyframe_state)
+        {
+            self.selected_move_keyframe_state.clone()
+        } else {
+            self.move_keyframe_states
+                .first()
+                .map(|state| state.state.clone())
+                .unwrap_or_default()
+        };
+        if state_to_load.is_empty() {
+            self.move_keyframes_loaded = true;
+            self.move_keyframes_status = Some("No move keyframe states are available.".to_string());
+            return Ok(());
+        }
+        self.select_move_keyframe_state(&state_to_load)
+    }
+
     pub fn selected_move_keyframe_character_label(&self) -> String {
         self.move_keyframe_characters
             .iter()
@@ -475,6 +574,7 @@ impl ParityLedgerApp {
             let surface = MoveKeyframesSurface::empty_for_character(character_id, &character_label);
             self.move_keyframes_editor = MoveKeyframesEditorSurface::from_surface(surface.clone());
             self.move_keyframes = surface;
+            self.move_keyframes_loaded = true;
             self.selected_move_keyframe_state.clear();
             self.selected_move_keyframe_row = 0;
             self.move_keyframes_status = Some(format!(
@@ -503,6 +603,7 @@ impl ParityLedgerApp {
         )?;
         self.move_keyframes = surface;
         self.move_keyframes_editor = editor;
+        self.move_keyframes_loaded = true;
         self.selected_move_keyframe_state = state.to_string();
         self.selected_move_keyframe_row = 0;
         self.move_keyframes_active_handle = None;
@@ -664,6 +765,7 @@ impl ParityLedgerApp {
             self.selected_move_keyframe_state.clear();
             self.select_move_keyframe_state(&state_to_load)?;
         }
+        self.move_keyframes_loaded = true;
         self.move_keyframes_status = Some(format!(
             "Imported {} into {} through Mole CLI. Extract: {} bytes stdout, export: {} bytes stdout.",
             outcome.source_label,
@@ -705,6 +807,18 @@ impl ParityLedgerApp {
 
     pub fn select_section(&mut self, section: AppSection) {
         self.selected_section = section;
+        if let Err(error) = self.ensure_section_loaded(section) {
+            match section {
+                AppSection::StateGraphs => self.state_graph_layout_status = Some(error),
+                AppSection::EcbCoverage => {
+                    self.ecb_coverage.missing_sampled_mappings = vec![error];
+                }
+                AppSection::InputTrace => self.input_trace_status = Some(error),
+                AppSection::SlippiReplay => self.slippi_replay_status = Some(error),
+                AppSection::MoveKeyframes => self.move_keyframes_status = Some(error),
+                AppSection::ParityLedger => self.parity_ledger.summary = error,
+            }
+        }
     }
 
     pub fn theme(&self) -> ThemeMode {
@@ -1009,8 +1123,9 @@ mod tests {
         );
         assert_eq!(app.ledger_tab_count(), 7);
         assert_eq!(app.ecb_coverage_motion_state_count(), 74);
-        assert_eq!(app.input_trace_row_count(), 0);
+        assert!(!app.input_trace.is_placeholder());
         assert_eq!(app.slippi_replay_row_count(), 0);
+        assert_eq!(app.slippi_replay_max_frames, 9);
         assert_eq!(app.move_keyframe_count(), 45);
         assert_eq!(app.selected_move_keyframe_character_label(), "Dolphin Mole");
         assert!(app
@@ -1038,7 +1153,8 @@ mod tests {
 
     #[test]
     fn app_state_graph_selection_exposes_detail_text() {
-        let app = ParityLedgerApp::load(workspace_root().unwrap()).unwrap();
+        let mut app = ParityLedgerApp::load(workspace_root().unwrap()).unwrap();
+        app.select_section(AppSection::StateGraphs);
         let selection = crate::state_graphs::StateGraphSelection::Node {
             graph_id: "mole_current".to_string(),
             id: "Landing".to_string(),
@@ -1050,6 +1166,46 @@ mod tests {
         assert!(detail.contains("node: Landing"));
         assert!(detail.contains("source_callback_order"));
         assert!(detail.contains("ftCo_Landing_IASA"));
+    }
+
+    #[test]
+    fn app_load_defers_move_keyframes_manifest_until_surface_is_selected() {
+        let root = workspace_root().unwrap();
+        let mut app = ParityLedgerApp::load(&root).unwrap();
+
+        assert!(app.state_graph_canvas.graphs.is_empty());
+        assert_eq!(app.state_graph_missing_count(), 0);
+        assert_eq!(app.ecb_coverage_motion_state_count(), 0);
+        assert!(app.input_trace.is_placeholder());
+        assert_eq!(app.ledger_tab_count(), 7);
+        assert_eq!(app.move_keyframe_count(), 0);
+        assert!(app.move_keyframe_states.is_empty());
+        assert!(!app.move_keyframes_loaded);
+
+        app.select_section(AppSection::StateGraphs);
+        assert_eq!(app.state_graph_canvas.graphs.len(), 2);
+        assert!(app.state_graph_canvas.graph("melee_reference").is_some());
+        assert!(app.state_graph_canvas.graph("mole_current").is_some());
+        assert!(app.state_graphs.total_node_count > 0);
+
+        app.select_section(AppSection::EcbCoverage);
+        assert_eq!(app.ecb_coverage_motion_state_count(), 74);
+
+        app.ensure_move_keyframes_loaded().unwrap();
+
+        assert!(app.move_keyframes_loaded);
+        assert_eq!(app.selected_move_keyframe_state, "AttackAirN");
+        assert_eq!(app.move_keyframe_count(), 45);
+        assert!(app
+            .move_keyframe_states
+            .iter()
+            .any(|state| state.state == "AttackLw3"));
+        assert_eq!(
+            app.move_keyframes_editor
+                .pose_tree()
+                .map(|tree| tree.root.as_str()),
+            Some("PlyCaptain5K_Share_joint")
+        );
     }
 
     #[test]
@@ -1117,6 +1273,7 @@ mod tests {
         fs::write(&runtime_exe, []).unwrap();
         let plan = SlippiRuntimeReplayLaunchPlan {
             input_export_path: root.join("debug/slippi/test.inputs.json"),
+            replay_path: None,
             divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
             frames_to_run: 76,
         };
@@ -1147,6 +1304,7 @@ mod tests {
         .unwrap();
         let plan = SlippiRuntimeReplayLaunchPlan {
             input_export_path: root.join("debug/slippi/test.inputs.json"),
+            replay_path: None,
             divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
             frames_to_run: 76,
         };
@@ -1168,6 +1326,7 @@ mod tests {
         fs::write(&runtime_exe, []).unwrap();
         let plan = SlippiRuntimeReplayLaunchPlan {
             input_export_path: root.join("debug/slippi/test.inputs.json"),
+            replay_path: None,
             divergence_log_path: root.join("debug/slippi/runtime-divergence.latest.json"),
             frames_to_run: 76,
         };

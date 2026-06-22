@@ -72,9 +72,15 @@ def test_sdl3_runtime_launcher_builds_with_native_wup_feature():
 
     text = launcher.read_text(encoding="utf-8")
 
+    assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
+    assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
+    assert 'if not exist "%RUNTIME_EXE%"' in text
+    assert 'cargo build --release -p mole_runtime --features "sdl wup"' in text
+    assert '"%RUNTIME_EXE%" --sdl --play --input-trace' in text
     assert '--features "sdl wup"' in text
-    assert "-- --sdl" in text
+    assert "-- --sdl" not in text
     assert "--input-trace" in text
+    assert "cargo run --release" not in text
     assert "--no-ucf" not in text
     assert "--features sdl -- --sdl" not in text
 
@@ -84,8 +90,12 @@ def test_sdl3_runtime_vanilla_launcher_disables_ucf():
 
     text = launcher.read_text(encoding="utf-8")
 
+    assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
+    assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
+    assert 'if not exist "%RUNTIME_EXE%"' in text
     assert '--features "sdl wup"' in text
-    assert "-- --sdl --play --input-trace --no-ucf" in text
+    assert '"%RUNTIME_EXE%" --sdl --play --input-trace --no-ucf' in text
+    assert "cargo run --release" not in text
     assert "Open Dev Tool.cmd" in text
 
 
@@ -99,7 +109,7 @@ def test_sdl3_runtime_launcher_opens_state_graph_viewer():
     assert "tools\\state_graph_viewer.py" not in text
 
 
-def test_start_here_launcher_provides_no_terminal_handoff_menu():
+def test_start_here_launcher_exposes_replay_local_and_devtool_entrypoints():
     launcher = ROOT / "START HERE - Mole Game.hta"
 
     text = launcher.read_text(encoding="utf-8")
@@ -107,11 +117,60 @@ def test_start_here_launcher_provides_no_terminal_handoff_menu():
     assert "<HTA:APPLICATION" in text
     assert "WScript.Shell" in text
     assert "runCommandFileHidden" in text
+    assert "window.resizeTo(600, 500)" in text
+    assert "overflow: auto" in text
+    assert text.count("<button") == 3
+    assert "execs\\\\Play Slippi Replay.cmd" in text
     assert "execs\\\\Run SDL3 Runtime.cmd" in text
     assert "execs\\\\Open Dev Tool.cmd" in text
-    assert "playtest\\\\MoleGame-FriendPlaytest.exe" in text
-    assert "playtest\\\\MoleGame-LocalInternetPlaytest.exe" in text
-    assert "debug\\\\handoff" in text
+    assert "debug\\\\slippi\\\\runtime-divergence.latest.json" in text
+    assert "Writes the live divergence log and holds on the first mismatch." in text
+    assert "Uses replays\\Game_20260530T214929.slp and writes debug\\slippi\\runtime-divergence.latest.json." not in text
+    assert "playtest\\\\MoleGame-FriendPlaytest.exe" not in text
+    assert "playtest\\\\MoleGame-LocalInternetPlaytest.exe" not in text
+
+
+def test_slippi_replay_launcher_uses_replay_source_and_live_divergence_log():
+    launcher = ROOT / "execs" / "Play Slippi Replay.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert 'set "REPLAY_PATH=%CD%\\replays\\Game_20260530T214929.slp"' in text
+    assert 'set "DIVERGENCE_LOG=%CD%\\debug\\slippi\\runtime-divergence.latest.json"' in text
+    assert 'set "RUNTIME_EXE=%CD%\\target\\release\\mole_runtime.exe"' in text
+    assert 'if not exist "%SDL3_ROOT%\\lib\\x64\\SDL3.dll"' in text
+    assert 'if not exist "%RUNTIME_EXE%"' in text
+    assert 'cargo build --release -p mole_runtime --features "sdl wup"' in text
+    assert '"%RUNTIME_EXE%" --sdl' in text
+    assert '--visual-slippi-replay "%REPLAY_PATH%"' in text
+    assert '--frames 4294967295' in text
+    assert '--slippi-divergence-log "%DIVERGENCE_LOG%"' in text
+    assert "--hold-final-frame" in text
+    assert "cargo run --release" not in text
+    assert "slippi_replay_to_inputs.cjs" not in text
+    assert ".inputs.json" not in text
+    assert "Open Dev Tool.cmd" not in text
+
+
+def test_clean_local_outputs_launcher_is_dry_run_and_avoids_required_artifacts():
+    launcher = ROOT / "execs" / "Clean Local Outputs.cmd"
+
+    text = launcher.read_text(encoding="utf-8")
+
+    assert "Dry run" in text
+    assert "--apply" in text
+    assert "Remove-Item" in text
+    assert "GetFullPath" in text
+    assert "StartsWith($rootFull" in text
+    assert "'debug'" in text
+    assert "'logs'" in text
+    assert "'.pytest_cache'" in text
+    assert "'__pycache__'" in text
+    assert "'target'" not in text
+    assert "'.local'" not in text
+    assert "'.venv'" not in text
+    assert "'replays'" not in text
+    assert "crates\\mole_runtime\\src\\generated" not in text
 
 
 def test_deprecated_execs_are_out_of_the_active_launcher_folder():

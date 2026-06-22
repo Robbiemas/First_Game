@@ -30,12 +30,11 @@ cargo run -p mole_cli -- verify changed --json
 cargo run -p mole_cli -- verify changed --format markdown
 cargo run -p mole_cli -- generated check --json
 cargo run -p mole_cli -- generated check --format markdown
+cargo run -p mole_cli -- workspace health --json
+cargo run -p mole_cli -- workspace health --format markdown
 cargo run -p mole_cli -- finish check --json
 cargo run -p mole_cli -- finish check --format markdown
 cargo run -p mole_cli -- replay check --replay replays\Game_20260530T214929.slp --frames 1800 --json
-cargo run -p mole_cli -- replay check --inputs debug\slippi\Game_20260530T214929.inputs.json --mode seeded --json
-cargo run -p mole_cli -- replay scan --inputs debug\slippi\Game_20260530T214929.inputs.json --lookahead 5 --json
-cargo run -p mole_cli -- replay trace --inputs debug\slippi\Game_20260530T214929.inputs.json --player 2 --start 900 --end 934 --frames 1800 --format markdown
 cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json
 cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown
 cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json
@@ -62,6 +61,20 @@ fix. It groups start-to-finish replay divergences into scenario runs, replays a
 short rollback lookahead from the pre-divergence snapshot, and records whether
 the scenario realigns. Use `replay trace` on the highest-priority scenario when
 you need the bounded per-frame source window for decomp lookup.
+
+The active human-facing replay workflow is direct `.slp` playback through
+`execs\Play Slippi Replay.cmd`, with the latest runtime stop point written to
+`debug\slippi\runtime-divergence.latest.json`. `.inputs.json` exports remain
+available for explicit diagnostics and tests, but they are not a prerequisite
+for normal replay playback.
+
+Diagnostic replay export examples:
+
+```powershell
+cargo run -p mole_cli -- replay check --inputs debug\slippi\Game_20260530T214929.inputs.json --mode seeded --json
+cargo run -p mole_cli -- replay scan --inputs debug\slippi\Game_20260530T214929.inputs.json --lookahead 5 --json
+cargo run -p mole_cli -- replay trace --inputs debug\slippi\Game_20260530T214929.inputs.json --player 2 --start 900 --end 934 --frames 1800 --format markdown
+```
 
 Replay-parity agents should use the `decomp` commands before falling back to
 manual repository searches:

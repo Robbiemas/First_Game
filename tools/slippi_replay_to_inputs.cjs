@@ -103,6 +103,7 @@ function usage() {
     "  --frames <count>  Export this many non-negative frames. Defaults to 1800.",
     "  --include-negative-frames  Include pre-game frames such as Entry/EntryStart/EntryEnd.",
     "  --all-frames      Export the full replay.",
+    "  --stdout          Write exported JSON to stdout instead of debug/slippi files.",
     "  --self-test       Run pure conversion checks without loading slippi-js.",
     "",
     `If parsing fails because the Slippi parser is missing, run: ${DEPENDENCY_INSTALL_COMMAND}`,
@@ -116,6 +117,7 @@ function parseArgs(argv) {
     reportPath: null,
     frames: DEFAULT_EXPORT_FRAMES,
     includeNegativeFrames: false,
+    stdout: false,
     selfTest: false,
     help: false,
   };
@@ -130,6 +132,8 @@ function parseArgs(argv) {
       options.frames = null;
     } else if (arg === "--include-negative-frames") {
       options.includeNegativeFrames = true;
+    } else if (arg === "--stdout") {
+      options.stdout = true;
     } else if (arg === "--replay") {
       options.replayPath = requireValue(argv, ++i, arg);
     } else if (arg === "--out") {
@@ -949,6 +953,10 @@ function main() {
     ? path.resolve(PROJECT_ROOT, options.reportPath)
     : defaultOutputPath(replayPath, ".report.md");
   const exported = exportReplay(replayPath, options.frames, options.includeNegativeFrames);
+  if (options.stdout) {
+    process.stdout.write(`${JSON.stringify(exported)}\n`);
+    return;
+  }
   writeJson(outPath, exported);
   writeText(reportPath, renderReport(exported));
   console.log(`wrote_json=${outPath}`);

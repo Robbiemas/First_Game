@@ -28,6 +28,7 @@ mod replay;
 mod stage_assets;
 mod value_sheets;
 mod verify;
+mod workspace;
 
 pub use verify::verification_plan_for_changed_paths;
 
@@ -64,6 +65,7 @@ enum CliCommand {
     Package(PackageCommand),
     FriendConnect(FriendConnectCommand),
     FighterCommon(FighterCommonCommand),
+    Workspace(WorkspaceCommand),
     Doctor,
     Tests(TestsCommand),
     Handoff,
@@ -95,6 +97,11 @@ enum VerifyCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum DevtoolCommand {
     Ledger,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum WorkspaceCommand {
+    Health,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -493,6 +500,7 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "friend-connect" => {
             parse_friend_connect_command(&positional[1..]).map(CliCommand::FriendConnect)
         }
+        "workspace" => parse_workspace_command(&positional[1..]).map(CliCommand::Workspace),
         "doctor" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Doctor),
         "tests" => parse_tests_command(&positional[1..]).map(CliCommand::Tests),
         "handoff" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Handoff),
@@ -502,6 +510,17 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "request" => parse_request_command(&positional[1..]).map(CliCommand::Request),
         "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
         other => Err(format!("unknown mole command: {other}")),
+    }
+}
+
+fn parse_workspace_command(args: &[String]) -> Result<WorkspaceCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("health");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "health" => {
+            ensure_no_extra_args("workspace health", rest).map(|()| WorkspaceCommand::Health)
+        }
+        other => Err(format!("unknown mole workspace command: {other}")),
     }
 }
 
@@ -1527,6 +1546,7 @@ fn command_report(options: &CliOptions) -> Value {
             fighter_common::fighter_common_report(&options.root, command)
         }
         CliCommand::FriendConnect(command) => friend_connect_report(&options.root, command),
+        CliCommand::Workspace(command) => workspace::workspace_report(&options.root, command),
         CliCommand::Doctor => doctor_report(&options.root),
         CliCommand::Tests(command) => tests_report(&options.root, command),
         CliCommand::Handoff => handoff_report(&options.root),
@@ -2638,12 +2658,11 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- verify changed --format markdown",
             "cargo run -p mole_cli -- generated check --json",
             "cargo run -p mole_cli -- generated check --format markdown",
+            "cargo run -p mole_cli -- workspace health --json",
+            "cargo run -p mole_cli -- workspace health --format markdown",
             "cargo run -p mole_cli -- finish check --json",
             "cargo run -p mole_cli -- finish check --format markdown",
             "cargo run -p mole_cli -- replay check --replay replays\\Game_20260530T214929.slp --frames 1800 --json",
-            "cargo run -p mole_cli -- replay check --inputs debug\\slippi\\Game_20260530T214929.inputs.json --mode seeded --json",
-            "cargo run -p mole_cli -- replay scan --inputs debug\\slippi\\Game_20260530T214929.inputs.json --lookahead 5 --json",
-            "cargo run -p mole_cli -- replay trace --inputs debug\\slippi\\Game_20260530T214929.inputs.json --player 1 --start 392 --end 402 --format markdown",
             "cargo run -p mole_cli -- decomp search ftCo_Turn_Anim --json",
             "cargo run -p mole_cli -- decomp symbol ftCo_LandingFallSpecial_Enter --format markdown",
             "cargo run -p mole_cli -- decomp show src/melee/ft/chara/ftCommon/ftCo_Turn.c --line 90 --context 24 --json",
@@ -2841,6 +2860,18 @@ fn command_help_catalog() -> Value {
             "agent_notes": "Read-only; use before handoff or after editing extraction inputs/generators so agents do not guess whether generated parity files are current."
         },
         {
+            "name": "workspace health",
+            "usage": "mole workspace health [--json|--format markdown]",
+            "purpose": "Read-only check for fast replay launch prerequisites, required Windows launchers, generated runtime source data, and the latest divergence log.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--format"],
+            "aliases": ["workspace"],
+            "agent_notes": "Use before debugging launch latency or replay parity so missing local prerequisites are visible without mutating the workspace."
+        },
+        {
             "name": "devtool ledger",
             "usage": "mole devtool ledger [--json|--format markdown]",
             "purpose": "Load the Rust parity ledger map into a GUI-ready view model for the native dev-tool layer.",
@@ -2975,24 +3006,24 @@ fn command_help_catalog() -> Value {
             "required_flags": ["--replay or --inputs"],
             "optional_flags": ["--frames", "--mode", "--include-negative-frames", "--no-negative-frames", "--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Default mode is sequential match-start and includes negative entry frames for raw .slp exports. Use --inputs with an existing exported JSON file to skip Node export."
+            "agent_notes": "Use --replay for the normal parity workflow. --inputs is retained for explicit diagnostics and tests that need a fixed exported JSON fixture."
         },
         {
             "name": "replay artifacts",
             "usage": "mole replay artifacts [--json|--format markdown]",
-            "purpose": "List existing Slippi replay files and exported input JSON artifacts for trace/replay selection without mutating the workspace.",
+            "purpose": "List existing Slippi replay files first, plus diagnostic exported input JSON artifacts, without mutating the workspace.",
             "mutates_workspace": false,
             "writes": [],
             "output_modes": ["json", "text", "markdown"],
             "required_flags": [],
             "optional_flags": ["--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Use before replay trace or when wiring GUI artifact selectors; returns paths plus available export metadata."
+            "agent_notes": "Use before wiring GUI artifact selectors. Direct .slp replay files are the primary user workflow; exported JSON inputs are diagnostic fixtures."
         },
         {
             "name": "replay scan",
             "usage": "mole replay scan --inputs PATH [--frames N] [--lookahead N] [--max-scenarios N] [--position-tolerance-milli N] [--velocity-tolerance-milli N] [--json|--format markdown]",
-            "purpose": "Replay an existing Slippi input export from match start and group every divergence into scenario runs with rollback lookahead realignment diagnostics.",
+            "purpose": "diagnostic-only replay of an existing Slippi input export from match start, grouping every divergence into scenario runs with lookahead realignment diagnostics.",
             "mutates_workspace": false,
             "writes": [],
             "output_modes": ["json", "text", "markdown"],
@@ -3004,7 +3035,7 @@ fn command_help_catalog() -> Value {
         {
             "name": "replay trace",
             "usage": "mole replay trace --inputs PATH [--player 1|2] [--start N] [--end N] [--frames N] [--json|--format markdown]",
-            "purpose": "Replay an existing Slippi input export from match start and return a compact per-frame trace window for one player.",
+            "purpose": "diagnostic-only replay of an existing Slippi input export from match start, returning a compact per-frame trace window for one player.",
             "mutates_workspace": false,
             "writes": [],
             "output_modes": ["json", "text", "markdown"],
@@ -3798,9 +3829,12 @@ fn artifact_paths() -> Vec<(&'static str, &'static str)> {
             "source root motion generated rust",
             "crates/mole_core/src/generated/source_root_motion.rs",
         ),
-        ("state graph viewer", "tools/state_graph_viewer.py"),
         (
-            "slippi replay converter",
+            "legacy Python state graph viewer",
+            "tools/state_graph_viewer.py",
+        ),
+        (
+            "diagnostic Slippi replay converter",
             "tools/slippi_replay_to_inputs.cjs",
         ),
         (

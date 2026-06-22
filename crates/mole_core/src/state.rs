@@ -1606,6 +1606,49 @@ pub const FALCON_SOURCE_SPECIAL_ACTION_BINDINGS: &[SourceSpecialActionBinding] =
     SourceSpecialActionBinding::new(None, 363, 317, "SpecialHiThrow", 60),
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceCharacterSpecialActionBindings {
+    pub reference_character_aliases: &'static [&'static str],
+    pub bindings: &'static [SourceSpecialActionBinding],
+}
+
+impl SourceCharacterSpecialActionBindings {
+    const fn new(
+        reference_character_aliases: &'static [&'static str],
+        bindings: &'static [SourceSpecialActionBinding],
+    ) -> Self {
+        Self {
+            reference_character_aliases,
+            bindings,
+        }
+    }
+}
+
+pub const FALCON_SOURCE_CHARACTER_ALIASES: &[&str] = &["captain", "captain_falcon", "falcon"];
+
+pub const SOURCE_SPECIAL_ACTION_BINDINGS_BY_CHARACTER: &[SourceCharacterSpecialActionBindings] =
+    &[SourceCharacterSpecialActionBindings::new(
+        FALCON_SOURCE_CHARACTER_ALIASES,
+        FALCON_SOURCE_SPECIAL_ACTION_BINDINGS,
+    )];
+
+pub fn source_special_action_bindings_for_character(
+    source_character: Option<&str>,
+) -> &'static [SourceSpecialActionBinding] {
+    let Some(source_character) = source_character else {
+        return &[];
+    };
+    SOURCE_SPECIAL_ACTION_BINDINGS_BY_CHARACTER
+        .iter()
+        .find(|entry| {
+            entry
+                .reference_character_aliases
+                .contains(&source_character)
+        })
+        .map(|entry| entry.bindings)
+        .unwrap_or(&[])
+}
+
 pub fn source_special_action_binding_for_motion_state(
     motion_state: MotionState,
 ) -> Option<SourceSpecialActionBinding> {
@@ -1622,6 +1665,75 @@ pub fn source_special_action_binding_for_runtime_id(
         .iter()
         .copied()
         .find(|binding| binding.action_state_id == action_state_id)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceSpecialCaptureTransition {
+    pub reference_character: &'static str,
+    pub active_action_state_id: MeleeActionStateId,
+    pub attacker_action_state_id: MeleeActionStateId,
+    pub attacker_source_action_key: SourceActionKey,
+    pub victim_action_state_id: MeleeActionStateId,
+    pub victim_source_action_key: SourceActionKey,
+    pub constrain_airborne_victim_to_attacker_transn2: bool,
+}
+
+impl SourceSpecialCaptureTransition {
+    const fn new(
+        reference_character: &'static str,
+        active_action_state_id: u16,
+        attacker_action_state_id: u16,
+        attacker_source_action_key: &'static str,
+        victim_action_state_id: u16,
+        victim_source_action_key: &'static str,
+        constrain_airborne_victim_to_attacker_transn2: bool,
+    ) -> Self {
+        Self {
+            reference_character,
+            active_action_state_id: MeleeActionStateId::new(active_action_state_id),
+            attacker_action_state_id: MeleeActionStateId::new(attacker_action_state_id),
+            attacker_source_action_key: SourceActionKey::new(attacker_source_action_key),
+            victim_action_state_id: MeleeActionStateId::new(victim_action_state_id),
+            victim_source_action_key: SourceActionKey::new(victim_source_action_key),
+            constrain_airborne_victim_to_attacker_transn2,
+        }
+    }
+}
+
+pub const SOURCE_SPECIAL_CAPTURE_TRANSITIONS: &[SourceSpecialCaptureTransition] = &[
+    // ftCa_SpecialHi_Enter/ftCa_SpecialAirHi_Enter install
+    // ftCa_SpecialLw_800E5128 and ftCo_8009CA0C through ftCommon_8007E2D0.
+    SourceSpecialCaptureTransition::new(
+        "captain_falcon",
+        353,
+        355,
+        "SpecialHiCatch",
+        275,
+        "TCaptainSpecialHi",
+        true,
+    ),
+    SourceSpecialCaptureTransition::new(
+        "captain_falcon",
+        354,
+        355,
+        "SpecialHiCatch",
+        275,
+        "TCaptainSpecialHi",
+        true,
+    ),
+];
+
+pub fn source_special_capture_transition_for_action_state_id(
+    reference_character: &str,
+    action_state_id: MeleeActionStateId,
+) -> Option<SourceSpecialCaptureTransition> {
+    SOURCE_SPECIAL_CAPTURE_TRANSITIONS
+        .iter()
+        .copied()
+        .find(|transition| {
+            transition.reference_character == reference_character
+                && transition.active_action_state_id == action_state_id
+        })
 }
 
 pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding] = &[
@@ -1678,6 +1790,7 @@ pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding]
     CanonicalSourceActionBinding::new(240, 263, "TCaptainThrowB"),
     CanonicalSourceActionBinding::new(241, 264, "TCaptainThrowHi"),
     CanonicalSourceActionBinding::new(242, 265, "TCaptainThrowLw"),
+    CanonicalSourceActionBinding::new(275, 276, "TCaptainSpecialHi"),
 ];
 
 pub fn canonical_source_action_binding_for_source_table_id(
@@ -2270,6 +2383,9 @@ pub struct PlayerState {
     pub source_jab_followup_timer: u8,
     pub source_jab_followup_queued: bool,
     pub source_jab_combo_enabled: bool,
+    pub source_jab_rapid_enabled: bool,
+    pub source_rapid_jab_input_count: u8,
+    pub source_attack100_loop_continue_input: bool,
     pub source_common_timer: u8,
     pub source_dead_phase: u8,
     pub source_rebirth_target_x: f32,
@@ -2439,6 +2555,9 @@ impl PlayerState {
             source_jab_followup_timer: 0,
             source_jab_followup_queued: false,
             source_jab_combo_enabled: false,
+            source_jab_rapid_enabled: false,
+            source_rapid_jab_input_count: 0,
+            source_attack100_loop_continue_input: false,
             source_common_timer: 0,
             source_dead_phase: 0,
             source_rebirth_target_x: 0.0,
@@ -3182,11 +3301,7 @@ fn player_source_pose_motion_state(
 
 fn player_source_pose_frame(player: PlayerState) -> u8 {
     let frame = player_animation_pose_frame(player);
-    if player.source_action_total_frames > 0 {
-        frame.min(player.source_action_total_frames)
-    } else {
-        frame
-    }
+    frame
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -3429,6 +3544,9 @@ pub struct WorldSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceCollisionStep {
     pub grab_confirms: Vec<SourceGrabConfirm>,
+    pub geometry_confirms: Vec<SourceHitConfirm>,
+    pub raw_confirms: Vec<SourceHitConfirm>,
+    pub logged_confirms: Vec<SourceHitConfirm>,
     pub confirms: Vec<SourceHitConfirm>,
     pub stages: Vec<SourceDamageStage>,
     pub results: Vec<SourceDamageResult>,
@@ -3586,6 +3704,9 @@ macro_rules! player_rollback_snapshot_fields {
             source_jab_followup_timer: u8,
             source_jab_followup_queued: bool,
             source_jab_combo_enabled: bool,
+            source_jab_rapid_enabled: bool,
+            source_rapid_jab_input_count: u8,
+            source_attack100_loop_continue_input: bool,
             source_common_timer: u8,
             source_dead_phase: u8,
             source_rebirth_target_x: f32,
@@ -4315,17 +4436,18 @@ impl World {
                 .collect(),
             &mut action_total_frames,
         );
-        let logged_confirms = self.source_hit_confirms_not_in_victim_log(
-            source_hit_confirms(collision_frame)
-                .into_iter()
-                .filter(|confirm| self.source_hit_confirm_allowed_by_thrown_hitbox_state(*confirm))
-                .filter(|confirm| {
-                    self.players
-                        .get(confirm.victim_index)
-                        .is_some_and(|player| player.source_allows_hurt_collision())
-                })
-                .collect(),
-        );
+        let geometry_confirms = source_hit_confirms(collision_frame);
+        let raw_confirms = geometry_confirms
+            .clone()
+            .into_iter()
+            .filter(|confirm| self.source_hit_confirm_allowed_by_thrown_hitbox_state(*confirm))
+            .filter(|confirm| {
+                self.players
+                    .get(confirm.victim_index)
+                    .is_some_and(|player| player.source_allows_hurt_collision())
+            })
+            .collect::<Vec<_>>();
+        let logged_confirms = self.source_hit_confirms_not_in_victim_log(raw_confirms.clone());
         self.apply_source_deal_damage_hitlag_from_confirms(&logged_confirms);
         let damage_gate_confirms = logged_confirms
             .iter()
@@ -4352,6 +4474,9 @@ impl World {
         let applied_stage_count = self.apply_source_damage_stages(&applied_stages);
         SourceCollisionStep {
             grab_confirms,
+            geometry_confirms,
+            raw_confirms,
+            logged_confirms,
             confirms,
             stages: applied_stages,
             results,
@@ -4401,7 +4526,15 @@ impl World {
         let grabber = self.players.get(confirm.grabber_index)?;
         let victim = self.players.get(confirm.victim_index)?;
         let action_state_id = confirm.action_state_id.or(grabber.melee_action_state_id)?;
-        source_grab_pull_action_state(action_state_id)?;
+        if source_grab_pull_action_state(action_state_id).is_none()
+            && source_special_capture_transition_for_action_state_id(
+                grabber.profile.reference_character,
+                action_state_id,
+            )
+            .is_none()
+        {
+            return None;
+        }
         Some((victim.source_position.x - grabber.source_position.x).abs())
     }
 
@@ -4430,6 +4563,46 @@ impl World {
         else {
             return false;
         };
+        if let Some(transition) = source_special_capture_transition_for_action_state_id(
+            grabber.profile.reference_character,
+            action_state_id,
+        ) {
+            let victim_was_airborne = !victim.grounded;
+            let attacker_facing = grabber.facing;
+            enter_source_only_action_state(
+                grabber,
+                transition.attacker_action_state_id,
+                transition.attacker_source_action_key,
+                action_total_frames,
+            );
+            grabber.source_victim_index = Some(victim_u8);
+            grabber.source_x1a5c_index = Some(victim_u8);
+            grabber.source_x221b_b5 = false;
+            grabber.source_x2226_b2 = false;
+
+            enter_source_only_action_state(
+                victim,
+                transition.victim_action_state_id,
+                transition.victim_source_action_key,
+                action_total_frames,
+            );
+            victim.source_victim_index = Some(grabber_u8);
+            victim.source_x1a5c_index = Some(grabber_u8);
+            victim.source_x221b_b5 = false;
+            victim.source_x2226_b2 =
+                transition.constrain_airborne_victim_to_attacker_transn2 && victim_was_airborne;
+            victim.facing = -attacker_facing;
+            victim.source_self_velocity_x = 0.0;
+            victim.source_self_velocity_y = 0.0;
+            victim.source_knockback_velocity_x = 0.0;
+            victim.source_knockback_velocity_y = 0.0;
+            victim.source_ground_knockback_velocity = 0.0;
+            victim.velocity = Vec2 { x: 0, y: 0 };
+            victim.ground_velocity_x = 0.0;
+            victim.ground_accel_x = 0.0;
+            victim.ground_accel_x2 = 0.0;
+            return true;
+        }
         let Some((grabber_action_state_id, grabber_source_action_key)) =
             source_grab_pull_action_state(action_state_id)
         else {
@@ -4519,6 +4692,12 @@ impl World {
         let Some(attacker) = self.players.get(confirm.attacker_index) else {
             return false;
         };
+        let Some(victim) = self.players.get(confirm.victim_index) else {
+            return false;
+        };
+        let Ok(attacker_index) = u8::try_from(confirm.attacker_index) else {
+            return false;
+        };
         let Ok(victim_index) = u8::try_from(confirm.victim_index) else {
             return false;
         };
@@ -4538,9 +4717,9 @@ impl World {
             return false;
         }
         if confirm.collision.hit.hitbox_flags.hit_grabbed_victim_only()
-            && attacker.source_victim_index.is_some()
-            && attacker.source_x221b_b5
-            && attacker.source_victim_index != Some(victim_index)
+            && victim.source_victim_index.is_some()
+            && victim.source_x221b_b5
+            && victim.source_victim_index != Some(attacker_index)
         {
             return false;
         }
@@ -5089,6 +5268,9 @@ impl World {
             mix_u8(&mut hash, player.source_jab_followup_timer);
             mix_u8(&mut hash, player.source_jab_followup_queued as u8);
             mix_u8(&mut hash, player.source_jab_combo_enabled as u8);
+            mix_u8(&mut hash, player.source_jab_rapid_enabled as u8);
+            mix_u8(&mut hash, player.source_rapid_jab_input_count);
+            mix_u8(&mut hash, player.source_attack100_loop_continue_input as u8);
             mix_u8(&mut hash, player.source_common_timer);
             mix_u8(&mut hash, player.source_dead_phase);
             mix_f32(&mut hash, player.source_rebirth_target_x);
@@ -5264,7 +5446,10 @@ fn source_throw_action_state_id(action_state_id: MeleeActionStateId) -> bool {
 }
 
 fn source_held_victim_action_state_id(action_state_id: MeleeActionStateId) -> bool {
-    matches!(action_state_id.get(), 223 | 224 | 226 | 227 | 239..=242)
+    matches!(
+        action_state_id.get(),
+        223 | 224 | 226 | 227 | 239..=242 | 275
+    )
 }
 
 fn enter_source_only_action_state(

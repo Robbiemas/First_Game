@@ -135,6 +135,7 @@ CANONICAL_SOURCE_ONLY_ACTION_MAP: tuple[tuple[int, int, str], ...] = (
     (199, 199, "Passive"),
     (200, 200, "PassiveStandF"),
     (201, 201, "PassiveStandB"),
+    (275, 276, "TCaptainSpecialHi"),
 )
 
 CHARACTER_SPECIAL_ACTION_BINDINGS: dict[

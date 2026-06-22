@@ -2,10 +2,10 @@
 <html>
 <head>
 <meta http-equiv="x-ua-compatible" content="IE=11">
-<title>Mole Game Start Here</title>
+<title>Mole Game Replay</title>
 <HTA:APPLICATION
     ID="MoleGameStartHere"
-    APPLICATIONNAME="Mole Game Start Here"
+    APPLICATIONNAME="Mole Game Replay"
     BORDER="thin"
     CAPTION="yes"
     MAXIMIZEBUTTON="no"
@@ -21,9 +21,12 @@
     body {
         margin: 0;
         padding: 0;
-        width: 760px;
-        height: 560px;
-        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        min-width: 560px;
+        min-height: 450px;
+        overflow: auto;
+        box-sizing: border-box;
         font-family: "Segoe UI", Arial, sans-serif;
         background: #f4f7fb;
         color: #172033;
@@ -31,58 +34,58 @@
 
     .shell {
         padding: 22px;
+        width: 538px;
     }
 
     h1 {
         margin: 0 0 6px 0;
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 700;
     }
 
     .sub {
         margin: 0 0 18px 0;
         color: #526176;
-        font-size: 14px;
-        line-height: 20px;
-    }
-
-    .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        font-size: 13px;
+        line-height: 19px;
     }
 
     .button {
-        border: 1px solid #c9d5e6;
-        background: #ffffff;
-        color: #172033;
+        width: 100%;
+        border: 1px solid #17365d;
+        background: #17365d;
+        color: #ffffff;
         text-align: left;
-        padding: 14px 16px;
-        min-height: 82px;
+        padding: 16px 18px;
+        min-height: 74px;
         cursor: pointer;
         border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(18, 33, 56, 0.08);
+        box-shadow: 0 1px 2px rgba(18, 33, 56, 0.12);
+    }
+
+    .button + .button {
+        margin-top: 10px;
+    }
+
+    .secondary {
+        background: #ffffff;
+        border-color: #c9d5e6;
+        color: #172033;
     }
 
     .button:hover {
-        border-color: #6b8fc7;
-        background: #f9fbff;
-    }
-
-    .primary {
-        background: #17365d;
-        border-color: #17365d;
-        color: #ffffff;
-    }
-
-    .primary:hover {
         background: #1f477a;
         border-color: #1f477a;
     }
 
+    .secondary:hover {
+        background: #f9fbff;
+        border-color: #6b8fc7;
+    }
+
     .label {
         display: block;
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 700;
         margin-bottom: 6px;
     }
@@ -92,26 +95,19 @@
         font-size: 12px;
         line-height: 17px;
         color: inherit;
-        opacity: 0.82;
+        opacity: 0.84;
     }
 
     .status {
-        margin-top: 18px;
-        padding: 12px 14px;
-        min-height: 42px;
+        margin-top: 16px;
+        padding: 11px 13px;
+        min-height: 40px;
         border: 1px solid #d6e0ef;
         background: #ffffff;
         border-radius: 6px;
         color: #344258;
-        font-size: 13px;
-        line-height: 18px;
-    }
-
-    .note {
-        margin-top: 14px;
         font-size: 12px;
         line-height: 17px;
-        color: #63718a;
     }
 </style>
 <script language="javascript">
@@ -158,39 +154,24 @@
             alert("Missing launcher:\n" + target);
             return;
         }
-        setStatus(label + " is starting. If Rust needs to build, the window may take a moment.");
+        setStatus(label + " is starting. The SDL window will open when the runtime is ready. Divergence log: debug\\slippi\\runtime-divergence.latest.json");
         var cmd = shell.ExpandEnvironmentStrings("%ComSpec%");
         run(quote(cmd) + " /d /c " + quote(target), 0);
     }
 
-    function runVisible(relativePath, label) {
+    function runCommandFileVisible(relativePath, label) {
         var target = join(ROOT, relativePath);
         if (!fso.FileExists(target)) {
-            alert("Missing file:\n" + target);
+            alert("Missing launcher:\n" + target);
             return;
         }
         setStatus(label + " is starting.");
-        run(quote(target), 1);
+        var cmd = shell.ExpandEnvironmentStrings("%ComSpec%");
+        run(quote(cmd) + " /d /c " + quote(target), 1);
     }
 
-    function openFolder(relativePath, label) {
-        var target = join(ROOT, relativePath);
-        if (!fso.FolderExists(target)) {
-            alert("Missing folder:\n" + target);
-            return;
-        }
-        setStatus(label + " opened.");
-        run("explorer.exe " + quote(target), 1);
-    }
-
-    function openText(relativePath, label) {
-        var target = join(ROOT, relativePath);
-        if (!fso.FileExists(target)) {
-            alert("Missing file:\n" + target);
-            return;
-        }
-        setStatus(label + " opened.");
-        run("notepad.exe " + quote(target), 1);
+    function launchReplay() {
+        runCommandFileHidden("execs\\Play Slippi Replay.cmd", "Replay");
     }
 
     function launchLocalPlay() {
@@ -198,80 +179,38 @@
     }
 
     function launchDevtool() {
-        runCommandFileHidden("execs\\Open Dev Tool.cmd", "Devtool / replay viewer");
+        runCommandFileVisible("execs\\Open Dev Tool.cmd", "Dev tool");
     }
 
-    function launchFriendPlaytest() {
-        runVisible("playtest\\MoleGame-FriendPlaytest.exe", "Friend playtest");
-    }
-
-    function launchLocalInternetPlaytest() {
-        runVisible("playtest\\MoleGame-LocalInternetPlaytest.exe", "Local internet playtest");
-    }
-
-    function openReplayScreenshots() {
-        openFolder("debug\\handoff", "Replay screenshot folder");
-    }
-
-    function openPlaytestFolder() {
-        openFolder("playtest", "Playtest folder");
-    }
-
-    function openNotes() {
-        openText("docs\\worklogs\\gameplay_parity_scratchpad.md", "Current parity notes");
-    }
+    window.onload = function() {
+        window.resizeTo(600, 500);
+    };
 </script>
 </head>
 <body>
     <div class="shell">
-        <h1>Mole Game</h1>
+        <h1>Mole Game Replay</h1>
         <p class="sub">
-            Double-click actions for playtesting and replay inspection. No terminal typing required.
+            Launches the local Slippi replay directly through the Rust runtime and stops on the first parity divergence.
         </p>
 
-        <div class="grid">
-            <button class="button primary" onclick="launchLocalPlay()">
-                <span class="label">Play Locally</span>
-                <span class="desc">Starts the current Rust SDL3/WUP local playtest from source.</span>
-            </button>
+        <button class="button" onclick="launchReplay()">
+            <span class="label">Play Replay From Start</span>
+            <span class="desc">Writes the live divergence log and holds on the first mismatch.</span>
+        </button>
 
-            <button class="button primary" onclick="launchDevtool()">
-                <span class="label">Replay Viewer / Devtool</span>
-                <span class="desc">Opens the Rust devtool. Use the Slippi Replay tab to step and play replay windows visually.</span>
-            </button>
+        <button class="button secondary" onclick="launchLocalPlay()">
+            <span class="label">Play Locally</span>
+            <span class="desc">Starts the Rust SDL3 local runtime for direct testing.</span>
+        </button>
 
-            <button class="button" onclick="launchFriendPlaytest()">
-                <span class="label">Friend Playtest</span>
-                <span class="desc">Starts the packaged Friend Connect build for online testing with another computer.</span>
-            </button>
-
-            <button class="button" onclick="launchLocalInternetPlaytest()">
-                <span class="label">Local Internet Test</span>
-                <span class="desc">Starts the one-click local host plus peer internet-path test.</span>
-            </button>
-
-            <button class="button" onclick="openReplayScreenshots()">
-                <span class="label">Replay Screenshots</span>
-                <span class="desc">Opens the folder with visual replay captures from the current handoff.</span>
-            </button>
-
-            <button class="button" onclick="openPlaytestFolder()">
-                <span class="label">Playtest Files</span>
-                <span class="desc">Opens the folder containing the current handoff executables.</span>
-            </button>
-
-            <button class="button" onclick="openNotes()">
-                <span class="label">Current Notes</span>
-                <span class="desc">Opens the scratchpad with the current replay blocker and recent verification notes.</span>
-            </button>
-        </div>
+        <button class="button secondary" onclick="launchDevtool()">
+            <span class="label">Open Dev Tool</span>
+            <span class="desc">Opens the state graphs, replay tools, ledgers, and traces.</span>
+        </button>
 
         <div id="status" class="status">
-            Ready. Choose an action above.
-        </div>
-
-        <div class="note">
-            First launch can take longer if Rust is compiling. Friend Playtest uses the packaged executable, so it should start without building from source.
+            Ready.
         </div>
     </div>
 </body>
