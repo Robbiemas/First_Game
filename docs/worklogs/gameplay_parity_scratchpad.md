@@ -2804,3 +2804,39 @@ playtest exposes.
   ignored contract tests. Shared AObj callback scheduling and combat/collision
   architecture remain real gaps. The scoped replay milestone can be checkpointed;
   the repository must not be called universally parity-complete or netplay-final.
+
+# 2026-07-16 global callback scheduler parity completion
+
+- The strict replay frontier progressed through source 3284, 3543, 4462, and
+  4820 without replay repair. Each correction came from the shared fighter
+  scheduler or callback-family ownership.
+- `Fighter_8006A1BC` priority 0 decrements hitlag and runs the post-hitlag
+  callback before priority 4. The ordinary every-hitlag callback therefore runs
+  only while hitlag remains after p0; the final tick performs exit ASDI/DI and
+  does not apply another SDI displacement.
+- Common `ftCo_Damage_*` states 75-86 publish their current JObj pose in the
+  migrated p1 callback. The separate `ftCo_DamageFly_*` callback family 87-91
+  remains on legacy playback and p6 samples its post-animation JObj pose. This
+  is a source callback-family boundary, not a Falcon move exception.
+- At source 4820, `ftCo_AttackAir_Anim` enters Fall during p1. Melee installs
+  Fall immediately, but its newly installed `ftCo_Fall_Anim` callback is not
+  recursively dispatched during the same p1 slot. Rust had incorrectly run
+  Fall's directional animation blend in the later combined p4 branch, changing
+  the ECB before p6. Fall animation evaluation now belongs to the global p1
+  phase, so the transition tick keeps the neutral entry pose while p4 physics
+  and p6 collision reread the new Fall callbacks.
+- The mandatory `slippi_match_start_full_fixture_has_no_engine_divergence`
+  contract now runs all 5,313 replay frames with no classified engine
+  divergence. The 3,200-frame comparison and visual gate contracts now assert
+  no fabricated stop rather than preserving obsolete frame-2583 expectations.
+- Current broad `mole_core` truth is 580 passed, 41 failed, and 2 ignored in
+  `core_contract`, plus 83/83 library and 11/11 collision contracts. The 41
+  failures remain classified stale fixtures or out-of-scope shared systems;
+  this strict Falcon/Battlefield replay result does not establish universal
+  fighter/stage parity.
+- Independent review confirmed that p4 and p6 are still structurally inside the
+  per-player monolith for unmigrated states. Enabling generic same-tick dispatch
+  through that branch also reruns bundled p1 behavior and breaks the strict
+  replay. The remaining extraction must separate p4 and p6 primitives before
+  globally dispatching every newly installed callback; it is not complete in
+  this checkpoint.

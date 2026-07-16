@@ -8,7 +8,8 @@ use crate::{
     fighter_stick_axis_to_f32,
     state::{
         action_sample_frame_count_for_motion_state, active_ecb_bottom_offset_y,
-        active_ecb_for_player, enter_source_shield_break_fly, is_source_damage_action_state_id,
+        active_ecb_for_player, canonical_source_action_binding_for_runtime_id,
+        enter_source_shield_break_fly, is_source_damage_action_state_id,
         is_source_dead_motion_state, is_source_rebirth_motion_state,
         landing_fall_special_lag_ticks, live_source_local_ecb_for_player_pose_frame_with_flags,
         melee_action_state_id_for_motion_state, player_model_facing,
@@ -32,6 +33,7 @@ const ATTACK_ACTIVE_TICKS: u8 = 12;
 const SHIELD_TURN_FRAMES: u8 = 5;
 const TURN_LATCH_ATTACK: u8 = 0x01;
 const TURN_LATCH_SPECIAL: u8 = 0x02;
+const UCF_DASHBACK_SOURCE_TURN_FRAME: u8 = 2;
 const FALCON_ATTACK_S3_FRAMES: u8 = 29;
 const FALCON_ATTACK_HI3_FRAMES: u8 = 39;
 const FALCON_ATTACK_LW3_FRAMES: u8 = 35;
@@ -48,7 +50,6 @@ const FALCON_ATTACK_LW4_IASA: u8 = 45;
 const FALCON_SPECIAL_N_IASA: u8 = 65;
 const GROUND_TO_AIR_ECB_LOCK_FRAMES: u8 = 10;
 const AIRBORNE_STATE_TWO_ECB_LOCK_FRAMES: u8 = 5;
-const UCF_DASHBACK_SOURCE_TURN_FRAME: u8 = 1;
 const GROUND_EDGE_EXPORTED_STICK_THRESHOLD: i32 = 95;
 const SOURCE_DOWN_BOUND_U_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(183);
 const SOURCE_DOWN_BOUND_D_ACTION_STATE_ID: MeleeActionStateId = MeleeActionStateId::new(191);
@@ -176,6 +177,14 @@ struct SourcePoseMetadataSnapshot {
     primary_hitbox: Option<SourceHitboxAttributes>,
 }
 
+#[derive(Clone, Copy)]
+struct Priority3InputContext {
+    input: PlayerInput,
+    previous_input: PlayerInput,
+    snapshot: MeleeInputSnapshot,
+    facts: MeleeInputFacts,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GroundEdgeCollisionPolicy {
     LedgeSlipWithStickGate,
@@ -203,6 +212,22 @@ pub fn step_world_with_source_runtime_data(
     let player_profiles = world.players().map(|player| player.profile);
     let previous_action_state_ids = world.players().map(|player| player.melee_action_state_id);
     let source_hitlag_frames_before_tick = world.players().map(|player| player.hitlag_frames);
+    let priority3_inputs = std::array::from_fn(|player_index| {
+        let previous_timers = input_timers[player_index];
+        let snapshot = inputs[player_index].melee_snapshot_with_config(
+            previous_inputs[player_index],
+            previous_timers,
+            common_data.input_config(),
+        );
+        let facts = snapshot.facts(common_data.input_thresholds());
+        Priority3InputContext {
+            input: inputs[player_index],
+            previous_input: previous_inputs[player_index],
+            snapshot,
+            facts,
+        }
+    });
+    run_global_priority0_hitlag_phase(world.players_mut(), &priority3_inputs, common_data);
     run_global_priority1_animation_phase(
         world.players_mut(),
         common_data,
@@ -247,13 +272,8 @@ pub fn step_world_with_source_runtime_data(
     });
 
     for player_index in 0..PLAYER_COUNT {
-        let previous_input = previous_inputs[player_index];
-        let input_snapshot = inputs[player_index].melee_snapshot_with_config(
-            previous_input,
-            input_timers[player_index],
-            common_data.input_config(),
-        );
-        let input_facts = input_snapshot.facts(common_data.input_thresholds());
+        let input_snapshot = priority3_inputs[player_index].snapshot;
+        let input_facts = priority3_inputs[player_index].facts;
         let player = &mut world.players_mut()[player_index];
         if player
             .melee_action_state_id
@@ -275,6 +295,16 @@ pub fn step_world_with_source_runtime_data(
         }
     }
 
+    let migrated_priority3_callbacks = run_global_priority3_input_phase(
+        world.players_mut(),
+        &priority3_inputs,
+        &mut input_timers,
+        &mut last_input_facts,
+        &mut skip_source_player_tick,
+        stage,
+        common_data,
+    );
+
     for player_index in 0..PLAYER_COUNT {
         apply_pending_source_throw_releases_for_victim(
             world,
@@ -284,9 +314,10 @@ pub fn step_world_with_source_runtime_data(
             &mut input_timers,
             &mut source_action_total_frames,
         );
-        let input = inputs[player_index];
-        let previous_input = previous_inputs[player_index];
-        let previous_input_timers = input_timers[player_index];
+        let priority3_input = priority3_inputs[player_index];
+        let input = priority3_input.input;
+        let previous_input = priority3_input.previous_input;
+        let migrated_priority3_callback = migrated_priority3_callbacks[player_index];
         let player = &mut world.players_mut()[player_index];
         if player.player_state != PLAYER_STATE_IN_GAME {
             continue;
@@ -294,61 +325,53 @@ pub fn step_world_with_source_runtime_data(
         if skip_source_player_tick[player_index] {
             continue;
         }
-        let input_snapshot = input.melee_snapshot_with_config(
-            previous_input,
-            input_timers[player_index],
-            common_data.input_config(),
-        );
+        let input_snapshot = if migrated_priority3_callback.is_some() {
+            priority3_input.snapshot
+        } else {
+            input.melee_snapshot_with_config(
+                previous_input,
+                input_timers[player_index],
+                common_data.input_config(),
+            )
+        };
         let stick_x = input_snapshot.lstick.0 as i32;
         let stick_y = input_snapshot.lstick.1;
         let pre_input_stick_x = input_snapshot.prev_lstick.0 as i32;
-        let input_facts = input_snapshot.facts(common_data.input_thresholds());
-        last_input_facts[player_index] = input_facts;
-        input_timers[player_index].x_tap = input_snapshot.x_tap_timer;
-        input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
-        input_timers[player_index].trigger = input_snapshot.trigger_timer;
+        let input_facts = if migrated_priority3_callback.is_some() {
+            priority3_input.facts
+        } else {
+            input_snapshot.facts(common_data.input_thresholds())
+        };
+        if migrated_priority3_callback.is_none() {
+            input_timers[player_index].x_tap = input_snapshot.x_tap_timer;
+            input_timers[player_index].y_tap = input_snapshot.y_tap_timer;
+            input_timers[player_index].trigger = input_snapshot.trigger_timer;
+            last_input_facts[player_index] = input_facts;
+        }
         let x_tap_timer = input_timers[player_index].x_tap;
         let y_tap_timer = input_timers[player_index].y_tap;
         let trigger_timer = input_timers[player_index].trigger;
-        advance_source_lr_digital_press_timers(player, input_facts);
-        tick_source_collision_lifecycle(player);
-        tick_source_ledge_cooldown(player);
-        if tick_guard_shield_lifecycle(player, input_facts, common_data) {
-            continue;
+        if migrated_priority3_callback.is_none() {
+            advance_source_lr_digital_press_timers(player, input_facts);
+            tick_source_collision_lifecycle(player);
+            tick_source_ledge_cooldown(player);
+            if tick_guard_shield_lifecycle(player, input_facts, common_data) {
+                continue;
+            }
+            source_update_guard_shield_visual(player, input_facts, common_data);
         }
-        source_update_guard_shield_visual(player, input_facts, common_data);
-        if player.hitlag_frames > 0 {
-            begin_ground_velocity_tick(player);
-            let has_source_damage_hitlag_callbacks = player.source_allow_sdi;
-            let final_hitlag_tick = player.hitlag_frames == 1;
-            let hitlag_input = if final_hitlag_tick {
-                previous_input
-            } else {
-                input
-            };
-            let mut source_hitlag_input_timers = if final_hitlag_tick {
-                previous_input_timers
-            } else {
-                input_timers[player_index]
-            };
-            if has_source_damage_hitlag_callbacks {
-                apply_source_damage_on_every_hitlag(
-                    player,
-                    hitlag_input,
-                    &mut source_hitlag_input_timers,
-                    common_data,
-                );
-            }
-            player.hitlag_frames = player.hitlag_frames.saturating_sub(1);
-            if player.hitlag_frames == 0 && has_source_damage_hitlag_callbacks {
-                apply_source_damage_on_exit_hitlag(player, previous_input, common_data);
-            }
-            if player.hitlag_frames == 0 {
-                player.source_x2219_b5 = false;
+        if source_hitlag_frames_before_tick[player_index] > 0 {
+            if migrated_priority3_callback.is_none() {
+                begin_ground_velocity_tick(player);
             }
             if player.hitlag_frames > 0 {
-                if has_source_damage_hitlag_callbacks {
-                    input_timers[player_index] = source_hitlag_input_timers;
+                if player.source_allow_sdi {
+                    apply_source_damage_on_every_hitlag(
+                        player,
+                        input,
+                        &mut input_timers[player_index],
+                        common_data,
+                    );
                 }
                 continue;
             }
@@ -377,8 +400,9 @@ pub fn step_world_with_source_runtime_data(
         let mut skip_airborne_vertical_physics_this_tick = false;
         let mut skip_airborne_collision_this_tick = false;
         let mut enter_fall_special_after_position_update = false;
-        let mut fall_entered_from_rebirth_wait_this_tick = false;
-        begin_ground_velocity_tick(player);
+        if migrated_priority3_callbacks[player_index].is_none() {
+            begin_ground_velocity_tick(player);
+        }
         let motion_state_before_tick = player.motion_state;
         let mut skip_action_dispatch_this_tick = false;
         if is_source_damage_player(player) {
@@ -512,11 +536,14 @@ pub fn step_world_with_source_runtime_data(
             continue;
         }
         if is_source_rebirth_motion_state(player.motion_state) {
-            if advance_source_rebirth_state(player, input_facts, common_data) {
-                fall_entered_from_rebirth_wait_this_tick = player.motion_state == MotionState::Fall;
-            } else {
+            if !advance_source_rebirth_state(player, input_facts, common_data) {
                 continue;
             }
+        }
+
+        if let Some(callback) = migrated_priority3_callback {
+            run_migrated_priority4_after_input(player, callback, stick_x, stage, common_data);
+            skip_action_dispatch_this_tick = true;
         }
 
         if !skip_action_dispatch_this_tick {
@@ -766,85 +793,63 @@ pub fn step_world_with_source_runtime_data(
                         clear_turn_state(player);
                         enter_fall(player);
                     } else {
-                        advance_turn_anim(player);
                         apply_ucf_dashback_turn_hook(
                             player,
                             input.ucf_dashback_amendment(),
                             stick_x,
                             common_data,
                         );
-
-                        if player.motion_frame >= player.profile.standing_turn_total_frames {
-                            player.set_motion_state_alias(MotionState::Wait);
-                            player.motion_frame = 0;
-                            clear_turn_state(player);
-                            apply_wait_state_inputs(
+                        let turn_facts = turn_effective_input_facts(
+                            player,
+                            input_facts,
+                            input_snapshot.lstick,
+                            common_data,
+                        );
+                        if let Some(action_state) = turn_action_state(turn_facts) {
+                            if player.facing != player.turn_facing_after {
+                                player.facing = player.turn_facing_after;
+                                player.source_model_facing = player.facing;
+                            }
+                            enter_action_state(player, action_state, stick_x, stage, common_data);
+                        } else if turn_facts.digital_shield_pressed
+                            && input_timers[player_index].trigger
+                                < common_data.guard_reflect_input_window
+                        {
+                            if player.facing != player.turn_facing_after {
+                                player.facing = player.turn_facing_after;
+                                player.source_model_facing = player.facing;
+                            }
+                            enter_guard_reflect(player, common_data);
+                            apply_ground_traction(player, stage, common_data);
+                        } else if input_facts.shield_held {
+                            enter_guard(player, input_facts, common_data);
+                            source_update_guard_shield_visual(player, input_facts, common_data);
+                        } else if input_facts.normal_jump_pressed {
+                            enter_knee_bend_from_ground(
                                 player,
-                                input_facts,
-                                stick_x,
+                                input_facts.normal_jump_input,
                                 stage,
                                 common_data,
-                                &mut input_timers[player_index].x_tap,
                             );
                         } else {
-                            let turn_facts = turn_effective_input_facts(player, input_facts);
-                            if let Some(action_state) = turn_action_state(turn_facts) {
-                                if player.facing != player.turn_facing_after {
-                                    player.facing = player.turn_facing_after;
-                                    player.source_model_facing = player.facing;
-                                }
-                                enter_action_state(
-                                    player,
-                                    action_state,
-                                    stick_x,
-                                    stage,
-                                    common_data,
-                                );
-                            } else if turn_facts.digital_shield_pressed
-                                && input_timers[player_index].trigger
-                                    < common_data.guard_reflect_input_window
+                            arm_turn_dash_after_if_fresh(player, stick_x, x_tap_timer, common_data);
+                            if player.turn_just_turned
+                                && player.turn_dash_after_direction != 0
+                                && stick_x * player.turn_facing_after as i32
+                                    >= common_data.dash_x as i32
                             {
-                                if player.facing != player.turn_facing_after {
-                                    player.facing = player.turn_facing_after;
-                                    player.source_model_facing = player.facing;
-                                }
-                                enter_guard_reflect(player, common_data);
-                                apply_ground_traction(player, stage, common_data);
-                            } else if input_facts.shield_held {
-                                enter_guard(player, input_facts, common_data);
-                                source_update_guard_shield_visual(player, input_facts, common_data);
-                            } else if input_facts.normal_jump_pressed {
-                                enter_knee_bend_from_ground(
-                                    player,
-                                    input_facts.normal_jump_input,
-                                    stage,
-                                    common_data,
-                                );
+                                enter_dash(player, player.turn_facing_after, false);
+                                input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
                             } else {
-                                arm_turn_dash_after_if_fresh(
-                                    player,
-                                    stick_x,
-                                    x_tap_timer,
-                                    common_data,
-                                );
-                                if player.turn_just_turned
-                                    && player.turn_dash_after_direction != 0
-                                    && stick_x * player.turn_facing_after as i32
-                                        >= common_data.dash_x as i32
-                                {
-                                    enter_dash(player, player.turn_facing_after, false);
-                                    input_timers[player_index].x_tap = EXPIRED_INPUT_TIMER;
-                                } else {
-                                    latch_turn_buttons(player, input_facts);
-                                    if player.turn_just_turned {
-                                        player.turn_just_turned = false;
-                                    }
+                                latch_turn_buttons(player, input_facts);
+                                if player.turn_just_turned {
+                                    player.turn_just_turned = false;
                                 }
                             }
+                        }
 
-                            if player.motion_state == MotionState::Turn {
-                                apply_ground_traction(player, stage, common_data);
-                            }
+                        if player.motion_state == MotionState::Turn {
+                            apply_ground_traction(player, stage, common_data);
                         }
                     }
                 }
@@ -1132,40 +1137,7 @@ pub fn step_world_with_source_runtime_data(
                 | MotionState::AttackAirB
                 | MotionState::AttackAirHi
                 | MotionState::AttackAirLw => {
-                    apply_attack_air_script_events(player);
-                    advance_source_motion_frame(player);
-                    let script_events =
-                        source_current_anim_script_events(player, &mut source_pose_metadata);
-                    apply_source_script_events(player, script_events, common_data);
-                    apply_attack_air_script_events(player);
-                    if source_action_has_no_frames_remaining(player) {
-                        enter_fall(player);
-                    }
-                    if matches!(
-                        player.motion_state,
-                        MotionState::Fall
-                            | MotionState::FallF
-                            | MotionState::FallB
-                            | MotionState::FallAerial
-                            | MotionState::FallAerialF
-                            | MotionState::FallAerialB
-                    ) {
-                        if apply_airborne_iasa_or_drift(
-                            player,
-                            input_facts,
-                            stick_x,
-                            stick_y,
-                            common_data,
-                        ) && apply_entered_airborne_action_physics(player, stick_x, common_data)
-                        {
-                            skip_airborne_vertical_physics_this_tick = true;
-                        }
-                    } else if apply_attack_air_iasa_actions(
-                        player,
-                        input_facts,
-                        stick_x,
-                        common_data,
-                    ) {
+                    if apply_attack_air_iasa_actions(player, input_facts, stick_x, common_data) {
                         if apply_entered_airborne_action_physics(player, stick_x, common_data) {
                             skip_airborne_vertical_physics_this_tick = true;
                         }
@@ -1405,6 +1377,7 @@ pub fn step_world_with_source_runtime_data(
                             stick_x,
                             stick_y,
                             common_data,
+                            &mut source_pose_metadata,
                         );
                         if entered_airborne_action {
                             skip_airborne_vertical_physics_this_tick =
@@ -1438,6 +1411,7 @@ pub fn step_world_with_source_runtime_data(
                         stick_x,
                         stick_y,
                         common_data,
+                        &mut source_pose_metadata,
                     ) && apply_entered_airborne_action_physics(player, stick_x, common_data)
                     {
                         skip_airborne_vertical_physics_this_tick = true;
@@ -1456,6 +1430,7 @@ pub fn step_world_with_source_runtime_data(
                         stick_x,
                         stick_y,
                         common_data,
+                        &mut source_pose_metadata,
                     ) && apply_entered_airborne_action_physics(player, stick_x, common_data)
                     {
                         skip_airborne_vertical_physics_this_tick = true;
@@ -1468,16 +1443,13 @@ pub fn step_world_with_source_runtime_data(
                 | MotionState::FallAerialF
                 | MotionState::FallAerialB
                 | MotionState::DamageFall => {
-                    if !fall_entered_from_rebirth_wait_this_tick {
-                        advance_source_bound_motion_frame(player);
-                    }
-                    update_source_fall_anim_inner(player, common_data);
                     if apply_airborne_iasa_or_drift(
                         player,
                         input_facts,
                         stick_x,
                         stick_y,
                         common_data,
+                        &mut source_pose_metadata,
                     ) && apply_entered_airborne_action_physics(player, stick_x, common_data)
                     {
                         skip_airborne_vertical_physics_this_tick = true;
@@ -1496,6 +1468,7 @@ pub fn step_world_with_source_runtime_data(
                         stick_x,
                         stick_y,
                         common_data,
+                        &mut source_pose_metadata,
                     ) && apply_entered_airborne_action_physics(player, stick_x, common_data)
                     {
                         skip_airborne_vertical_physics_this_tick = true;
@@ -2136,9 +2109,220 @@ fn begin_ground_velocity_tick(player: &mut PlayerState) {
 #[derive(Clone, Copy)]
 enum Priority1AnimCallback {
     Dash,
+    Turn,
+    AttackAir,
+    Fall,
+    Damage,
     Attack100Start,
     Attack100Loop,
     Attack100End,
+}
+
+#[derive(Clone, Copy)]
+enum Priority3InputCallback {
+    Turn,
+    AttackAir,
+}
+
+fn run_global_priority3_input_phase(
+    players: &mut [PlayerState; PLAYER_COUNT],
+    inputs: &[Priority3InputContext; PLAYER_COUNT],
+    input_timers: &mut [MeleeInputTimers; PLAYER_COUNT],
+    last_input_facts: &mut [MeleeInputFacts; PLAYER_COUNT],
+    skip_source_player_tick: &mut [bool; PLAYER_COUNT],
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) -> [Option<Priority3InputCallback>; PLAYER_COUNT] {
+    let mut dispatched = [None; PLAYER_COUNT];
+    for player_index in 0..PLAYER_COUNT {
+        let player = &mut players[player_index];
+        if player.player_state != PLAYER_STATE_IN_GAME || skip_source_player_tick[player_index] {
+            continue;
+        }
+
+        let input = inputs[player_index];
+        if player.hitlag_frames > 0 {
+            continue;
+        }
+
+        let Some(callback) = priority3_input_callback(player) else {
+            continue;
+        };
+        input_timers[player_index].x_tap = input.snapshot.x_tap_timer;
+        input_timers[player_index].y_tap = input.snapshot.y_tap_timer;
+        input_timers[player_index].trigger = input.snapshot.trigger_timer;
+        last_input_facts[player_index] = input.facts;
+        begin_ground_velocity_tick(player);
+        advance_source_lr_digital_press_timers(player, input.facts);
+        tick_source_collision_lifecycle(player);
+        tick_source_ledge_cooldown(player);
+        if tick_guard_shield_lifecycle(player, input.facts, common_data) {
+            skip_source_player_tick[player_index] = true;
+            continue;
+        }
+        source_update_guard_shield_visual(player, input.facts, common_data);
+        match callback {
+            Priority3InputCallback::Turn => run_turn_priority3_input(
+                player,
+                input,
+                &mut input_timers[player_index],
+                stage,
+                common_data,
+            ),
+            Priority3InputCallback::AttackAir => {
+                run_attack_air_priority3_input(player, input, common_data)
+            }
+        }
+        dispatched[player_index] = Some(callback);
+    }
+    dispatched
+}
+
+fn priority3_input_callback(player: &PlayerState) -> Option<Priority3InputCallback> {
+    if player_has_live_source_motion_identity(player, MotionState::Turn) {
+        return Some(Priority3InputCallback::Turn);
+    }
+    if [
+        MotionState::AttackAirN,
+        MotionState::AttackAirF,
+        MotionState::AttackAirB,
+        MotionState::AttackAirHi,
+        MotionState::AttackAirLw,
+    ]
+    .into_iter()
+    .any(|motion_state| player_has_live_source_motion_identity(player, motion_state))
+    {
+        return Some(Priority3InputCallback::AttackAir);
+    }
+    None
+}
+
+fn run_turn_priority3_input(
+    player: &mut PlayerState,
+    input: Priority3InputContext,
+    input_timers: &mut MeleeInputTimers,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
+    if !player.grounded {
+        clear_turn_state(player);
+        enter_fall(player);
+        return;
+    }
+
+    let stick_x = i32::from(input.snapshot.lstick.0);
+    apply_ucf_dashback_turn_hook(
+        player,
+        input.input.ucf_dashback_amendment(),
+        stick_x,
+        common_data,
+    );
+    let turn_facts =
+        turn_effective_input_facts(player, input.facts, input.snapshot.lstick, common_data);
+    if let Some(action_state) = turn_action_state(turn_facts) {
+        if player.facing != player.turn_facing_after {
+            player.facing = player.turn_facing_after;
+            player.source_model_facing = player.facing;
+        }
+        enter_action_state(player, action_state, stick_x, stage, common_data);
+    } else if turn_facts.digital_shield_pressed
+        && input_timers.trigger < common_data.guard_reflect_input_window
+    {
+        if player.facing != player.turn_facing_after {
+            player.facing = player.turn_facing_after;
+            player.source_model_facing = player.facing;
+        }
+        enter_guard_reflect(player, common_data);
+        apply_ground_traction(player, stage, common_data);
+    } else if input.facts.shield_held {
+        enter_guard(player, input.facts, common_data);
+        source_update_guard_shield_visual(player, input.facts, common_data);
+    } else if input.facts.normal_jump_pressed {
+        enter_knee_bend_from_ground(player, input.facts.normal_jump_input, stage, common_data);
+    } else {
+        arm_turn_dash_after_if_fresh(player, stick_x, input_timers.x_tap, common_data);
+        if player.turn_just_turned
+            && player.turn_dash_after_direction != 0
+            && stick_x * i32::from(player.turn_facing_after) >= i32::from(common_data.dash_x)
+        {
+            enter_dash(player, player.turn_facing_after, false);
+            input_timers.x_tap = EXPIRED_INPUT_TIMER;
+        } else {
+            latch_turn_buttons(player, input.facts);
+            if player.turn_just_turned {
+                player.turn_just_turned = false;
+            }
+        }
+    }
+}
+
+fn run_attack_air_priority3_input(
+    player: &mut PlayerState,
+    input: Priority3InputContext,
+    common_data: MeleeCommonData,
+) {
+    let _ = apply_attack_air_iasa_actions(
+        player,
+        input.facts,
+        i32::from(input.snapshot.lstick.0),
+        common_data,
+    );
+}
+
+fn run_migrated_priority4_after_input(
+    player: &mut PlayerState,
+    callback: Priority3InputCallback,
+    stick_x: i32,
+    stage: StageProfile,
+    common_data: MeleeCommonData,
+) {
+    match callback {
+        Priority3InputCallback::Turn
+            if player_has_live_source_motion_identity(player, MotionState::Turn) =>
+        {
+            apply_ground_traction(player, stage, common_data);
+        }
+        Priority3InputCallback::AttackAir
+            if [
+                MotionState::AttackAirN,
+                MotionState::AttackAirF,
+                MotionState::AttackAirB,
+                MotionState::AttackAirHi,
+                MotionState::AttackAirLw,
+            ]
+            .into_iter()
+            .any(|motion_state| player_has_live_source_motion_identity(player, motion_state)) =>
+        {
+            apply_air_drift(player, stick_x, common_data);
+        }
+        _ => {}
+    }
+}
+
+fn run_global_priority0_hitlag_phase(
+    players: &mut [PlayerState; PLAYER_COUNT],
+    inputs: &[Priority3InputContext; PLAYER_COUNT],
+    common_data: MeleeCommonData,
+) {
+    for player_index in 0..PLAYER_COUNT {
+        let player = &mut players[player_index];
+        if player.player_state != PLAYER_STATE_IN_GAME {
+            continue;
+        }
+
+        if player.hitlag_frames == 0 {
+            continue;
+        }
+
+        let input = inputs[player_index];
+        player.hitlag_frames = player.hitlag_frames.saturating_sub(1);
+        if player.hitlag_frames == 0 && player.source_allow_sdi {
+            apply_source_damage_on_exit_hitlag(player, input.previous_input, common_data);
+        }
+        if player.hitlag_frames == 0 {
+            player.source_x2219_b5 = false;
+        }
+    }
 }
 
 fn run_global_priority1_animation_phase(
@@ -2198,6 +2382,46 @@ fn run_migrated_priority1_player(
                 clear_motion_script_state(player);
             }
         }
+        Priority1AnimCallback::Turn => {
+            apply_turn_anim_callback(player);
+            if !player.source_primary_anim_has_frames_remaining() {
+                enter_wait_from_walk(player);
+                clear_turn_state(player);
+                clear_motion_script_state(player);
+            }
+        }
+        Priority1AnimCallback::AttackAir => {
+            if player.motion_throw_flags & SOURCE_THROW_FLAGS_B3 != 0 {
+                player.motion_throw_flags &= !SOURCE_THROW_FLAGS_B3;
+                player.facing = -player.facing;
+                player.source_model_facing = player.facing;
+            }
+            if !player.source_primary_anim_has_frames_remaining() {
+                enter_fall(player);
+            }
+        }
+        Priority1AnimCallback::Fall => {}
+        Priority1AnimCallback::Damage => {
+            if player.damage_hitstun_frames > 0 {
+                player.damage_hitstun_frames -= 1;
+            }
+            if player.damage_hitstun_frames == 0
+                && !player.source_primary_anim_has_frames_remaining()
+            {
+                if player.grounded {
+                    enter_wait_from_walk(player);
+                    player.velocity.y = 0;
+                } else if player
+                    .melee_action_state_id
+                    .is_some_and(is_source_damage_fly_action_state_id)
+                    || player.source_force_damage_down_bound
+                {
+                    enter_source_damage_fall(player, source_action_total_frames);
+                } else {
+                    enter_fall(player);
+                }
+            }
+        }
         Priority1AnimCallback::Attack100Start => {
             if !player.source_primary_anim_has_frames_remaining() {
                 enter_source_attack100_action(
@@ -2244,12 +2468,25 @@ fn evaluate_migrated_priority1_animation(
     source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
     advance_action_command_timeline: bool,
 ) -> bool {
+    if matches!(callback, Priority1AnimCallback::Fall) {
+        advance_source_bound_motion_frame(player);
+        update_source_fall_anim_inner(player, common_data);
+        return true;
+    }
+
     if !interpret_migrated_source_animation(player, advance_action_command_timeline) {
         return false;
     }
 
     match callback {
         Priority1AnimCallback::Dash => apply_dash_script_events(player),
+        Priority1AnimCallback::Turn => {}
+        Priority1AnimCallback::AttackAir => {
+            let script_events = source_current_anim_script_events(player, source_pose_metadata);
+            apply_source_script_events(player, script_events, common_data);
+        }
+        Priority1AnimCallback::Fall => {}
+        Priority1AnimCallback::Damage => {}
         Priority1AnimCallback::Attack100Start
         | Priority1AnimCallback::Attack100Loop
         | Priority1AnimCallback::Attack100End => {
@@ -2261,10 +2498,44 @@ fn evaluate_migrated_priority1_animation(
 }
 
 fn priority1_anim_callback(player: &PlayerState) -> Option<Priority1AnimCallback> {
-    if player.motion_state == MotionState::Dash
-        && player.source_action_key == Some(SourceActionKey::new("Dash"))
-    {
+    if player_has_live_source_motion_identity(player, MotionState::Dash) {
         return Some(Priority1AnimCallback::Dash);
+    }
+
+    if player_has_live_source_motion_identity(player, MotionState::Turn) {
+        return Some(Priority1AnimCallback::Turn);
+    }
+
+    if [
+        MotionState::AttackAirN,
+        MotionState::AttackAirF,
+        MotionState::AttackAirB,
+        MotionState::AttackAirHi,
+        MotionState::AttackAirLw,
+    ]
+    .into_iter()
+    .any(|motion_state| player_has_live_source_motion_identity(player, motion_state))
+    {
+        return Some(Priority1AnimCallback::AttackAir);
+    }
+
+    if [
+        MotionState::Fall,
+        MotionState::FallF,
+        MotionState::FallB,
+        MotionState::FallAerial,
+        MotionState::FallAerialF,
+        MotionState::FallAerialB,
+        MotionState::DamageFall,
+    ]
+    .into_iter()
+    .any(|motion_state| player_has_live_source_motion_identity(player, motion_state))
+    {
+        return Some(Priority1AnimCallback::Fall);
+    }
+
+    if player_has_live_common_damage_identity(player) {
+        return Some(Priority1AnimCallback::Damage);
     }
 
     match (player.melee_action_state_id, player.source_action_key) {
@@ -2281,6 +2552,26 @@ fn priority1_anim_callback(player: &PlayerState) -> Option<Priority1AnimCallback
     }
 }
 
+fn player_has_live_source_motion_identity(player: &PlayerState, motion_state: MotionState) -> bool {
+    let Some(binding) = source_binding_for_motion_state(motion_state) else {
+        return false;
+    };
+    player.motion_state == motion_state
+        && player.melee_action_state_id == Some(binding.action_state_id)
+        && player.source_action_key == Some(binding.source_action_key)
+}
+
+fn player_has_live_common_damage_identity(player: &PlayerState) -> bool {
+    let Some(action_state_id) = player.melee_action_state_id else {
+        return false;
+    };
+    if !(75..=86).contains(&action_state_id.get()) {
+        return false;
+    }
+    canonical_source_action_binding_for_runtime_id(action_state_id)
+        .is_some_and(|binding| player.source_action_key == Some(binding.source_action_key))
+}
+
 fn interpret_migrated_source_animation(
     player: &mut PlayerState,
     advance_action_command_timeline: bool,
@@ -2295,6 +2586,20 @@ fn interpret_migrated_source_animation(
         player.motion_frame = player.motion_frame.saturating_add(1);
     }
     interpreted
+}
+
+fn apply_turn_anim_callback(player: &mut PlayerState) {
+    if player.turn_frames_to_turn > 0 {
+        player.turn_frames_to_turn -= 1;
+        return;
+    }
+
+    if !player.turn_has_turned {
+        player.turn_has_turned = true;
+        player.turn_just_turned = true;
+        player.facing = player.turn_facing_after;
+        player.source_model_facing = player.facing;
+    }
 }
 
 fn compute_player_nudge_velocities_after_source_anim_callbacks(
@@ -3871,21 +4176,31 @@ fn advance_source_damage_state(
     source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
     source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) -> bool {
+    let priority1_owns_damage_animation = player_has_live_common_damage_identity(player);
     let previous_position = player.position;
     let floor_surface_before_ground_move = source_floor_surface_before_ground_move(stage, player);
 
-    player.motion_frame = player.motion_frame.saturating_add(1);
-    player.set_source_motion_anim_frame(f32::from(player.motion_frame));
+    if !priority1_owns_damage_animation {
+        player.motion_frame = player.motion_frame.saturating_add(1);
+        player.set_source_motion_anim_frame(f32::from(player.motion_frame));
+    }
     if let Some(metadata) = source_pose_metadata(player) {
         player.source_down_bound_pose = metadata.down_bound_pose;
     }
-    if player.damage_hitstun_frames > 0 {
+    if !priority1_owns_damage_animation && player.damage_hitstun_frames > 0 {
         player.damage_hitstun_frames -= 1;
     }
 
     if player.damage_hitstun_frames == 0
         && !player.grounded
-        && apply_airborne_iasa_actions(player, input_facts, stick_x, stick_y, common_data)
+        && apply_airborne_iasa_actions(
+            player,
+            input_facts,
+            stick_x,
+            stick_y,
+            common_data,
+            source_pose_metadata,
+        )
     {
         // DamageFly_Anim clears x221C_b6 before DamageFly_IASA runs.
         // The newly entered aerial action owns this tick's physics callback.
@@ -3936,7 +4251,9 @@ fn advance_source_damage_state(
         }
     }
 
-    if player.damage_hitstun_frames == 0 && source_damage_animation_has_no_frames_remaining(player)
+    if !priority1_owns_damage_animation
+        && player.damage_hitstun_frames == 0
+        && source_damage_animation_has_no_frames_remaining(player)
     {
         if player.grounded {
             player.set_motion_state_alias(MotionState::Wait);
@@ -6782,20 +7099,6 @@ fn apply_dash_script_events(player: &mut PlayerState) {
     }
 }
 
-fn apply_attack_air_script_events(player: &mut PlayerState) {
-    let Some((set_frame, clear_frame)) =
-        attack_air_landing_lag_cmd_var0_frames(player.motion_state, player.profile.action_frames)
-    else {
-        return;
-    };
-    if dash_script_event_frame_matches(player.motion_frame, set_frame) {
-        player.motion_cmd_var0 = 1;
-    }
-    if dash_script_event_frame_matches(player.motion_frame, clear_frame) {
-        player.motion_cmd_var0 = 0;
-    }
-}
-
 const SOURCE_THROW_FLAGS_B3: u8 = 1 << 3;
 const SOURCE_THROW_FLAGS_B4: u8 = 1 << 4;
 
@@ -7018,35 +7321,6 @@ fn enter_source_attack100_action(
             source_pose_metadata,
             false,
         );
-    }
-}
-
-fn attack_air_landing_lag_cmd_var0_frames(
-    motion_state: MotionState,
-    frames: crate::FighterActionFrames,
-) -> Option<(u8, u8)> {
-    match motion_state {
-        MotionState::AttackAirN => Some((
-            frames.attack_air_n_landing_lag_set_frame,
-            frames.attack_air_n_landing_lag_clear_frame,
-        )),
-        MotionState::AttackAirF => Some((
-            frames.attack_air_f_landing_lag_set_frame,
-            frames.attack_air_f_landing_lag_clear_frame,
-        )),
-        MotionState::AttackAirB => Some((
-            frames.attack_air_b_landing_lag_set_frame,
-            frames.attack_air_b_landing_lag_clear_frame,
-        )),
-        MotionState::AttackAirHi => Some((
-            frames.attack_air_hi_landing_lag_set_frame,
-            frames.attack_air_hi_landing_lag_clear_frame,
-        )),
-        MotionState::AttackAirLw => Some((
-            frames.attack_air_lw_landing_lag_set_frame,
-            frames.attack_air_lw_landing_lag_clear_frame,
-        )),
-        _ => None,
     }
 }
 
@@ -7390,12 +7664,31 @@ fn enter_smash_turn(player: &mut PlayerState, direction: i8) {
     let dash_after_direction = player.facing;
     player.set_motion_state_alias(MotionState::Turn);
     player.motion_frame = 0;
+    player.set_source_motion_anim_frame(0.0);
+    player.set_source_motion_anim_rate_milli(1_000);
     player.turn_facing_after = direction;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
     player.turn_frames_to_turn = 0;
     player.turn_dash_after_direction = dash_after_direction;
     player.turn_latched_buttons = 0;
+    if player.install_current_source_primary_anim(0.0, 1.0) {
+        let mut no_source_metadata = |_player: &PlayerState| None::<SourceActionPoseMetadata>;
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::Turn,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            true,
+        );
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::Turn,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            true,
+        );
+    }
 }
 
 fn enter_standing_turn(player: &mut PlayerState, direction: i8) {
@@ -7403,27 +7696,30 @@ fn enter_standing_turn(player: &mut PlayerState, direction: i8) {
     clear_platform_pass_pending(player);
     player.set_motion_state_alias(MotionState::Turn);
     player.motion_frame = 0;
+    player.set_source_motion_anim_frame(0.0);
+    player.set_source_motion_anim_rate_milli(1_000);
     player.turn_facing_after = direction;
     player.turn_has_turned = false;
     player.turn_just_turned = false;
     player.turn_frames_to_turn = player.profile.standing_turn_direction_change_frames;
     player.turn_dash_after_direction = 0;
     player.turn_latched_buttons = 0;
-}
-
-fn advance_turn_anim(player: &mut PlayerState) {
-    player.motion_frame = player.motion_frame.saturating_add(1);
-
-    if player.turn_frames_to_turn > 0 {
-        player.turn_frames_to_turn -= 1;
-        return;
-    }
-
-    if !player.turn_has_turned {
-        player.turn_has_turned = true;
-        player.turn_just_turned = true;
-        player.facing = player.turn_facing_after;
-        player.source_model_facing = player.facing;
+    if player.install_current_source_primary_anim(0.0, 1.0) {
+        let mut no_source_metadata = |_player: &PlayerState| None::<SourceActionPoseMetadata>;
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::Turn,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            true,
+        );
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::Turn,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            true,
+        );
     }
 }
 
@@ -7451,6 +7747,8 @@ fn apply_ucf_dashback_turn_hook(
 fn turn_effective_input_facts(
     player: &PlayerState,
     input_facts: MeleeInputFacts,
+    current_stick: (i8, i8),
+    common_data: MeleeCommonData,
 ) -> MeleeInputFacts {
     let mut facts = input_facts;
     if player.turn_just_turned && player.turn_latched_buttons & TURN_LATCH_ATTACK != 0 {
@@ -7472,7 +7770,8 @@ fn turn_effective_input_facts(
     if player.turn_just_turned && player.turn_latched_buttons & TURN_LATCH_SPECIAL != 0 {
         facts.special_pressed = true;
         if facts.special_direction == (0, 0) {
-            facts.special_direction = special_direction_from_turn_facts(facts);
+            facts.special_direction =
+                grounded_special_direction_from_current_stick(current_stick, common_data);
         }
     }
 
@@ -7507,14 +7806,33 @@ fn apply_turn_temporary_facing_to_attack_facts(facts: &mut MeleeInputFacts, faci
         && facts.tilt_attack_direction == (0, 0);
 }
 
-fn special_direction_from_turn_facts(facts: MeleeInputFacts) -> (i8, i8) {
-    if facts.tilt_direction.0 != 0 {
-        (facts.tilt_direction.0, 0)
-    } else if facts.tilt_direction.1 != 0 {
-        (0, facts.tilt_direction.1)
-    } else {
-        (0, 0)
+fn grounded_special_direction_from_current_stick(
+    stick: (i8, i8),
+    common_data: MeleeCommonData,
+) -> (i8, i8) {
+    let thresholds = common_data.input_thresholds();
+    let side_threshold = i16::from(thresholds.special_side_x.abs());
+    let vertical_threshold = i16::from(thresholds.special_vertical_y.abs());
+    let x = i16::from(stick.0);
+    let y = i16::from(stick.1);
+
+    if x >= side_threshold {
+        return (1, 0);
     }
+    if x <= -side_threshold {
+        return (-1, 0);
+    }
+    if y >= vertical_threshold {
+        return (0, 1);
+    }
+    if y < -vertical_threshold {
+        return (0, -1);
+    }
+    if x.abs() < side_threshold && y.abs() < vertical_threshold {
+        return (0, 0);
+    }
+
+    NO_GROUNDED_SPECIAL_DIRECTION
 }
 
 fn arm_turn_dash_after_if_fresh(
@@ -8762,7 +9080,7 @@ fn source_mp_coll_jobj_samples_post_anim_pose(player: &PlayerState) -> bool {
         MotionState::SpecialHi | MotionState::SpecialAirHi
     ) || player
         .melee_action_state_id
-        .is_some_and(is_source_damage_action_state_id)
+        .is_some_and(is_source_damage_fly_action_state_id)
 }
 
 fn source_ecb_for_facing(ecb: SourceFighterEcb, _facing: i8) -> SourceFighterEcb {
@@ -12325,6 +12643,48 @@ mod source_map_collision_tests {
     }
 
     #[test]
+    fn turn_entry_evaluates_animation_without_running_turn_priority1_side_effects() {
+        let mut player = PlayerState::new(0, 0, 1);
+        let turn_frames = player.profile.standing_turn_direction_change_frames;
+
+        enter_standing_turn(&mut player, -1);
+
+        assert_eq!(player.motion_state, MotionState::Turn);
+        assert_eq!(
+            player.cur_anim_frame(),
+            1.0,
+            "ftCo_Turn_Enter runs Fighter_ChangeMotionState and then one explicit ftAnim_8006EBA4 evaluation on entry"
+        );
+        assert_eq!(
+            player.motion_frame, 1,
+            "the explicit entry ftAnim advances Turn's command timeline once on the entry tick"
+        );
+        assert_eq!(
+            player.turn_frames_to_turn,
+            turn_frames,
+            "the explicit entry animation evaluation does not run ftCo_Turn_Anim_Inner or decrement frames_to_turn"
+        );
+        assert!(!player.turn_has_turned);
+        assert!(!player.turn_just_turned);
+        assert_eq!(player.facing, 1);
+        assert_eq!(player.turn_facing_after, -1);
+    }
+
+    #[test]
+    fn priority1_dispatch_uses_damage_identity_instead_of_attack_air_alias() {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.motion_state = MotionState::AttackAirF;
+        player.motion_state_alias = Some(MotionState::AttackAirF);
+        player.melee_action_state_id = Some(MeleeActionStateId::new(86));
+        player.source_action_key = Some(SourceActionKey::new("DamageAir3"));
+
+        assert!(matches!(
+            priority1_anim_callback(&player),
+            Some(Priority1AnimCallback::Damage)
+        ));
+    }
+
+    #[test]
     fn priority1_transition_does_not_invoke_the_new_animation_callback_recursively() {
         let mut player = PlayerState::new(0, 0, 1);
         let mut source_action_total_frames =
@@ -12703,7 +13063,7 @@ mod source_map_collision_tests {
     }
 
     #[test]
-    fn damage_lw3_mp_coll_load_ecb_jobj_samples_post_anim_pose_seen_by_coll_callback() {
+    fn damage_lw3_mp_coll_load_ecb_uses_priority1_published_jobj_pose() {
         let mut player = PlayerState::new(0, 0, 1);
         player.melee_action_state_id = Some(MeleeActionStateId::new(83));
         player.source_action_key = Some(SourceActionKey::new("DamageLw3"));
@@ -12719,23 +13079,23 @@ mod source_map_collision_tests {
             MeleeCommonData::PROVISIONAL,
             6,
         );
-        let post_anim = live_source_local_ecb_for_player_pose_frame_milli_with_flags(
+        let next_pose = live_source_local_ecb_for_player_pose_frame_milli_with_flags(
             &player,
             19_000,
             MeleeCommonData::PROVISIONAL,
             6,
         );
         assert!(
-            (current.bottom.y - post_anim.bottom.y).abs() > 0.0001,
-            "test must cover a DamageLw3 pose boundary with distinct current/post-ftAnim ECB samples"
+            (current.bottom.y - next_pose.bottom.y).abs() > 0.0001,
+            "test must cover a DamageLw3 pose boundary with distinct adjacent ECB samples"
         );
 
         source_mp_coll_load_ecb_inline(&mut player, MeleeCommonData::PROVISIONAL, 6);
 
         assert!(
-            (player.source_coll_desired_ecb.bottom.y - post_anim.bottom.y).abs() <= 0.0001,
-            "Fighter_Spaghetti_8006AD10 advances ftAnim before Fighter_procMap calls Damage coll_cb; mpColl_LoadECB_JObj must see DamageLw3 frame-19 bottom.y {:.6}, got {:.6}",
-            post_anim.bottom.y,
+            (player.source_coll_desired_ecb.bottom.y - current.bottom.y).abs() <= 0.0001,
+            "Fighter_8006A360 has already published DamageLw3 frame 18 before Fighter_procMap calls the collision callback; mpColl_LoadECB_JObj must not advance that pose again (expected {:.6}, got {:.6})",
+            current.bottom.y,
             player.source_coll_desired_ecb.bottom.y
         );
     }
@@ -14740,17 +15100,37 @@ fn enter_air_jump(player: &mut PlayerState, stick_x: i32, common_data: MeleeComm
     apply_air_drift(player, stick_x, common_data);
 }
 
-fn enter_air_attack(player: &mut PlayerState, motion_state: MotionState) {
+fn enter_air_attack(
+    player: &mut PlayerState,
+    motion_state: MotionState,
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
+) {
     player.set_motion_state_alias(motion_state);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
+    player.set_source_motion_anim_rate_milli(1_000);
     player.source_allow_interrupt = false;
     player.motion_cmd_var0 = 0;
     player.motion_cmd_var1 = 0;
     player.motion_throw_flags = 0;
     player.landing_lag_ticks = 0;
-    apply_attack_air_script_events(player);
-    sample_source_motion_frame_for_action_entry(player);
+    if player.install_current_source_primary_anim(0.0, 1.0) {
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::AttackAir,
+            common_data,
+            source_pose_metadata,
+            true,
+        );
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::AttackAir,
+            common_data,
+            source_pose_metadata,
+            true,
+        );
+    }
 }
 
 fn apply_airborne_iasa_or_drift(
@@ -14759,8 +15139,16 @@ fn apply_airborne_iasa_or_drift(
     stick_x: i32,
     stick_y: i8,
     common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
 ) -> bool {
-    if apply_airborne_iasa_actions(player, input_facts, stick_x, stick_y, common_data) {
+    if apply_airborne_iasa_actions(
+        player,
+        input_facts,
+        stick_x,
+        stick_y,
+        common_data,
+        source_pose_metadata,
+    ) {
         true
     } else {
         apply_air_drift(player, stick_x, common_data);
@@ -14774,6 +15162,7 @@ fn apply_airborne_iasa_actions(
     stick_x: i32,
     stick_y: i8,
     common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
 ) -> bool {
     if input_facts.special_pressed {
         enter_air_special(
@@ -14789,6 +15178,8 @@ fn apply_airborne_iasa_actions(
         enter_air_attack(
             player,
             air_attack_state_from_direction(input_facts.air_attack_direction, player.facing),
+            common_data,
+            source_pose_metadata,
         );
         apply_air_drift(player, stick_x, common_data);
         true

@@ -89,3 +89,22 @@ be clean after the checkpoint is committed.
 This milestone is suitable for a scoped checkpoint commit and GitHub push once
 the final strict replay and formatting checks are repeated on the exact diff.
 It is not a universal parity release or final rollback-netcode performance signoff.
+
+## 2026-07-16 Scheduler Completion Addendum
+
+The strict fixture is now enforced directly by
+`slippi_match_start_full_fixture_has_no_engine_divergence`, which runs all 5,313
+frames and rejects the first classified engine disagreement. Global fighter
+priority ordering now covers hitlag expiry, animation callbacks, and the
+migrated Turn/AttackAir input callbacks used by this fixture. The former source-frame
+2583/2586 diagnostic expectations were removed only after this strict gate
+proved those rows aligned.
+
+The full p4/p6 per-player monolith has not yet been extracted into global
+phases for every action family. That remaining scheduler work is included in
+the broad non-green boundary and is not implied by this scoped checkpoint.
+
+The latest broad core result is 580 passed, 41 failed, and 2 ignored. Those
+remaining contracts continue to bound the claim: this branch is ready as the
+Falcon/Battlefield replay scheduler milestone, not as universal Melee parity or
+finished online rollback qualification.

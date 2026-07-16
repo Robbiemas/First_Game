@@ -951,7 +951,7 @@ fn slippi_match_start_frame2686_p2_damage_lw3_stays_aligned_after_damage_anim_ra
 }
 
 #[test]
-fn slippi_match_start_comparison_carries_first_non_witness_divergence() {
+fn slippi_match_start_comparison_has_no_engine_divergence_through_frame_3200() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let export =
         read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
@@ -963,18 +963,11 @@ fn slippi_match_start_comparison_carries_first_non_witness_divergence() {
         },
     )
     .expect("match-start replay fixture should compare");
-    let first = comparison
-        .first_divergence
-        .expect("comparison should carry the first classified divergence");
-
-    assert_eq!(first.kind, SlippiCoreDivergenceKind::StateMismatch);
-    assert_eq!(first.player_index, 1);
-    assert_eq!(first.source_frame, 2586);
-    assert_eq!(first.core_frame, Frame(2709));
+    assert_eq!(comparison.first_divergence, None);
 }
 
 #[test]
-fn visual_replay_gate_skips_proven_telemetry_and_pauses_on_first_state_mismatch() {
+fn visual_replay_gate_does_not_pause_without_an_engine_divergence() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let export =
         read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
@@ -995,20 +988,14 @@ fn visual_replay_gate_skips_proven_telemetry_and_pauses_on_first_state_mismatch(
             stop = Some(divergence);
             break;
         }
-        if frame.source_frame >= 2584 {
+        if frame.source_frame >= 3_199 {
             break;
         }
     }
 
-    let stop = stop.expect("visual replay should stop at the first engine-state disagreement");
     assert_eq!(
-        stop.source_frame, 2583,
-        "same-state rows with exact source velocity components are telemetry witnesses, but the SpecialSStart/SpecialS state mismatch must stop immediately"
-    );
-    assert_eq!(
-        stop.kind,
-        SlippiCoreDivergenceKind::StateMismatch,
-        "source frame 2583 is the first actual state disagreement after proven telemetry witnesses"
+        stop, None,
+        "the visual gate must not manufacture a stop after the shared engine remains aligned"
     );
 }
 
@@ -1044,7 +1031,7 @@ fn slippi_match_start_frame_negative47_p1_landing_velocity_drift_cascades_from_f
 }
 
 #[test]
-fn slippi_first_divergence_reports_first_non_witness_divergence() {
+fn slippi_first_divergence_is_none_through_frame_3200() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let export =
         read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
@@ -1058,11 +1045,40 @@ fn slippi_first_divergence_reports_first_non_witness_divergence() {
     )
     .expect("match-start replay fixture should scan first divergence");
 
-    let first =
-        first.expect("frame-by-frame parity should report the first non-witness divergence");
-    assert_eq!(first.kind, SlippiCoreDivergenceKind::StateMismatch);
-    assert_eq!(first.player_index, 0);
-    assert_eq!(first.source_frame, 2583);
+    assert_eq!(first, None);
+}
+
+#[test]
+fn slippi_match_start_full_fixture_has_no_engine_divergence() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
+    let first = first_slippi_divergence_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, true],
+            max_frames: Some(5_313),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("full match-start replay fixture should scan first divergence");
+
+    if let Some(first) = first {
+        let trace = trace_slippi_export_from_match_start_with_core(
+            &export,
+            SlippiCoreTraceConfig {
+                player_index: first.player_index,
+                source_frame_start: first.source_frame.saturating_sub(5),
+                source_frame_end: first.source_frame,
+                max_frames: Some(5_313),
+            },
+        )
+        .expect("first-divergence trace should load");
+        panic!(
+            "the replay input stream must run through the shared engine without an architectural divergence; first divergence was {first:?}; row={:?}",
+            trace.rows
+        );
+    }
 }
 
 #[test]
@@ -4458,6 +4474,81 @@ fn slippi_match_start_frame4426_lcancel_timer_survives_hitlag() {
         }
     }
     panic!("source frame 4426 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4462_damage_fly_lw_uses_priority1_pose_for_down_bound() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 4462,
+            source_frame_end: 4462,
+            max_frames: Some(4_590),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 4462");
+    let row = trace.rows.first().expect("source frame 4462 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(183)),
+        "ftCo_DamageFly_Coll must consume the DamageFlyLw JObj pose published by priority 1 and enter DownBoundU on the side platform"
+    );
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame4820_attack_air_completion_defers_fall_animation_callback() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 4820,
+            source_frame_end: 4820,
+            max_frames: Some(4_950),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 4820");
+    let row = trace.rows.first().expect("source frame 4820 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(42)),
+        "AttackAirB's priority-1 callback may enter Fall, but the newly installed Fall animation callback must not run until the next priority-1 tick; p6 collision consumes the neutral Fall entry pose and lands on the side platform"
+    );
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame2351_damage_fly_top_does_not_false_land() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 2351,
+            source_frame_end: 2351,
+            max_frames: Some(2_480),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 2351");
+    let row = trace.rows.first().expect("source frame 2351 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(90)),
+        "DamageFlyTop must retain its p1-published terminal JObj pose above the main floor"
+    );
+    assert_eq!(row.actual_position, row.expected_position);
 }
 
 #[test]

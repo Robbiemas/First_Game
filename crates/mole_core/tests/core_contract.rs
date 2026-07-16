@@ -11031,10 +11031,7 @@ fn source_damage_hitlag_applies_sdi_from_plco_window_like_ftco_damage_every_hitl
     victim.source_position = mole_core::SourceVec2::from_milli(victim.position);
     assert!(world.set_player_state_for_diagnostic(1, victim));
     world.set_input_history_for_diagnostic(
-        [
-            PlayerInput::neutral(),
-            PlayerInput::neutral().with_left_stick(127, 0),
-        ],
+        [PlayerInput::neutral(), PlayerInput::neutral()],
         [
             MeleeInputTimers::expired(),
             MeleeInputTimers {
@@ -11048,7 +11045,10 @@ fn source_damage_hitlag_applies_sdi_from_plco_window_like_ftco_damage_every_hitl
     step_world(
         &mut world,
         Frame(0),
-        &[PlayerInput::neutral(), PlayerInput::neutral()],
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_stick(127, 0),
+        ],
     );
 
     let victim = world.players()[1];
@@ -11115,10 +11115,13 @@ fn source_damage_exit_hitlag_applies_asdi_and_di_to_source_kb_velocity() {
     assert_eq!(victim.hitlag_frames, 0);
     assert!(!victim.source_allow_sdi);
     let expected_control_source_y = pre_hitlag_source_y
-        + fighter_stick_axis_to_f32(127) * (common.sdi_pos_scale + common.asdi_pos_scale);
+        + fighter_stick_axis_to_f32(127) * common.asdi_pos_scale
+        + victim.source_self_velocity_y
+        + victim.source_knockback_velocity_y;
     assert!(
-        victim.source_position.y > expected_control_source_y,
-        "HSD gobj proc priority runs Fighter_8006A1BC before Fighter_procUpdate, so the hitlag exit frame applies SDI, ASDI/DI, and then same-frame damage air physics"
+        (victim.source_position.y - expected_control_source_y).abs() < 0.0001,
+        "Fighter_8006A1BC clears allow_sdi through post_hitlag_cb before Fighter_procUpdate reaches hitlag_cb, so the final hitlag tick applies ASDI/DI and same-frame physics without a second SDI displacement; actual={} expected={expected_control_source_y}",
+        victim.source_position.y,
     );
     let knockback_angle = victim
         .source_knockback_velocity_y
@@ -16071,21 +16074,46 @@ fn aerial_attack_allow_interrupt_command_allows_same_tick_air_jump_before_anim_e
 }
 
 #[test]
-fn aerial_attack_script_cmd_var0_uses_profile_source_event_frames() {
+fn aerial_attack_script_cmd_var0_uses_extracted_source_event_frames() {
+    fn attack_air_n_script(player: &PlayerState) -> Option<SourceActionPoseMetadata> {
+        let event = match (player.source_action_key, player.motion_frame) {
+            (Some(key), 3) if key.as_str() == "AttackAirN" => SourceActionScriptEvent::SetCmdVar {
+                cmd_var: 0,
+                value: 1,
+            },
+            (Some(key), 33) if key.as_str() == "AttackAirN" => SourceActionScriptEvent::SetCmdVar {
+                cmd_var: 0,
+                value: 0,
+            },
+            _ => SourceActionScriptEvent::None,
+        };
+        Some(SourceActionPoseMetadata {
+            script_events: if event == SourceActionScriptEvent::None {
+                SourceActionScriptEvents::empty()
+            } else {
+                SourceActionScriptEvents::single(event)
+            },
+            ..SourceActionPoseMetadata::default()
+        })
+    }
+
     let mut world = World::for_two_players();
     let mut player = world.players()[0];
     player.motion_state = MotionState::AttackAirN;
     player.motion_frame = 2;
+    player.set_source_motion_anim_frame(2.0);
     player.motion_cmd_var0 = 0;
     player.position = Vec2 { x: 0, y: 100_000 };
     player.velocity = Vec2 { x: 0, y: 0 };
     player.grounded = false;
     assert!(world.set_player_state_for_diagnostic(0, player));
 
-    step_world(
+    step_world_with_source_runtime_data(
         &mut world,
         Frame(0),
         &[PlayerInput::neutral(), PlayerInput::neutral()],
+        attack_air_n_script,
+        |_| None,
     );
 
     assert_eq!(world.players()[0].motion_state, MotionState::AttackAirN);
@@ -16093,13 +16121,16 @@ fn aerial_attack_script_cmd_var0_uses_profile_source_event_frames() {
 
     let mut player = world.players()[0];
     player.motion_frame = 32;
+    player.set_source_motion_anim_frame(32.0);
     player.motion_cmd_var0 = 1;
     assert!(world.set_player_state_for_diagnostic(0, player));
 
-    step_world(
+    step_world_with_source_runtime_data(
         &mut world,
         Frame(1),
         &[PlayerInput::neutral(), PlayerInput::neutral()],
+        attack_air_n_script,
+        |_| None,
     );
 
     assert_eq!(world.players()[0].motion_state, MotionState::AttackAirN);
@@ -20627,7 +20658,88 @@ fn aerial_attack_iasa_advances_new_action_anim_on_entry_tick() {
 }
 
 #[test]
+fn attack_air_b_keeps_landing_flag_through_source_frame_19() {
+    fn attack_air_b_script(player: &PlayerState) -> Option<SourceActionPoseMetadata> {
+        let event = match (player.source_action_key, player.motion_frame) {
+            (Some(key), 7) if key.as_str() == "AttackAirB" => SourceActionScriptEvent::SetCmdVar {
+                cmd_var: 0,
+                value: 1,
+            },
+            (Some(key), 21) if key.as_str() == "AttackAirB" => SourceActionScriptEvent::SetCmdVar {
+                cmd_var: 0,
+                value: 0,
+            },
+            _ => SourceActionScriptEvent::None,
+        };
+        Some(SourceActionPoseMetadata {
+            script_events: if event == SourceActionScriptEvent::None {
+                SourceActionScriptEvents::empty()
+            } else {
+                SourceActionScriptEvents::single(event)
+            },
+            ..SourceActionPoseMetadata::default()
+        })
+    }
+
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::JumpF;
+    player.motion_state_alias = Some(MotionState::JumpF);
+    player.motion_frame = 6;
+    player.set_source_motion_anim_frame(6.0);
+    player.position.y = melee_units_f32(100.0);
+    player.source_position.y = 100.0;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(4),
+        &[
+            PlayerInput::neutral()
+                .with_attack(true)
+                .with_left_stick(-dash_stick_x(), 0),
+            PlayerInput::neutral(),
+        ],
+        attack_air_b_script,
+        |_| None,
+    );
+    for frame in 5..=22 {
+        step_world_with_source_runtime_data(
+            &mut world,
+            Frame(frame),
+            &[PlayerInput::neutral(), PlayerInput::neutral()],
+            attack_air_b_script,
+            |_| None,
+        );
+    }
+
+    let player = world.players()[0];
+    assert_eq!(player.motion_state, MotionState::AttackAirB);
+    assert_eq!(player.motion_frame, 19);
+    assert_eq!(player.motion_cmd_var0, 1);
+}
+
+#[test]
 fn aerial_attack_iasa_processes_frame_zero_cmd_var_on_entry_tick() {
+    fn attack_air_hi_script(player: &PlayerState) -> Option<SourceActionPoseMetadata> {
+        let script_events = if player
+            .source_action_key
+            .is_some_and(|key| key.as_str() == "AttackAirHi" && player.motion_frame == 0)
+        {
+            SourceActionScriptEvents::single(SourceActionScriptEvent::SetCmdVar {
+                cmd_var: 0,
+                value: 1,
+            })
+        } else {
+            SourceActionScriptEvents::empty()
+        };
+        Some(SourceActionPoseMetadata {
+            script_events,
+            ..SourceActionPoseMetadata::default()
+        })
+    }
+
     let mut world = World::for_two_players();
     let mut player = world.players()[0];
     player.motion_state = MotionState::JumpF;
@@ -20643,7 +20755,13 @@ fn aerial_attack_iasa_processes_frame_zero_cmd_var_on_entry_tick() {
             .with_left_stick(0, 127),
         PlayerInput::neutral(),
     ];
-    step_world(&mut world, Frame(4), &attack_hi);
+    step_world_with_source_runtime_data(
+        &mut world,
+        Frame(4),
+        &attack_hi,
+        attack_air_hi_script,
+        |_| None,
+    );
 
     let player = world.players()[0];
     assert_eq!(player.motion_state, MotionState::AttackAirHi);
@@ -21513,12 +21631,12 @@ fn neutral_special_latched_during_turn_replays_with_current_stick_on_turn_frame(
 
     assert_eq!(world.players()[0].motion_state, MotionState::Turn);
 
-    for frame in 2..6 {
+    for frame in 2..=6 {
         step_world(&mut world, Frame(frame), &neutral);
         assert_eq!(world.players()[0].motion_state, MotionState::Turn);
     }
 
-    step_world(&mut world, Frame(6), &soft_left);
+    step_world(&mut world, Frame(7), &soft_left);
 
     assert_eq!(world.players()[0].motion_state, MotionState::SpecialSStart);
     assert_eq!(world.players()[0].facing, -1);
@@ -21561,7 +21679,7 @@ fn completed_turn_checks_wait_inputs_on_the_same_frame() {
 }
 
 #[test]
-fn standing_turn_total_duration_uses_profile_action_frames() {
+fn standing_turn_duration_uses_source_aobj_end_frame() {
     let profile = FighterProfile {
         standing_turn_total_frames: 7,
         ..FighterProfile::falcon_like()
@@ -21574,7 +21692,7 @@ fn standing_turn_total_duration_uses_profile_action_frames() {
 
     step_world(&mut world, Frame(0), &soft_left);
 
-    assert_current_action_returns_to_wait_after_frames(&mut world, 0, MotionState::Turn, 7);
+    assert_current_action_returns_to_wait_after_frames(&mut world, 0, MotionState::Turn, 11);
 }
 
 #[test]
@@ -24649,7 +24767,10 @@ fn completed_squat_rv_runs_wait_input_callback_on_same_frame() {
         MotionState::Turn,
         "ftCo_SquatRv_Anim calls ft_8008A2BC before the same frame's input callback, so Wait_IASA can enter Turn immediately"
     );
-    assert_eq!(player.motion_frame, 0);
+    assert_eq!(
+        player.motion_frame, 1,
+        "Turn entry performs ChangeMotionState evaluation followed by ftAnim_8006EBA4"
+    );
     assert_eq!(player.facing, 1);
     assert_eq!(player.turn_facing_after, -1);
     assert_eq!(
@@ -26601,4 +26722,213 @@ fn final_blast_zone_ko_clears_player_state_and_restores_through_rollback() {
     assert_eq!(world.players()[0].stocks, 1);
     assert_eq!(world.players()[0].player_state, PLAYER_STATE_IN_GAME);
     assert_eq!(world.checksum(), before_checksum);
+}
+
+#[test]
+fn live_damage_air2_priority1_advances_its_installed_aobj_once() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    assert_eq!(
+        world.apply_source_damage_results_with_action_total_frames(
+            &[task_3b4_damage_air2_result()],
+            |id| (id == MeleeActionStateId::new(85)).then_some(20),
+        ),
+        1
+    );
+    let mut victim = world.players()[1];
+    victim.hitlag_frames = 0;
+    victim.damage_hitstun_frames = 10;
+    let before = victim.source_motion_anim_frame;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let victim = world.players()[1];
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(85))
+    );
+    assert_eq!(
+        victim.source_action_key,
+        Some(SourceActionKey::new("DamageAir2"))
+    );
+    assert_eq!(
+        victim.source_motion_anim_frame.to_bits(),
+        (before + 1.0).to_bits()
+    );
+
+    let mut mismatched = world;
+    let mut victim = mismatched.players()[1];
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir1"));
+    let before = victim.source_motion_anim_frame;
+    assert!(mismatched.set_player_state_for_diagnostic(1, victim));
+
+    step_world(&mut mismatched, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    assert_eq!(
+        mismatched.players()[1].source_motion_anim_frame.to_bits(),
+        before.to_bits(),
+        "priority-1 Damage ownership requires the exact common action id/key pair"
+    );
+}
+
+#[test]
+fn final_hitlag_tick_expires_before_global_priority1_animation() {
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.motion_state = MotionState::AttackAirN;
+    attacker.motion_state_alias = Some(MotionState::AttackAirN);
+    attacker.melee_action_state_id = Some(MeleeActionStateId::new(65));
+    attacker.source_action_key = Some(SourceActionKey::new("AttackAirN"));
+    attacker.source_action_total_frames = 45;
+    attacker.motion_frame = 18;
+    attacker.set_source_motion_anim_frame(18.0);
+    attacker.hitlag_frames = 1;
+    attacker.source_x2219_b5 = true;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let before = world.players()[0].source_motion_anim_frame;
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let attacker = world.players()[0];
+    assert_eq!(attacker.hitlag_frames, 0);
+    assert_eq!(attacker.source_motion_anim_frame, before + 1.0);
+    assert!(!attacker.source_x2219_b5);
+}
+
+#[test]
+fn damage_air2_entered_after_priority1_waits_at_entry_frame_until_next_priority1() {
+    let mut world = World::for_two_players();
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+    assert_eq!(
+        world.apply_source_damage_results_with_action_total_frames(
+            &[task_3b4_damage_air2_result()],
+            |id| (id == MeleeActionStateId::new(85)).then_some(20),
+        ),
+        1
+    );
+    let mut victim = world.players()[1];
+    victim.hitlag_frames = 0;
+    victim.damage_hitstun_frames = 10;
+    let entry_frame = victim.source_motion_anim_frame;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let entered = world.players()[1];
+    assert_eq!(
+        entered.source_motion_anim_frame.to_bits(),
+        entry_frame.to_bits()
+    );
+
+    step_world(&mut world, Frame(1), &[PlayerInput::neutral(); 2]);
+
+    let advanced = world.players()[1];
+    assert_eq!(
+        advanced.source_motion_anim_frame.to_bits(),
+        (entry_frame + 1.0).to_bits()
+    );
+}
+
+fn task_3b4_damage_air2_result() -> SourceDamageResult {
+    SourceDamageResult {
+        stage: SourceDamageStage {
+            attacker_index: 0,
+            victim_index: 1,
+            hitbox_id: 0,
+            hurtbox_id: 0,
+            action_state_id: Some(MeleeActionStateId::new(65)),
+            source_action_key: Some(SourceActionKey::new("AttackAirN")),
+            source_frame: Some(7),
+            damaged_hurt_height: 1,
+            damage: 5.0,
+            env_damage: 5,
+            unk_count: 5,
+            hitbox: SourceHitboxAttributes {
+                bone: 14,
+                hit_group: 0,
+                damage: 5,
+                angle: 45,
+                knockback_growth: 100,
+                weight_set_knockback: 40,
+                base_knockback: 0,
+                element: 0,
+                shield_damage: 0,
+                hit_grounded: true,
+                hit_aerial: true,
+            },
+        },
+        knockback: 40.0,
+        angle: 45,
+        element: 0,
+    }
+}
+
+#[test]
+fn completed_damage_air2_priority1_uses_ftco_damage_anim_fall_or_wait_exit() {
+    for (grounded, expected_state, expected_id, expected_key) in [
+        (false, MotionState::Fall, 29, "Fall"),
+        (true, MotionState::Wait, 14, "Wait1"),
+    ] {
+        let mut world = World::for_two_players();
+        let mut victim = world.players()[1];
+        victim.grounded = grounded;
+        victim.motion_state = MotionState::Fall;
+        victim.motion_state_alias = None;
+        victim.melee_action_state_id = Some(MeleeActionStateId::new(85));
+        victim.source_action_key = Some(SourceActionKey::new("DamageAir2"));
+        victim.source_action_total_frames = 6;
+        victim.motion_frame = 5;
+        victim.set_source_motion_anim_frame(5.0);
+        victim.damage_hitstun_frames = 0;
+        assert!(world.set_player_state_for_diagnostic(1, victim));
+
+        step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+        let exited = world.players()[1];
+        assert_eq!(exited.motion_state, expected_state);
+        assert_eq!(
+            exited.melee_action_state_id,
+            Some(MeleeActionStateId::new(expected_id))
+        );
+        assert_eq!(
+            exited.source_action_key,
+            Some(SourceActionKey::new(expected_key))
+        );
+    }
+}
+
+#[test]
+fn completed_damage_air2_priority1_preserves_ftco_80090780_handoff() {
+    let mut world = World::for_two_players();
+    let mut victim = world.players()[1];
+    victim.grounded = false;
+    victim.motion_state = MotionState::Fall;
+    victim.motion_state_alias = None;
+    victim.melee_action_state_id = Some(MeleeActionStateId::new(85));
+    victim.source_action_key = Some(SourceActionKey::new("DamageAir2"));
+    victim.source_action_total_frames = 6;
+    victim.motion_frame = 5;
+    victim.set_source_motion_anim_frame(5.0);
+    victim.damage_hitstun_frames = 0;
+    victim.source_force_damage_down_bound = true;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    step_world(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
+
+    let exited = world.players()[1];
+    assert_eq!(exited.motion_state, MotionState::DamageFall);
+    assert_eq!(
+        exited.melee_action_state_id,
+        Some(MeleeActionStateId::new(38))
+    );
+    assert_eq!(
+        exited.source_action_key,
+        Some(SourceActionKey::new("DamageFall"))
+    );
 }

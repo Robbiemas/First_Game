@@ -104,3 +104,19 @@ The remaining 29 failures are grouped by shared production owner:
 Every group must retain the strict replay gate. No failure may be removed by
 relaxing comparison tolerances, allowing replay continuation, or introducing a
 fixture-specific gameplay branch.
+
+## 2026-07-16 Scheduler Reclassification
+
+- The shared AObj/fighter callback scheduler group is implemented for the
+  strict fixture, including p0 hitlag expiry, p1 animation callbacks, p3 input
+  callbacks, later-phase callback rereads, and non-recursive transition-slot
+  dispatch.
+- The three obsolete runtime comparison/gate failures now pass by asserting no
+  divergence through source frame 3200. A separate synthetic diagnostic unit
+  contract still proves that a real classified mismatch stops immediately.
+- Current broad core result: 580 passed, 41 failed, 2 ignored. The 41 failures
+  still cover stale isolated fixtures and shared shield, pose coverage,
+  capture/throw, collision, and input paths outside the completed fixture.
+- Mandatory strict result: all 5,313 fixture frames complete with no engine
+  divergence. This is a scoped regression result, not permission to remove the
+  remaining classifications or claim universal parity.

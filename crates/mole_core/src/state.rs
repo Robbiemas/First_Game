@@ -3948,14 +3948,32 @@ fn source_action_table_id_for_live_identity(player: PlayerState) -> Option<u16> 
 fn source_migrated_primary_anim_descriptor_for_player(
     player: &PlayerState,
 ) -> Option<SourceAObjDescriptor> {
-    if !matches!(
-        player.source_action_key?.as_str(),
-        "Dash" | "Attack100Start" | "Attack100Loop" | "Attack100End"
-    ) {
-        return None;
+    if player
+        .melee_action_state_id
+        .is_some_and(|action_state_id| (75..=86).contains(&action_state_id.get()))
+    {
+        let source_action_table_id = source_action_table_id_for_live_identity(*player)?;
+        return falcon_ecb::falcon_aobj_descriptor_for_action_table_id(source_action_table_id);
     }
-    let source_action_table_id = source_action_table_id_for_live_identity(*player)?;
-    falcon_ecb::falcon_aobj_descriptor_for_action_table_id(source_action_table_id)
+    if let Some(source_action_key) = player.source_action_key {
+        if matches!(
+            source_action_key.as_str(),
+            "Dash"
+                | "Turn"
+                | "AttackAirN"
+                | "AttackAirF"
+                | "AttackAirB"
+                | "AttackAirHi"
+                | "AttackAirLw"
+                | "Attack100Start"
+                | "Attack100Loop"
+                | "Attack100End"
+        ) {
+            let source_action_table_id = source_action_table_id_for_live_identity(*player)?;
+            return falcon_ecb::falcon_aobj_descriptor_for_action_table_id(source_action_table_id);
+        }
+    }
+    None
 }
 
 fn source_aobj_descriptor_for_motion_state(
@@ -5417,6 +5435,32 @@ impl World {
         let normalized_anim_rate = state.frame_speed_mul();
         state.set_source_motion_anim_frame(normalized_anim_frame);
         state.set_source_motion_anim_rate(normalized_anim_rate);
+        let diagnostic_action_needs_task_3b2_playback =
+            state.source_action_key.is_some_and(|key| {
+                matches!(
+                    key.as_str(),
+                    "Turn"
+                        | "AttackAirN"
+                        | "AttackAirF"
+                        | "AttackAirB"
+                        | "AttackAirHi"
+                        | "AttackAirLw"
+                )
+            });
+        if diagnostic_action_needs_task_3b2_playback
+            && state.source_playback.primary.flags & SOURCE_AOBJ_NO_ANIM != 0
+            && state.source_playback.primary.rewind_frame == 0.0
+            && state.source_playback.primary.end_frame == 0.0
+        {
+            if let Some(descriptor) = source_migrated_primary_anim_descriptor_for_player(&state) {
+                state.install_source_primary_anim(
+                    normalized_anim_frame,
+                    normalized_anim_rate,
+                    descriptor,
+                );
+                let _ = state.interpret_source_primary_anim();
+            }
+        }
         let projected_source_position = state.source_position.to_milli();
         if projected_source_position != state.position {
             let source_position_changed = state.source_position != player.source_position;
@@ -6502,7 +6546,9 @@ impl World {
             victim.damage_hitstun_frames = source_damage_hitstun_frames(self.common_data, result);
             victim.clear_source_guard_shield_object();
             victim.melee_action_state_id = Some(damage_action_state_id);
-            victim.source_action_key = None;
+            victim.source_action_key =
+                canonical_source_action_binding_for_runtime_id(damage_action_state_id)
+                    .map(|binding| binding.source_action_key);
             victim.source_action_total_frames =
                 action_total_frames(damage_action_state_id).unwrap_or(0);
             victim.source_down_bound_pose = None;
@@ -6511,6 +6557,10 @@ impl World {
             victim.motion_frame = 0;
             victim.set_source_motion_anim_frame(0.0);
             victim.set_source_motion_anim_rate_milli(1_000);
+            if victim.install_current_source_primary_anim(0.0, 1.0) {
+                let _ = victim.interpret_source_primary_anim();
+                let _ = victim.interpret_source_primary_anim();
+            }
             victim.source_retained_model_pose = None;
             if let Some(timers) = self.input_timers.get_mut(result.stage.victim_index) {
                 timers.x_tap = EXPIRED_INPUT_TIMER;
@@ -8404,8 +8454,13 @@ mod tests {
         damage_n2.source_action_key = Some(SourceActionKey::new("DamageN2"));
         assert_eq!(
             source_migrated_primary_anim_descriptor_for_player(&damage_n2),
+            falcon_ecb::falcon_aobj_descriptor_for_action_table_id(169),
+            "common Damage p1 playback binds the exact source action identity"
+        );
+        assert_eq!(
+            source_action_table_id_for_player(damage_n2),
             None,
-            "Task 3B's primary playback must not widen legacy ECB pose selection"
+            "migrating Damage playback must not widen legacy ECB pose selection"
         );
     }
 
