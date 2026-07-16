@@ -4215,7 +4215,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "local diagnostic requires an untracked full Slippi export"]
     fn diagnose_source_2454_attack_air_f_damage_confirm() {
         let input_export_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -4324,7 +4324,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "local diagnostic requires an untracked Slippi export"]
     fn diagnose_source_2662_attack_air_hi_guard_damage_confirm() {
         let input_export_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
