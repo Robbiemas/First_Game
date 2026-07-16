@@ -2173,22 +2173,18 @@ fn run_migrated_priority1_player(
         return;
     };
 
-    if interpret_migrated_source_animation(player, true) {
-        match callback {
-            Priority1AnimCallback::Dash => apply_dash_script_events(player),
-            Priority1AnimCallback::Attack100Start
-            | Priority1AnimCallback::Attack100Loop
-            | Priority1AnimCallback::Attack100End => {
-                let script_events = source_current_anim_script_events(player, source_pose_metadata);
-                apply_source_script_events(player, script_events, common_data);
-            }
-        }
-        if matches!(callback, Priority1AnimCallback::Attack100Loop)
-            && player.cur_anim_frame() >= 0.0
-            && player.cur_anim_frame() < player.frame_speed_mul()
-        {
-            player.source_attack100_loop_has_started = true;
-        }
+    let starts_attack100_loop = matches!(callback, Priority1AnimCallback::Attack100Loop)
+        && player.motion_frame == 0
+        && !player.source_primary_anim_is_first_play();
+    if evaluate_migrated_priority1_animation(
+        player,
+        callback,
+        common_data,
+        source_pose_metadata,
+        true,
+    ) && starts_attack100_loop
+    {
+        player.source_attack100_loop_has_started = true;
     }
 
     if !dispatch_callback {
@@ -2208,6 +2204,8 @@ fn run_migrated_priority1_player(
                     player,
                     SOURCE_ATTACK100_LOOP_ACTION_STATE_ID,
                     SOURCE_ATTACK100_LOOP_ACTION_KEY,
+                    common_data,
+                    source_pose_metadata,
                     source_action_total_frames,
                 );
             }
@@ -2222,6 +2220,8 @@ fn run_migrated_priority1_player(
                         player,
                         SOURCE_ATTACK100_END_ACTION_STATE_ID,
                         SOURCE_ATTACK100_END_ACTION_KEY,
+                        common_data,
+                        source_pose_metadata,
                         source_action_total_frames,
                     );
                 } else {
@@ -2235,6 +2235,29 @@ fn run_migrated_priority1_player(
             }
         }
     }
+}
+
+fn evaluate_migrated_priority1_animation(
+    player: &mut PlayerState,
+    callback: Priority1AnimCallback,
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
+    advance_action_command_timeline: bool,
+) -> bool {
+    if !interpret_migrated_source_animation(player, advance_action_command_timeline) {
+        return false;
+    }
+
+    match callback {
+        Priority1AnimCallback::Dash => apply_dash_script_events(player),
+        Priority1AnimCallback::Attack100Start
+        | Priority1AnimCallback::Attack100Loop
+        | Priority1AnimCallback::Attack100End => {
+            let script_events = source_current_anim_script_events(player, source_pose_metadata);
+            apply_source_script_events(player, script_events, common_data);
+        }
+    }
+    true
 }
 
 fn priority1_anim_callback(player: &PlayerState) -> Option<Priority1AnimCallback> {
@@ -6840,13 +6863,15 @@ fn apply_rapid_jab_input(
             player,
             SOURCE_ATTACK100_START_ACTION_STATE_ID,
             SOURCE_ATTACK100_START_ACTION_KEY,
-            source_action_total_frames,
-        );
-        run_migrated_priority1_player(
-            player,
             common_data,
             source_pose_metadata,
             source_action_total_frames,
+        );
+        evaluate_migrated_priority1_animation(
+            player,
+            Priority1AnimCallback::Attack100Start,
+            common_data,
+            source_pose_metadata,
             false,
         );
         true
@@ -6952,6 +6977,8 @@ fn enter_source_attack100_action(
     player: &mut PlayerState,
     action_state_id: MeleeActionStateId,
     source_action_key: SourceActionKey,
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
     source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) {
     clear_guard_state(player);
@@ -6968,7 +6995,6 @@ fn enter_source_attack100_action(
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
     player.set_source_motion_anim_rate_milli(1_000);
-    player.install_current_source_primary_anim(0.0, 1.0);
     player.motion_throw_flags = 0;
     player.source_jab_followup_timer = 0;
     player.source_jab_followup_queued = false;
@@ -6978,6 +7004,21 @@ fn enter_source_attack100_action(
     player.grounded = true;
     player.velocity.y = 0;
     clear_ground_horizontal_velocity(player);
+    if player.install_current_source_primary_anim(0.0, 1.0) {
+        let callback = match action_state_id {
+            SOURCE_ATTACK100_START_ACTION_STATE_ID => Priority1AnimCallback::Attack100Start,
+            SOURCE_ATTACK100_LOOP_ACTION_STATE_ID => Priority1AnimCallback::Attack100Loop,
+            SOURCE_ATTACK100_END_ACTION_STATE_ID => Priority1AnimCallback::Attack100End,
+            _ => return,
+        };
+        evaluate_migrated_priority1_animation(
+            player,
+            callback,
+            common_data,
+            source_pose_metadata,
+            false,
+        );
+    }
 }
 
 fn attack_air_landing_lag_cmd_var0_frames(
@@ -12292,18 +12333,20 @@ mod source_map_collision_tests {
                 SOURCE_ATTACK100_LOOP_ACTION_STATE_ID => Some(40),
                 _ => None,
             };
-        enter_source_attack100_action(
-            &mut player,
-            SOURCE_ATTACK100_START_ACTION_STATE_ID,
-            SOURCE_ATTACK100_START_ACTION_KEY,
-            &mut source_action_total_frames,
-        );
-        assert!(interpret_migrated_source_animation(&mut player, true));
-        player.set_source_motion_anim_frame(5.0);
         fn no_source_metadata(_: &PlayerState) -> Option<SourceActionPoseMetadata> {
             None
         }
         let mut no_source_metadata = no_source_metadata;
+        enter_source_attack100_action(
+            &mut player,
+            SOURCE_ATTACK100_START_ACTION_STATE_ID,
+            SOURCE_ATTACK100_START_ACTION_KEY,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            &mut source_action_total_frames,
+        );
+        assert!(interpret_migrated_source_animation(&mut player, true));
+        player.set_source_motion_anim_frame(5.0);
 
         run_migrated_priority1_player(
             &mut player,
@@ -12319,7 +12362,7 @@ mod source_map_collision_tests {
         );
         assert_eq!(player.motion_frame, 0);
         assert_eq!(player.cur_anim_frame(), 0.0);
-        assert!(player.source_primary_anim_is_first_play());
+        assert!(!player.source_primary_anim_is_first_play());
     }
 
     #[test]

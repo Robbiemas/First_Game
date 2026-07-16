@@ -2769,6 +2769,107 @@ fn frame_data_extract_decodes_source_set_airborne_state_procedure() {
 }
 
 #[test]
+fn frame_data_extract_decodes_attack100_loop_throw_flag_rows() {
+    let root = temp_project_root("frame_data_attack100_loop_set_throw_flag");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/Attack100Loop.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "Attack100Loop",
+            "label": "Rapid Jab Loop",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/chara/ftCaptain/ftCo_Attack100.c", "line": 300}],
+            "summary": {"total_frames": 40, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 50,
+                "action_table_index": 50,
+                "name": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
+                "source_action_key": "Attack100Loop",
+                "subaction_script_offset": 0x4710
+            }]
+        }),
+    );
+    let script_start = 0x20 + 0x4710;
+    let subroutine_start = 0x20 + 0x46bc;
+    let script_words = [
+        0xd0000003u32,
+        0x08000004,
+        0x14000000,
+        0x000046bc,
+        0x0800000c,
+        0x14000000,
+        0x000046bc,
+        0x08000014,
+        0x14000000,
+        0x000046bc,
+        0x0800001c,
+        0x14000000,
+        0x000046bc,
+        0x08000023,
+        0x14000000,
+        0x000046bc,
+        0x00000000,
+    ];
+    let subroutine_words = [0x04000002u32, 0x50000000, 0x18000000];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    for (index, word) in subroutine_words.iter().enumerate() {
+        plca[subroutine_start + index * 4..subroutine_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "Attack100Loop".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let procedures = parsed["artifact"]["decoded_action_script"]["procedures"]
+        .as_array()
+        .expect("Attack100Loop source action script should decode SetThrowFlag");
+
+    let throw_flag_frames = procedures
+        .iter()
+        .filter(|procedure| procedure["procedure"] == "fighter.set_throw_flag")
+        .map(|procedure| procedure["frame"].as_u64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(throw_flag_frames, vec![6, 14, 22, 30, 37]);
+    assert!(procedures
+        .iter()
+        .filter(|procedure| procedure["procedure"] == "fighter.set_throw_flag")
+        .all(|procedure| procedure["handler"] == "ftAction_800718A4"
+            && procedure["hit_idx"] == 0
+            && procedure["flag_bit"] == 3
+            && procedure["raw_words"] == json!(["0x50000000"])));
+}
+
+#[test]
 fn frame_data_extract_decodes_source_throw_hitbox_procedures() {
     let root = temp_project_root("frame_data_source_throw_hitbox");
     write_json(

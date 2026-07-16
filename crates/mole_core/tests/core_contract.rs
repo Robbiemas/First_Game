@@ -25659,17 +25659,22 @@ fn falcon_jab_source_metadata(player: &PlayerState) -> Option<SourceActionPoseMe
     } else {
         1
     };
-    let event = match (action_state_id, source_frame) {
-        (44, 5) => SourceActionScriptEvent::SetJabCombo { disabled: true },
-        (44, 9) => SourceActionScriptEvent::SetJabCombo { disabled: false },
-        (45, 4) => SourceActionScriptEvent::SetJabCombo { disabled: true },
-        (45, 8) => SourceActionScriptEvent::SetJabCombo { disabled: false },
-        (46, 10) => SourceActionScriptEvent::SetJabRapid { state: true },
-        (48, 40) => SourceActionScriptEvent::SetThrowFlag {
+    let event = if player.source_action_key == Some(SourceActionKey::new("Attack100Loop"))
+        && matches!(source_frame, 6 | 14 | 22 | 30 | 37)
+    {
+        SourceActionScriptEvent::SetThrowFlag {
             hit_idx: 0,
-            flag_bit: None,
-        },
-        _ => SourceActionScriptEvent::None,
+            flag_bit: Some(3),
+        }
+    } else {
+        match (action_state_id, source_frame) {
+            (44, 5) => SourceActionScriptEvent::SetJabCombo { disabled: true },
+            (44, 9) => SourceActionScriptEvent::SetJabCombo { disabled: false },
+            (45, 4) => SourceActionScriptEvent::SetJabCombo { disabled: true },
+            (45, 8) => SourceActionScriptEvent::SetJabCombo { disabled: false },
+            (46, 10) => SourceActionScriptEvent::SetJabRapid { state: true },
+            _ => SourceActionScriptEvent::None,
+        }
     };
 
     Some(SourceActionPoseMetadata {
@@ -25707,6 +25712,126 @@ fn step_world_with_falcon_jab_source_data(
     );
 }
 
+fn parse_json_u64_after(source: &str, start: usize, field: &str) -> u64 {
+    let field_start = source[start..]
+        .find(field)
+        .map(|offset| start + offset + field.len())
+        .expect("checked-in extraction should contain expected field");
+    source[field_start..]
+        .trim_start_matches(|ch: char| ch == ':' || ch.is_whitespace())
+        .split(|ch: char| !ch.is_ascii_digit())
+        .next()
+        .expect("field should contain an integer")
+        .parse()
+        .expect("field integer should parse")
+}
+
+fn falcon_attack100_loop_source_proof() -> (usize, Vec<(u64, u32)>) {
+    const FIGHTER_CMD_LENGTHS: [usize; 49] = [
+        5, 5, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 7, 4,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 2, 1, 4,
+    ];
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("crate should live under workspace/crates/mole_core");
+    let extraction = fs::read_to_string(
+        workspace.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+    )
+    .expect("checked-in Falcon action extraction should be readable");
+    let action_start = extraction
+        .find("\"action_state_id\": 50")
+        .expect("Falcon extraction should contain action-table entry 50");
+    assert_eq!(
+        parse_json_u64_after(&extraction, action_start, "\"action_table_index\""),
+        50
+    );
+    let subaction_offset =
+        parse_json_u64_after(&extraction, action_start, "\"subaction_script_offset\"") as usize;
+    let raw = fs::read(workspace.join("resources/melee/raw/PlCa.dat"))
+        .expect("checked-in Falcon PlCa.dat should be readable");
+    let script_start = 0x20 + subaction_offset;
+    let mut cursor = script_start;
+    let mut return_stack = Vec::new();
+    let mut current_frame = 0u64;
+    let mut throw_flags = Vec::new();
+
+    for _ in 0..4096 {
+        let word = read_be_u32(&raw, cursor);
+        let opcode = word >> 26;
+        let value = word & 0x03ff_ffff;
+        match opcode {
+            0 => break,
+            1 | 2 => {
+                let frame = if value >= 0x1_0000 && value & 0xffff == 0 {
+                    u64::from(value >> 16)
+                } else {
+                    u64::from(value)
+                };
+                current_frame = if opcode == 1 {
+                    current_frame + frame
+                } else {
+                    current_frame.max(frame)
+                };
+                cursor += 4;
+            }
+            5 => {
+                return_stack.push(cursor + 8);
+                cursor = 0x20 + read_be_u32(&raw, cursor + 4) as usize;
+            }
+            6 => match return_stack.pop() {
+                Some(return_cursor) => cursor = return_cursor,
+                None => break,
+            },
+            7 => {
+                let target = 0x20 + read_be_u32(&raw, cursor + 4) as usize;
+                if target == script_start {
+                    break;
+                }
+                cursor = target;
+            }
+            3 | 4 | 8 | 9 | 19 => cursor += 4,
+            10.. => {
+                let fighter_index = (opcode - 10) as usize;
+                if fighter_index == 10 {
+                    throw_flags.push((current_frame, value));
+                }
+                cursor += FIGHTER_CMD_LENGTHS[fighter_index] * 4;
+            }
+        }
+    }
+    (subaction_offset, throw_flags)
+}
+
+#[test]
+fn falcon_jab_attack100_loop_fixture_matches_source_throw_flag_rows() {
+    assert_eq!(
+        falcon_attack100_loop_source_proof(),
+        (18_192, vec![(6, 0), (14, 0), (22, 0), (30, 0), (37, 0)])
+    );
+    for source_frame in 1u8..=40 {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.melee_action_state_id = Some(MeleeActionStateId::new(48));
+        player.source_action_key = Some(SourceActionKey::new("Attack100Loop"));
+        player.set_source_motion_anim_frame(f32::from(source_frame - 1));
+        let expected = if matches!(source_frame, 6 | 14 | 22 | 30 | 37) {
+            SourceActionScriptEvents::single(SourceActionScriptEvent::SetThrowFlag {
+                hit_idx: 0,
+                flag_bit: Some(3),
+            })
+        } else {
+            SourceActionScriptEvents::empty()
+        };
+        assert_eq!(
+            falcon_jab_source_metadata(&player)
+                .expect("fixture should return metadata")
+                .script_events,
+            expected,
+            "fixture must match the decoded source event at frame {source_frame}"
+        );
+    }
+}
+
 #[test]
 fn attack13_rapid_jab_script_enters_attack100_start_like_ftco_attack100() {
     let mut world = World::for_two_players();
@@ -25725,7 +25850,7 @@ fn attack13_rapid_jab_script_enters_attack100_start_like_ftco_attack100() {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
     step_world_with_falcon_jab_source_data(&mut world, 17, &jab);
-    for frame in 18..=27 {
+    for frame in 18..=26 {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
 
@@ -25741,6 +25866,8 @@ fn attack13_rapid_jab_script_enters_attack100_start_like_ftco_attack100() {
     );
     assert_eq!(player.source_action_total_frames, 6);
     assert_eq!(player.motion_state_alias, None);
+    assert_eq!(player.motion_frame, 0);
+    assert_eq!(player.cur_anim_frame(), 1.0);
 }
 
 #[test]
@@ -25761,12 +25888,20 @@ fn attack100_start_loop_and_end_follow_decomp_action_chain() {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
     step_world_with_falcon_jab_source_data(&mut world, 17, &jab);
-    for frame in 18..=27 {
+    for frame in 18..=26 {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
-    for frame in 28..=33 {
+    assert_eq!(world.players()[0].cur_anim_frame(), 1.0);
+
+    for frame in 27..=30 {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(47))
+    );
+
+    step_world_with_falcon_jab_source_data(&mut world, 31, &neutral);
     assert_eq!(
         world.players()[0].melee_action_state_id,
         Some(MeleeActionStateId::new(48))
@@ -25775,10 +25910,23 @@ fn attack100_start_loop_and_end_follow_decomp_action_chain() {
         world.players()[0].source_action_key,
         Some(SourceActionKey::new("Attack100Loop"))
     );
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert_eq!(world.players()[0].cur_anim_frame(), 0.0);
+    assert!(!world.players()[0].source_attack100_loop_has_started);
 
-    for frame in 34..=73 {
+    step_world_with_falcon_jab_source_data(&mut world, 32, &neutral);
+    assert!(world.players()[0].source_attack100_loop_has_started);
+
+    for frame in 33..=35 {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
+    assert_eq!(
+        world.players()[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(48)),
+        "Attack100Loop should stay active before the first decoded throw-flag row"
+    );
+
+    step_world_with_falcon_jab_source_data(&mut world, 36, &neutral);
     assert_eq!(
         world.players()[0].melee_action_state_id,
         Some(MeleeActionStateId::new(49))
@@ -25787,10 +25935,15 @@ fn attack100_start_loop_and_end_follow_decomp_action_chain() {
         world.players()[0].source_action_key,
         Some(SourceActionKey::new("Attack100End"))
     );
+    assert_eq!(world.players()[0].motion_frame, 0);
+    assert_eq!(world.players()[0].cur_anim_frame(), 0.0);
 
-    for frame in 74..=82 {
+    for frame in 37..=44 {
         step_world_with_falcon_jab_source_data(&mut world, frame, &neutral);
     }
+    assert_eq!(world.players()[0].motion_state, MotionState::Attack1);
+
+    step_world_with_falcon_jab_source_data(&mut world, 45, &neutral);
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
 }
 
