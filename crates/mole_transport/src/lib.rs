@@ -5,14 +5,55 @@ use std::time::Duration;
 
 use mole_core::{Frame, PlayerInput};
 
-pub const INPUT_PACKET_VERSION: u8 = 2;
-pub const INPUT_PACKET_WIRE_LEN: usize = 30;
-pub const INPUT_PACKET_DATAGRAM_VERSION: u8 = 3;
+pub const INPUT_PACKET_VERSION: u8 = 3;
+pub const INPUT_PACKET_WIRE_LEN: usize = 59;
+const LEGACY_INPUT_PACKET_VERSION: u8 = 2;
+const LEGACY_INPUT_PACKET_WIRE_LEN: usize = 30;
+pub const INPUT_PACKET_DATAGRAM_VERSION: u8 = 4;
+const LEGACY_INPUT_PACKET_DATAGRAM_VERSION: u8 = 3;
 pub const INPUT_PACKET_DATAGRAM_HEADER_LEN: usize = 2;
 pub const INPUT_PACKET_DATAGRAM_RECORD_LEN: usize = INPUT_PACKET_WIRE_LEN - 1;
+const LEGACY_INPUT_PACKET_DATAGRAM_RECORD_LEN: usize = LEGACY_INPUT_PACKET_WIRE_LEN - 1;
 pub const INPUT_PACKET_DATAGRAM_MAX_PACKETS: usize = 128;
 pub const INPUT_PACKET_DATAGRAM_MAX_WIRE_LEN: usize = INPUT_PACKET_DATAGRAM_HEADER_LEN
     + INPUT_PACKET_DATAGRAM_RECORD_LEN * INPUT_PACKET_DATAGRAM_MAX_PACKETS;
+
+pub const COMPATIBILITY_FINGERPRINT_VERSION: u8 = 1;
+pub const NO_CHECKSUM_FRAME: Frame = Frame(u32::MAX);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompatibilityFingerprint {
+    pub version: u8,
+    pub build: u64,
+    pub artifact: u64,
+    pub session: u64,
+}
+
+impl CompatibilityFingerprint {
+    pub const fn new(build: u64, artifact: u64, session: u64) -> Self {
+        Self {
+            version: COMPATIBILITY_FINGERPRINT_VERSION,
+            build,
+            artifact,
+            session,
+        }
+    }
+
+    pub const fn legacy() -> Self {
+        Self {
+            version: 0,
+            build: 0,
+            artifact: 0,
+            session: 0,
+        }
+    }
+}
+
+impl Default for CompatibilityFingerprint {
+    fn default() -> Self {
+        Self::new(0, 0, 0)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InputPacket {
@@ -21,8 +62,10 @@ pub struct InputPacket {
     pub player_index: u8,
     pub input: PlayerInput,
     pub checksum: u64,
+    pub checksum_frame: Frame,
     pub sequence: u32,
     pub ack_sequence: u32,
+    pub compatibility: CompatibilityFingerprint,
 }
 
 impl InputPacket {
@@ -33,9 +76,34 @@ impl InputPacket {
             player_index,
             input,
             checksum,
+            checksum_frame: frame,
             sequence: frame.0,
             ack_sequence: 0,
+            compatibility: CompatibilityFingerprint::new(0, 0, 0),
         }
+    }
+
+    pub const fn with_checksum_frame(mut self, checksum_frame: Frame) -> Self {
+        self.checksum_frame = checksum_frame;
+        self
+    }
+
+    pub const fn without_checksum(mut self) -> Self {
+        self.checksum = 0;
+        self.checksum_frame = NO_CHECKSUM_FRAME;
+        self
+    }
+
+    pub const fn has_checksum(self) -> bool {
+        self.checksum_frame.0 != NO_CHECKSUM_FRAME.0
+    }
+
+    pub const fn with_compatibility_fingerprint(
+        mut self,
+        compatibility: CompatibilityFingerprint,
+    ) -> Self {
+        self.compatibility = compatibility;
+        self
     }
 
     pub const fn with_timing_probe(mut self, sequence: u32, ack_sequence: u32) -> Self {
@@ -49,22 +117,34 @@ impl InputPacket {
         bytes[0] = self.version;
         bytes[1..5].copy_from_slice(&self.frame.0.to_be_bytes());
         bytes[5] = self.player_index;
-        bytes[6..14].copy_from_slice(&self.input.bits().to_be_bytes());
-        bytes[14..22].copy_from_slice(&self.checksum.to_be_bytes());
-        bytes[22..26].copy_from_slice(&self.sequence.to_be_bytes());
-        bytes[26..30].copy_from_slice(&self.ack_sequence.to_be_bytes());
+        bytes[6] = self.compatibility.version;
+        bytes[7..15].copy_from_slice(&self.input.bits().to_be_bytes());
+        bytes[15..23].copy_from_slice(&self.checksum.to_be_bytes());
+        bytes[23..27].copy_from_slice(&self.checksum_frame.0.to_be_bytes());
+        bytes[27..31].copy_from_slice(&self.sequence.to_be_bytes());
+        bytes[31..35].copy_from_slice(&self.ack_sequence.to_be_bytes());
+        bytes[35..43].copy_from_slice(&self.compatibility.build.to_be_bytes());
+        bytes[43..51].copy_from_slice(&self.compatibility.artifact.to_be_bytes());
+        bytes[51..59].copy_from_slice(&self.compatibility.session.to_be_bytes());
         bytes
     }
 
     pub fn from_wire_bytes(bytes: &[u8]) -> Result<Self, PacketDecodeError> {
+        let version = bytes.first().copied().unwrap_or_default();
+        if version == LEGACY_INPUT_PACKET_VERSION {
+            return decode_legacy_input_packet(bytes);
+        }
+        if version != INPUT_PACKET_VERSION {
+            return Err(PacketDecodeError::UnsupportedVersion(version));
+        }
         if bytes.len() != INPUT_PACKET_WIRE_LEN {
             return Err(PacketDecodeError::WrongLength {
                 expected: INPUT_PACKET_WIRE_LEN,
                 actual: bytes.len(),
             });
         }
-        if bytes[0] != INPUT_PACKET_VERSION {
-            return Err(PacketDecodeError::UnsupportedVersion(bytes[0]));
+        if bytes[6] != COMPATIBILITY_FINGERPRINT_VERSION {
+            return Err(PacketDecodeError::UnsupportedFingerprintVersion(bytes[6]));
         }
 
         let frame = Frame(u32::from_be_bytes(
@@ -72,25 +152,36 @@ impl InputPacket {
         ));
         let player_index = bytes[5];
         let input = PlayerInput::from_bits(u64::from_be_bytes(
-            bytes[6..14]
+            bytes[7..15]
                 .try_into()
                 .expect("input slice has fixed width"),
         ));
         let checksum = u64::from_be_bytes(
-            bytes[14..22]
+            bytes[15..23]
                 .try_into()
                 .expect("checksum slice has fixed width"),
         );
+        let checksum_frame = Frame(u32::from_be_bytes(
+            bytes[23..27]
+                .try_into()
+                .expect("checksum frame slice has fixed width"),
+        ));
         let sequence = u32::from_be_bytes(
-            bytes[22..26]
+            bytes[27..31]
                 .try_into()
                 .expect("sequence slice has fixed width"),
         );
         let ack_sequence = u32::from_be_bytes(
-            bytes[26..30]
+            bytes[31..35]
                 .try_into()
                 .expect("ack sequence slice has fixed width"),
         );
+        let compatibility = CompatibilityFingerprint {
+            version: bytes[6],
+            build: u64::from_be_bytes(bytes[35..43].try_into().expect("fixed build width")),
+            artifact: u64::from_be_bytes(bytes[43..51].try_into().expect("fixed artifact width")),
+            session: u64::from_be_bytes(bytes[51..59].try_into().expect("fixed session width")),
+        };
 
         Ok(Self {
             version: bytes[0],
@@ -98,16 +189,44 @@ impl InputPacket {
             player_index,
             input,
             checksum,
+            checksum_frame,
             sequence,
             ack_sequence,
+            compatibility,
         })
     }
+}
+
+fn decode_legacy_input_packet(bytes: &[u8]) -> Result<InputPacket, PacketDecodeError> {
+    if bytes.len() != LEGACY_INPUT_PACKET_WIRE_LEN {
+        return Err(PacketDecodeError::WrongLength {
+            expected: LEGACY_INPUT_PACKET_WIRE_LEN,
+            actual: bytes.len(),
+        });
+    }
+    let frame = Frame(u32::from_be_bytes(
+        bytes[1..5].try_into().expect("fixed frame width"),
+    ));
+    Ok(InputPacket {
+        version: LEGACY_INPUT_PACKET_VERSION,
+        frame,
+        player_index: bytes[5],
+        input: PlayerInput::from_bits(u64::from_be_bytes(
+            bytes[6..14].try_into().expect("fixed input width"),
+        )),
+        checksum: u64::from_be_bytes(bytes[14..22].try_into().expect("fixed checksum width")),
+        checksum_frame: frame,
+        sequence: u32::from_be_bytes(bytes[22..26].try_into().expect("fixed sequence width")),
+        ack_sequence: u32::from_be_bytes(bytes[26..30].try_into().expect("fixed ack width")),
+        compatibility: CompatibilityFingerprint::legacy(),
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PacketDecodeError {
     WrongLength { expected: usize, actual: usize },
     UnsupportedVersion(u8),
+    UnsupportedFingerprintVersion(u8),
     EmptyDatagram,
     TooManyPackets { max: usize, actual: usize },
     MalformedDatagram { actual: usize },
@@ -136,13 +255,19 @@ impl InputPacketDatagram {
     }
 
     pub fn from_wire_bytes(bytes: &[u8]) -> Result<Self, PacketDecodeError> {
-        if bytes.first().copied() == Some(INPUT_PACKET_VERSION) {
+        let first = bytes.first().copied();
+        if (first == Some(INPUT_PACKET_VERSION) && bytes.len() == INPUT_PACKET_WIRE_LEN)
+            || (first == Some(LEGACY_INPUT_PACKET_VERSION)
+                && bytes.len() == LEGACY_INPUT_PACKET_WIRE_LEN)
+        {
             return Self::from_packets(vec![InputPacket::from_wire_bytes(bytes)?]);
         }
-        if bytes.first().copied() != Some(INPUT_PACKET_DATAGRAM_VERSION) {
-            return Err(PacketDecodeError::UnsupportedVersion(
-                bytes.first().copied().unwrap_or_default(),
-            ));
+        let datagram_version = first.unwrap_or_default();
+        if !matches!(
+            datagram_version,
+            INPUT_PACKET_DATAGRAM_VERSION | LEGACY_INPUT_PACKET_DATAGRAM_VERSION
+        ) {
+            return Err(PacketDecodeError::UnsupportedVersion(datagram_version));
         }
         if bytes.len() < INPUT_PACKET_DATAGRAM_HEADER_LEN {
             return Err(PacketDecodeError::WrongLength {
@@ -160,8 +285,17 @@ impl InputPacketDatagram {
                 actual: packet_count,
             });
         }
-        let expected_len =
-            INPUT_PACKET_DATAGRAM_HEADER_LEN + packet_count * INPUT_PACKET_DATAGRAM_RECORD_LEN;
+        let record_len = if datagram_version == INPUT_PACKET_DATAGRAM_VERSION {
+            INPUT_PACKET_DATAGRAM_RECORD_LEN
+        } else {
+            LEGACY_INPUT_PACKET_DATAGRAM_RECORD_LEN
+        };
+        let packet_version = if datagram_version == INPUT_PACKET_DATAGRAM_VERSION {
+            INPUT_PACKET_VERSION
+        } else {
+            LEGACY_INPUT_PACKET_VERSION
+        };
+        let expected_len = INPUT_PACKET_DATAGRAM_HEADER_LEN + packet_count * record_len;
         if bytes.len() != expected_len {
             return Err(PacketDecodeError::MalformedDatagram {
                 actual: bytes.len(),
@@ -169,11 +303,9 @@ impl InputPacketDatagram {
         }
 
         let mut packets = Vec::with_capacity(packet_count);
-        for record in
-            bytes[INPUT_PACKET_DATAGRAM_HEADER_LEN..].chunks_exact(INPUT_PACKET_DATAGRAM_RECORD_LEN)
-        {
-            let mut packet_bytes = [0u8; INPUT_PACKET_WIRE_LEN];
-            packet_bytes[0] = INPUT_PACKET_VERSION;
+        for record in bytes[INPUT_PACKET_DATAGRAM_HEADER_LEN..].chunks_exact(record_len) {
+            let mut packet_bytes = vec![0u8; record_len + 1];
+            packet_bytes[0] = packet_version;
             packet_bytes[1..].copy_from_slice(record);
             packets.push(InputPacket::from_wire_bytes(&packet_bytes)?);
         }
@@ -617,17 +749,55 @@ pub enum PacketAcceptResult {
     Accepted,
     Duplicate,
     UnsupportedVersion,
+    IncompatibleSession,
+    OutsideRollbackHorizon,
 }
 
-#[derive(Debug, Default, Clone)]
+pub const DEFAULT_ROLLBACK_HORIZON: u32 = 120;
+
+#[derive(Debug, Clone)]
 pub struct InputPacketInbox {
     packets: BTreeMap<(Frame, u8), InputPacket>,
+    rollback_horizon: u32,
+    compatibility: CompatibilityFingerprint,
+    newest_frame: Option<Frame>,
+}
+
+impl Default for InputPacketInbox {
+    fn default() -> Self {
+        Self::with_rollback_horizon(
+            DEFAULT_ROLLBACK_HORIZON,
+            CompatibilityFingerprint::default(),
+        )
+    }
 }
 
 impl InputPacketInbox {
+    pub fn with_rollback_horizon(
+        rollback_horizon: u32,
+        compatibility: CompatibilityFingerprint,
+    ) -> Self {
+        Self {
+            packets: BTreeMap::new(),
+            rollback_horizon,
+            compatibility,
+            newest_frame: None,
+        }
+    }
+
     pub fn accept(&mut self, packet: InputPacket) -> PacketAcceptResult {
         if packet.version != INPUT_PACKET_VERSION {
             return PacketAcceptResult::UnsupportedVersion;
+        }
+        if packet.compatibility != self.compatibility {
+            return PacketAcceptResult::IncompatibleSession;
+        }
+
+        if let Some(newest_frame) = self.newest_frame {
+            let oldest_retained = newest_frame.0.saturating_sub(self.rollback_horizon);
+            if packet.frame.0 < oldest_retained {
+                return PacketAcceptResult::OutsideRollbackHorizon;
+            }
         }
 
         let key = (packet.frame, packet.player_index);
@@ -636,7 +806,24 @@ impl InputPacketInbox {
         }
 
         self.packets.insert(key, packet);
+        if self
+            .newest_frame
+            .is_none_or(|newest| packet.frame.0 > newest.0)
+        {
+            self.newest_frame = Some(packet.frame);
+            let oldest_retained = packet.frame.0.saturating_sub(self.rollback_horizon);
+            self.packets
+                .retain(|(frame, _), _| frame.0 >= oldest_retained);
+        }
         PacketAcceptResult::Accepted
+    }
+
+    pub fn len(&self) -> usize {
+        self.packets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.packets.is_empty()
     }
 
     pub fn input(&self, frame: Frame, player_index: u8) -> Option<PlayerInput> {

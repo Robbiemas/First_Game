@@ -729,30 +729,34 @@ departure from Melee. It should be explicit, isolated, and rollback-owned:
 
 ### Snapshot Ring
 
-Store enough snapshots to cover the maximum rollback window plus safety margin.
-Initial target:
+Store exactly the source-backed rollback window needed by the online session:
 
 ```text
-max rollback frames: 8
-snapshot ring capacity: 16 or 32
+max rollback frames: 7
+Friend Connect frame-record ring capacity: 7
 ```
 
-This can change after profiling, but starting compact keeps debugging easier.
+This follows Slippi's `ROLLBACK_MAX_FRAMES 7`. Generic tests may construct a
+larger ring, but production Friend Connect does not retain an invented safety
+margin or fabricate missing history beyond this window.
 
 Snapshots are not full application or renderer state. They are the minimum
 authoritative state needed to restore a frame and replay the same core steps
 from frame-indexed inputs. Start with a plain cloneable/debuggable snapshot,
 then optimize its layout after parity and checksum tests are solid.
 
-Current implementation note: `mole_rollback::SnapshotBuffer` must store
-`mole_core::WorldRollbackSnapshot`, not a cloned `World`. Restore is an
+Current implementation note: `mole_rollback::RollbackSession` stores a bounded
+ring of pre-frame `WorldRollbackSnapshot`, resolved inputs, per-player input
+confirmation, and the post-frame checksum. Restore is an
 in-place operation on the current `World`, so static runtime configuration
 (`StageProfile`, `MeleeCommonData`, and per-player `FighterProfile`) remains
 owned by the session instead of being copied through every saved frame. The
 rollback snapshot carries mutable authoritative frame/player/input/combat-log
 state, including canonical Melee action-state identity and source animation
 fields. When a new gameplay-authoritative field is added to `PlayerState` or
-`World`, add it to the core rollback snapshot and checksum together.
+`World`, add it to the core rollback snapshot and checksum together. The
+hit-victim log uses copy-on-write snapshot storage, avoiding a vector clone when
+the log is unchanged.
 
 The first authoritative snapshot slice should include:
 
@@ -821,6 +825,13 @@ Higher-rate 120/240 Hz runtime passes may perform this correction before the
 next visible frame is presented, but they still restore and resimulate whole 60
 Hz core frames. They do not create sub-frame fighter updates.
 
+Current Friend Connect starts at 240 Hz and resolves among 60/120/180/240 Hz.
+It polls UDP and captures the latest controller state on every host pass, then
+commits only at a whole 60 Hz boundary. Deadline misses demote quickly; promotion
+requires a sustained safe work floor. Host-pass ids remain monotonic when the
+cadence changes, and Slippi frame stalls retain the pending simulation boundary
+without advancing gameplay.
+
 ### Local Feel
 
 Local input should enter the local simulation without an artificial buffer by
@@ -866,6 +877,15 @@ sample per included pad frame. Packets older than the retained snapshot window
 are ignored for correction instead of panicking. This is a rollback/runtime
 transport layer; it must not alter Melee-shaped 60 Hz fighter logic once inputs
 are committed.
+
+Packets carry the input frame and finalized checksum frame separately, matching
+Slippi's `frame` versus `checksumFrame` wire association. Predicted-frame
+checksums are never advertised as finalized. Received checksum values remain
+pending until the same local frame is finalized; an exact mismatch, conflicting
+remote checksum, expired validation frame, or incompatible session is a hard
+session error. Compatibility covers protocol version, a build-time hash of
+authoritative Rust engine/input/rollback/transport sources, Cargo version, the
+baked source manifest/capsule artifact bytes, and the shared room session key.
 
 Friend Connect also translates Slippi's online-frame skip gate. After draining
 UDP packets for the current match frame, if the newest remote input is older
@@ -1082,8 +1102,10 @@ Version hash should cover:
 - input/UCF version
 - rollback protocol version
 
-In early development, this can be a simple string or cargo package version plus
-manual data version constants. Later it can become a generated hash.
+The current packet fingerprint uses the Cargo package version plus a deterministic
+build-time hash of authoritative Rust source files for the build component, a
+deterministic hash of the baked source manifest and source-frame capsule bytes
+for the artifact component, and the shared room key for the session component.
 
 ## Milestone Roadmap
 

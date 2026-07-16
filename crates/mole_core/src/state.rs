@@ -15,9 +15,10 @@ use crate::{
     time::Frame,
     units::{milli_to_source_units, source_units_to_milli, MELEE_UNIT_SCALE},
     MeleeCommonData, MeleeInputFacts, MeleeInputSnapshot, MeleeInputTimers, MeleeJumpInput,
-    PlayerInput,
+    PlayerInput, WalkSpeedBucket,
 };
 use std::fmt;
+use std::sync::Arc;
 
 #[path = "generated/falcon_ecb.rs"]
 mod falcon_ecb;
@@ -4913,7 +4914,7 @@ pub struct WorldRollbackSnapshot {
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
     last_input_facts: [MeleeInputFacts; PLAYER_COUNT],
-    source_hit_victim_log: Vec<SourceHitVictimLogEntry>,
+    source_hit_victim_log: Arc<Vec<SourceHitVictimLogEntry>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4976,7 +4977,7 @@ pub struct World {
     previous_inputs: [PlayerInput; PLAYER_COUNT],
     input_timers: [MeleeInputTimers; PLAYER_COUNT],
     last_input_facts: [MeleeInputFacts; PLAYER_COUNT],
-    source_hit_victim_log: Vec<SourceHitVictimLogEntry>,
+    source_hit_victim_log: Arc<Vec<SourceHitVictimLogEntry>>,
 }
 
 impl World {
@@ -5041,7 +5042,7 @@ impl World {
             previous_inputs: [PlayerInput::neutral(), PlayerInput::neutral()],
             input_timers: [MeleeInputTimers::expired(); PLAYER_COUNT],
             last_input_facts: [MeleeInputFacts::default(); PLAYER_COUNT],
-            source_hit_victim_log: Vec::new(),
+            source_hit_victim_log: Arc::new(Vec::new()),
         }
     }
 
@@ -5801,7 +5802,7 @@ impl World {
             .iter()
             .filter_map(|hit| hit.hitbox.map(|hitbox| source_hitbox_log_key(*hit, hitbox)))
             .collect::<Vec<_>>();
-        self.source_hit_victim_log
+        Arc::make_mut(&mut self.source_hit_victim_log)
             .retain(|entry| active_hitboxes.contains(&entry.hitbox));
     }
 
@@ -5819,7 +5820,7 @@ impl World {
             if self.source_hit_victim_log.contains(&entry) {
                 continue;
             }
-            self.source_hit_victim_log.push(entry);
+            Arc::make_mut(&mut self.source_hit_victim_log).push(entry);
             accepted.push(confirm);
         }
         accepted
@@ -6080,7 +6081,7 @@ impl World {
                 })
             })
             .collect::<Vec<_>>();
-        self.source_hit_victim_log
+        Arc::make_mut(&mut self.source_hit_victim_log)
             .retain(|entry| !stale_entries.contains(entry));
     }
     fn source_hit_confirm_matches_current_victim_pose(&self, confirm: SourceHitConfirm) -> bool {
@@ -6864,8 +6865,11 @@ impl World {
             mix_u8(&mut hash, timer.y_tap);
             mix_u8(&mut hash, timer.trigger);
         }
+        for facts in self.last_input_facts {
+            mix_melee_input_facts(&mut hash, facts);
+        }
         mix_u32(&mut hash, self.source_hit_victim_log.len() as u32);
-        for entry in &self.source_hit_victim_log {
+        for entry in self.source_hit_victim_log.iter() {
             mix_u32(&mut hash, entry.hitbox.attacker_index as u32);
             mix_optional_action_state_id(&mut hash, entry.hitbox.action_state_id);
             mix_optional_source_action_key(&mut hash, entry.hitbox.source_action_key);
@@ -7514,6 +7518,104 @@ const fn jump_input_id(input: MeleeJumpInput) -> u8 {
     }
 }
 
+fn mix_melee_input_facts(hash: &mut u64, facts: MeleeInputFacts) {
+    mix_i8_pair(hash, facts.lstick);
+    mix_i8_pair(hash, facts.cstick);
+    mix_u8(hash, facts.walk_direction as u8);
+    mix_u8(
+        hash,
+        match facts.walk_speed_bucket {
+            WalkSpeedBucket::None => 0,
+            WalkSpeedBucket::Slow => 1,
+            WalkSpeedBucket::Middle => 2,
+            WalkSpeedBucket::Fast => 3,
+        },
+    );
+    mix_u8(hash, facts.turn_direction as u8);
+    mix_i8_pair(hash, facts.tilt_direction);
+    mix_u8(hash, facts.horizontal_smash_direction as u8);
+    mix_u8(hash, facts.held_dash_x_direction as u8);
+    mix_u8(hash, facts.dash_direction as u8);
+    for value in [
+        facts.main_stick_spot_dodge,
+        facts.cstick_spot_dodge,
+        facts.crouch,
+        facts.tap_jump,
+        facts.button_jump_pressed,
+        facts.button_jump_held,
+        facts.cstick_jump,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+    mix_u8(hash, jump_input_id(facts.normal_jump_input));
+    mix_u8(hash, facts.normal_jump_pressed as u8);
+    mix_u8(hash, jump_input_id(facts.jump_input));
+    for value in [
+        facts.jump_pressed,
+        facts.fast_fall,
+        facts.lstick_jump_released,
+        facts.cstick_jump_released,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+    mix_u32(hash, facts.source_held.bits());
+    mix_u32(hash, facts.source_pressed.bits());
+    mix_u32(hash, facts.source_released.bits());
+    for value in [
+        facts.shield_held,
+        facts.shield_pressed,
+        facts.shield_released,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+    mix_u8(hash, facts.analog_shield);
+    for value in [
+        facts.analog_shield_pressed,
+        facts.digital_shield_held,
+        facts.digital_shield_pressed,
+        facts.air_dodge_pressed,
+        facts.spot_dodge,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+    mix_u8(hash, facts.roll_direction as u8);
+    for value in [
+        facts.left_trigger_analog_held,
+        facts.right_trigger_analog_held,
+        facts.left_trigger_analog_pressed,
+        facts.right_trigger_analog_pressed,
+        facts.left_trigger_digital_pressed,
+        facts.right_trigger_digital_pressed,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+    mix_i8_pair(hash, facts.cstick_direction);
+    mix_u8(hash, facts.attack_pressed as u8);
+    mix_u8(hash, facts.air_attack_pressed as u8);
+    mix_i8_pair(hash, facts.air_attack_direction);
+    mix_u8(hash, facts.special_pressed as u8);
+    mix_i8_pair(hash, facts.special_direction);
+    mix_i8_pair(hash, facts.air_special_direction);
+    mix_u8(hash, facts.grab_pressed as u8);
+    mix_u8(hash, facts.neutral_attack_pressed as u8);
+    mix_i8_pair(hash, facts.tilt_attack_direction);
+    mix_i8_pair(hash, facts.smash_attack_direction);
+    mix_i8_pair(hash, facts.cstick_smash_direction);
+    for value in [
+        facts.dpad_up,
+        facts.dpad_down,
+        facts.dpad_left,
+        facts.dpad_right,
+    ] {
+        mix_u8(hash, value as u8);
+    }
+}
+
+fn mix_i8_pair(hash: &mut u64, value: (i8, i8)) {
+    mix_u8(hash, value.0 as u8);
+    mix_u8(hash, value.1 as u8);
+}
+
 fn mix_u8(hash: &mut u64, value: u8) {
     *hash ^= value as u64;
     *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
@@ -8131,6 +8233,10 @@ mod tests {
         let expected_player = world.players()[0];
         let expected_checksum = world.checksum();
         let snapshot = world.rollback_snapshot();
+        assert!(Arc::ptr_eq(
+            &world.source_hit_victim_log,
+            &snapshot.source_hit_victim_log
+        ));
 
         world.players_mut()[0] = PlayerState::new(0, 0, 1);
         assert_ne!(world.checksum(), expected_checksum);
@@ -8138,6 +8244,18 @@ mod tests {
 
         assert_eq!(world.players()[0], expected_player);
         assert_eq!(world.checksum(), expected_checksum);
+    }
+
+    #[test]
+    fn checksum_covers_rollback_owned_last_input_facts() {
+        let mut world = World::for_two_players();
+        let before = world.checksum();
+        let mut facts = [MeleeInputFacts::default(); PLAYER_COUNT];
+        facts[0].attack_pressed = true;
+
+        world.set_last_input_facts(facts);
+
+        assert_ne!(world.checksum(), before);
     }
 
     #[test]

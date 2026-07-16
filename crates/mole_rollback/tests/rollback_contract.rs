@@ -142,6 +142,64 @@ fn confirmed_matching_prediction_does_not_resimulate() {
 }
 
 #[test]
+fn historical_checksum_is_available_only_after_all_inputs_are_confirmed() {
+    let remote = PlayerInput::neutral().with_left_stick(-64, 0);
+    let mut session = RollbackSession::new(World::for_two_players(), 32);
+
+    session.advance_with_prediction(Frame(0), [Some(PlayerInput::neutral()), Some(remote)]);
+    session.advance_with_prediction(Frame(1), [Some(PlayerInput::neutral()), None]);
+
+    assert!(session.historical_checksum(Frame(0)).is_some());
+    assert_eq!(session.historical_checksum(Frame(1)), None);
+
+    assert!(!session.confirm_input(Frame(1), 1, remote, Frame(2)));
+    assert!(session.historical_checksum(Frame(1)).is_some());
+}
+
+#[test]
+fn finalized_checksum_frontier_cannot_skip_an_earlier_prediction() {
+    let remote_zero = PlayerInput::neutral().with_left_stick(-64, 0);
+    let mut session = RollbackSession::new(World::for_two_players(), 32);
+
+    session.advance_with_prediction(Frame(0), [Some(PlayerInput::neutral()), None]);
+    session.advance_with_prediction(
+        Frame(1),
+        [Some(PlayerInput::neutral()), Some(PlayerInput::neutral())],
+    );
+
+    assert_eq!(session.historical_checksum(Frame(0)), None);
+    assert_eq!(session.historical_checksum(Frame(1)), None);
+    assert_eq!(session.latest_finalized_checksum(), None);
+
+    assert!(session.confirm_input(Frame(0), 1, remote_zero, Frame(2)));
+    assert!(session.historical_checksum(Frame(0)).is_some());
+    assert!(session.historical_checksum(Frame(1)).is_some());
+    assert_eq!(
+        session.latest_finalized_checksum().map(|(frame, _)| frame),
+        Some(Frame(1))
+    );
+}
+
+#[test]
+fn correction_rejects_an_incomplete_resimulation_interval_without_mutating_state() {
+    let mut session = RollbackSession::new(World::for_two_players(), 32);
+    session.advance(Frame(0), [PlayerInput::neutral(); 2]);
+    session.advance_with_prediction(Frame(1), [Some(PlayerInput::neutral()), None]);
+    let before = session.world().checksum();
+    let frame_one_checksum = session.historical_checksum(Frame(1));
+
+    assert!(!session.confirm_input(
+        Frame(1),
+        1,
+        PlayerInput::neutral().with_left_stick(127, 0),
+        Frame(4),
+    ));
+    assert_eq!(session.world().checksum(), before);
+    assert_eq!(session.historical_checksum(Frame(1)), frame_one_checksum);
+    assert_eq!(session.historical_checksum(Frame(2)), None);
+}
+
+#[test]
 fn corrected_remote_input_resimulates_to_no_delay_authoritative_checksum() {
     let local = PlayerInput::neutral().with_left_stick(64, 0);
     let predicted_remote = PlayerInput::neutral();
@@ -199,6 +257,60 @@ fn custom_step_function_is_used_for_prediction_and_resimulation() {
     assert!(session.confirm_input(Frame(1), 1, corrected, Frame(2)));
     assert_eq!(session.world().players()[1].damage_percent, 2.0);
     assert_ne!(session.world().checksum(), predicted_checksum);
+}
+
+#[test]
+fn authoritative_frame_records_are_bounded_and_reject_stale_checksum_lookups() {
+    let mut session = RollbackSession::new(World::for_two_players(), 2);
+
+    for frame in 0..3 {
+        session.advance(Frame(frame), [PlayerInput::neutral(); 2]);
+    }
+
+    assert_eq!(session.retained_frame_record_count(), 2);
+    assert_eq!(session.historical_checksum(Frame(0)), None);
+    assert!(session.historical_checksum(Frame(1)).is_some());
+    assert_eq!(
+        session.historical_checksum(Frame(2)),
+        Some(session.world().checksum())
+    );
+}
+
+#[test]
+fn correction_rebuilds_historical_checksums_with_the_configured_step_function() {
+    fn step_with_authoritative_marker(world: &mut World, frame: Frame, inputs: &[PlayerInput; 2]) {
+        step_world(world, frame, inputs);
+        let mut player = world.players()[0];
+        if inputs[1] != PlayerInput::neutral() {
+            player.damage_percent += 1.0;
+        }
+        assert!(world.set_player_state_for_diagnostic(0, player));
+    }
+
+    let initial = World::for_two_players();
+    let neutral = PlayerInput::neutral();
+    let corrected = neutral.with_left_stick(127, 0);
+    let mut authoritative = initial.clone();
+    let mut session = RollbackSession::new_with_step(initial, 8, step_with_authoritative_marker);
+
+    session.advance_with_prediction(Frame(0), [Some(neutral), Some(neutral)]);
+    session.advance_with_prediction(Frame(1), [Some(neutral), None]);
+    let predicted_frame_one = session.world().checksum();
+    assert_eq!(session.historical_checksum(Frame(1)), None);
+
+    step_with_authoritative_marker(&mut authoritative, Frame(0), &[neutral, neutral]);
+    step_with_authoritative_marker(&mut authoritative, Frame(1), &[neutral, corrected]);
+    assert!(session.confirm_input(Frame(1), 1, corrected, Frame(2)));
+
+    assert_ne!(
+        session.historical_checksum(Frame(1)),
+        Some(predicted_frame_one)
+    );
+    assert_eq!(
+        session.historical_checksum(Frame(1)),
+        Some(authoritative.checksum())
+    );
+    assert_eq!(session.world().checksum(), authoritative.checksum());
 }
 
 #[test]

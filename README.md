@@ -49,6 +49,12 @@ to `2` frames. The newest `8` future-stamped input frames are retransmitted
 each frame until ACKs allow old packets to drop.
 For diagnosis or tuning, the delay can be overridden with `--netplay-delay N`.
 
+Networking and controller capture run on an adaptive 60/120/180/240 Hz host
+cadence while authoritative gameplay remains exactly 60 Hz. Packets identify
+their finalized checksum frame separately from their delayed input frame and
+reject incompatible protocol, baked-data, or room fingerprints. A finalized
+checksum disagreement ends the session; it never repairs gameplay state.
+
 Supabase is only used for endpoint setup through the public publishable key;
 gameplay packets stay direct UDP.
 Windows may show a SmartScreen warning because this is an unsigned early test
@@ -87,6 +93,10 @@ frame-cap wait.
   records the first strict end-to-end fixture with no classified divergence.
   This is a scoped parity checkpoint, not a claim that every fighter, stage,
   or common action is complete.
+- [Rollback and host-cadence hardening milestone (2026-07-16)](docs/release_notes/2026-07-16-parity-rollback-completion.md)
+  records bounded seven-frame rollback, explicit finalized checksum identity,
+  compatibility rejection, adverse-network convergence, and adaptive host
+  scheduling without fractional gameplay frames.
 - Native Rust SDL3 runtime launches and runs the playable test shell.
 - WUP-028 GameCube adapter input is supported directly through the native path.
 - UCF-style controller preprocessing is enabled by default, with a vanilla
@@ -101,7 +111,8 @@ frame-cap wait.
 From the repository root:
 
 ```powershell
-cargo test --workspace
+cargo test -p mole_core --lib
+cargo test -p mole_rollback
 cargo run -p mole_runtime -- --frames 120
 ```
 

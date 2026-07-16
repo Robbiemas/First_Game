@@ -2,8 +2,30 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 
 use mole_core::{Frame, PlayerInput};
 use mole_transport::{
-    parse_stun_binding_response, InputPacket, InputPacketDatagram, PacketDecodeError, UdpTransport,
+    parse_stun_binding_response, CompatibilityFingerprint, InputPacket, InputPacketDatagram,
+    PacketDecodeError, UdpTransport, INPUT_PACKET_VERSION,
 };
+
+const FINGERPRINT: CompatibilityFingerprint = CompatibilityFingerprint::new(11, 22, 33);
+
+fn legacy_v2_packet_bytes(
+    frame: Frame,
+    player: u8,
+    input: PlayerInput,
+    checksum: u64,
+    sequence: u32,
+    ack_sequence: u32,
+) -> [u8; 30] {
+    let mut bytes = [0u8; 30];
+    bytes[0] = 2;
+    bytes[1..5].copy_from_slice(&frame.0.to_be_bytes());
+    bytes[5] = player;
+    bytes[6..14].copy_from_slice(&input.bits().to_be_bytes());
+    bytes[14..22].copy_from_slice(&checksum.to_be_bytes());
+    bytes[22..26].copy_from_slice(&sequence.to_be_bytes());
+    bytes[26..30].copy_from_slice(&ack_sequence.to_be_bytes());
+    bytes
+}
 
 #[test]
 fn input_packet_round_trips_through_wire_bytes() {
@@ -14,12 +36,49 @@ fn input_packet_round_trips_through_wire_bytes() {
             .with_left_stick(64, 0)
             .with_attack(true),
         0xfeed_beef_dead_cafe,
-    );
+    )
+    .with_checksum_frame(Frame(39))
+    .with_compatibility_fingerprint(FINGERPRINT);
 
     let bytes = packet.to_wire_bytes();
     let decoded = InputPacket::from_wire_bytes(&bytes).expect("packet should decode");
 
     assert_eq!(decoded, packet);
+    assert_eq!(decoded.checksum_frame, Frame(39));
+    assert_ne!(decoded.checksum_frame, decoded.frame);
+    assert_eq!(decoded.compatibility, FINGERPRINT);
+}
+
+#[test]
+fn current_packet_rejects_unknown_fingerprint_version() {
+    let packet = InputPacket::new(Frame(42), 1, PlayerInput::neutral(), 7)
+        .with_compatibility_fingerprint(FINGERPRINT);
+    let mut bytes = packet.to_wire_bytes();
+    bytes[6] = 99;
+
+    assert_eq!(
+        InputPacket::from_wire_bytes(&bytes),
+        Err(PacketDecodeError::UnsupportedFingerprintVersion(99))
+    );
+}
+
+#[test]
+fn legacy_v2_packet_decodes_but_retains_legacy_identity() {
+    let mut bytes = [0u8; 30];
+    bytes[0] = 2;
+    bytes[1..5].copy_from_slice(&42u32.to_be_bytes());
+    bytes[5] = 1;
+    bytes[6..14].copy_from_slice(&PlayerInput::neutral().bits().to_be_bytes());
+    bytes[14..22].copy_from_slice(&7u64.to_be_bytes());
+    bytes[22..26].copy_from_slice(&42u32.to_be_bytes());
+    bytes[26..30].copy_from_slice(&40u32.to_be_bytes());
+
+    let decoded = InputPacket::from_wire_bytes(&bytes).expect("legacy v2 should remain decodable");
+
+    assert_eq!(decoded.version, 2);
+    assert_ne!(decoded.version, INPUT_PACKET_VERSION);
+    assert_eq!(decoded.checksum_frame, Frame(42));
+    assert_eq!(decoded.compatibility, CompatibilityFingerprint::legacy());
 }
 
 #[test]
@@ -71,6 +130,25 @@ fn input_packet_datagram_decodes_legacy_single_packet() {
         .expect("legacy packet should decode as a datagram");
 
     assert_eq!(decoded.packets(), &[packet]);
+}
+
+#[test]
+fn input_packet_datagram_decodes_legacy_v3_bundle_despite_current_packet_v3() {
+    let first = legacy_v2_packet_bytes(Frame(8), 1, PlayerInput::neutral(), 0x808, 8, 7);
+    let second = legacy_v2_packet_bytes(Frame(7), 1, PlayerInput::neutral(), 0x707, 7, 6);
+    let mut bytes = vec![3, 2];
+    bytes.extend_from_slice(&first[1..]);
+    bytes.extend_from_slice(&second[1..]);
+
+    let decoded = InputPacketDatagram::from_wire_bytes(&bytes).unwrap();
+
+    assert_eq!(decoded.packets().len(), 2);
+    assert_eq!(decoded.packets()[0].frame, Frame(8));
+    assert_eq!(decoded.packets()[1].frame, Frame(7));
+    assert_eq!(
+        decoded.packets()[0].compatibility,
+        CompatibilityFingerprint::legacy()
+    );
 }
 
 #[test]

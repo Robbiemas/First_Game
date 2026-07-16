@@ -32,7 +32,7 @@ use mole_core::{
     WorldSnapshot, SOURCE_COLLISION_STATE_NORMAL, TICK_NANOS,
 };
 use mole_replay::{ReplayFrame, ReplayLog};
-use mole_transport::{InputPacket, PacketAcceptResult};
+use mole_transport::{CompatibilityFingerprint, InputPacket, PacketAcceptResult};
 
 pub mod assets;
 pub use assets::{
@@ -128,6 +128,206 @@ pub fn visual_platform_ledge_probe_world() -> World {
 
     step_world_with_source_collisions(&mut world, Frame(0), &[PlayerInput::neutral(); 2]);
     world
+}
+
+pub fn netplay_compatibility_fingerprint(session_key: &str) -> CompatibilityFingerprint {
+    static ARTIFACT_FINGERPRINT: OnceLock<u64> = OnceLock::new();
+    let artifact = *ARTIFACT_FINGERPRINT.get_or_init(|| {
+        stable_fingerprint([
+            source_frame_data::SOURCE_MANIFEST_JSON.as_bytes(),
+            source_frame_data::SOURCE_FRAME_CAPSULES_BYTES,
+        ])
+    });
+    CompatibilityFingerprint::new(
+        stable_fingerprint([
+            env!("CARGO_PKG_VERSION").as_bytes(),
+            env!("MOLE_BUILD_FINGERPRINT").as_bytes(),
+        ]),
+        artifact,
+        stable_fingerprint([session_key.as_bytes()]),
+    )
+}
+
+fn stable_fingerprint<'a>(parts: impl IntoIterator<Item = &'a [u8]>) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for part in parts {
+        for byte in part {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    hash
+}
+
+/// The number of host passes performed for each authoritative 60 Hz game frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[repr(u8)]
+pub enum HostCadence {
+    Hz60 = 1,
+    Hz120 = 2,
+    Hz180 = 3,
+    Hz240 = 4,
+}
+
+impl HostCadence {
+    pub const fn multiplier(self) -> u8 {
+        self as u8
+    }
+
+    pub const fn hertz(self) -> u16 {
+        60 * self.multiplier() as u16
+    }
+}
+
+/// Selects a host-pass cadence without changing the authoritative 60 Hz simulation rate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostCadenceResolver {
+    cadence: HostCadence,
+    promotion_samples: u16,
+}
+
+impl HostCadenceResolver {
+    /// Clean samples required before promoting by one 60 Hz multiple.
+    pub const PROMOTION_SAMPLES: u16 = 120;
+
+    pub const fn new(cadence: HostCadence) -> Self {
+        Self {
+            cadence,
+            promotion_samples: 0,
+        }
+    }
+
+    pub const fn cadence(&self) -> HostCadence {
+        self.cadence
+    }
+
+    /// Records one host pass and returns the cadence selected for subsequent passes.
+    pub fn observe_host_pass(
+        &mut self,
+        work_duration: std::time::Duration,
+        deadline_missed: bool,
+    ) -> HostCadence {
+        let sustainable = sustainable_host_cadence(work_duration);
+
+        if sustainable.multiplier() < self.cadence.multiplier() {
+            self.cadence = sustainable;
+            self.promotion_samples = 0;
+        } else if deadline_missed {
+            self.cadence = previous_host_cadence(self.cadence);
+            self.promotion_samples = 0;
+        } else if sustainable.multiplier() > self.cadence.multiplier() {
+            self.promotion_samples = self.promotion_samples.saturating_add(1);
+            if self.promotion_samples >= Self::PROMOTION_SAMPLES {
+                self.cadence = next_host_cadence(self.cadence);
+                self.promotion_samples = 0;
+            }
+        } else {
+            self.promotion_samples = 0;
+        }
+
+        self.cadence
+    }
+}
+
+fn sustainable_host_cadence(work_duration: std::time::Duration) -> HostCadence {
+    let work_nanos = work_duration.as_nanos();
+    for cadence in [HostCadence::Hz240, HostCadence::Hz180, HostCadence::Hz120] {
+        let period_nanos = 1_000_000_000u128 / u128::from(cadence.hertz());
+        if work_nanos.saturating_mul(5) <= period_nanos.saturating_mul(4) {
+            return cadence;
+        }
+    }
+    HostCadence::Hz60
+}
+
+const fn previous_host_cadence(cadence: HostCadence) -> HostCadence {
+    match cadence {
+        HostCadence::Hz60 => HostCadence::Hz60,
+        HostCadence::Hz120 => HostCadence::Hz60,
+        HostCadence::Hz180 => HostCadence::Hz120,
+        HostCadence::Hz240 => HostCadence::Hz180,
+    }
+}
+
+const fn next_host_cadence(cadence: HostCadence) -> HostCadence {
+    match cadence {
+        HostCadence::Hz60 => HostCadence::Hz120,
+        HostCadence::Hz120 => HostCadence::Hz180,
+        HostCadence::Hz180 | HostCadence::Hz240 => HostCadence::Hz240,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+pub struct HostPassId(pub u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HostPass {
+    id: HostPassId,
+    simulation_frame: Option<Frame>,
+}
+
+impl HostPass {
+    pub const fn id(self) -> HostPassId {
+        self.id
+    }
+
+    /// Returns a frame only when this host pass reaches a 60 Hz simulation boundary.
+    pub const fn simulation_frame(self) -> Option<Frame> {
+        self.simulation_frame
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostCadenceClock {
+    cadence: HostCadence,
+    next_host_pass: u64,
+    next_simulation_frame: u32,
+    passes_until_simulation: u8,
+}
+
+impl HostCadenceClock {
+    pub const fn new(cadence: HostCadence) -> Self {
+        Self {
+            cadence,
+            next_host_pass: 0,
+            next_simulation_frame: 0,
+            passes_until_simulation: cadence.multiplier(),
+        }
+    }
+
+    pub const fn cadence(&self) -> HostCadence {
+        self.cadence
+    }
+
+    pub fn set_cadence_at_simulation_boundary(&mut self, cadence: HostCadence) {
+        assert_eq!(
+            self.passes_until_simulation,
+            self.cadence.multiplier(),
+            "host cadence may change only immediately after a simulation boundary"
+        );
+        self.cadence = cadence;
+        self.passes_until_simulation = cadence.multiplier();
+    }
+
+    pub fn advance(&mut self) -> HostPass {
+        let id = HostPassId(self.next_host_pass);
+        self.next_host_pass = self.next_host_pass.saturating_add(1);
+        self.passes_until_simulation -= 1;
+
+        let simulation_frame = if self.passes_until_simulation == 0 {
+            let frame = Frame(self.next_simulation_frame);
+            self.next_simulation_frame = self.next_simulation_frame.saturating_add(1);
+            self.passes_until_simulation = self.cadence.multiplier();
+            Some(frame)
+        } else {
+            None
+        };
+
+        HostPass {
+            id,
+            simulation_frame,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3379,7 +3579,32 @@ struct RuntimeSourceAction {
     script_events: Vec<RuntimeSourceActionScriptEvent>,
 }
 
-static RUNTIME_SOURCE_ACTION_CACHE: OnceLock<Result<Vec<RuntimeSourceAction>, String>> =
+struct RuntimeSourceActionCache {
+    actions: Vec<RuntimeSourceAction>,
+    index: Vec<(SourceActionKey, usize)>,
+}
+
+impl RuntimeSourceActionCache {
+    fn new(actions: Vec<RuntimeSourceAction>) -> Self {
+        let mut index = actions
+            .iter()
+            .enumerate()
+            .map(|(index, action)| (action.source_action_key, index))
+            .collect::<Vec<_>>();
+        index.sort_unstable_by_key(|(key, _)| *key);
+        Self { actions, index }
+    }
+
+    fn action(&self, source_action_key: SourceActionKey) -> Option<&RuntimeSourceAction> {
+        let index = self
+            .index
+            .binary_search_by_key(&source_action_key, |(key, _)| *key)
+            .ok()?;
+        self.actions.get(self.index[index].1)
+    }
+}
+
+static RUNTIME_SOURCE_ACTION_CACHE: OnceLock<Result<RuntimeSourceActionCache, String>> =
     OnceLock::new();
 
 fn runtime_source_frame_capsules_ref(
@@ -3389,13 +3614,7 @@ fn runtime_source_frame_capsules_ref(
     let Some(source_action_key) = source_action_key else {
         return None;
     };
-    let Ok(cache) = runtime_source_actions() else {
-        return None;
-    };
-    cache
-        .iter()
-        .find(|action| action.source_action_key == source_action_key)
-        .and_then(|action| action.frame(source_frame))
+    runtime_source_action(source_action_key).and_then(|action| action.frame(source_frame))
 }
 
 fn runtime_source_action_total_frames_for_action_state_id(
@@ -3510,26 +3729,14 @@ fn normalize_source_frame(source_frame: u8, total_frames: u8, loops: bool) -> u8
 }
 
 fn runtime_source_action_loops(source_action_key: SourceActionKey) -> bool {
-    runtime_source_actions()
-        .ok()
-        .and_then(|actions| {
-            actions
-                .iter()
-                .find(|action| action.source_action_key == source_action_key)
-                .map(|action| action.loops)
-        })
+    runtime_source_action(source_action_key)
+        .map(|action| action.loops)
         .unwrap_or(false)
 }
 
 fn runtime_source_action_clears_transn_after_sampling(source_action_key: SourceActionKey) -> bool {
-    runtime_source_actions()
-        .ok()
-        .and_then(|actions| {
-            actions
-                .iter()
-                .find(|action| action.source_action_key == source_action_key)
-                .map(|action| action.clears_transn_after_sampling)
-        })
+    runtime_source_action(source_action_key)
+        .map(|action| action.clears_transn_after_sampling)
         .unwrap_or(false)
 }
 
@@ -3538,11 +3745,7 @@ fn runtime_source_live_pose(
     anim_frame: f32,
 ) -> Option<RuntimeSourceLivePoseSample> {
     let source_action_key = source_action_key?;
-    let cache = runtime_source_actions().ok()?;
-    cache
-        .iter()
-        .find(|action| action.source_action_key == source_action_key)?
-        .sample_live_pose(anim_frame)
+    runtime_source_action(source_action_key)?.sample_live_pose(anim_frame)
 }
 
 fn runtime_source_live_hurt_capsules(
@@ -3550,11 +3753,7 @@ fn runtime_source_live_hurt_capsules(
     anim_frame: f32,
 ) -> Option<Vec<RuntimeSourceCapsule>> {
     let source_action_key = source_action_key?;
-    let cache = runtime_source_actions().ok()?;
-    cache
-        .iter()
-        .find(|action| action.source_action_key == source_action_key)?
-        .sample_live_hurt_capsules(anim_frame)
+    runtime_source_action(source_action_key)?.sample_live_hurt_capsules(anim_frame)
 }
 
 fn runtime_source_down_bound_pose_from_live_sample(
@@ -3589,13 +3788,7 @@ fn runtime_source_script_events(
     let Some(source_action_key) = source_action_key else {
         return SourceActionScriptEvents::empty();
     };
-    let Ok(cache) = runtime_source_actions() else {
-        return SourceActionScriptEvents::empty();
-    };
-    let Some(action) = cache
-        .iter()
-        .find(|action| action.source_action_key == source_action_key)
-    else {
+    let Some(action) = runtime_source_action(source_action_key) else {
         return SourceActionScriptEvents::empty();
     };
     let mut events = SourceActionScriptEvents::empty();
@@ -3608,16 +3801,26 @@ fn runtime_source_script_events(
 }
 
 fn runtime_source_action_total_frames(source_action_key: SourceActionKey) -> Option<u8> {
-    let cache = runtime_source_actions().ok()?;
-    cache
-        .iter()
-        .find(|action| action.source_action_key == source_action_key)
-        .map(|action| action.total_frames)
+    runtime_source_action(source_action_key).map(|action| action.total_frames)
 }
 
 fn runtime_source_actions() -> Result<&'static Vec<RuntimeSourceAction>, String> {
-    match RUNTIME_SOURCE_ACTION_CACHE.get_or_init(load_all_runtime_source_actions) {
-        Ok(actions) => Ok(actions),
+    runtime_source_action_cache().map(|cache| &cache.actions)
+}
+
+fn runtime_source_action(
+    source_action_key: SourceActionKey,
+) -> Option<&'static RuntimeSourceAction> {
+    runtime_source_action_cache()
+        .ok()?
+        .action(source_action_key)
+}
+
+fn runtime_source_action_cache() -> Result<&'static RuntimeSourceActionCache, String> {
+    match RUNTIME_SOURCE_ACTION_CACHE
+        .get_or_init(|| load_all_runtime_source_actions().map(RuntimeSourceActionCache::new))
+    {
+        Ok(cache) => Ok(cache),
         Err(error) => Err(error.clone()),
     }
 }
@@ -4262,6 +4465,8 @@ pub struct UdpRuntimeStats {
     pub received_packets: u32,
     pub duplicate_packets: u32,
     pub unsupported_packets: u32,
+    pub incompatible_packets: u32,
+    pub stale_packets: u32,
     pub missing_remote_frames: u32,
     pub rollback_corrections: u32,
     pub last_remote_frame: Option<Frame>,
@@ -4313,6 +4518,12 @@ impl UdpRuntimeStats {
             PacketAcceptResult::UnsupportedVersion => {
                 self.unsupported_packets = self.unsupported_packets.saturating_add(1);
             }
+            PacketAcceptResult::IncompatibleSession => {
+                self.incompatible_packets = self.incompatible_packets.saturating_add(1);
+            }
+            PacketAcceptResult::OutsideRollbackHorizon => {
+                self.stale_packets = self.stale_packets.saturating_add(1);
+            }
         }
     }
 
@@ -4338,6 +4549,43 @@ fn optional_arg(args: &[String], flag: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn netplay_fingerprint_is_stable_and_session_specific() {
+        let first = netplay_compatibility_fingerprint("ROOM-A");
+        let same = netplay_compatibility_fingerprint("ROOM-A");
+        let other_session = netplay_compatibility_fingerprint("ROOM-B");
+
+        assert_eq!(first, same);
+        assert_ne!(first.build, 0);
+        assert_ne!(first.artifact, 0);
+        assert_ne!(first.session, other_session.session);
+        assert_eq!(first.build, other_session.build);
+        assert_eq!(first.artifact, other_session.artifact);
+    }
+
+    #[test]
+    fn runtime_source_action_index_returns_every_action() {
+        let cache = runtime_source_action_cache().expect("runtime source actions must load");
+
+        for action in &cache.actions {
+            assert!(std::ptr::eq(
+                cache
+                    .action(action.source_action_key)
+                    .expect("every cached action must be indexed"),
+                action,
+            ));
+        }
+    }
+
+    #[test]
+    fn runtime_source_action_index_rejects_unknown_keys() {
+        let cache = runtime_source_action_cache().expect("runtime source actions must load");
+
+        assert!(cache
+            .action(SourceActionKey::new("UnknownRuntimeSourceAction"))
+            .is_none());
+    }
 
     #[test]
     fn cliff_catch_runtime_metadata_carries_global_collision_state() {

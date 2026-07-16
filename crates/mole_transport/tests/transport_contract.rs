@@ -1,9 +1,11 @@
 use mole_core::{Frame, PlayerInput};
 use mole_transport::{
-    InputPacket, InputPacketInbox, LoopbackTransport, PacketAcceptResult, Transport,
-    TransportTimingComparison, TransportTimingProfile, TransportTimingVerdict,
+    CompatibilityFingerprint, InputPacket, InputPacketInbox, LoopbackTransport, PacketAcceptResult,
+    Transport, TransportTimingComparison, TransportTimingProfile, TransportTimingVerdict,
     INPUT_PACKET_VERSION,
 };
+
+const SESSION: CompatibilityFingerprint = CompatibilityFingerprint::new(101, 202, 303);
 
 #[test]
 fn loopback_transport_delivers_input_packets() {
@@ -82,6 +84,67 @@ fn packet_inbox_exposes_dropped_frames_as_missing() {
 
     assert_eq!(inbox.input(Frame(4), 0), Some(PlayerInput::neutral()));
     assert_eq!(inbox.input(Frame(5), 0), None);
+}
+
+#[test]
+fn packet_inbox_rejects_incompatible_current_sessions() {
+    let mut inbox = InputPacketInbox::with_rollback_horizon(8, SESSION);
+    let incompatible = InputPacket::new(Frame(4), 0, PlayerInput::neutral(), 44)
+        .with_compatibility_fingerprint(CompatibilityFingerprint::new(101, 999, 303));
+
+    assert_eq!(
+        inbox.accept(incompatible),
+        PacketAcceptResult::IncompatibleSession
+    );
+    assert_eq!(inbox.input(Frame(4), 0), None);
+}
+
+#[test]
+fn packet_inbox_rejects_decoded_legacy_packets_from_current_sessions() {
+    let mut inbox = InputPacketInbox::with_rollback_horizon(8, SESSION);
+    let mut legacy = InputPacket::new(Frame(4), 0, PlayerInput::neutral(), 44)
+        .with_compatibility_fingerprint(SESSION);
+    legacy.version = 2;
+
+    assert_eq!(inbox.accept(legacy), PacketAcceptResult::UnsupportedVersion);
+}
+
+#[test]
+fn packet_inbox_remains_bounded_during_long_sessions() {
+    let horizon = 12;
+    let mut inbox = InputPacketInbox::with_rollback_horizon(horizon, SESSION);
+
+    for frame in 0..100_000 {
+        for player in 0..2 {
+            let packet =
+                InputPacket::new(Frame(frame), player, PlayerInput::neutral(), frame as u64)
+                    .with_checksum_frame(Frame(frame.saturating_sub(1)))
+                    .with_compatibility_fingerprint(SESSION);
+            assert_eq!(inbox.accept(packet), PacketAcceptResult::Accepted);
+        }
+        assert!(inbox.len() <= ((horizon + 1) * 2) as usize);
+    }
+
+    assert_eq!(
+        inbox.input(Frame(99_999 - horizon), 0),
+        Some(PlayerInput::neutral())
+    );
+    assert_eq!(inbox.input(Frame(99_999 - horizon - 1), 0), None);
+}
+
+#[test]
+fn packet_inbox_rejects_packets_older_than_rollback_horizon() {
+    let mut inbox = InputPacketInbox::with_rollback_horizon(4, SESSION);
+    let newest = InputPacket::new(Frame(10), 0, PlayerInput::neutral(), 10)
+        .with_compatibility_fingerprint(SESSION);
+    let stale = InputPacket::new(Frame(5), 0, PlayerInput::neutral(), 5)
+        .with_compatibility_fingerprint(SESSION);
+
+    assert_eq!(inbox.accept(newest), PacketAcceptResult::Accepted);
+    assert_eq!(
+        inbox.accept(stale),
+        PacketAcceptResult::OutsideRollbackHorizon
+    );
 }
 
 #[test]

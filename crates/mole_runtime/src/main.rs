@@ -1,5 +1,5 @@
 #[cfg(all(feature = "sdl", feature = "wup"))]
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
@@ -21,7 +21,7 @@ use mole_core::{Frame, PlayerInput};
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use mole_rollback::{RollbackSession, SlippiDelayedInput, SlippiInputDelayBuffer};
 #[cfg(all(feature = "sdl", feature = "wup"))]
-use mole_transport::InputPacketDatagram;
+use mole_transport::{CompatibilityFingerprint, InputPacketDatagram, NO_CHECKSUM_FRAME};
 use mole_transport::{InputPacket, InputPacketInbox, UdpTransport};
 
 #[cfg(feature = "sdl")]
@@ -635,6 +635,8 @@ struct ConnectedFriendGame {
     time_sync: FriendConnectTimeSync,
     seeded_initial_delay_pads: bool,
     recent_local_packets: VecDeque<InputPacket>,
+    compatibility: CompatibilityFingerprint,
+    remote_checksums: FriendChecksumTracker,
     player_index: u8,
     remote_player: u8,
     lobby_room_code: String,
@@ -644,6 +646,68 @@ struct ConnectedFriendGame {
     start_receiver: mpsc::Receiver<Result<String, String>>,
     start_broadcast_receiver: Option<mpsc::Receiver<Result<(), String>>>,
     start_error: Option<String>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+#[derive(Debug, Default)]
+struct FriendChecksumTracker {
+    pending: BTreeMap<Frame, u64>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+impl FriendChecksumTracker {
+    fn record(&mut self, packet: InputPacket) -> Result<(), String> {
+        if !packet.has_checksum() {
+            return Ok(());
+        }
+        if packet.checksum_frame > packet.frame {
+            return Err(format!(
+                "friend connect checksum frame {} is newer than input frame {}",
+                packet.checksum_frame.0, packet.frame.0
+            ));
+        }
+        if let Some(previous) = self.pending.insert(packet.checksum_frame, packet.checksum) {
+            if previous != packet.checksum {
+                return Err(format!(
+                    "friend connect received conflicting checksums for frame {}",
+                    packet.checksum_frame.0
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate(&mut self, session: &RollbackSession) -> Result<(), String> {
+        let mut validated = Vec::new();
+        for (&frame, &remote_checksum) in &self.pending {
+            if let Some(local_checksum) = session.historical_checksum(frame) {
+                if local_checksum != remote_checksum {
+                    return Err(format!(
+                        "friend connect checksum mismatch at frame {}: local={} remote={}",
+                        frame.0, local_checksum, remote_checksum
+                    ));
+                }
+                validated.push(frame);
+                continue;
+            }
+            if session
+                .retained_frame_range()
+                .is_some_and(|(oldest, _)| frame < oldest)
+            {
+                return Err(format!(
+                    "friend connect checksum frame {} expired before validation",
+                    frame.0
+                ));
+            }
+        }
+        for frame in validated {
+            self.pending.remove(&frame);
+        }
+        if self.pending.len() > (FRIEND_CONNECT_ROLLBACK_MAX_FRAMES as usize + 1) {
+            return Err("friend connect checksum validation exceeded rollback horizon".to_string());
+        }
+        Ok(())
+    }
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -1173,35 +1237,52 @@ fn run_friend_connect_headless_peer(config: HeadlessFriendPeerConfig) -> Result<
             .with_peer_id(&local_peer_id),
     );
 
-    let mut inbox = InputPacketInbox::default();
+    let compatibility =
+        friend_connect_compatibility_fingerprint(&config.host_code, config.netplay_delay_frames);
+    let mut inbox = InputPacketInbox::with_rollback_horizon(
+        friend_connect_packet_horizon(config.netplay_delay_frames),
+        compatibility,
+    );
     let mut stats = mole_runtime::UdpRuntimeStats::default();
     let mut session = friend_connect_rollback_session();
+    let mut remote_checksums = FriendChecksumTracker::default();
     let mut local_input_delay = SlippiInputDelayBuffer::new(config.netplay_delay_frames);
     let mut time_sync = FriendConnectTimeSync::new(Instant::now());
     let mut seeded_initial_delay_pads = false;
     let mut recent_local_packets = VecDeque::new();
     let frame_budget = frame_pacing_budget_duration();
-    let mut next_frame_deadline = Instant::now() + frame_budget;
+    let mut host_cadence = FriendHostCadence::new();
+    let mut next_host_deadline =
+        Instant::now() + host_cadence.host_budget(frame_budget, time_sync.speed_parts_per_million);
     let mut match_frame = Frame(0);
+    let mut host_pass_count = 0u64;
 
-    for frame_tick in 0..config.frames {
+    while match_frame.0 < config.frames {
+        let host_pass_start = Instant::now();
         drain_friend_udp_packets_from(
             &transport,
             &mut inbox,
             &mut stats,
             &mut session,
+            &mut remote_checksums,
             &mut time_sync,
             config.remote_player,
             match_frame,
         )?;
-        if time_sync.should_skip_online_frame(match_frame, stats.last_remote_frame) {
+        host_cadence.capture_input(headless_friend_peer_local_input(match_frame));
+        let simulation_boundary = host_cadence.advance_host_pass();
+        let mut simulation_committed = false;
+        let mut advance_online_frame = false;
+        if simulation_boundary
+            && time_sync.should_skip_online_frame(match_frame, stats.last_remote_frame)
+        {
             resend_friend_recent_input_packets_to(
                 &transport,
                 &mut stats,
                 &mut time_sync,
                 &recent_local_packets,
             )?;
-            if frame_tick % FRIEND_CONNECT_NETPLAY_SUMMARY_INTERVAL == 0 {
+            if host_pass_count % u64::from(FRIEND_CONNECT_NETPLAY_SUMMARY_INTERVAL) == 0 {
                 let latest_remote = stats
                     .last_remote_frame
                     .map(|frame| frame.0.to_string())
@@ -1213,7 +1294,8 @@ fn run_friend_connect_headless_peer(config: HeadlessFriendPeerConfig) -> Result<
                     config.netplay_delay_frames,
                 );
                 println!(
-                    "{status} latest_remote={} sent={} recv={} rb={}",
+                    "{status} host={}HZ latest_remote={} sent={} recv={} rb={}",
+                    host_cadence.hertz(),
                     latest_remote,
                     stats.sent_packets,
                     stats.received_packets,
@@ -1234,101 +1316,104 @@ fn run_friend_connect_headless_peer(config: HeadlessFriendPeerConfig) -> Result<
                         .with_pacing(time_sync.speed_parts_per_million, false, true),
                 );
             }
-            wait_until_frame_deadline(next_frame_deadline);
-            next_frame_deadline += friend_connect_frame_budget_for_speed(
-                frame_budget,
-                time_sync.speed_parts_per_million,
-            );
-            continue;
-        }
-        let local_plan = friend_connect_stage_local_input(
-            &mut local_input_delay,
-            match_frame,
-            headless_friend_peer_local_input(match_frame),
-        );
-        let local_input = local_plan.current_frame_input;
-        let remote_input = inbox.input(match_frame, config.remote_player);
-        if remote_input.is_none() {
-            stats.record_missing_remote_frame();
-        }
-        let mut frame_inputs = [None, None];
-        frame_inputs[config.player_index as usize] = Some(local_input);
-        frame_inputs[config.remote_player as usize] = remote_input;
-        session.advance_with_prediction(match_frame, frame_inputs);
-        let checksum = session.world().checksum();
-        let local_packet = friend_connect_local_input_packet(
-            local_plan,
-            config.player_index,
-            checksum,
-            stats.last_remote_sequence.unwrap_or(0),
-        );
-        send_friend_recent_input_packets_to(
-            &transport,
-            &mut stats,
-            &mut time_sync,
-            &mut seeded_initial_delay_pads,
-            &mut recent_local_packets,
-            config.netplay_delay_frames,
-            local_packet,
-        )?;
-
-        let pacing_decision = time_sync.advance_pacing_for_frame(match_frame);
-        if match_frame.0 % FRIEND_CONNECT_NETPLAY_SUMMARY_INTERVAL == 0 {
-            let status = headless_friend_peer_status(
-                "RUNNING",
-                &config.host_code,
+        } else if simulation_boundary {
+            let local_plan = friend_connect_stage_local_input(
+                &mut local_input_delay,
                 match_frame,
+                host_cadence.boundary_input(),
+            );
+            let local_input = local_plan.current_frame_input;
+            let remote_input = inbox.input(match_frame, config.remote_player);
+            if remote_input.is_none() {
+                stats.record_missing_remote_frame();
+            }
+            let mut frame_inputs = [None, None];
+            frame_inputs[config.player_index as usize] = Some(local_input);
+            frame_inputs[config.remote_player as usize] = remote_input;
+            session.advance_with_prediction(match_frame, frame_inputs);
+            let checksum = session.world().checksum();
+            let local_packet = friend_connect_local_input_packet(
+                local_plan,
+                config.player_index,
+                session.latest_finalized_checksum(),
+                stats.last_remote_sequence.unwrap_or(0),
+                compatibility,
+            );
+            send_friend_recent_input_packets_to(
+                &transport,
+                &mut stats,
+                &mut time_sync,
+                &mut seeded_initial_delay_pads,
+                &mut recent_local_packets,
                 config.netplay_delay_frames,
-            );
-            println!(
-                "{status} sent={} recv={} miss={} rb={} rtt={}",
-                stats.sent_packets,
-                stats.received_packets,
-                stats.missing_remote_frames,
-                stats.rollback_corrections,
-                stats
-                    .last_rtt_frames
-                    .map(|rtt| format!("{rtt}F"))
-                    .unwrap_or_else(|| "NONE".to_string())
-            );
-            write_friend_netplay_log(
-                &mut logger,
-                NetplayLogEvent::new(NetplayLogRole::HeadlessPeer, "frame_summary")
-                    .with_room_code(&config.host_code)
-                    .with_peer_id(&local_peer_id)
-                    .with_frame(match_frame)
-                    .with_netplay_stats(&stats)
-                    .with_world_checksum(checksum)
-                    .with_packet_bundle_len(
-                        friend_connect_recent_input_retransmit_packets(&recent_local_packets).len()
-                            as u32,
-                    )
-                    .with_pacing(
-                        pacing_decision.speed_parts_per_million,
-                        pacing_decision.advance_online_frame,
-                        false,
-                    )
-                    .with_message(&format!(
-                        "sent={} recv={} dup={} miss={} rb={} checksum={}",
-                        stats.sent_packets,
-                        stats.received_packets,
-                        stats.duplicate_packets,
-                        stats.missing_remote_frames,
-                        stats.rollback_corrections,
-                        checksum
-                    )),
-            );
+                local_packet,
+            )?;
+
+            let pacing_decision = time_sync.advance_pacing_for_frame(match_frame);
+            advance_online_frame = pacing_decision.advance_online_frame;
+            if match_frame.0 % FRIEND_CONNECT_NETPLAY_SUMMARY_INTERVAL == 0 {
+                let status = headless_friend_peer_status(
+                    "RUNNING",
+                    &config.host_code,
+                    match_frame,
+                    config.netplay_delay_frames,
+                );
+                println!(
+                    "{status} host={}HZ sent={} recv={} miss={} rb={} rtt={}",
+                    host_cadence.hertz(),
+                    stats.sent_packets,
+                    stats.received_packets,
+                    stats.missing_remote_frames,
+                    stats.rollback_corrections,
+                    stats
+                        .last_rtt_frames
+                        .map(|rtt| format!("{rtt}F"))
+                        .unwrap_or_else(|| "NONE".to_string())
+                );
+                write_friend_netplay_log(
+                    &mut logger,
+                    NetplayLogEvent::new(NetplayLogRole::HeadlessPeer, "frame_summary")
+                        .with_room_code(&config.host_code)
+                        .with_peer_id(&local_peer_id)
+                        .with_frame(match_frame)
+                        .with_netplay_stats(&stats)
+                        .with_world_checksum(checksum)
+                        .with_packet_bundle_len(
+                            friend_connect_recent_input_retransmit_packets(&recent_local_packets)
+                                .len() as u32,
+                        )
+                        .with_pacing(
+                            pacing_decision.speed_parts_per_million,
+                            pacing_decision.advance_online_frame,
+                            false,
+                        )
+                        .with_message(&format!(
+                            "sent={} recv={} dup={} miss={} rb={} checksum={}",
+                            stats.sent_packets,
+                            stats.received_packets,
+                            stats.duplicate_packets,
+                            stats.missing_remote_frames,
+                            stats.rollback_corrections,
+                            checksum
+                        )),
+                );
+            }
+            match_frame = Frame(match_frame.0.saturating_add(1));
+            simulation_committed = true;
         }
 
-        match_frame = Frame(match_frame.0.saturating_add(1));
-        if pacing_decision.advance_online_frame {
-            next_frame_deadline = Instant::now();
+        let deadline_missed = Instant::now() > next_host_deadline;
+        host_cadence.observe_host_pass(host_pass_start.elapsed(), deadline_missed);
+        if simulation_committed {
+            host_cadence.commit_simulation_boundary();
         }
-        wait_until_frame_deadline(next_frame_deadline);
-        next_frame_deadline += friend_connect_frame_budget_for_speed(
-            frame_budget,
-            pacing_decision.speed_parts_per_million,
-        );
+        if advance_online_frame {
+            next_host_deadline = Instant::now();
+        }
+        wait_until_frame_deadline(next_host_deadline);
+        next_host_deadline +=
+            host_cadence.host_budget(frame_budget, time_sync.speed_parts_per_million);
+        host_pass_count = host_pass_count.saturating_add(1);
     }
 
     Ok(())
@@ -1343,9 +1428,24 @@ fn headless_friend_peer_local_input(_frame: Frame) -> PlayerInput {
 fn friend_connect_rollback_session() -> RollbackSession {
     RollbackSession::new_with_step(
         mole_runtime::default_play_world(),
-        32,
+        FRIEND_CONNECT_ROLLBACK_MAX_FRAMES as usize,
         mole_runtime::step_world_with_source_collisions,
     )
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn friend_connect_packet_horizon(netplay_delay_frames: u32) -> u32 {
+    FRIEND_CONNECT_ROLLBACK_MAX_FRAMES.saturating_add(netplay_delay_frames)
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+fn friend_connect_compatibility_fingerprint(
+    room_code: &str,
+    netplay_delay_frames: u32,
+) -> CompatibilityFingerprint {
+    mole_runtime::netplay_compatibility_fingerprint(&format!(
+        "{room_code}:delay={netplay_delay_frames}"
+    ))
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -1374,16 +1474,24 @@ fn friend_connect_stage_local_input(
 fn friend_connect_local_input_packet(
     delayed: SlippiDelayedInput,
     player_index: u8,
-    checksum: u64,
+    finalized_checksum: Option<(Frame, u64)>,
     ack_sequence: u32,
+    compatibility: CompatibilityFingerprint,
 ) -> InputPacket {
-    InputPacket::new(
+    let mut packet = InputPacket::new(
         delayed.scheduled_frame,
         player_index,
         delayed.scheduled_input,
-        checksum,
+        finalized_checksum
+            .map(|(_, checksum)| checksum)
+            .unwrap_or(0),
     )
     .with_timing_probe(delayed.scheduled_frame.0, ack_sequence)
+    .with_compatibility_fingerprint(compatibility);
+    packet.checksum_frame = finalized_checksum
+        .map(|(frame, _)| frame)
+        .unwrap_or(NO_CHECKSUM_FRAME);
+    packet
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -1480,12 +1588,15 @@ fn run_friend_connect_sdl(
     }
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
-    let mut next_frame_deadline = Instant::now() + frame_budget;
+    let mut host_cadence = FriendHostCadence::new();
+    let mut next_host_deadline = Instant::now() + host_cadence.host_budget(frame_budget, 1_000_000);
     let mut render_camera = RenderCameraState::battlefield();
+    let mut simulation_frames = 0u32;
 
-    for frame_number in 0..frames {
+    while simulation_frames < frames {
         let frame_start = Instant::now();
-        let frame = Frame(frame_number);
+        let simulation_boundary = host_cadence.advance_host_pass();
+        let mut retain_simulation_boundary = false;
         poll_friend_lobby_directory(&mut panel, &network);
         for event in event_pump.poll_iter() {
             if handle_friend_connect_event(event, &mut panel, &mut network, local_udp_addr)? {
@@ -1510,10 +1621,20 @@ fn run_friend_connect_sdl(
                 } else {
                     let match_frame = game.match_frame;
                     drain_friend_udp_packets(game, match_frame)?;
-                    if game
-                        .time_sync
-                        .should_skip_online_frame(match_frame, game.stats.last_remote_frame)
+                    let raw_local_input = poll_friend_connect_local_input(
+                        &mut local_input_source,
+                        &mut game.active_controller_port,
+                        ucf_enabled,
+                        &mut panel,
+                        match_frame,
+                    );
+                    host_cadence.capture_input(raw_local_input);
+                    if simulation_boundary
+                        && game
+                            .time_sync
+                            .should_skip_online_frame(match_frame, game.stats.last_remote_frame)
                     {
+                        retain_simulation_boundary = true;
                         resend_friend_recent_input_packets(game)?;
                         let cpu_headroom_hz = friend_connect_cpu_headroom_hz(frame_start.elapsed());
                         let latest_remote = game
@@ -1522,10 +1643,11 @@ fn run_friend_connect_sdl(
                             .map(|frame| frame.0.to_string())
                             .unwrap_or_else(|| "NONE".to_string());
                         panel.status = format!(
-                            "CONNECTED P{} F{} D{} CPU {}HZ RTT {} RB {} WAIT REMOTE {}",
+                            "CONNECTED P{} F{} D{} HOST {}HZ CPU {}HZ RTT {} RB {} WAIT REMOTE {}",
                             game.player_index + 1,
                             match_frame.0,
                             game.local_input_delay.delay_frames(),
+                            host_cadence.hertz(),
                             cpu_headroom_hz,
                             game.stats
                                 .last_rtt_frames
@@ -1556,18 +1678,11 @@ fn run_friend_connect_sdl(
                                     ),
                             );
                         }
-                    } else {
-                        let raw_local_input = poll_friend_connect_local_input(
-                            &mut local_input_source,
-                            &mut game.active_controller_port,
-                            ucf_enabled,
-                            &mut panel,
-                            frame,
-                        );
+                    } else if simulation_boundary {
                         let local_plan = friend_connect_stage_local_input(
                             &mut game.local_input_delay,
                             match_frame,
-                            raw_local_input,
+                            host_cadence.boundary_input(),
                         );
                         let local_input = local_plan.current_frame_input;
                         let remote_input = game.inbox.input(match_frame, game.remote_player);
@@ -1584,18 +1699,21 @@ fn run_friend_connect_sdl(
                         let local_packet = friend_connect_local_input_packet(
                             local_plan,
                             game.player_index,
-                            checksum,
+                            game.session.latest_finalized_checksum(),
                             game.stats.last_remote_sequence.unwrap_or(0),
+                            game.compatibility,
                         );
                         send_friend_recent_input_packets(game, local_packet)?;
                         game.match_frame = Frame(match_frame.0.saturating_add(1));
+                        simulation_frames = simulation_frames.saturating_add(1);
                         friend_pacing_decision =
                             game.time_sync.advance_pacing_for_frame(match_frame);
                         panel.status = format!(
-                            "CONNECTED P{} F{} D{} CPU {}HZ RTT {} RB {}",
+                            "CONNECTED P{} F{} D{} HOST {}HZ CPU {}HZ RTT {} RB {}",
                             game.player_index + 1,
                             match_frame.0,
                             game.local_input_delay.delay_frames(),
+                            host_cadence.hertz(),
                             cpu_headroom_hz,
                             game.stats
                                 .last_rtt_frames
@@ -1660,14 +1778,17 @@ fn run_friend_connect_sdl(
         )?;
         draw_friend_connect_panel(&mut connect_canvas, &panel, &network)?;
 
-        if friend_pacing_decision.advance_online_frame {
-            next_frame_deadline = Instant::now();
+        let deadline_missed = Instant::now() > next_host_deadline;
+        host_cadence.observe_host_pass(frame_start.elapsed(), deadline_missed);
+        if simulation_boundary && !retain_simulation_boundary {
+            host_cadence.commit_simulation_boundary();
         }
-        wait_until_frame_deadline(next_frame_deadline);
-        next_frame_deadline += friend_connect_frame_budget_for_speed(
-            frame_budget,
-            friend_pacing_decision.speed_parts_per_million,
-        );
+        if friend_pacing_decision.advance_online_frame {
+            next_host_deadline = Instant::now();
+        }
+        wait_until_frame_deadline(next_host_deadline);
+        next_host_deadline +=
+            host_cadence.host_budget(frame_budget, friend_pacing_decision.speed_parts_per_million);
     }
 
     Ok(())
@@ -2026,12 +2147,19 @@ fn poll_pending_friend_connect(
                 }
             };
             let (player_index, remote_player) = friend_connect_player_indices(pending.lobby_owner);
+            let compatibility = friend_connect_compatibility_fingerprint(
+                &pending.lobby_room_code,
+                netplay_delay_frames,
+            );
             panel.remote_peer_id = remote_endpoint.peer_id;
             panel.status = format!("CONNECTED P{} UDP {}", player_index + 1, peer_addr);
             *network = FriendConnectNetwork::Connected(ConnectedFriendGame {
                 pair,
                 transport,
-                inbox: InputPacketInbox::default(),
+                inbox: InputPacketInbox::with_rollback_horizon(
+                    friend_connect_packet_horizon(netplay_delay_frames),
+                    compatibility,
+                ),
                 stats: mole_runtime::UdpRuntimeStats::default(),
                 session: friend_connect_rollback_session(),
                 match_frame: Frame(0),
@@ -2039,6 +2167,8 @@ fn poll_pending_friend_connect(
                 time_sync: FriendConnectTimeSync::new(Instant::now()),
                 seeded_initial_delay_pads: false,
                 recent_local_packets: VecDeque::new(),
+                compatibility,
+                remote_checksums: FriendChecksumTracker::default(),
                 player_index,
                 remote_player,
                 lobby_room_code: pending.lobby_room_code.clone(),
@@ -2400,7 +2530,9 @@ fn push_friend_local_input_packet(
                 PlayerInput::neutral(),
                 packet.checksum,
             )
-            .with_timing_probe(frame, packet.ack_sequence);
+            .with_checksum_frame(packet.checksum_frame)
+            .with_timing_probe(frame, packet.ack_sequence)
+            .with_compatibility_fingerprint(packet.compatibility);
             push_friend_recent_input_packet(packets, last_acked_sequence, neutral_packet);
         }
         *seeded_initial_delay_pads = true;
@@ -2418,6 +2550,7 @@ fn drain_friend_udp_packets(
         &mut game.inbox,
         &mut game.stats,
         &mut game.session,
+        &mut game.remote_checksums,
         &mut game.time_sync,
         game.remote_player,
         local_frame,
@@ -2430,6 +2563,7 @@ fn drain_friend_udp_packets_from(
     inbox: &mut InputPacketInbox,
     stats: &mut mole_runtime::UdpRuntimeStats,
     session: &mut RollbackSession,
+    remote_checksums: &mut FriendChecksumTracker,
     time_sync: &mut FriendConnectTimeSync,
     remote_player: u8,
     local_frame: Frame,
@@ -2442,6 +2576,9 @@ fn drain_friend_udp_packets_from(
             continue;
         };
         time_sync.record_remote_packet(newest_packet, Instant::now());
+        for packet in datagram.packets().iter().copied() {
+            remote_checksums.record(packet)?;
+        }
         let previous_remote_head = stats.last_remote_frame;
         if previous_remote_head
             .map(|head| newest_packet.frame.0 <= head.0)
@@ -2452,6 +2589,7 @@ fn drain_friend_udp_packets_from(
                 mole_transport::PacketAcceptResult::Duplicate,
                 newest_packet,
             );
+            remote_checksums.validate(session)?;
             continue;
         }
 
@@ -2464,6 +2602,12 @@ fn drain_friend_udp_packets_from(
             }
             let result = inbox.accept(packet);
             stats.record_accept_at(local_frame, result, packet);
+            if matches!(
+                result,
+                mole_transport::PacketAcceptResult::IncompatibleSession
+            ) {
+                return Err("friend connect rejected an incompatible netplay session".to_string());
+            }
             if matches!(result, mole_transport::PacketAcceptResult::Accepted)
                 && packet.player_index == remote_player
                 && packet.frame.0 < local_frame.0
@@ -2477,8 +2621,19 @@ fn drain_friend_udp_packets_from(
                 stats.record_rollback_correction();
             }
         }
+        remote_checksums.validate(session)?;
     }
     Ok(())
+}
+
+#[cfg(all(test, feature = "sdl", feature = "wup"))]
+fn validate_friend_connect_checksum(
+    session: &RollbackSession,
+    packet: InputPacket,
+) -> Result<(), String> {
+    let mut tracker = FriendChecksumTracker::default();
+    tracker.record(packet)?;
+    tracker.validate(session)
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -4286,6 +4441,70 @@ fn friend_connect_cpu_headroom_hz(work_duration: Duration) -> u32 {
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
+struct FriendHostCadence {
+    clock: mole_runtime::HostCadenceClock,
+    resolver: mole_runtime::HostCadenceResolver,
+    pending_cadence: mole_runtime::HostCadence,
+    simulation_boundary_due: bool,
+    latest_input: PlayerInput,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
+impl FriendHostCadence {
+    fn new() -> Self {
+        let cadence = mole_runtime::HostCadence::Hz240;
+        Self {
+            clock: mole_runtime::HostCadenceClock::new(cadence),
+            resolver: mole_runtime::HostCadenceResolver::new(cadence),
+            pending_cadence: cadence,
+            simulation_boundary_due: false,
+            latest_input: PlayerInput::neutral(),
+        }
+    }
+
+    fn hertz(&self) -> u16 {
+        self.clock.cadence().hertz()
+    }
+
+    fn host_budget(&self, simulation_budget: Duration, speed_parts_per_million: u32) -> Duration {
+        friend_connect_frame_budget_for_speed(simulation_budget, speed_parts_per_million)
+            / u32::from(self.clock.cadence().multiplier())
+    }
+
+    fn capture_input(&mut self, input: PlayerInput) {
+        self.latest_input = input;
+    }
+
+    fn boundary_input(&self) -> PlayerInput {
+        self.latest_input
+    }
+
+    fn advance_host_pass(&mut self) -> bool {
+        if !self.simulation_boundary_due {
+            self.simulation_boundary_due = self.clock.advance().simulation_frame().is_some();
+        }
+        self.simulation_boundary_due
+    }
+
+    fn observe_host_pass(&mut self, work_duration: Duration, deadline_missed: bool) {
+        self.pending_cadence = self
+            .resolver
+            .observe_host_pass(work_duration, deadline_missed);
+    }
+
+    fn commit_simulation_boundary(&mut self) {
+        if !self.simulation_boundary_due {
+            return;
+        }
+        self.simulation_boundary_due = false;
+        if self.clock.cadence() != self.pending_cadence {
+            self.clock
+                .set_cadence_at_simulation_boundary(self.pending_cadence);
+        }
+    }
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn parse_headless_friend_peer_config(
     args: &[String],
 ) -> Result<Option<HeadlessFriendPeerConfig>, String> {
@@ -4582,6 +4801,44 @@ mod tests {
 
     #[cfg(all(feature = "sdl", feature = "wup"))]
     #[test]
+    fn friend_host_cadence_latches_latest_input_until_simulation_boundary() {
+        let mut cadence = super::FriendHostCadence::new();
+        let first = PlayerInput::neutral().with_left_stick(32, 0);
+        let latest = PlayerInput::neutral().with_left_stick(96, 0);
+
+        cadence.capture_input(first);
+        assert!(!cadence.advance_host_pass());
+        cadence.capture_input(latest);
+        assert!(!cadence.advance_host_pass());
+        assert!(!cadence.advance_host_pass());
+        assert!(cadence.advance_host_pass());
+        assert_eq!(cadence.boundary_input(), latest);
+
+        assert!(cadence.advance_host_pass());
+        assert_eq!(cadence.boundary_input(), latest);
+        cadence.commit_simulation_boundary();
+        assert!(!cadence.advance_host_pass());
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_host_cadence_applies_resolver_change_after_boundary_commit() {
+        let mut cadence = super::FriendHostCadence::new();
+        assert_eq!(cadence.hertz(), 240);
+
+        cadence.observe_host_pass(std::time::Duration::from_millis(20), true);
+        assert_eq!(cadence.hertz(), 240);
+        for _ in 0..4 {
+            cadence.advance_host_pass();
+        }
+        cadence.commit_simulation_boundary();
+
+        assert_eq!(cadence.hertz(), 60);
+        assert!(cadence.advance_host_pass());
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
     fn parse_friend_code_override_accepts_packaged_local_internet_code() {
         assert_eq!(
             super::parse_friend_code_override(&[
@@ -4653,15 +4910,110 @@ mod tests {
     fn friend_connect_local_packet_uses_slippi_future_frame_delay() {
         let mut delay = mole_rollback::SlippiInputDelayBuffer::new(2);
         let raw = PlayerInput::neutral().with_left_stick(127, 0);
+        let compatibility = mole_runtime::netplay_compatibility_fingerprint("TEST01");
 
         let delayed = super::friend_connect_stage_local_input(&mut delay, Frame(10), raw);
-        let packet = super::friend_connect_local_input_packet(delayed, 0, 0xCAFE, 7);
+        let packet = super::friend_connect_local_input_packet(
+            delayed,
+            0,
+            Some((Frame(10), 0xCAFE)),
+            7,
+            compatibility,
+        );
 
         assert_eq!(delayed.current_frame_input, PlayerInput::neutral());
         assert_eq!(packet.frame, Frame(12));
         assert_eq!(packet.input, raw);
+        assert_eq!(packet.checksum_frame, Frame(10));
+        assert_eq!(packet.checksum, 0xCAFE);
+        assert_eq!(packet.compatibility, compatibility);
         assert_eq!(packet.sequence, 12);
         assert_eq!(packet.ack_sequence, 7);
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_connect_checksum_validation_is_hard_and_frame_exact() {
+        let mut session = RollbackSession::new(mole_runtime::default_play_world(), 8);
+        session.advance(Frame(0), [PlayerInput::neutral(); 2]);
+        let local = session.historical_checksum(Frame(0)).unwrap();
+        let matching = InputPacket::new(Frame(2), 1, PlayerInput::neutral(), local)
+            .with_checksum_frame(Frame(0));
+        let mismatching = InputPacket::new(Frame(2), 1, PlayerInput::neutral(), local ^ 1)
+            .with_checksum_frame(Frame(0));
+
+        assert!(super::validate_friend_connect_checksum(&session, matching).is_ok());
+        assert!(super::validate_friend_connect_checksum(&session, mismatching).is_err());
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_connect_checksum_waits_for_local_finalization() {
+        let remote = PlayerInput::neutral().with_attack(true);
+        let mut authoritative = RollbackSession::new(mole_runtime::default_play_world(), 8);
+        authoritative.advance(Frame(0), [PlayerInput::neutral(), remote]);
+        let checksum = authoritative.historical_checksum(Frame(0)).unwrap();
+
+        let mut predicted = RollbackSession::new(mole_runtime::default_play_world(), 8);
+        predicted.advance_with_prediction(Frame(0), [Some(PlayerInput::neutral()), None]);
+        let packet = InputPacket::new(Frame(2), 1, remote, checksum).with_checksum_frame(Frame(0));
+        let mut tracker = super::FriendChecksumTracker::default();
+
+        tracker.record(packet).unwrap();
+        tracker.validate(&predicted).unwrap();
+        assert_eq!(tracker.pending.len(), 1);
+
+        assert!(predicted.confirm_input(Frame(0), 1, remote, Frame(1)));
+        tracker.validate(&predicted).unwrap();
+        assert!(tracker.pending.is_empty());
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_connect_rejects_checksum_claims_from_the_future() {
+        let packet = InputPacket::new(Frame(2), 1, PlayerInput::neutral(), 0xCAFE)
+            .with_checksum_frame(Frame(3));
+        let mut tracker = super::FriendChecksumTracker::default();
+
+        assert!(tracker.record(packet).is_err());
+        assert!(tracker.pending.is_empty());
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn friend_connect_packet_horizon_includes_input_delay() {
+        let compatibility = super::friend_connect_compatibility_fingerprint("TEST01", 2);
+        let mut inbox = mole_transport::InputPacketInbox::with_rollback_horizon(
+            super::friend_connect_packet_horizon(2),
+            compatibility,
+        );
+
+        let newest = InputPacket::new(Frame(11), 1, PlayerInput::neutral(), 0)
+            .without_checksum()
+            .with_compatibility_fingerprint(compatibility);
+        let oldest_rollback = InputPacket::new(Frame(2), 1, PlayerInput::neutral(), 0)
+            .without_checksum()
+            .with_compatibility_fingerprint(compatibility);
+        let expired = InputPacket::new(Frame(1), 1, PlayerInput::neutral(), 0)
+            .without_checksum()
+            .with_compatibility_fingerprint(compatibility);
+
+        assert_eq!(
+            inbox.accept(newest),
+            mole_transport::PacketAcceptResult::Accepted
+        );
+        assert_eq!(
+            inbox.accept(oldest_rollback),
+            mole_transport::PacketAcceptResult::Accepted
+        );
+        assert_eq!(
+            inbox.accept(expired),
+            mole_transport::PacketAcceptResult::OutsideRollbackHorizon
+        );
+        assert_ne!(
+            compatibility,
+            super::friend_connect_compatibility_fingerprint("TEST01", 3)
+        );
     }
 
     #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -4941,20 +5293,26 @@ mod tests {
         let actual_remote_two = PlayerInput::neutral().with_attack(true);
         let actual_remote_three = PlayerInput::neutral().with_special(true);
         let datagram = InputPacketDatagram::from_packets(vec![
-            InputPacket::new(Frame(3), 1, actual_remote_three, 0x303).with_timing_probe(3, 4),
-            InputPacket::new(Frame(2), 1, actual_remote_two, 0x202).with_timing_probe(2, 4),
+            InputPacket::new(Frame(3), 1, actual_remote_three, 0x303)
+                .without_checksum()
+                .with_timing_probe(3, 4),
+            InputPacket::new(Frame(2), 1, actual_remote_two, 0x202)
+                .without_checksum()
+                .with_timing_probe(2, 4),
         ])
         .unwrap();
 
         sender
             .send_packet_datagram(&datagram)
             .expect("datagram send should work");
+        let mut remote_checksums = super::FriendChecksumTracker::default();
         for _ in 0..20 {
             super::drain_friend_udp_packets_from(
                 &receiver,
                 &mut inbox,
                 &mut stats,
                 &mut session,
+                &mut remote_checksums,
                 &mut time_sync,
                 1,
                 Frame(5),
@@ -5001,6 +5359,7 @@ mod tests {
                     accepted_input,
                     0x202,
                 )
+                .without_checksum()
                 .with_timing_probe(2, 4)])
                 .unwrap(),
             )
@@ -5026,6 +5385,7 @@ mod tests {
                     duplicate_conflict,
                     0xBAD,
                 )
+                .without_checksum()
                 .with_timing_probe(2, 4)])
                 .unwrap(),
             )
@@ -5073,6 +5433,7 @@ mod tests {
                     PlayerInput::neutral(),
                     0x505,
                 )
+                .without_checksum()
                 .with_timing_probe(5, 6)])
                 .unwrap(),
             )
@@ -5094,8 +5455,10 @@ mod tests {
             .send_packet_datagram(
                 &InputPacketDatagram::from_packets(vec![
                     InputPacket::new(Frame(5), 1, PlayerInput::neutral(), 0x505)
+                        .without_checksum()
                         .with_timing_probe(5, 6),
                     InputPacket::new(Frame(4), 1, PlayerInput::neutral().with_attack(true), 0x404)
+                        .without_checksum()
                         .with_timing_probe(4, 6),
                     InputPacket::new(
                         Frame(3),
@@ -5103,6 +5466,7 @@ mod tests {
                         PlayerInput::neutral().with_special(true),
                         0x303,
                     )
+                    .without_checksum()
                     .with_timing_probe(3, 6),
                 ])
                 .unwrap(),
@@ -5161,12 +5525,14 @@ mod tests {
         expected_received_packets: u32,
         expected_duplicate_packets: u32,
     ) {
+        let mut remote_checksums = super::FriendChecksumTracker::default();
         for _ in 0..20 {
             super::drain_friend_udp_packets_from(
                 transport,
                 inbox,
                 stats,
                 session,
+                &mut remote_checksums,
                 time_sync,
                 remote_player,
                 local_frame,

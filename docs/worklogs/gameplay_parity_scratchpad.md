@@ -2840,3 +2840,37 @@ playtest exposes.
   replay. The remaining extraction must separate p4 and p6 primitives before
   globally dispatching every newly installed callback; it is not complete in
   this checkpoint.
+
+# 2026-07-16 rollback and host-cadence hardening
+
+- Slippi reference proof keeps input `frame`, `checksumFrame`, and checksum
+  separate. Rust packet v3/datagram v4 now does the same. Friend Connect sends
+  only the latest fully confirmed historical checksum; speculative checksums are
+  not advertised as deterministic agreement.
+- Compatibility is checked before packet admission using protocol version, a
+  build-time hash of authoritative Rust sources plus Cargo version, a
+  deterministic hash of baked source manifest/capsule bytes, and the shared
+  room key. Incompatibility, conflicting checksum claims,
+  exact finalized-frame mismatch, or an expired pending checksum is a hard
+  session error. No state is repaired from a checksum.
+- `RollbackSession` owns a bounded frame ring of pre-frame snapshots, resolved
+  inputs, confirmation bits, and post-frame checksums. Correction first proves
+  that the complete interval exists, then restores and resimulates with the
+  configured production step function. Missing intervals are rejected rather
+  than synthesized with neutral input.
+- Friend Connect uses Slippi's seven-frame production rollback window. UDP and
+  latest controller capture run on adaptive 60/120/180/240 Hz host passes;
+  gameplay, replay, collision, and rollback remain whole 60 Hz frames. Local
+  peers never negotiate down to a common host/render cadence.
+- Runtime source actions use an immutable indexed cache. Snapshot hit-victim
+  history is copy-on-write, avoiding a vector clone on unchanged snapshots.
+  Release measurements and their limits are recorded in
+  `docs/research/rollback-performance-report.md`; do not generalize the observed
+  i7-6700K numbers into a low-end-hardware guarantee.
+- Deterministic two-peer tests cover bounded delay, reorder, duplicates, loss,
+  retransmission at the seven-frame edge, convergence, and stale rejection.
+- Final review closed six protocol correctness gaps without replay-specific
+  behavior: packet retention now includes future input delay, delay is part of
+  session compatibility, duplicate bundles still validate checksums, finalized
+  checksums advance only through contiguous confirmed history, legacy v3
+  bundles remain decodable, and checksum claims cannot name a future frame.
