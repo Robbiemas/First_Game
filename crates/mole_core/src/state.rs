@@ -117,7 +117,7 @@ impl Default for SourceFighterPlayback {
 
 #[allow(dead_code)] // Task 3B consumes this migration API.
 impl SourceFighterPlayback {
-    pub(crate) fn request_primary(
+    pub(crate) fn install_primary_descriptor(
         &mut self,
         frame: f32,
         rate: f32,
@@ -130,6 +130,11 @@ impl SourceFighterPlayback {
             descriptor.end_frame,
             descriptor.flags,
         );
+    }
+
+    pub(crate) fn request_primary_frame(&mut self, frame: f32) {
+        self.primary.curr_frame = frame;
+        self.primary.flags = (self.primary.flags & !SOURCE_AOBJ_NO_ANIM) | SOURCE_AOBJ_FIRST_PLAY;
     }
 
     pub(crate) fn primary(&self) -> &SourceAObjState {
@@ -3199,15 +3204,21 @@ impl PlayerState {
         self.source_playback.primary.framerate = self.source_motion_anim_rate;
     }
 
+    pub fn set_source_motion_anim_rate_milli(&mut self, rate_milli: i32) {
+        self.motion_anim_rate_milli = rate_milli.max(0);
+        self.source_motion_anim_rate = self.motion_anim_rate_milli as f32 / 1_000.0;
+        self.source_playback.primary.framerate = self.source_motion_anim_rate;
+    }
+
     #[allow(dead_code)] // Task 3B migrates callback dispatch onto this authority.
-    pub(crate) fn request_source_primary_anim(
+    pub(crate) fn install_source_primary_anim(
         &mut self,
         frame: f32,
         rate: f32,
         descriptor: SourceAObjDescriptor,
     ) {
         self.source_playback
-            .request_primary(frame, rate, descriptor);
+            .install_primary_descriptor(frame, rate, descriptor);
         self.sync_legacy_animation_fields_from_playback();
     }
 
@@ -3234,6 +3245,11 @@ impl PlayerState {
         self.motion_anim_frame_milli = (primary.curr_frame * 1_000.0).round() as i32;
         self.source_motion_anim_rate = primary.framerate;
         self.motion_anim_rate_milli = (primary.framerate * 1_000.0).round() as i32;
+    }
+
+    fn reconcile_source_playback_with_legacy_animation_fields(&mut self) {
+        self.source_playback.primary.curr_frame = self.source_motion_anim_frame;
+        self.source_playback.primary.framerate = self.source_motion_anim_rate;
     }
 
     pub fn frame_speed_mul_milli(self) -> i32 {
@@ -5351,6 +5367,7 @@ impl World {
             state.motion_anim_frame_milli =
                 (state.source_motion_anim_frame * 1000.0).round() as i32;
         }
+        state.reconcile_source_playback_with_legacy_animation_fields();
         let projected_source_position = state.source_position.to_milli();
         if projected_source_position != state.position {
             let source_position_changed = state.source_position != player.source_position;
@@ -5635,7 +5652,6 @@ impl World {
         };
         let grabber_motion_frame = grabber.motion_frame;
         let grabber_source_motion_anim_frame = grabber.source_motion_anim_frame;
-        let grabber_motion_anim_frame_milli = grabber.motion_anim_frame_milli;
         enter_source_only_action_state(
             grabber,
             grabber_action_state_id,
@@ -5643,8 +5659,7 @@ impl World {
             action_total_frames,
         );
         grabber.motion_frame = grabber_motion_frame;
-        grabber.source_motion_anim_frame = grabber_source_motion_anim_frame;
-        grabber.motion_anim_frame_milli = grabber_motion_anim_frame_milli;
+        grabber.set_source_motion_anim_frame(grabber_source_motion_anim_frame);
         clear_source_grab_ground_velocity(grabber);
         let grabber_facing = grabber.facing;
         grabber.source_victim_index = Some(victim_u8);
@@ -5875,8 +5890,7 @@ impl World {
                 .clamp(1.0, f32::from(u8::MAX)) as u8;
             victim.motion_frame = 0;
             victim.set_source_motion_anim_frame(0.0);
-            victim.motion_anim_rate_milli = 1_000;
-            victim.source_motion_anim_rate = 1.0;
+            victim.set_source_motion_anim_rate_milli(1_000);
             victim.source_common_timer = setoff_ticks;
             victim.source_shield_collision_active = true;
             victim.source_shield_hit_active = true;
@@ -5939,7 +5953,7 @@ impl World {
                 action_total_frames(transition.next_action_state_id).unwrap_or(0);
             attacker.motion_frame = 0;
             attacker.set_source_motion_anim_frame(0.0);
-            attacker.motion_anim_rate_milli = 1_000;
+            attacker.set_source_motion_anim_rate_milli(1_000);
             if transition.clear_self_velocity_y {
                 attacker.source_self_velocity_y = 0.0;
                 attacker.velocity.y = 0;
@@ -6447,7 +6461,7 @@ impl World {
             victim.motion_state_alias = None;
             victim.motion_frame = 0;
             victim.set_source_motion_anim_frame(0.0);
-            victim.motion_anim_rate_milli = 1_000;
+            victim.set_source_motion_anim_rate_milli(1_000);
             victim.source_retained_model_pose = None;
             if let Some(timers) = self.input_timers.get_mut(result.stage.victim_index) {
                 timers.x_tap = EXPIRED_INPUT_TIMER;
@@ -6847,7 +6861,7 @@ fn enter_source_only_action_state(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     clear_source_thrown_hitbox_owner_state(player);
     clear_source_throw_control_state(player);
     player.hitlag_frames = 0;
@@ -6923,7 +6937,7 @@ pub(crate) fn enter_source_shield_break_fly(
     player.set_motion_state_alias(MotionState::ShieldBreakFly);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = false;
     player.source_self_velocity_x = 0.0;
     player.source_self_velocity_y = player.profile.shield_break_initial_velocity;
@@ -8056,9 +8070,9 @@ mod tests {
     }
 
     #[test]
-    fn persistent_fighter_playback_requests_interprets_loops_and_stops() {
+    fn persistent_fighter_playback_installs_interprets_loops_and_stops() {
         let mut playback = SourceFighterPlayback::default();
-        playback.request_primary(
+        playback.install_primary_descriptor(
             7.5,
             1.0,
             SourceAObjDescriptor {
@@ -8072,7 +8086,7 @@ mod tests {
         assert_eq!(playback.interpret_primary(), Some(2.5));
         assert_ne!(playback.primary().flags & SOURCE_AOBJ_REWINDED, 0);
 
-        playback.request_primary(
+        playback.install_primary_descriptor(
             7.0,
             1.0,
             SourceAObjDescriptor {
@@ -8087,6 +8101,35 @@ mod tests {
     }
 
     #[test]
+    fn requesting_existing_primary_frame_preserves_non_animation_flags() {
+        let mut playback = SourceFighterPlayback::default();
+        playback.install_primary_descriptor(
+            1.0,
+            0.5,
+            SourceAObjDescriptor {
+                end_frame: 8.0,
+                rewind_frame: 2.0,
+                flags: SOURCE_AOBJ_LOOP | SOURCE_AOBJ_NO_UPDATE,
+            },
+        );
+        playback.primary.flags |= SOURCE_AOBJ_REWINDED | SOURCE_AOBJ_NO_ANIM;
+
+        playback.request_primary_frame(3.25);
+
+        assert_eq!(playback.primary.curr_frame, 3.25);
+        assert_eq!(
+            playback.primary.flags,
+            SOURCE_AOBJ_LOOP
+                | SOURCE_AOBJ_NO_UPDATE
+                | SOURCE_AOBJ_REWINDED
+                | SOURCE_AOBJ_FIRST_PLAY
+        );
+        assert_eq!(playback.primary.framerate, 0.5);
+        assert_eq!(playback.primary.rewind_frame, 2.0);
+        assert_eq!(playback.primary.end_frame, 8.0);
+    }
+
+    #[test]
     fn legacy_animation_frame_setters_keep_primary_playback_synchronized() {
         let mut player = PlayerState::new(0, 0, 1);
 
@@ -8095,12 +8138,34 @@ mod tests {
 
         player.set_source_motion_anim_rate(0.5);
         assert_eq!(player.source_playback().primary().framerate, 0.5);
+
+        player.set_source_motion_anim_rate_milli(750);
+        assert_eq!(player.source_motion_anim_rate, 0.75);
+        assert_eq!(player.source_playback().primary().framerate, 0.75);
+    }
+
+    #[test]
+    fn diagnostic_state_normalization_reconciles_primary_playback() {
+        let mut world = World::for_two_players();
+        let mut state = PlayerState::new(0, 0, 1);
+        state.source_motion_anim_frame = 3.25;
+        state.motion_anim_frame_milli = 3_250;
+        state.source_motion_anim_rate = 0.75;
+        state.motion_anim_rate_milli = 750;
+        state.source_playback.primary.curr_frame = 9.0;
+        state.source_playback.primary.framerate = 1.0;
+
+        assert!(world.set_player_state_for_diagnostic(0, state));
+
+        let primary = world.players()[0].source_playback().primary();
+        assert_eq!(primary.curr_frame, 3.25);
+        assert_eq!(primary.framerate, 0.75);
     }
 
     #[test]
     fn persistent_fighter_playback_round_trips_through_rollback() {
         let mut world = World::for_two_players();
-        world.players_mut()[0].request_source_primary_anim(
+        world.players_mut()[0].install_source_primary_anim(
             3.25,
             0.5,
             SourceAObjDescriptor {
@@ -8165,7 +8230,38 @@ mod tests {
                 ..default_playback
             },
             SourceFighterPlayback {
-                secondary: Some(default_playback.primary),
+                secondary: Some(SourceAObjState {
+                    flags: 0,
+                    ..default_playback.primary
+                }),
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                secondary: Some(SourceAObjState {
+                    curr_frame: 1.5,
+                    ..default_playback.primary
+                }),
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                secondary: Some(SourceAObjState {
+                    rewind_frame: 2.0,
+                    ..default_playback.primary
+                }),
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                secondary: Some(SourceAObjState {
+                    end_frame: 12.0,
+                    ..default_playback.primary
+                }),
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                secondary: Some(SourceAObjState {
+                    framerate: 0.75,
+                    ..default_playback.primary
+                }),
                 ..default_playback
             },
         ];

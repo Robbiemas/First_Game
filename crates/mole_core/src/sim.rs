@@ -592,7 +592,7 @@ pub fn step_world_with_source_runtime_data(
                         let next_walk_state = walk_motion_state(player, common_data);
                         if next_walk_state != player.motion_state {
                             player.set_motion_state_alias(next_walk_state);
-                            player.motion_anim_rate_milli = 1_000;
+                            player.set_source_motion_anim_rate_milli(1_000);
                             player.walk_anim_velocity_x = player.ground_velocity_x;
                         }
                         apply_walk_velocity(player, stick_x, common_data);
@@ -1387,7 +1387,7 @@ pub fn step_world_with_source_runtime_data(
                         ));
                         player.motion_frame = 0;
                         player.set_source_motion_anim_frame(0.0);
-                        player.motion_anim_rate_milli = 1_000;
+                        player.set_source_motion_anim_rate_milli(1_000);
                         player.fast_falling = false;
                         player.jumps_remaining = player.profile.reusable_air_jumps();
                         lock_ground_to_air_ecb_bottom(player);
@@ -1677,7 +1677,7 @@ pub fn step_world_with_source_runtime_data(
                         player.set_motion_state_alias(MotionState::Wait);
                         player.motion_frame = 0;
                         player.set_source_motion_anim_frame(0.0);
-                        player.motion_anim_rate_milli = 1_000;
+                        player.set_source_motion_anim_rate_milli(1_000);
                         apply_wait_state_inputs(
                             player,
                             input_facts,
@@ -1728,7 +1728,7 @@ pub fn step_world_with_source_runtime_data(
                 | MotionState::LandingAirLw => {
                     let landing_air_completed = landing_anim_tick(player, common_data);
                     if landing_air_completed {
-                        player.motion_anim_rate_milli = 1_000;
+                        player.set_source_motion_anim_rate_milli(1_000);
                         apply_wait_state_inputs(
                             player,
                             input_facts,
@@ -1801,7 +1801,7 @@ pub fn step_world_with_source_runtime_data(
             player.turn_run_x14 = false;
             player.turn_run_resume_advances = false;
             if !motion_preserves_entry_frame_speed_mul(player.motion_state) {
-                player.motion_anim_rate_milli = 1_000;
+                player.set_source_motion_anim_rate_milli(1_000);
             }
         }
         if !matches!(
@@ -2513,7 +2513,7 @@ fn advance_source_grab_capture_state(
         if player.motion_cmd_var0 != 0 && !player.source_throw_x4 {
             player.source_throw_x4 = true;
             player.motion_cmd_var0 = 0;
-            player.motion_anim_rate_milli = 0;
+            player.set_source_motion_anim_rate_milli(0);
             if let Some(victim_index) = player.source_victim_index.map(usize::from) {
                 pending_anim_freeze = Some(PendingSourceThrowAnimFreeze {
                     victim_index,
@@ -2879,14 +2879,15 @@ fn advance_source_capture_wait_state(
     if player.source_capture_wait_anim_timer != 0.0 {
         player.source_capture_wait_anim_timer -= 1.0;
         if player.source_capture_wait_anim_timer <= 0.0 && !player.source_capture_wait_mashed {
-            player.motion_anim_rate_milli = 1_000;
+            player.set_source_motion_anim_rate_milli(1_000);
             player.source_capture_wait_anim_timer = 0.0;
         }
     }
     if player.source_capture_wait_anim_timer <= 0.0 && player.source_capture_wait_mashed {
         player.source_capture_wait_anim_timer = common_data.capture_wait_mash_anim_timer;
-        player.motion_anim_rate_milli =
-            (common_data.capture_wait_mash_anim_rate * 1000.0).round() as i32;
+        player.set_source_motion_anim_rate_milli(
+            (common_data.capture_wait_mash_anim_rate * 1000.0).round() as i32,
+        );
     }
     None
 }
@@ -3183,7 +3184,7 @@ fn apply_source_thrown_anim_timer(player: &mut PlayerState) {
     }
     let anim_timer_milli = (player.source_thrown_anim_timer * 1000.0).round() as i32;
     if player.motion_anim_frame_milli == anim_timer_milli {
-        player.motion_anim_rate_milli = 0;
+        player.set_source_motion_anim_rate_milli(0);
         player.source_thrown_anim_timer = 0.0;
     }
 }
@@ -3442,7 +3443,7 @@ fn enter_source_grab_related_action(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.source_thrown_hitbox_owner_index = None;
     player.source_thrown_hitbox_team_unk = 0;
     player.source_thrown_hitbox_grabber_player_id = None;
@@ -3597,7 +3598,7 @@ fn apply_pending_source_throw_anim_freezes(
         };
         victim.source_thrown_unk_bool = true;
         if victim.motion_anim_frame_milli == (freeze.anim_timer * 1000.0).round() as i32 {
-            victim.motion_anim_rate_milli = 0;
+            victim.set_source_motion_anim_rate_milli(0);
             victim.source_thrown_anim_timer = 0.0;
         } else {
             victim.source_thrown_anim_timer = freeze.anim_timer;
@@ -3835,7 +3836,7 @@ fn enter_source_shield_break_fall(player: &mut PlayerState) {
     player.set_motion_state_alias(MotionState::ShieldBreakFall);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = false;
     player.fast_falling = false;
 }
@@ -3852,7 +3853,7 @@ fn enter_source_shield_break_down(player: &mut PlayerState) {
     player.set_motion_state_alias(motion_state);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -3868,14 +3869,14 @@ fn enter_source_shield_break_stand(player: &mut PlayerState) {
     player.set_motion_state_alias(motion_state);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
 }
 
 fn enter_source_furafura(player: &mut PlayerState, common_data: MeleeCommonData) {
     player.set_motion_state_alias(MotionState::Furafura);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.shield_health = common_data.shield_break_reset_health;
     let percent_component =
         (common_data.shield_break_furafura_percent_base - player.damage_percent).max(0.0);
@@ -3924,7 +3925,7 @@ fn enter_source_damage_fall(
     player.source_allow_sdi = false;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = false;
     player.fast_falling = false;
     player.source_ground_knockback_velocity = 0.0;
@@ -4067,7 +4068,7 @@ fn enter_source_passive_action(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -4105,7 +4106,7 @@ fn enter_source_damage_down_bound(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -4313,7 +4314,7 @@ fn enter_source_down_wait(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -4416,7 +4417,7 @@ fn enter_source_down_roll(
     player.motion_state_alias = None;
     player.motion_frame = 1;
     player.set_source_motion_anim_frame(1.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -4481,7 +4482,7 @@ fn enter_source_down_stand(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -4538,7 +4539,7 @@ fn enter_source_down_attack(
     player.motion_state_alias = None;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.grounded = true;
     player.fast_falling = false;
     player.velocity.y = 0;
@@ -6445,7 +6446,7 @@ fn enter_walk(
     player.set_source_motion_anim_frame(0.0);
     player.walk_accel_mul_milli = 1_000;
     player.walk_anim_velocity_x = player.ground_velocity_x;
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     apply_walk_velocity(player, stick_x, common_data);
 }
 
@@ -6520,7 +6521,7 @@ fn clear_motion_script_state(player: &mut PlayerState) {
     player.turn_run_resume_advances = false;
     player.turn_run_completion_pending = false;
     player.turn_run_completion_enters_run = false;
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
 }
 
 fn advance_source_motion_frame(player: &mut PlayerState) {
@@ -6559,7 +6560,7 @@ fn walk_anim_tick(player: &mut PlayerState) {
 
 fn wait_anim_tick(player: &mut PlayerState) {
     if player.motion_anim_rate_milli <= 0 {
-        player.motion_anim_rate_milli = 1_000;
+        player.set_source_motion_anim_rate_milli(1_000);
     }
     advance_source_motion_frame(player);
     let total_frames = player
@@ -6573,7 +6574,7 @@ fn wait_anim_tick(player: &mut PlayerState) {
 
 fn update_walk_anim_rate(player: &mut PlayerState) {
     if player.ground_velocity_x * player.facing as f32 <= 0.0 {
-        player.motion_anim_rate_milli = 0;
+        player.set_source_motion_anim_rate_milli(0);
         return;
     }
 
@@ -6583,11 +6584,11 @@ fn update_walk_anim_rate(player: &mut PlayerState) {
         MotionState::WalkFast => player.profile.fast_walk_min,
         _ => 0.0,
     };
-    player.motion_anim_rate_milli = if denominator > 0.0 {
+    player.set_source_motion_anim_rate_milli(if denominator > 0.0 {
         (player.ground_velocity_x.abs() * 1000.0 / denominator).round() as i32
     } else {
         0
-    };
+    });
 }
 
 fn dash_anim_tick(player: &mut PlayerState) {
@@ -6786,7 +6787,7 @@ fn enter_source_jab_followup_action(
     player.damage_hitstun_frames = 0;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.source_jab_followup_timer = next_followup_timer;
     player.source_jab_followup_queued = false;
     player.source_jab_combo_enabled = false;
@@ -6814,7 +6815,7 @@ fn enter_source_attack100_action(
     player.damage_hitstun_frames = 0;
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     player.motion_throw_flags = 0;
     player.source_jab_followup_timer = 0;
     player.source_jab_followup_queued = false;
@@ -6967,16 +6968,16 @@ fn run_anim_tick(player: &mut PlayerState) {
 
 fn update_run_anim_rate(player: &mut PlayerState) {
     if player.ground_velocity_x * player.facing as f32 <= 0.0 {
-        player.motion_anim_rate_milli = 0;
+        player.set_source_motion_anim_rate_milli(0);
         return;
     }
 
-    player.motion_anim_rate_milli = if player.profile.run_animation_scaling > 0.0 {
+    player.set_source_motion_anim_rate_milli(if player.profile.run_animation_scaling > 0.0 {
         (player.ground_velocity_x.abs() * 1000.0 / player.profile.run_animation_scaling).round()
             as i32
     } else {
         0
-    };
+    });
 }
 
 fn apply_run_state_inputs(
@@ -7019,11 +7020,11 @@ fn run_brake_anim_tick(player: &mut PlayerState, common_data: MeleeCommonData) {
         let gate = common_data.run_brake_animation_pause_velocity;
         if !player.run_brake_x0 {
             if player.ground_velocity_x.abs() >= gate {
-                player.motion_anim_rate_milli = 0;
+                player.set_source_motion_anim_rate_milli(0);
                 player.run_brake_x0 = true;
             }
         } else if player.ground_velocity_x.abs() <= gate {
-            player.motion_anim_rate_milli = 1_000;
+            player.set_source_motion_anim_rate_milli(1_000);
             player.motion_cmd_var1 = 0;
         }
     }
@@ -7121,7 +7122,7 @@ fn update_turn_run_command_pause(player: &mut PlayerState) -> bool {
     }
 
     if !player.turn_run_x14 {
-        player.motion_anim_rate_milli = 0;
+        player.set_source_motion_anim_rate_milli(0);
         player.turn_run_x14 = true;
         player.turn_run_resume_advances =
             player.ground_velocity_x * player.turn_run_accel_mul as f32 <= 0.01;
@@ -7131,7 +7132,7 @@ fn update_turn_run_command_pause(player: &mut PlayerState) -> bool {
     if player.ground_velocity_x * player.turn_run_accel_mul as f32 <= 0.01 {
         let advance_on_resume = player.turn_run_resume_advances;
         player.turn_run_resume_advances = false;
-        player.motion_anim_rate_milli = 1_000;
+        player.set_source_motion_anim_rate_milli(1_000);
         player.motion_cmd_var1 = 0;
         if !player.turn_has_turned {
             player.facing = player.turn_facing_after;
@@ -7927,7 +7928,7 @@ fn fighter_change_motion_state(
     let anim_start_milli = (anim_start * 1_000.0).round() as i32;
     player.motion_frame = (anim_start_milli / 1_000).clamp(0, u8::MAX as i32) as u8;
     player.set_source_motion_anim_frame_milli(anim_start_milli);
-    player.motion_anim_rate_milli = ((anim_speed * 1_000.0).round() as i32).max(0);
+    player.set_source_motion_anim_rate_milli((anim_speed * 1_000.0).round() as i32);
 }
 
 fn enter_dash_iasa_action_state(
@@ -8194,7 +8195,7 @@ fn enter_fall(player: &mut PlayerState) {
     player.set_motion_state_alias(MotionState::Fall);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     reset_source_fall_anim(player, MotionState::Fall);
     player.grounded = false;
     if was_grounded {
@@ -8315,8 +8316,10 @@ fn enter_landing_fall_special(player: &mut PlayerState, landing_lag_ticks: u8) {
     player.motion_cmd_var0 = 0;
     player.motion_cmd_var1 = 0;
     player.landing_lag_ticks = landing_lag_ticks;
-    player.motion_anim_rate_milli =
-        landing_animation_rate_milli(MotionState::LandingFallSpecial, landing_lag_ticks);
+    player.set_source_motion_anim_rate_milli(landing_animation_rate_milli(
+        MotionState::LandingFallSpecial,
+        landing_lag_ticks,
+    ));
     player.grounded = true;
     player.fast_falling = false;
     set_ground_velocity_x(player, landing_velocity_x);
