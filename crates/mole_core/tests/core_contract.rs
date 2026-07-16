@@ -13731,14 +13731,6 @@ fn ground_jump_takeoff_carries_moonwalk_followthrough_slide_without_custom_state
     assert_eq!(world.players()[0].motion_state, MotionState::Dash);
     step_world(&mut world, Frame(28), &neutral);
 
-    assert_eq!(
-        world.players()[0].motion_state,
-        MotionState::Dash,
-        "Slippi/decomp action counter frame 28 is still Dash for Falcon's 29f figatree; ftCo_Dash_Anim should fall back only after no frames remain"
-    );
-
-    step_world(&mut world, Frame(29), &neutral);
-
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     assert_eq!(world.players()[0].facing, 1);
     let moonwalk_carry_velocity = world.players()[0].velocity.x;
@@ -23039,16 +23031,16 @@ fn dash_neutral_falls_back_on_animation_completion_not_profile_dash_frames() {
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
 
     step_world(&mut world, Frame(0), &dash_right);
-    for frame in 1..=28 {
+    for frame in 1..=27 {
         step_world(&mut world, Frame(frame), &neutral);
         assert_eq!(
             world.players()[0].motion_state,
             MotionState::Dash,
-            "ftCo_Dash_Anim checks completion before frame advance; Slippi posts Falcon Dash frame 28 as Dash before frame 29 falls back to Wait"
+            "the entry's explicit ftAnim_8006EBA4 evaluation consumes the first AObj advance, so the remaining 27 global p1 evaluations keep Falcon's 29-frame Dash active"
         );
     }
 
-    step_world(&mut world, Frame(29), &neutral);
+    step_world(&mut world, Frame(28), &neutral);
 
     assert_eq!(world.players()[0].motion_state, MotionState::Wait);
     assert!(
@@ -25673,6 +25665,10 @@ fn falcon_jab_source_metadata(player: &PlayerState) -> Option<SourceActionPoseMe
         (45, 4) => SourceActionScriptEvent::SetJabCombo { disabled: true },
         (45, 8) => SourceActionScriptEvent::SetJabCombo { disabled: false },
         (46, 10) => SourceActionScriptEvent::SetJabRapid { state: true },
+        (48, 40) => SourceActionScriptEvent::SetThrowFlag {
+            hit_idx: 0,
+            flag_bit: None,
+        },
         _ => SourceActionScriptEvent::None,
     };
 

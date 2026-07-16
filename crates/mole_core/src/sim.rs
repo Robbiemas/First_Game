@@ -203,6 +203,12 @@ pub fn step_world_with_source_runtime_data(
     let player_profiles = world.players().map(|player| player.profile);
     let previous_action_state_ids = world.players().map(|player| player.melee_action_state_id);
     let source_hitlag_frames_before_tick = world.players().map(|player| player.hitlag_frames);
+    run_global_priority1_animation_phase(
+        world.players_mut(),
+        common_data,
+        &mut source_pose_metadata,
+        &mut source_action_total_frames,
+    );
     compute_player_nudge_velocities_after_source_anim_callbacks(
         world.players_mut(),
         stage,
@@ -602,7 +608,6 @@ pub fn step_world_with_source_runtime_data(
                     }
                 }
                 MotionState::Dash => {
-                    dash_anim_tick(player);
                     if !player.grounded {
                         enter_fall(player);
                     } else if player.motion_state != MotionState::Dash {
@@ -990,11 +995,18 @@ pub fn step_world_with_source_runtime_data(
                 | MotionState::AttackHi4
                 | MotionState::AttackLw4
                 | MotionState::EscapeN => {
-                    advance_source_motion_frame(player);
-                    let script_events =
-                        source_current_anim_script_events(player, &mut source_pose_metadata);
-                    apply_source_script_events(player, script_events, common_data);
-                    if player.motion_frame >= grounded_action_total_frames(player) {
+                    let migrated_attack100 = player
+                        .melee_action_state_id
+                        .is_some_and(source_attack100_action_state);
+                    if !migrated_attack100 {
+                        advance_source_motion_frame(player);
+                        let script_events =
+                            source_current_anim_script_events(player, &mut source_pose_metadata);
+                        apply_source_script_events(player, script_events, common_data);
+                    }
+                    if !migrated_attack100
+                        && player.motion_frame >= grounded_action_total_frames(player)
+                    {
                         // The animation callback changes the live action-state
                         // callback table before the later input and physics procs.
                         player.set_motion_state_alias(MotionState::Wait);
@@ -1028,17 +1040,13 @@ pub fn step_world_with_source_runtime_data(
                             && apply_rapid_jab_input(
                                 player,
                                 input_facts,
+                                common_data,
+                                &mut source_pose_metadata,
                                 &mut source_action_total_frames,
                             )
                         {
                         } else if player.motion_state == MotionState::Attack1
                             && apply_jab_followup_input(player, input_facts)
-                        {
-                        } else if player.motion_state == MotionState::Attack1
-                            && advance_attack100_state_if_needed(
-                                player,
-                                &mut source_action_total_frames,
-                            )
                         {
                         } else if let Some(next_state) =
                             grounded_action_iasa_state(player, input_facts, common_data)
@@ -2123,6 +2131,147 @@ fn apply_wait_state_inputs(
 
 fn begin_ground_velocity_tick(player: &mut PlayerState) {
     clear_ground_accels(player);
+}
+
+#[derive(Clone, Copy)]
+enum Priority1AnimCallback {
+    Dash,
+    Attack100Start,
+    Attack100Loop,
+    Attack100End,
+}
+
+fn run_global_priority1_animation_phase(
+    players: &mut [PlayerState; PLAYER_COUNT],
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
+    source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+) {
+    for player_index in 0..PLAYER_COUNT {
+        let player = &mut players[player_index];
+        if player.player_state != PLAYER_STATE_IN_GAME || player.hitlag_frames > 0 {
+            continue;
+        }
+        run_migrated_priority1_player(
+            player,
+            common_data,
+            source_pose_metadata,
+            source_action_total_frames,
+            true,
+        );
+    }
+}
+
+fn run_migrated_priority1_player(
+    player: &mut PlayerState,
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
+    source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+    dispatch_callback: bool,
+) {
+    let Some(callback) = priority1_anim_callback(player) else {
+        return;
+    };
+
+    if interpret_migrated_source_animation(player, true) {
+        match callback {
+            Priority1AnimCallback::Dash => apply_dash_script_events(player),
+            Priority1AnimCallback::Attack100Start
+            | Priority1AnimCallback::Attack100Loop
+            | Priority1AnimCallback::Attack100End => {
+                let script_events = source_current_anim_script_events(player, source_pose_metadata);
+                apply_source_script_events(player, script_events, common_data);
+            }
+        }
+        if matches!(callback, Priority1AnimCallback::Attack100Loop)
+            && player.cur_anim_frame() >= 0.0
+            && player.cur_anim_frame() < player.frame_speed_mul()
+        {
+            player.source_attack100_loop_has_started = true;
+        }
+    }
+
+    if !dispatch_callback {
+        return;
+    }
+
+    match callback {
+        Priority1AnimCallback::Dash => {
+            if !player.source_primary_anim_has_frames_remaining() {
+                enter_wait_from_walk(player);
+                clear_motion_script_state(player);
+            }
+        }
+        Priority1AnimCallback::Attack100Start => {
+            if !player.source_primary_anim_has_frames_remaining() {
+                enter_source_attack100_action(
+                    player,
+                    SOURCE_ATTACK100_LOOP_ACTION_STATE_ID,
+                    SOURCE_ATTACK100_LOOP_ACTION_KEY,
+                    source_action_total_frames,
+                );
+            }
+        }
+        Priority1AnimCallback::Attack100Loop => {
+            if player.motion_throw_flags & SOURCE_THROW_FLAGS_B3 != 0 {
+                player.motion_throw_flags &= !SOURCE_THROW_FLAGS_B3;
+                if player.source_attack100_loop_has_started
+                    && !player.source_attack100_loop_continue_input
+                {
+                    enter_source_attack100_action(
+                        player,
+                        SOURCE_ATTACK100_END_ACTION_STATE_ID,
+                        SOURCE_ATTACK100_END_ACTION_KEY,
+                        source_action_total_frames,
+                    );
+                } else {
+                    player.source_attack100_loop_continue_input = false;
+                }
+            }
+        }
+        Priority1AnimCallback::Attack100End => {
+            if !player.source_primary_anim_has_frames_remaining() {
+                enter_source_common_action_end(player);
+            }
+        }
+    }
+}
+
+fn priority1_anim_callback(player: &PlayerState) -> Option<Priority1AnimCallback> {
+    if player.motion_state == MotionState::Dash
+        && player.source_action_key == Some(SourceActionKey::new("Dash"))
+    {
+        return Some(Priority1AnimCallback::Dash);
+    }
+
+    match (player.melee_action_state_id, player.source_action_key) {
+        (Some(SOURCE_ATTACK100_START_ACTION_STATE_ID), Some(SOURCE_ATTACK100_START_ACTION_KEY)) => {
+            Some(Priority1AnimCallback::Attack100Start)
+        }
+        (Some(SOURCE_ATTACK100_LOOP_ACTION_STATE_ID), Some(SOURCE_ATTACK100_LOOP_ACTION_KEY)) => {
+            Some(Priority1AnimCallback::Attack100Loop)
+        }
+        (Some(SOURCE_ATTACK100_END_ACTION_STATE_ID), Some(SOURCE_ATTACK100_END_ACTION_KEY)) => {
+            Some(Priority1AnimCallback::Attack100End)
+        }
+        _ => None,
+    }
+}
+
+fn interpret_migrated_source_animation(
+    player: &mut PlayerState,
+    advance_action_command_timeline: bool,
+) -> bool {
+    let first_play = player.source_primary_anim_is_first_play();
+    let interpreted = player.interpret_source_primary_anim().is_some();
+    if interpreted
+        && !first_play
+        && advance_action_command_timeline
+        && player.frame_speed_mul_milli() > 0
+    {
+        player.motion_frame = player.motion_frame.saturating_add(1);
+    }
+    interpreted
 }
 
 fn compute_player_nudge_velocities_after_source_anim_callbacks(
@@ -6477,6 +6626,14 @@ fn enter_dash(player: &mut PlayerState, direction: i8, started_from_tap: bool) {
     player.set_motion_state_alias(MotionState::Dash);
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
+    if player.install_current_source_primary_anim(0.0, 1.0) {
+        // Fighter_ChangeMotionState evaluates the new AObj before Dash_Enter
+        // explicitly calls ftAnim_8006EBA4 a second time.
+        interpret_migrated_source_animation(player, false);
+        apply_dash_script_events(player);
+        interpret_migrated_source_animation(player, false);
+        apply_dash_script_events(player);
+    }
     player.facing = direction;
     player.source_model_facing = direction;
     player.dash_started_from_tap = started_from_tap;
@@ -6510,6 +6667,7 @@ fn clear_motion_script_state(player: &mut PlayerState) {
     player.source_jab_combo_enabled = false;
     player.source_jab_rapid_enabled = false;
     player.source_rapid_jab_input_count = 0;
+    player.source_attack100_loop_has_started = false;
     player.source_attack100_loop_continue_input = false;
     player.landing_lag_ticks = 0;
     player.dash_x0 = 0.0;
@@ -6591,22 +6749,6 @@ fn update_walk_anim_rate(player: &mut PlayerState) {
     });
 }
 
-fn dash_anim_tick(player: &mut PlayerState) {
-    advance_source_motion_frame(player);
-    apply_dash_script_events(player);
-    if player.motion_frame
-        >= player
-            .profile
-            .action_frames
-            .dash_total_frames
-            .saturating_sub(1)
-    {
-        enter_wait_from_walk(player);
-        clear_motion_script_state(player);
-        return;
-    }
-}
-
 fn apply_dash_script_events(player: &mut PlayerState) {
     let frames = player.profile.action_frames;
     if dash_script_event_frame_matches(player.motion_frame, frames.dash_cmd_var0_clear_frame) {
@@ -6674,6 +6816,8 @@ fn source_attack1_family_action_state(action_state_id: MeleeActionStateId) -> bo
 fn apply_rapid_jab_input(
     player: &mut PlayerState,
     input_facts: MeleeInputFacts,
+    common_data: MeleeCommonData,
+    source_pose_metadata: &mut impl FnMut(&PlayerState) -> Option<SourceActionPoseMetadata>,
     source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) -> bool {
     let Some(action_state_id) = player.melee_action_state_id else {
@@ -6697,6 +6841,13 @@ fn apply_rapid_jab_input(
             SOURCE_ATTACK100_START_ACTION_STATE_ID,
             SOURCE_ATTACK100_START_ACTION_KEY,
             source_action_total_frames,
+        );
+        run_migrated_priority1_player(
+            player,
+            common_data,
+            source_pose_metadata,
+            source_action_total_frames,
+            false,
         );
         true
     } else {
@@ -6764,6 +6915,7 @@ fn enter_attack11_jab_state(player: &mut PlayerState) {
     player.source_jab_combo_enabled = false;
     player.source_jab_rapid_enabled = false;
     player.source_rapid_jab_input_count = 0;
+    player.source_attack100_loop_has_started = false;
     player.source_attack100_loop_continue_input = false;
 }
 
@@ -6816,62 +6968,16 @@ fn enter_source_attack100_action(
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
     player.set_source_motion_anim_rate_milli(1_000);
+    player.install_current_source_primary_anim(0.0, 1.0);
     player.motion_throw_flags = 0;
     player.source_jab_followup_timer = 0;
     player.source_jab_followup_queued = false;
     player.source_jab_combo_enabled = false;
+    player.source_attack100_loop_has_started = false;
     player.source_attack100_loop_continue_input = false;
     player.grounded = true;
     player.velocity.y = 0;
     clear_ground_horizontal_velocity(player);
-}
-
-fn advance_attack100_state_if_needed(
-    player: &mut PlayerState,
-    source_action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
-) -> bool {
-    let Some(action_state_id) = player.melee_action_state_id else {
-        return false;
-    };
-    match action_state_id {
-        SOURCE_ATTACK100_START_ACTION_STATE_ID => {
-            if source_action_animation_done(player) {
-                enter_source_attack100_action(
-                    player,
-                    SOURCE_ATTACK100_LOOP_ACTION_STATE_ID,
-                    SOURCE_ATTACK100_LOOP_ACTION_KEY,
-                    source_action_total_frames,
-                );
-            }
-            true
-        }
-        SOURCE_ATTACK100_LOOP_ACTION_STATE_ID => {
-            if player.source_action_total_frames > 0
-                && player.motion_frame >= player.source_action_total_frames
-            {
-                if player.source_attack100_loop_continue_input {
-                    player.motion_frame = 0;
-                    player.set_source_motion_anim_frame(0.0);
-                    player.source_attack100_loop_continue_input = false;
-                } else {
-                    enter_source_attack100_action(
-                        player,
-                        SOURCE_ATTACK100_END_ACTION_STATE_ID,
-                        SOURCE_ATTACK100_END_ACTION_KEY,
-                        source_action_total_frames,
-                    );
-                }
-            }
-            true
-        }
-        SOURCE_ATTACK100_END_ACTION_STATE_ID => {
-            if source_action_animation_done(player) {
-                enter_source_common_action_end(player);
-            }
-            true
-        }
-        _ => false,
-    }
 }
 
 fn attack_air_landing_lag_cmd_var0_frames(
@@ -12149,6 +12255,72 @@ mod source_map_collision_tests {
         live_source_local_ecb_for_player_pose_frame_milli_with_flags, SourceStaleMoveEntry,
         SourceStaleMoveTable,
     };
+
+    #[test]
+    fn dash_entry_runs_change_state_and_explicit_source_evaluations_before_next_p1_tick() {
+        let mut world = World::for_two_players();
+        let dash = [
+            PlayerInput::neutral().with_left_stick(127, 0),
+            PlayerInput::neutral(),
+        ];
+
+        step_world(&mut world, Frame(0), &dash);
+
+        let entered = world.players()[0];
+        assert_eq!(entered.motion_state, MotionState::Dash);
+        assert_eq!(entered.motion_frame, 0);
+        assert_eq!(entered.cur_anim_frame(), 1.0);
+        assert!(!entered.source_primary_anim_is_first_play());
+
+        step_world(
+            &mut world,
+            Frame(1),
+            &[PlayerInput::neutral(); PLAYER_COUNT],
+        );
+
+        let advanced = world.players()[0];
+        assert_eq!(advanced.motion_frame, 1);
+        assert_eq!(advanced.cur_anim_frame(), 2.0);
+    }
+
+    #[test]
+    fn priority1_transition_does_not_invoke_the_new_animation_callback_recursively() {
+        let mut player = PlayerState::new(0, 0, 1);
+        let mut source_action_total_frames =
+            |action_state_id: MeleeActionStateId| match action_state_id {
+                SOURCE_ATTACK100_START_ACTION_STATE_ID => Some(6),
+                SOURCE_ATTACK100_LOOP_ACTION_STATE_ID => Some(40),
+                _ => None,
+            };
+        enter_source_attack100_action(
+            &mut player,
+            SOURCE_ATTACK100_START_ACTION_STATE_ID,
+            SOURCE_ATTACK100_START_ACTION_KEY,
+            &mut source_action_total_frames,
+        );
+        assert!(interpret_migrated_source_animation(&mut player, true));
+        player.set_source_motion_anim_frame(5.0);
+        fn no_source_metadata(_: &PlayerState) -> Option<SourceActionPoseMetadata> {
+            None
+        }
+        let mut no_source_metadata = no_source_metadata;
+
+        run_migrated_priority1_player(
+            &mut player,
+            MeleeCommonData::PROVISIONAL,
+            &mut no_source_metadata,
+            &mut source_action_total_frames,
+            true,
+        );
+
+        assert_eq!(
+            player.melee_action_state_id,
+            Some(SOURCE_ATTACK100_LOOP_ACTION_STATE_ID)
+        );
+        assert_eq!(player.motion_frame, 0);
+        assert_eq!(player.cur_anim_frame(), 0.0);
+        assert!(player.source_primary_anim_is_first_play());
+    }
 
     #[test]
     fn source_cliff_ground_commit_does_not_project_transn_y_before_collision_callback() {

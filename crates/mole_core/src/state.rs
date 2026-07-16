@@ -2833,6 +2833,7 @@ pub struct PlayerState {
     pub source_jab_combo_enabled: bool,
     pub source_jab_rapid_enabled: bool,
     pub source_rapid_jab_input_count: u8,
+    pub source_attack100_loop_has_started: bool,
     pub source_attack100_loop_continue_input: bool,
     pub source_common_timer: u8,
     pub source_dead_phase: u8,
@@ -3045,6 +3046,7 @@ impl PlayerState {
             source_jab_combo_enabled: false,
             source_jab_rapid_enabled: false,
             source_rapid_jab_input_count: 0,
+            source_attack100_loop_has_started: false,
             source_attack100_loop_continue_input: false,
             source_common_timer: 0,
             source_dead_phase: 0,
@@ -3222,6 +3224,14 @@ impl PlayerState {
         self.sync_legacy_animation_fields_from_playback();
     }
 
+    pub(crate) fn install_current_source_primary_anim(&mut self, frame: f32, rate: f32) -> bool {
+        let Some(descriptor) = source_migrated_primary_anim_descriptor_for_player(self) else {
+            return false;
+        };
+        self.install_source_primary_anim(frame, rate, descriptor);
+        true
+    }
+
     #[allow(dead_code)]
     pub(crate) fn interpret_source_primary_anim(&mut self) -> Option<f32> {
         let frame = self.source_playback.interpret_primary();
@@ -3232,6 +3242,14 @@ impl PlayerState {
     #[allow(dead_code)]
     pub(crate) fn source_playback(&self) -> &SourceFighterPlayback {
         &self.source_playback
+    }
+
+    pub(crate) fn source_primary_anim_has_frames_remaining(&self) -> bool {
+        self.source_playback.primary.flags & SOURCE_AOBJ_NO_ANIM == 0
+    }
+
+    pub(crate) fn source_primary_anim_is_first_play(&self) -> bool {
+        self.source_playback.primary.flags & SOURCE_AOBJ_FIRST_PLAY != 0
     }
 
     #[allow(dead_code)]
@@ -3905,6 +3923,39 @@ fn source_action_table_id_for_player(player: PlayerState) -> Option<u16> {
     }
     canonical_source_action_binding_for_runtime_id(action_state_id)
         .map(|binding| binding.source_action_table_id)
+}
+
+fn source_action_table_id_for_live_identity(player: PlayerState) -> Option<u16> {
+    let action_state_id = player.melee_action_state_id?;
+    let source_action_key = player.source_action_key?;
+    if let Some(binding) = source_binding_for_motion_state(player.motion_state) {
+        if binding.action_state_id == action_state_id
+            && binding.source_action_key == source_action_key
+        {
+            return Some(binding.source_action_table_id);
+        }
+    }
+    if let Some(binding) = source_special_action_binding_for_runtime_id(action_state_id) {
+        if binding.source_action_key == source_action_key {
+            return Some(binding.source_action_table_id);
+        }
+    }
+    canonical_source_action_binding_for_runtime_id(action_state_id)
+        .filter(|binding| binding.source_action_key == source_action_key)
+        .map(|binding| binding.source_action_table_id)
+}
+
+fn source_migrated_primary_anim_descriptor_for_player(
+    player: &PlayerState,
+) -> Option<SourceAObjDescriptor> {
+    if !matches!(
+        player.source_action_key?.as_str(),
+        "Dash" | "Attack100Start" | "Attack100Loop" | "Attack100End"
+    ) {
+        return None;
+    }
+    let source_action_table_id = source_action_table_id_for_live_identity(*player)?;
+    falcon_ecb::falcon_aobj_descriptor_for_action_table_id(source_action_table_id)
 }
 
 fn source_aobj_descriptor_for_motion_state(
@@ -4695,6 +4746,7 @@ macro_rules! player_rollback_snapshot_fields {
             source_jab_combo_enabled: bool,
             source_jab_rapid_enabled: bool,
             source_rapid_jab_input_count: u8,
+            source_attack100_loop_has_started: bool,
             source_attack100_loop_continue_input: bool,
             source_common_timer: u8,
             source_dead_phase: u8,
@@ -6631,6 +6683,7 @@ impl World {
             mix_u8(&mut hash, player.source_jab_combo_enabled as u8);
             mix_u8(&mut hash, player.source_jab_rapid_enabled as u8);
             mix_u8(&mut hash, player.source_rapid_jab_input_count);
+            mix_u8(&mut hash, player.source_attack100_loop_has_started as u8);
             mix_u8(&mut hash, player.source_attack100_loop_continue_input as u8);
             mix_u8(&mut hash, player.source_common_timer);
             mix_u8(&mut hash, player.source_dead_phase);
@@ -8311,6 +8364,49 @@ mod tests {
         );
         assert_eq!(binding.source_action_key.as_str(), "EscapeAir");
         assert_eq!(binding.runtime_motion_state, Some(MotionState::EscapeAir));
+    }
+
+    #[test]
+    fn source_aobj_binding_uses_live_identity_without_changing_legacy_alias_pose_binding() {
+        let mut dash = PlayerState::new(0, 0, 1);
+        dash.set_motion_state_alias(MotionState::Dash);
+        let dash_binding =
+            source_binding_for_motion_state(MotionState::Dash).expect("Dash source binding");
+        assert_eq!(
+            source_action_table_id_for_player(dash),
+            None,
+            "legacy live-pose sampling must keep aliases out of the action-table path"
+        );
+        assert_eq!(
+            source_migrated_primary_anim_descriptor_for_player(&dash),
+            falcon_ecb::falcon_aobj_descriptor_for_action_table_id(
+                dash_binding.source_action_table_id
+            ),
+            "AObj installation must still bind Dash by its live action identity"
+        );
+
+        let mut attack100_start = PlayerState::new(0, 0, 1);
+        attack100_start.motion_state = MotionState::Attack1;
+        attack100_start.motion_state_alias = None;
+        attack100_start.melee_action_state_id = Some(MeleeActionStateId::new(47));
+        attack100_start.source_action_key = Some(SourceActionKey::new("Attack100Start"));
+        assert_eq!(source_action_table_id_for_player(attack100_start), Some(49));
+
+        attack100_start.source_action_key = Some(SourceActionKey::new("Attack100Loop"));
+        assert_eq!(
+            source_migrated_primary_anim_descriptor_for_player(&attack100_start),
+            None,
+            "a migrated animation must not bind a descriptor for a different source action key"
+        );
+
+        let mut damage_n2 = PlayerState::new(0, 0, 1);
+        damage_n2.melee_action_state_id = Some(MeleeActionStateId::new(79));
+        damage_n2.source_action_key = Some(SourceActionKey::new("DamageN2"));
+        assert_eq!(
+            source_migrated_primary_anim_descriptor_for_player(&damage_n2),
+            None,
+            "Task 3B's primary playback must not widen legacy ECB pose selection"
+        );
     }
 
     #[test]
