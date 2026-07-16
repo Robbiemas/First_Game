@@ -14451,7 +14451,7 @@ fn enter_landing_as(player: &mut PlayerState, motion_state: MotionState, landing
     player.motion_cmd_var1 = 0;
     player.landing_lag_ticks = landing_lag_ticks;
     if motion_state == MotionState::Landing {
-        player.motion_anim_rate_milli = 1_000;
+        player.set_source_motion_anim_rate_milli(1_000);
     }
     player.grounded = true;
     player.fast_falling = false;
@@ -14511,7 +14511,7 @@ fn enter_air_jump(player: &mut PlayerState, stick_x: i32, common_data: MeleeComm
     );
     player.motion_frame = 0;
     player.set_source_motion_anim_frame(0.0);
-    player.motion_anim_rate_milli = 1_000;
+    player.set_source_motion_anim_rate_milli(1_000);
     set_source_self_velocity_x(
         player,
         stick_scaled_velocity_source(stick_x, player.profile.air_jump_horizontal_multiplier),

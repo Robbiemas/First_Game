@@ -31,3 +31,13 @@ Code commit: `03dfb92` (`Correct persistent AObj playback semantics`)
 
 - `crates/mole_core/src/state.rs`
 - `crates/mole_core/src/sim.rs`
+
+## Rereview Follow-up
+
+Rereview found that diagnostic normalization still preferred a stale float rate
+when only the public milli-rate compatibility field had changed. The normalizer
+now canonicalizes the effective legacy frame and rate through synchronized setters
+before installing diagnostic state. The two remaining test-only transition helpers
+also use the synchronized rate setter. A focused RED case reproduced `1.0` versus
+expected `0.75`; after correction it passed, and `cargo test -p mole_core --lib`
+remained green at 78/78.

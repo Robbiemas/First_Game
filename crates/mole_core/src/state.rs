@@ -3247,11 +3247,6 @@ impl PlayerState {
         self.motion_anim_rate_milli = (primary.framerate * 1_000.0).round() as i32;
     }
 
-    fn reconcile_source_playback_with_legacy_animation_fields(&mut self) {
-        self.source_playback.primary.curr_frame = self.source_motion_anim_frame;
-        self.source_playback.primary.framerate = self.source_motion_anim_rate;
-    }
-
     pub fn frame_speed_mul_milli(self) -> i32 {
         self.motion_anim_rate_milli
     }
@@ -5361,13 +5356,15 @@ impl World {
         {
             state.set_motion_state_alias(state.motion_state);
         }
-        if state.source_motion_anim_frame == 0.0 && state.motion_anim_frame_milli != 0 {
-            state.source_motion_anim_frame = state.motion_anim_frame_milli as f32 / 1000.0;
-        } else {
-            state.motion_anim_frame_milli =
-                (state.source_motion_anim_frame * 1000.0).round() as i32;
-        }
-        state.reconcile_source_playback_with_legacy_animation_fields();
+        let normalized_anim_frame =
+            if state.source_motion_anim_frame == 0.0 && state.motion_anim_frame_milli != 0 {
+                state.motion_anim_frame_milli as f32 / 1000.0
+            } else {
+                state.source_motion_anim_frame
+            };
+        let normalized_anim_rate = state.frame_speed_mul();
+        state.set_source_motion_anim_frame(normalized_anim_frame);
+        state.set_source_motion_anim_rate(normalized_anim_rate);
         let projected_source_position = state.source_position.to_milli();
         if projected_source_position != state.position {
             let source_position_changed = state.source_position != player.source_position;
@@ -8150,7 +8147,7 @@ mod tests {
         let mut state = PlayerState::new(0, 0, 1);
         state.source_motion_anim_frame = 3.25;
         state.motion_anim_frame_milli = 3_250;
-        state.source_motion_anim_rate = 0.75;
+        state.source_motion_anim_rate = 1.0;
         state.motion_anim_rate_milli = 750;
         state.source_playback.primary.curr_frame = 9.0;
         state.source_playback.primary.framerate = 1.0;
