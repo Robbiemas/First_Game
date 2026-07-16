@@ -9592,8 +9592,9 @@ fn sdl_runtime_launcher_uses_local_sdl_play_mode() {
         std::fs::read_to_string(&launcher).expect("SDL3 runtime launcher should be readable");
 
     assert!(text.contains(".local\\SDL3"));
-    assert!(text.contains("--features \"sdl wup\""));
-    assert!(text.contains("-- --sdl --play --input-trace"));
+    assert!(text.contains("Ensure Release Runtime.cmd"));
+    assert!(text.contains("target\\release\\mole_runtime.exe"));
+    assert!(text.contains("\"%RUNTIME_EXE%\" --sdl --play --input-trace"));
     assert!(!text.contains("--friend-connect"));
     assert!(!text.contains("--netplay-delay"));
     assert!(!text.contains("--no-ucf"));
@@ -9668,8 +9669,9 @@ fn sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing() {
         std::fs::read_to_string(&launcher).expect("vanilla SDL3 launcher should be readable");
 
     assert!(text.contains(".local\\SDL3"));
-    assert!(text.contains("--features \"sdl wup\""));
-    assert!(text.contains("-- --sdl --play --input-trace --no-ucf"));
+    assert!(text.contains("Ensure Release Runtime.cmd"));
+    assert!(text.contains("target\\release\\mole_runtime.exe"));
+    assert!(text.contains("\"%RUNTIME_EXE%\" --sdl --play --input-trace --no-ucf"));
     assert!(!text.contains("--friend-connect"));
     assert!(!text.contains("--netplay-delay"));
     assert!(text.contains("Open Dev Tool.cmd"));

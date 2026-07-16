@@ -61,7 +61,8 @@ Eighteen failures are production architecture gaps:
 
 ## Runtime Contracts
 
-Two failures are stale launcher expectations:
+Two baseline failures were stale launcher expectations and are now reconciled with the
+release-runtime launcher contract:
 
 - `sdl_runtime_launcher_uses_local_sdl_play_mode`
 - `sdl_runtime_vanilla_launcher_disables_ucf_for_controller_testing`
@@ -98,7 +99,7 @@ The remaining 29 failures are grouped by shared production owner:
 4. Capture/throw accessory transforms over live JObj output.
 5. Runtime render/collision selection consumers.
 6. Stale fixture updates after each corresponding production path is proven.
-7. Diagnostic comparison and launcher-only expectations.
+7. Diagnostic comparison expectations.
 
 Every group must retain the strict replay gate. No failure may be removed by
 relaxing comparison tolerances, allowing replay continuation, or introducing a
