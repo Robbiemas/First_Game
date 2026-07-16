@@ -93,6 +93,61 @@ impl SourceAObjState {
         Some(evaluated_frame)
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SourceFighterPlayback {
+    primary: SourceAObjState,
+    secondary: Option<SourceAObjState>,
+}
+
+impl Default for SourceFighterPlayback {
+    fn default() -> Self {
+        Self {
+            primary: SourceAObjState {
+                flags: SOURCE_AOBJ_NO_ANIM,
+                curr_frame: 0.0,
+                rewind_frame: 0.0,
+                end_frame: 0.0,
+                framerate: 1.0,
+            },
+            secondary: None,
+        }
+    }
+}
+
+#[allow(dead_code)] // Task 3B consumes this migration API.
+impl SourceFighterPlayback {
+    pub(crate) fn request_primary(
+        &mut self,
+        frame: f32,
+        rate: f32,
+        descriptor: SourceAObjDescriptor,
+    ) {
+        self.primary = SourceAObjState::requested(
+            frame,
+            rate,
+            descriptor.rewind_frame,
+            descriptor.end_frame,
+            descriptor.flags,
+        );
+    }
+
+    pub(crate) fn primary(&self) -> &SourceAObjState {
+        &self.primary
+    }
+
+    pub(crate) fn secondary(&self) -> Option<&SourceAObjState> {
+        self.secondary.as_ref()
+    }
+
+    pub(crate) fn set_secondary(&mut self, secondary: Option<SourceAObjState>) {
+        self.secondary = secondary;
+    }
+
+    pub(crate) fn interpret_primary(&mut self) -> Option<f32> {
+        self.primary.interpret_frame()
+    }
+}
 #[path = "generated/fighter_common.rs"]
 mod fighter_common;
 #[path = "generated/source_root_motion.rs"]
@@ -2791,6 +2846,7 @@ pub struct PlayerState {
     pub motion_frame: u8,
     pub source_motion_anim_frame: f32,
     pub motion_anim_frame_milli: i32,
+    pub(crate) source_playback: SourceFighterPlayback,
     pub(crate) source_fall_anim_blend: f32,
     pub(crate) source_fall_anim_pose: MotionState,
     pub ground_velocity_x: f32,
@@ -3002,6 +3058,16 @@ impl PlayerState {
             motion_frame: 0,
             source_motion_anim_frame: 0.0,
             motion_anim_frame_milli: 0,
+            source_playback: SourceFighterPlayback {
+                primary: SourceAObjState {
+                    flags: SOURCE_AOBJ_NO_ANIM,
+                    curr_frame: 0.0,
+                    rewind_frame: 0.0,
+                    end_frame: 0.0,
+                    framerate: 1.0,
+                },
+                secondary: None,
+            },
             source_fall_anim_blend: 0.0,
             source_fall_anim_pose: MotionState::Fall,
             ground_velocity_x: 0.0,
@@ -3101,11 +3167,13 @@ impl PlayerState {
             0.0
         };
         self.motion_anim_frame_milli = (self.source_motion_anim_frame * 1000.0).round() as i32;
+        self.source_playback.primary.curr_frame = self.source_motion_anim_frame;
     }
 
     pub fn set_source_motion_anim_frame_milli(&mut self, frame_milli: i32) {
         self.motion_anim_frame_milli = frame_milli.max(0);
         self.source_motion_anim_frame = self.motion_anim_frame_milli as f32 / 1000.0;
+        self.source_playback.primary.curr_frame = self.source_motion_anim_frame;
     }
 
     pub fn cur_anim_frame(self) -> f32 {
@@ -3128,6 +3196,44 @@ impl PlayerState {
     pub fn set_source_motion_anim_rate(&mut self, rate: f32) {
         self.source_motion_anim_rate = if rate.is_finite() { rate.max(0.0) } else { 0.0 };
         self.motion_anim_rate_milli = (self.source_motion_anim_rate * 1_000.0).round() as i32;
+        self.source_playback.primary.framerate = self.source_motion_anim_rate;
+    }
+
+    #[allow(dead_code)] // Task 3B migrates callback dispatch onto this authority.
+    pub(crate) fn request_source_primary_anim(
+        &mut self,
+        frame: f32,
+        rate: f32,
+        descriptor: SourceAObjDescriptor,
+    ) {
+        self.source_playback
+            .request_primary(frame, rate, descriptor);
+        self.sync_legacy_animation_fields_from_playback();
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn interpret_source_primary_anim(&mut self) -> Option<f32> {
+        let frame = self.source_playback.interpret_primary();
+        self.sync_legacy_animation_fields_from_playback();
+        frame
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn source_playback(&self) -> &SourceFighterPlayback {
+        &self.source_playback
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn set_source_secondary_anim(&mut self, secondary: Option<SourceAObjState>) {
+        self.source_playback.set_secondary(secondary);
+    }
+
+    fn sync_legacy_animation_fields_from_playback(&mut self) {
+        let primary = self.source_playback.primary;
+        self.source_motion_anim_frame = primary.curr_frame;
+        self.motion_anim_frame_milli = (primary.curr_frame * 1_000.0).round() as i32;
+        self.source_motion_anim_rate = primary.framerate;
+        self.motion_anim_rate_milli = (primary.framerate * 1_000.0).round() as i32;
     }
 
     pub fn frame_speed_mul_milli(self) -> i32 {
@@ -4596,6 +4702,7 @@ macro_rules! player_rollback_snapshot_fields {
             motion_frame: u8,
             source_motion_anim_frame: f32,
             motion_anim_frame_milli: i32,
+            source_playback: SourceFighterPlayback,
             source_fall_anim_blend: f32,
             source_fall_anim_pose: MotionState,
             ground_velocity_x: f32,
@@ -6536,6 +6643,7 @@ impl World {
             mix_u8(&mut hash, player.motion_frame);
             mix_f32(&mut hash, player.source_motion_anim_frame);
             mix_i32(&mut hash, player.motion_anim_frame_milli);
+            mix_source_fighter_playback(&mut hash, player.source_playback);
             mix_f32(&mut hash, player.ground_velocity_x);
             mix_f32(&mut hash, player.ground_accel_x);
             mix_f32(&mut hash, player.ground_accel_x2);
@@ -7857,6 +7965,25 @@ fn mix_i32(hash: &mut u64, value: i32) {
     }
 }
 
+fn mix_source_aobj_state(hash: &mut u64, aobj: SourceAObjState) {
+    mix_u32(hash, aobj.flags);
+    mix_f32(hash, aobj.curr_frame);
+    mix_f32(hash, aobj.rewind_frame);
+    mix_f32(hash, aobj.end_frame);
+    mix_f32(hash, aobj.framerate);
+}
+
+fn mix_source_fighter_playback(hash: &mut u64, playback: SourceFighterPlayback) {
+    mix_source_aobj_state(hash, playback.primary);
+    match playback.secondary {
+        Some(secondary) => {
+            mix_u8(hash, 1);
+            mix_source_aobj_state(hash, secondary);
+        }
+        None => mix_u8(hash, 0),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -7926,6 +8053,130 @@ mod tests {
         assert_eq!(aobj.interpret_frame(), Some(7.5));
         assert_eq!(aobj.interpret_frame(), Some(2.5));
         assert_ne!(aobj.flags & SOURCE_AOBJ_REWINDED, 0);
+    }
+
+    #[test]
+    fn persistent_fighter_playback_requests_interprets_loops_and_stops() {
+        let mut playback = SourceFighterPlayback::default();
+        playback.request_primary(
+            7.5,
+            1.0,
+            SourceAObjDescriptor {
+                end_frame: 8.0,
+                rewind_frame: 2.0,
+                flags: SOURCE_AOBJ_LOOP,
+            },
+        );
+
+        assert_eq!(playback.interpret_primary(), Some(7.5));
+        assert_eq!(playback.interpret_primary(), Some(2.5));
+        assert_ne!(playback.primary().flags & SOURCE_AOBJ_REWINDED, 0);
+
+        playback.request_primary(
+            7.0,
+            1.0,
+            SourceAObjDescriptor {
+                end_frame: 8.0,
+                rewind_frame: 0.0,
+                flags: 0,
+            },
+        );
+        assert_eq!(playback.interpret_primary(), Some(7.0));
+        assert_eq!(playback.interpret_primary(), Some(8.0));
+        assert_eq!(playback.interpret_primary(), None);
+    }
+
+    #[test]
+    fn legacy_animation_frame_setters_keep_primary_playback_synchronized() {
+        let mut player = PlayerState::new(0, 0, 1);
+
+        player.set_source_motion_anim_frame_milli(3_250);
+        assert_eq!(player.source_playback().primary().curr_frame, 3.25);
+
+        player.set_source_motion_anim_rate(0.5);
+        assert_eq!(player.source_playback().primary().framerate, 0.5);
+    }
+
+    #[test]
+    fn persistent_fighter_playback_round_trips_through_rollback() {
+        let mut world = World::for_two_players();
+        world.players_mut()[0].request_source_primary_anim(
+            3.25,
+            0.5,
+            SourceAObjDescriptor {
+                end_frame: 9.0,
+                rewind_frame: 1.0,
+                flags: SOURCE_AOBJ_LOOP | SOURCE_AOBJ_NO_UPDATE,
+            },
+        );
+        world.players_mut()[0].set_source_secondary_anim(Some(SourceAObjState::requested(
+            4.0,
+            0.25,
+            2.0,
+            6.0,
+            SOURCE_AOBJ_LOOP,
+        )));
+        let expected = *world.players()[0].source_playback();
+        let snapshot = world.rollback_snapshot();
+
+        world.players_mut()[0].source_playback = SourceFighterPlayback::default();
+        world.restore_rollback_snapshot(&snapshot);
+
+        assert_eq!(world.players()[0].source_playback, expected);
+    }
+
+    #[test]
+    fn checksum_is_sensitive_to_every_persistent_playback_field() {
+        let default_playback = SourceFighterPlayback::default();
+        let playback_variants = [
+            SourceFighterPlayback {
+                primary: SourceAObjState {
+                    flags: 0,
+                    ..default_playback.primary
+                },
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                primary: SourceAObjState {
+                    curr_frame: 1.5,
+                    ..default_playback.primary
+                },
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                primary: SourceAObjState {
+                    rewind_frame: 2.0,
+                    ..default_playback.primary
+                },
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                primary: SourceAObjState {
+                    end_frame: 12.0,
+                    ..default_playback.primary
+                },
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                primary: SourceAObjState {
+                    framerate: 0.75,
+                    ..default_playback.primary
+                },
+                ..default_playback
+            },
+            SourceFighterPlayback {
+                secondary: Some(default_playback.primary),
+                ..default_playback
+            },
+        ];
+
+        for playback in playback_variants {
+            let mut world = World::for_two_players();
+            let baseline = world.checksum();
+            world.players_mut()[0].source_playback = playback;
+
+            assert_ne!(world.checksum(), baseline);
+        }
     }
 
     #[test]
