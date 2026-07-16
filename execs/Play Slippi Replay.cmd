@@ -47,4 +47,5 @@ echo Launching Mole Rust SDL3 Slippi replay runtime... >> "%LAUNCH_LOG%"
 set "EXITCODE=%ERRORLEVEL%"
 
 echo Runtime exited with %EXITCODE%. >> "%LAUNCH_LOG%"
+if exist "%DIVERGENCE_LOG%" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Summarize Divergence Log.ps1" "%DIVERGENCE_LOG%" >> "%LAUNCH_LOG%" 2>&1
 exit /b %EXITCODE%

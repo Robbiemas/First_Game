@@ -114,11 +114,21 @@ def test_start_here_launcher_exposes_replay_local_and_devtool_entrypoints():
     assert "<HTA:APPLICATION" in text
     assert "WScript.Shell" in text
     assert "runCommandFileHidden" in text
-    assert "window.resizeTo(600, 500)" in text
+    assert "startActiveStatus" in text
+    assert "progressBar" in text
+    assert "runtime-launch.latest.log" in text
+    assert "progressForLogLine" in text
+    assert "copyStatusText" in text
+    assert 'id="copyStatusButton"' in text
+    assert 'onclick="copyStatusText()"' in text
+    assert 'window.clipboardData.setData("Text", text)' in text
+    assert "Launching Mole Rust SDL3 Slippi replay runtime" in text
+    assert "statusDirection" not in text
+    assert "window.resizeTo(600, 580)" in text
     assert "overflow: auto" in text
-    assert text.count("<button") == 3
+    assert text.count("<button") == 4
     assert "execs\\\\Play Slippi Replay.cmd" in text
-    assert "execs\\\\Run SDL3 Runtime.cmd" in text
+    assert "execs\\\\Run Local SDL3 Runtime.cmd" in text
     assert "execs\\\\Open Dev Tool.cmd" in text
     assert "debug\\\\slippi\\\\runtime-divergence.latest.json" in text
     assert "Writes the live divergence log and holds on the first mismatch." in text

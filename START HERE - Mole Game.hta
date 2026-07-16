@@ -24,7 +24,7 @@
         width: 100%;
         height: 100%;
         min-width: 560px;
-        min-height: 450px;
+        min-height: 540px;
         overflow: auto;
         box-sizing: border-box;
         font-family: "Segoe UI", Arial, sans-serif;
@@ -101,7 +101,7 @@
     .status {
         margin-top: 16px;
         padding: 11px 13px;
-        min-height: 40px;
+        min-height: 58px;
         border: 1px solid #d6e0ef;
         background: #ffffff;
         border-radius: 6px;
@@ -109,10 +109,72 @@
         font-size: 12px;
         line-height: 17px;
     }
+
+    .status-text {
+        display: table-cell;
+        width: 100%;
+        min-height: 17px;
+        padding-right: 10px;
+        vertical-align: top;
+        word-break: break-word;
+    }
+
+    .status-row {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .copy-button {
+        display: table-cell;
+        width: 64px;
+        min-height: 28px;
+        border: 1px solid #c9d5e6;
+        background: #f9fbff;
+        color: #17365d;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        vertical-align: top;
+    }
+
+    .copy-button:hover {
+        background: #edf4ff;
+        border-color: #6b8fc7;
+    }
+
+    .progress {
+        display: none;
+        margin-top: 9px;
+        height: 7px;
+        overflow: hidden;
+        border-radius: 4px;
+        background: #e7edf7;
+        border: 1px solid #d6e0ef;
+    }
+
+    .progress.active {
+        display: block;
+    }
+
+    .progress-bar {
+        width: 22%;
+        height: 100%;
+        border-radius: 4px;
+        background: #2f6fb3;
+    }
 </style>
 <script language="javascript">
     var shell = new ActiveXObject("WScript.Shell");
     var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var statusTimer = null;
+    var statusTick = 0;
+    var statusProgress = 8;
+    var statusBaseMessage = "Ready.";
+    var statusLogPath = null;
+    var copyButtonResetTimer = null;
 
     function launcherPath() {
         var path = decodeURIComponent(location.pathname);
@@ -136,8 +198,135 @@
         return "\"" + value + "\"";
     }
 
-    function setStatus(message) {
-        document.getElementById("status").innerText = message;
+    function setStatusText(message) {
+        document.getElementById("statusText").innerText = message;
+    }
+
+    function setCopyButtonLabel(label) {
+        document.getElementById("copyStatusButton").innerText = label;
+    }
+
+    function copyStatusText() {
+        var text = document.getElementById("statusText").innerText;
+        if (!text || text.length === 0) {
+            text = "";
+        }
+
+        var copied = false;
+        if (window.clipboardData && window.clipboardData.setData) {
+            copied = window.clipboardData.setData("Text", text);
+        } else {
+            try {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "absolute";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.select();
+                copied = document.execCommand("copy");
+                document.body.removeChild(textArea);
+            } catch (error) {
+                copied = false;
+            }
+        }
+
+        if (copyButtonResetTimer !== null) {
+            window.clearTimeout(copyButtonResetTimer);
+        }
+        setCopyButtonLabel(copied ? "Copied" : "Copy");
+        copyButtonResetTimer = window.setTimeout(function() {
+            setCopyButtonLabel("Copy");
+            copyButtonResetTimer = null;
+        }, 1200);
+    }
+
+    function setProgressVisible(visible) {
+        document.getElementById("progress").className = visible ? "progress active" : "progress";
+    }
+
+    function setProgress(percent) {
+        statusProgress = percent;
+        document.getElementById("progressBar").style.width = statusProgress + "%";
+    }
+
+    function readLastLogLine(path) {
+        if (!path || !fso.FileExists(path)) {
+            return "";
+        }
+        try {
+            var file = fso.OpenTextFile(path, 1, false);
+            var last = "";
+            while (!file.AtEndOfStream) {
+                var line = file.ReadLine();
+                if (line.length > 0) {
+                    last = line;
+                }
+            }
+            file.Close();
+            return last;
+        } catch (error) {
+            return "";
+        }
+    }
+
+    function stopActiveStatus(message) {
+        if (statusTimer !== null) {
+            window.clearInterval(statusTimer);
+            statusTimer = null;
+        }
+        setProgressVisible(false);
+        setStatusText(message);
+    }
+
+    function progressForLogLine(line) {
+        if (!line || line.length === 0) {
+            return 12;
+        }
+        if (line.indexOf("Replay:") === 0 || line.indexOf("Divergence log:") === 0) {
+            return 24;
+        }
+        if (line.indexOf("SDL3 runtime not found") >= 0 || line.indexOf("SDL3 already available") >= 0) {
+            return 42;
+        }
+        if (line.indexOf("Runtime source newer than release exe") >= 0 || line.indexOf("Building release runtime") >= 0) {
+            return 60;
+        }
+        if (line.indexOf("Using fresh release runtime") >= 0) {
+            return 76;
+        }
+        if (line.indexOf("Launching Mole Rust SDL3 Slippi replay runtime") >= 0) {
+            return 100;
+        }
+        if (line.indexOf("Runtime exited with") >= 0 || line.indexOf("failed") >= 0 || line.indexOf("Missing replay") >= 0) {
+            return 100;
+        }
+        return statusProgress;
+    }
+
+    function startActiveStatus(message, logRelativePath) {
+        if (statusTimer !== null) {
+            window.clearInterval(statusTimer);
+        }
+        statusTick = 0;
+        statusBaseMessage = message;
+        statusLogPath = logRelativePath ? join(ROOT, logRelativePath) : null;
+        setProgressVisible(true);
+        setStatusText(message);
+        setProgress(12);
+        statusTimer = window.setInterval(function() {
+            statusTick += 1;
+            var dots = "";
+            for (var i = 0; i < (statusTick % 4); i += 1) {
+                dots += ".";
+            }
+            var logLine = readLastLogLine(statusLogPath);
+            setProgress(progressForLogLine(logLine));
+            if (logLine.length > 0) {
+                setStatusText(statusBaseMessage + dots + "\n" + logLine);
+            } else {
+                setStatusText(statusBaseMessage + dots);
+            }
+        }, 450);
     }
 
     function run(command, windowStyle) {
@@ -148,13 +337,13 @@
         }
     }
 
-    function runCommandFileHidden(relativePath, label) {
+    function runCommandFileHidden(relativePath, label, logRelativePath) {
         var target = join(ROOT, relativePath);
         if (!fso.FileExists(target)) {
             alert("Missing launcher:\n" + target);
             return;
         }
-        setStatus(label + " is starting. The SDL window will open when the runtime is ready. Divergence log: debug\\slippi\\runtime-divergence.latest.json");
+        startActiveStatus(label + " is starting. The SDL window will open when the runtime is ready.", logRelativePath);
         var cmd = shell.ExpandEnvironmentStrings("%ComSpec%");
         run(quote(cmd) + " /d /c " + quote(target), 0);
     }
@@ -165,17 +354,17 @@
             alert("Missing launcher:\n" + target);
             return;
         }
-        setStatus(label + " is starting.");
+        startActiveStatus(label + " is starting.", null);
         var cmd = shell.ExpandEnvironmentStrings("%ComSpec%");
         run(quote(cmd) + " /d /c " + quote(target), 1);
     }
 
     function launchReplay() {
-        runCommandFileHidden("execs\\Play Slippi Replay.cmd", "Replay");
+        runCommandFileHidden("execs\\Play Slippi Replay.cmd", "Replay. Divergence log: debug\\slippi\\runtime-divergence.latest.json", "debug\\slippi\\runtime-launch.latest.log");
     }
 
     function launchLocalPlay() {
-        runCommandFileHidden("execs\\Run SDL3 Runtime.cmd", "Local play");
+        runCommandFileHidden("execs\\Run Local SDL3 Runtime.cmd", "Local play");
     }
 
     function launchDevtool() {
@@ -183,7 +372,8 @@
     }
 
     window.onload = function() {
-        window.resizeTo(600, 500);
+        window.resizeTo(600, 580);
+        stopActiveStatus("Ready.");
     };
 </script>
 </head>
@@ -210,7 +400,13 @@
         </button>
 
         <div id="status" class="status">
-            Ready.
+            <div class="status-row">
+                <div id="statusText" class="status-text">Ready.</div>
+                <button id="copyStatusButton" class="copy-button" onclick="copyStatusText()" title="Copy status summary">Copy</button>
+            </div>
+            <div id="progress" class="progress">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
         </div>
     </div>
 </body>
