@@ -28,7 +28,7 @@ pub(crate) fn format_text_report(report: &Value) -> String {
             lines.push(format!("ecb mapped motion states: {mapped}"));
         }
     }
-    if command == "replay check" || command == "replay trace" {
+    if command == "replay check" || command == "replay trace" || command == "replay explain" {
         let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
         lines.push(format!("ok: {ok}"));
         if let Some(source) = report.get("source") {
@@ -80,6 +80,19 @@ pub(crate) fn format_text_report(report: &Value) -> String {
             }
         }
     }
+    if command == "replay explain" {
+        if let Some(explanation) = report.get("explanation") {
+            if let Some(player) = explanation.get("player").and_then(Value::as_u64) {
+                lines.push(format!("player: {player}"));
+            }
+            if let Some(frame) = explanation
+                .get("target_source_frame")
+                .and_then(Value::as_i64)
+            {
+                lines.push(format!("target source frame: {frame}"));
+            }
+        }
+    }
     if command == "friend-connect status" {
         if let Some(package_ready) = report.get("package_ready").and_then(Value::as_bool) {
             lines.push(format!("package ready: {package_ready}"));
@@ -123,16 +136,90 @@ pub(crate) fn format_markdown_report(report: &Value) -> String {
         Some("verify changed") => format_verify_changed_markdown(report),
         Some("generated check") => format_generated_check_markdown(report),
         Some("workspace health") => format_workspace_health_markdown(report),
+        Some("fighter coverage") => format_fighter_coverage_markdown(report),
         Some("stage inspect") => format_stage_inspect_markdown(report),
         Some("stage extract") => format_stage_extract_markdown(report),
         Some("stage extract-iso") => format_stage_extract_iso_markdown(report),
         Some("finish check") => format_finish_check_markdown(report),
         Some("replay check") => format_replay_check_markdown(report),
+        Some("replay explain") => format_replay_explain_markdown(report),
         Some("replay trace") => format_replay_trace_markdown(report),
         Some("decomp search") | Some("decomp symbol") => format_decomp_search_markdown(report),
         Some("decomp show") => format_decomp_show_markdown(report),
         Some("frame-data extract") | Some("frame-data show") => format_frame_data_markdown(report),
         _ => format_handoff_markdown(report),
+    }
+}
+
+fn format_fighter_coverage_markdown(report: &Value) -> String {
+    let mut lines = vec!["# Fighter Source Coverage".to_string(), String::new()];
+    let source = report
+        .get("source_character")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let target = report
+        .get("target_character")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    lines.push(format!("- Source/target: `{source}` -> `{target}`"));
+    lines.push(format!("- Runtime manifest complete: `{ok}`"));
+    if let Some(note) = report
+        .get("authoritative_render_note")
+        .and_then(Value::as_str)
+    {
+        lines.push(format!("- Render truth: {note}"));
+    }
+    if let Some(summary) = report.get("summary") {
+        lines.push(String::new());
+        lines.push("## Summary".to_string());
+        for key in [
+            "extracted_action_slots",
+            "source_figatree_present",
+            "no_figatree_action_slots",
+            "runtime_motion_bound",
+            "source_only_bound",
+            "missing_runtime_manifest",
+        ] {
+            if let Some(value) = summary.get(key).and_then(Value::as_u64) {
+                lines.push(format!("- `{key}`: {value}"));
+            }
+        }
+    }
+    if let Some(counts) = report.get("category_counts").and_then(Value::as_object) {
+        lines.push(String::new());
+        lines.push("## Category Counts".to_string());
+        for (key, value) in counts {
+            lines.push(format!("- `{key}`: {}", value.as_u64().unwrap_or_default()));
+        }
+    }
+    push_category_sample(&mut lines, report, "missing_render_contract");
+    push_category_sample(&mut lines, report, "missing_gameplay_route");
+    push_category_sample(&mut lines, report, "missing_state_graph_node");
+    lines.join("\n")
+}
+
+fn push_category_sample(lines: &mut Vec<String>, report: &Value, category: &str) {
+    let Some(items) = report
+        .get("categories")
+        .and_then(|categories| categories.get(category))
+        .and_then(Value::as_array)
+        .filter(|items| !items.is_empty())
+    else {
+        return;
+    };
+    lines.push(String::new());
+    lines.push(format!("## {category}"));
+    for item in items.iter().take(20) {
+        let key = item
+            .get("source_action_key")
+            .and_then(Value::as_str)
+            .or_else(|| item.get("state").and_then(Value::as_str))
+            .unwrap_or("unknown");
+        lines.push(format!("- `{key}`"));
+    }
+    if items.len() > 20 {
+        lines.push(format!("- ... {} more", items.len() - 20));
     }
 }
 
@@ -966,6 +1053,77 @@ fn format_replay_trace_markdown(report: &Value) -> String {
             }
         }
     }
+    lines.join("\n")
+}
+
+fn format_replay_explain_markdown(report: &Value) -> String {
+    let mut lines = vec!["# Mole Replay Explain".to_string(), String::new()];
+    if let Some(source) = report.get("source") {
+        if let Some(path) = source.get("input_export_path").and_then(Value::as_str) {
+            lines.push(format!("- Inputs: `{path}`"));
+        }
+    }
+    let Some(explanation) = report.get("explanation") else {
+        return lines.join("\n");
+    };
+    let player = explanation
+        .get("player")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let frame = explanation
+        .get("target_source_frame")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    lines.push(format!("- Player: `{player}`"));
+    lines.push(format!("- Target source frame: `{frame}`"));
+    if let Some(rule) = explanation
+        .get("interpretation_rule")
+        .and_then(Value::as_str)
+    {
+        lines.push(format!("- Rule: {rule}"));
+    }
+
+    lines.push(String::new());
+    lines.push("## Decomp Phases".to_string());
+    if let Some(phases) = explanation
+        .get("decomp_phase_model")
+        .and_then(Value::as_array)
+    {
+        for phase in phases {
+            let name = phase.get("phase").and_then(Value::as_str).unwrap_or("");
+            let function = phase
+                .get("decomp_function")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let question = phase
+                .get("parity_question")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            lines.push(format!("- `{function}`: {name}. {question}"));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("## Audit Checklist".to_string());
+    if let Some(items) = explanation.get("audit_checklist").and_then(Value::as_array) {
+        for item in items {
+            let name = item.get("name").and_then(Value::as_str).unwrap_or("");
+            let done = item.get("done_when").and_then(Value::as_str).unwrap_or("");
+            lines.push(format!("- {name}: {done}"));
+        }
+    }
+
+    if let Some(trace) = explanation.get("trace") {
+        let trace_report = serde_json::json!({
+            "command": "replay trace",
+            "trace": trace,
+        });
+        let trace_markdown = format_replay_trace_markdown(&trace_report);
+        lines.push(String::new());
+        lines.push("## Trace Window".to_string());
+        lines.extend(trace_markdown.lines().skip(1).map(ToString::to_string));
+    }
+
     lines.join("\n")
 }
 

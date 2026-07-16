@@ -23,32 +23,32 @@ def test_parity_diff_report_summarizes_global_and_character_matches_without_deri
     falcon_combat_values = report["sections"]["captain_falcon_combat_values"]
 
     assert global_values["summary"] == {
-        "total": 95,
-        "match": 95,
+        "total": 96,
+        "match": 96,
         "diff": 0,
         "derived": 0,
         "missing": 0,
         "actionable": 0,
     }
     assert character_values["summary"] == {
-        "total": 41,
-        "match": 41,
+        "total": 43,
+        "match": 43,
         "diff": 0,
         "derived": 0,
         "missing": 0,
         "actionable": 0,
     }
     assert global_combat_values["summary"] == {
-        "total": 56,
-        "match": 56,
+        "total": 88,
+        "match": 88,
         "diff": 0,
         "derived": 0,
         "missing": 0,
         "actionable": 0,
     }
     assert falcon_combat_values["summary"] == {
-        "total": 1,
-        "match": 1,
+        "total": 2,
+        "match": 2,
         "diff": 0,
         "derived": 0,
         "missing": 0,

@@ -13,6 +13,8 @@ pub const UCF_TILT_INTENT_DELTA: i16 = 75;
 pub const UCF_SHIELD_DROP_DELTA: i16 = 44;
 // UCF's sdrop-up precheck uses -0.6125 on the Melee float stick scale.
 pub const UCF_SHIELD_DROP_MIN_Y: i8 = 78;
+// UCF Shield Drop.asm suppresses main-stick spotdodge only above -0.8000f.
+pub const UCF_AXE_SHIELD_DROP_Y_CUTOFF: i8 = 102;
 const UCF_PAD_BUFFER_SIZE: usize = 4;
 const UCF_PAD_BUFFER_MASK: usize = UCF_PAD_BUFFER_SIZE - 1;
 const MAX_MELEE_INPUT_TIMER: u8 = 0xfe;
@@ -78,10 +80,12 @@ impl GameCubeInputMapper {
             UcfPreprocessedPad {
                 pad: native,
                 dashback_amendment: false,
+                shield_drop_amendment: false,
             }
         };
         map_gamecube_pad_to_player_input_with_config(adjusted.pad, InputMappingConfig::default())
             .with_ucf_dashback_amendment(adjusted.dashback_amendment)
+            .with_ucf_shield_drop_amendment(adjusted.shield_drop_amendment)
     }
 }
 
@@ -180,6 +184,7 @@ fn hsd_scaled_axis_to_core_axis(value: f32) -> i8 {
 pub struct UcfPreprocessedPad {
     pub pad: GameCubePadStatus,
     pub dashback_amendment: bool,
+    pub shield_drop_amendment: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,7 +254,7 @@ impl UcfInputPreprocessor {
         );
         self.prev_lstick = cleaned_lstick;
 
-        let (stick_x, mut stick_y) = apply_ucf_cardinals(raw_lstick, native_lstick);
+        let (stick_x, stick_y) = apply_ucf_cardinals(raw_lstick, native_lstick);
         let (c_stick_x, c_stick_y) = apply_ucf_cardinals(raw_cstick, native_cstick);
         let dashback_amendment = check_ucf_dashback(
             self.stick_x_hold_timer,
@@ -273,10 +278,12 @@ impl UcfInputPreprocessor {
             || pad.buttons.r()
             || pad.left_trigger >= common.z_shield_analog
             || pad.right_trigger >= common.z_shield_analog;
-        if shield_active && self.sdrop_up_frames >= 2 {
-            stick_y = -common.platform_pass_y;
-        }
-
+        let axe_shield_drop = check_axe_method_shield_drop(
+            self.stick_x_hold_timer,
+            (stick_x, stick_y),
+            (c_stick_x, c_stick_y),
+            common,
+        );
         UcfPreprocessedPad {
             pad: GameCubePadStatus {
                 stick_x: i8_to_gamecube_axis(stick_x),
@@ -286,6 +293,7 @@ impl UcfInputPreprocessor {
                 ..native
             },
             dashback_amendment,
+            shield_drop_amendment: shield_active && (self.sdrop_up_frames >= 2 || axe_shield_drop),
         }
     }
 }
@@ -329,6 +337,25 @@ fn check_sdrop_up(
 
     stick_y_hold_timer < 2
         && ucf_axis_delta_exceeds(previous_stick.1, raw_lstick.1, UCF_SHIELD_DROP_DELTA)
+}
+
+fn check_axe_method_shield_drop(
+    stick_x_hold_timer: u8,
+    processed_lstick: (i8, i8),
+    processed_cstick: (i8, i8),
+    common: MeleeCommonData,
+) -> bool {
+    if (processed_cstick.1 as i16) <= -threshold_abs(common.escape_y) {
+        return false;
+    }
+    if stick_x_hold_timer < common.escape_x_tap_window {
+        return false;
+    }
+    if processed_lstick.1 < -UCF_AXE_SHIELD_DROP_Y_CUTOFF {
+        return false;
+    }
+
+    is_ucf_shield_drop_rim_coord(processed_lstick)
 }
 
 fn check_ucf_dashback(

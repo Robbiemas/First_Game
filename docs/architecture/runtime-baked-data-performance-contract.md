@@ -65,6 +65,8 @@ Generated runtime artifacts should be:
 - Engine-agnostic: data should sit below SDL, egui, Unity, Godot, or any future shell.
 - Deterministic: no runtime parsing, filesystem probing, timestamp dependency, or random ordering inside authoritative gameplay.
 
+Runtime action bindings may store compact typed source IDs such as `MeleeMotionStateId`, `SourceActionTableIndex`, and static `SourceActionKey` values. They must not collapse those IDs into a single raw `action_state_id`, and they must not store rich source provenance, file paths, or JSON objects in hot gameplay state or rollback snapshots.
+
 Middleware artifacts may be larger because they serve humans and agents. They should not be linked into runtime unless the runtime genuinely needs that data.
 
 ## Extraction And Baking Boundary

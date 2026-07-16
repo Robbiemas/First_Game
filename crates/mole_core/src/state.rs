@@ -5,6 +5,7 @@ use crate::{
         SourceCollisionFrame, SourceDamageAccumulator, SourceDamageResult, SourceDamageResultInput,
         SourceDamageStage, SourceGrabConfirm, SourceHitConfirm, SourceHitboxAttributes,
         SourceHitboxLifecycleId, SourceInstalledThrowHitbox, SourceThrowHitboxAttributes,
+        SOURCE_SHIELD_HURTBOX_ID,
     },
     fighter_stick_axis_to_f32,
     stage::{
@@ -20,6 +21,78 @@ use std::fmt;
 
 #[path = "generated/falcon_ecb.rs"]
 mod falcon_ecb;
+
+pub(crate) const SOURCE_AOBJ_REWINDED: u32 = 1 << 26;
+pub(crate) const SOURCE_AOBJ_FIRST_PLAY: u32 = 1 << 27;
+pub(crate) const SOURCE_AOBJ_NO_UPDATE: u32 = 1 << 28;
+pub(crate) const SOURCE_AOBJ_LOOP: u32 = 1 << 29;
+pub(crate) const SOURCE_AOBJ_NO_ANIM: u32 = 1 << 30;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SourceAObjDescriptor {
+    pub(crate) end_frame: f32,
+    pub(crate) rewind_frame: f32,
+    pub(crate) flags: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SourceAObjState {
+    pub(crate) flags: u32,
+    pub(crate) curr_frame: f32,
+    pub(crate) rewind_frame: f32,
+    pub(crate) end_frame: f32,
+    pub(crate) framerate: f32,
+}
+
+impl SourceAObjState {
+    pub(crate) fn requested(
+        curr_frame: f32,
+        framerate: f32,
+        rewind_frame: f32,
+        end_frame: f32,
+        descriptor_flags: u32,
+    ) -> Self {
+        Self {
+            flags: (descriptor_flags & (SOURCE_AOBJ_LOOP | SOURCE_AOBJ_NO_UPDATE))
+                | SOURCE_AOBJ_FIRST_PLAY,
+            curr_frame,
+            rewind_frame,
+            end_frame,
+            framerate,
+        }
+    }
+
+    pub(crate) fn interpret_frame(&mut self) -> Option<f32> {
+        if self.flags & SOURCE_AOBJ_NO_ANIM != 0 {
+            return None;
+        }
+
+        if self.flags & SOURCE_AOBJ_FIRST_PLAY != 0 {
+            self.flags &= !SOURCE_AOBJ_FIRST_PLAY;
+        } else {
+            self.curr_frame += self.framerate;
+        }
+
+        if self.flags & SOURCE_AOBJ_LOOP != 0 && self.curr_frame >= self.end_frame {
+            if self.rewind_frame < self.end_frame {
+                let period = self.end_frame - self.rewind_frame;
+                self.curr_frame =
+                    (self.curr_frame - self.rewind_frame) % period + self.rewind_frame;
+            } else {
+                self.curr_frame = self.end_frame;
+            }
+            self.flags |= SOURCE_AOBJ_REWINDED;
+        } else {
+            self.flags &= !SOURCE_AOBJ_REWINDED;
+        }
+
+        let evaluated_frame = self.curr_frame;
+        if self.flags & SOURCE_AOBJ_LOOP == 0 && self.curr_frame >= self.end_frame {
+            self.flags |= SOURCE_AOBJ_NO_ANIM;
+        }
+        Some(evaluated_frame)
+    }
+}
 #[path = "generated/fighter_common.rs"]
 mod fighter_common;
 #[path = "generated/source_root_motion.rs"]
@@ -517,6 +590,8 @@ pub struct FighterProfile {
     pub camera_box: FighterCameraBox,
     pub source_create_x1a70: SourceVec3,
     pub model_scaling: f32,
+    pub initial_shield_size: f32,
+    pub shield_break_initial_velocity: f32,
     pub walk_initial_velocity: f32,
     pub walk_accel: f32,
     pub walk_max_velocity: f32,
@@ -543,6 +618,7 @@ pub struct FighterProfile {
     pub aerial_friction: f32,
     pub air_max_horizontal_velocity: f32,
     pub weight: f32,
+    pub weight_independent_throws_mask: u8,
     pub gravity: f32,
     pub terminal_velocity: f32,
     pub fast_fall_velocity: f32,
@@ -554,6 +630,8 @@ pub struct FighterProfile {
     pub ledge_snap_x_milli: i32,
     pub ledge_snap_y_milli: i32,
     pub ledge_snap_height_milli: i32,
+    pub ledge_jump_horizontal_velocity: f32,
+    pub ledge_jump_vertical_velocity: f32,
     pub entry_platform: FighterEntryPlatformProfile,
     pub entry_platform_offset_y: i32,
     pub standing_height_units: i32,
@@ -583,6 +661,8 @@ impl FighterProfile {
             z: 0.4883970022201538,
         },
         model_scaling: 0.9700000286102295,
+        initial_shield_size: 15.0,
+        shield_break_initial_velocity: 2.700000047683716,
         walk_initial_velocity: 0.15000000596046448,
         walk_accel: 0.10000000149011612,
         walk_max_velocity: 0.8500000238418579,
@@ -609,6 +689,7 @@ impl FighterProfile {
         aerial_friction: 0.009999999776482582,
         air_max_horizontal_velocity: 3.0,
         weight: 104.0,
+        weight_independent_throws_mask: 0x07,
         gravity: 0.12999999523162842,
         terminal_velocity: 2.9000000953674316,
         fast_fall_velocity: 3.5,
@@ -620,6 +701,8 @@ impl FighterProfile {
         ledge_snap_x_milli: 9_000,
         ledge_snap_y_milli: 17_000,
         ledge_snap_height_milli: 11_000,
+        ledge_jump_horizontal_velocity: 1.0,
+        ledge_jump_vertical_velocity: 3.299999952316284,
         entry_platform: FighterEntryPlatformProfile::COMMON_TROPHY_PLATFORM,
         entry_platform_offset_y: 1_647,
         // Provisional visual scale: current 136 px standing sprite at the old 6 px/unit art calibration.
@@ -722,11 +805,20 @@ impl FighterProfile {
         profile.action_frames.jab_3_input_window =
             read_profile_u8_from_f32(bytes, 0x80, "jab_3_input_window")?;
         profile.weight = read_profile_f32(bytes, 0x88, "weight")?;
+        profile.weight_independent_throws_mask =
+            read_profile_u8(bytes, 0x180, "weight_independent_throws_mask")?;
         profile.action_frames.rapid_jab_window =
             read_profile_u8_from_i32(bytes, 0x98, "rapid_jab_window")?;
         profile.standing_turn_direction_change_frames =
             read_profile_u8_from_f32(bytes, 0x84, "frames_to_change_direction_on_standing_turn")?;
         profile.model_scaling = read_profile_f32(bytes, 0x8c, "model_scaling")?;
+        profile.initial_shield_size = read_profile_f32(bytes, 0x90, "initial_shield_size")?;
+        profile.shield_break_initial_velocity =
+            read_profile_f32(bytes, 0x94, "shield_break_initial_velocity")?;
+        profile.ledge_jump_horizontal_velocity =
+            read_profile_f32(bytes, 0xa8, "ledge_jump_horizontal_velocity")?;
+        profile.ledge_jump_vertical_velocity =
+            read_profile_f32(bytes, 0xac, "ledge_jump_vertical_velocity")?;
         let trophy_scale = read_profile_f32(bytes, 0x110, "trophy_scale")?;
         profile.entry_platform_offset_y = round_profile_f32_to_i32(
             trophy_scale * profile.entry_platform.vertical_offset_ratio * 1000.0,
@@ -765,6 +857,14 @@ fn read_profile_bytes<const LEN: usize>(
     let mut result = [0_u8; LEN];
     result.copy_from_slice(slice);
     Ok(result)
+}
+
+fn read_profile_u8(
+    bytes: &[u8],
+    offset: usize,
+    field: &'static str,
+) -> Result<u8, FighterProfileExtractError> {
+    Ok(read_profile_bytes::<1>(bytes, offset, field)?[0])
 }
 
 fn read_profile_f32(
@@ -941,6 +1041,7 @@ pub enum MotionState {
     FallAerial,
     FallAerialF,
     FallAerialB,
+    DamageFall,
     JumpAerialF,
     JumpAerialB,
     GuardOn,
@@ -948,6 +1049,13 @@ pub enum MotionState {
     GuardOff,
     GuardSetOff,
     GuardReflect,
+    ShieldBreakFly,
+    ShieldBreakFall,
+    ShieldBreakDownU,
+    ShieldBreakDownD,
+    ShieldBreakStandU,
+    ShieldBreakStandD,
+    Furafura,
     EscapeN,
     EscapeF,
     EscapeB,
@@ -1042,6 +1150,7 @@ pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "FallAerial",
     "FallAerialF",
     "FallAerialB",
+    "DamageFall",
     "JumpAerialF",
     "JumpAerialB",
     "GuardOn",
@@ -1049,6 +1158,13 @@ pub const RUST_MOTION_STATE_VARIANTS: &[&str] = &[
     "GuardOff",
     "GuardSetOff",
     "GuardReflect",
+    "ShieldBreakFly",
+    "ShieldBreakFall",
+    "ShieldBreakDownU",
+    "ShieldBreakDownD",
+    "ShieldBreakStandU",
+    "ShieldBreakStandD",
+    "Furafura",
     "EscapeN",
     "EscapeF",
     "EscapeB",
@@ -1265,6 +1381,7 @@ pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
         "FallAerial" => MotionState::FallAerial,
         "FallAerialF" => MotionState::FallAerialF,
         "FallAerialB" => MotionState::FallAerialB,
+        "DamageFall" => MotionState::DamageFall,
         "JumpAerialF" => MotionState::JumpAerialF,
         "JumpAerialB" => MotionState::JumpAerialB,
         "GuardOn" => MotionState::GuardOn,
@@ -1272,6 +1389,13 @@ pub fn motion_state_for_runtime_variant(state: &str) -> Option<MotionState> {
         "GuardOff" => MotionState::GuardOff,
         "GuardSetOff" => MotionState::GuardSetOff,
         "GuardReflect" => MotionState::GuardReflect,
+        "ShieldBreakFly" => MotionState::ShieldBreakFly,
+        "ShieldBreakFall" => MotionState::ShieldBreakFall,
+        "ShieldBreakDownU" => MotionState::ShieldBreakDownU,
+        "ShieldBreakDownD" => MotionState::ShieldBreakDownD,
+        "ShieldBreakStandU" => MotionState::ShieldBreakStandU,
+        "ShieldBreakStandD" => MotionState::ShieldBreakStandD,
+        "Furafura" => MotionState::Furafura,
         "EscapeN" => MotionState::EscapeN,
         "EscapeF" => MotionState::EscapeF,
         "EscapeB" => MotionState::EscapeB,
@@ -1338,6 +1462,32 @@ pub fn runtime_motion_state_for_source_key(source_action_key: &str) -> Option<&'
 pub struct MeleeActionStateId(u16);
 
 impl MeleeActionStateId {
+    pub const fn new(value: u16) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MeleeMotionStateId(u16);
+
+impl MeleeMotionStateId {
+    pub const fn new(value: u16) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SourceActionTableIndex(u16);
+
+impl SourceActionTableIndex {
     pub const fn new(value: u16) -> Self {
         Self(value)
     }
@@ -1419,6 +1569,15 @@ impl SourceActionKey {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceRetainedModelPose {
+    pub action_state_id: Option<MeleeActionStateId>,
+    pub source_action_key: SourceActionKey,
+    pub motion_state: MotionState,
+    pub frame_milli: i32,
+    pub model_facing: i8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceDownBoundPose {
     pub hip_mtx_0_1: f32,
@@ -1458,6 +1617,9 @@ pub const SOURCE_ACTION_SCRIPT_EVENT_CAPACITY: usize = 8;
 pub enum SourceActionScriptEvent {
     None,
     SetCmdVar { cmd_var: u8, value: u32 },
+    AllowInterrupt,
+    SetAirborneState { state: u8 },
+    SetCollisionState { state: u8 },
     SetJabCombo { disabled: bool },
     SetJabRapid { state: bool },
     SetThrowFlag { hit_idx: u32, flag_bit: Option<u8> },
@@ -1521,10 +1683,14 @@ pub struct SourceActionPoseMetadata {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MotionStateSourceBinding {
+    pub runtime_motion_state: Option<MotionState>,
+    pub melee_motion_state_id: Option<MeleeMotionStateId>,
+    pub source_action_table_index: SourceActionTableIndex,
+    pub source_action_key: SourceActionKey,
+    // Compatibility aliases while source identity call sites migrate to typed fields.
     pub motion_state: MotionState,
     pub action_state_id: MeleeActionStateId,
     pub source_action_table_id: u16,
-    pub source_action_key: SourceActionKey,
 }
 
 impl MotionStateSourceBinding {
@@ -1533,11 +1699,15 @@ impl MotionStateSourceBinding {
         source_action_table_id: u16,
         source_action_key: &'static str,
     ) -> Self {
+        let action_state_id = melee_action_state_id_for_motion_state(motion_state);
         Self {
-            motion_state,
-            action_state_id: melee_action_state_id_for_motion_state(motion_state),
-            source_action_table_id,
+            runtime_motion_state: Some(motion_state),
+            melee_motion_state_id: Some(melee_motion_state_id_for_motion_state(motion_state)),
+            source_action_table_index: SourceActionTableIndex::new(source_action_table_id),
             source_action_key: SourceActionKey::new(source_action_key),
+            motion_state,
+            action_state_id,
+            source_action_table_id,
         }
     }
 }
@@ -1766,6 +1936,75 @@ pub fn source_special_capture_transition_for_action_state_id(
         })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceSpecialHitDetectTransition {
+    pub reference_character: &'static str,
+    pub active_action_state_id: MeleeActionStateId,
+    pub next_action_state_id: MeleeActionStateId,
+    pub next_motion_state: MotionState,
+    pub next_source_action_key: SourceActionKey,
+    pub scale_ground_velocity_by_specials_gr_vel_x: bool,
+    pub clear_self_velocity_y: bool,
+}
+
+impl SourceSpecialHitDetectTransition {
+    const fn new(
+        reference_character: &'static str,
+        active_action_state_id: u16,
+        next_action_state_id: u16,
+        next_motion_state: MotionState,
+        next_source_action_key: &'static str,
+        scale_ground_velocity_by_specials_gr_vel_x: bool,
+        clear_self_velocity_y: bool,
+    ) -> Self {
+        Self {
+            reference_character,
+            active_action_state_id: MeleeActionStateId::new(active_action_state_id),
+            next_action_state_id: MeleeActionStateId::new(next_action_state_id),
+            next_motion_state,
+            next_source_action_key: SourceActionKey::new(next_source_action_key),
+            scale_ground_velocity_by_specials_gr_vel_x,
+            clear_self_velocity_y,
+        }
+    }
+}
+
+pub const SOURCE_SPECIAL_HIT_DETECT_TRANSITIONS: &[SourceSpecialHitDetectTransition] = &[
+    // ftCa_SpecialS_OnDetect gates on fp->cmd_vars[0] and routes detected
+    // fighter/item contact through onDetectGround/onDetectAir.
+    SourceSpecialHitDetectTransition::new(
+        "captain_falcon",
+        349,
+        350,
+        MotionState::SpecialS,
+        "SpecialS",
+        true,
+        true,
+    ),
+    SourceSpecialHitDetectTransition::new(
+        "captain_falcon",
+        351,
+        352,
+        MotionState::SpecialAirS,
+        "SpecialAirS",
+        false,
+        false,
+    ),
+];
+
+pub fn source_special_hit_detect_transition_for_action_state_id(
+    reference_character: &str,
+    action_state_id: MeleeActionStateId,
+) -> Option<SourceSpecialHitDetectTransition> {
+    SOURCE_SPECIAL_HIT_DETECT_TRANSITIONS
+        .iter()
+        .copied()
+        .find(|transition| {
+            transition.reference_character == reference_character
+                && transition.active_action_state_id == action_state_id
+        })
+}
+
 pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding] = &[
     CanonicalSourceActionBinding::new(45, 47, "Attack12"),
     CanonicalSourceActionBinding::new(46, 48, "Attack13"),
@@ -1793,10 +2032,15 @@ pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding]
     CanonicalSourceActionBinding::new(184, 184, "DownWaitU"),
     CanonicalSourceActionBinding::new(186, 290, "DownStandU"),
     CanonicalSourceActionBinding::new(187, 187, "DownAttackU"),
+    CanonicalSourceActionBinding::new(188, 188, "DownFowardU"),
+    CanonicalSourceActionBinding::new(189, 189, "DownBackU"),
     CanonicalSourceActionBinding::new(191, 289, "DownBoundD"),
     CanonicalSourceActionBinding::new(192, 192, "DownWaitD"),
     CanonicalSourceActionBinding::new(194, 291, "DownStandD"),
     CanonicalSourceActionBinding::new(195, 195, "DownAttackD"),
+    CanonicalSourceActionBinding::new(196, 196, "DownFowardD"),
+    CanonicalSourceActionBinding::new(197, 197, "DownBackD"),
+    CanonicalSourceActionBinding::new(198, 198, "DownSpotD"),
     CanonicalSourceActionBinding::new(199, 199, "Passive"),
     CanonicalSourceActionBinding::new(200, 200, "PassiveStandF"),
     CanonicalSourceActionBinding::new(201, 201, "PassiveStandB"),
@@ -1816,6 +2060,7 @@ pub const CANONICAL_SOURCE_ONLY_ACTION_BINDINGS: &[CanonicalSourceActionBinding]
     CanonicalSourceActionBinding::new(227, 255, "CaptureWaitLw"),
     CanonicalSourceActionBinding::new(228, 256, "CaptureDamageLw"),
     CanonicalSourceActionBinding::new(229, 257, "CaptureCut"),
+    CanonicalSourceActionBinding::new(230, 258, "CaptureJump"),
     CanonicalSourceActionBinding::new(239, 262, "TCaptainThrowF"),
     CanonicalSourceActionBinding::new(240, 263, "TCaptainThrowB"),
     CanonicalSourceActionBinding::new(241, 264, "TCaptainThrowHi"),
@@ -1914,6 +2159,7 @@ pub const fn melee_action_state_id_for_motion_state(
         MotionState::FallAerial => 32,
         MotionState::FallAerialF => 33,
         MotionState::FallAerialB => 34,
+        MotionState::DamageFall => 38,
         MotionState::JumpAerialF => 27,
         MotionState::JumpAerialB => 28,
         MotionState::GuardOn => 178,
@@ -1921,6 +2167,13 @@ pub const fn melee_action_state_id_for_motion_state(
         MotionState::GuardOff => 180,
         MotionState::GuardSetOff => 181,
         MotionState::GuardReflect => 182,
+        MotionState::ShieldBreakFly => 205,
+        MotionState::ShieldBreakFall => 206,
+        MotionState::ShieldBreakDownU => 207,
+        MotionState::ShieldBreakDownD => 208,
+        MotionState::ShieldBreakStandU => 209,
+        MotionState::ShieldBreakStandD => 210,
+        MotionState::Furafura => 211,
         MotionState::EscapeN => 235,
         MotionState::EscapeF => 233,
         MotionState::EscapeB => 234,
@@ -1944,6 +2197,12 @@ pub const fn melee_action_state_id_for_motion_state(
         MotionState::CliffJumpQuick1 => 262,
         MotionState::CliffJumpQuick2 => 263,
     })
+}
+
+pub const fn melee_motion_state_id_for_motion_state(
+    motion_state: MotionState,
+) -> MeleeMotionStateId {
+    MeleeMotionStateId::new(melee_action_state_id_for_motion_state(motion_state).get())
 }
 
 pub const fn source_binding_for_motion_state(
@@ -2074,6 +2333,11 @@ pub const fn source_binding_for_motion_state(
             28,
             "FallSpecialB",
         )),
+        MotionState::DamageFall => Some(MotionStateSourceBinding::new(
+            MotionState::DamageFall,
+            1,
+            "DamageFall",
+        )),
         MotionState::LandingFallSpecial => Some(MotionStateSourceBinding::new(
             MotionState::LandingFallSpecial,
             36,
@@ -2118,6 +2382,17 @@ pub const fn source_binding_for_motion_state(
             MotionState::GuardReflect,
             37,
             "GuardOn",
+        )),
+        MotionState::ShieldBreakFly
+        | MotionState::ShieldBreakFall
+        | MotionState::ShieldBreakDownU
+        | MotionState::ShieldBreakDownD
+        | MotionState::ShieldBreakStandU
+        | MotionState::ShieldBreakStandD => None,
+        MotionState::Furafura => Some(MotionStateSourceBinding::new(
+            MotionState::Furafura,
+            205,
+            "FuraFura",
         )),
         MotionState::EscapeN => Some(MotionStateSourceBinding::new(
             MotionState::EscapeN,
@@ -2407,13 +2682,29 @@ pub(crate) fn source_motion_change_clamps_ground_velocity(
         && next_flags & SOURCE_ACTION_GROUND_VELOCITY_FLAGS == 0
 }
 
+fn motion_state_keeps_previous_model_pose(motion_state: MotionState) -> bool {
+    matches!(
+        motion_state,
+        MotionState::ShieldBreakFly
+            | MotionState::ShieldBreakFall
+            | MotionState::ShieldBreakDownU
+            | MotionState::ShieldBreakDownD
+            | MotionState::ShieldBreakStandU
+            | MotionState::ShieldBreakStandD
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerState {
     pub profile: FighterProfile,
+    pub costume_index: u8,
     pub player_state: u8,
     pub stocks: i8,
     pub position: Vec2,
     pub source_position: SourceVec2,
+    pub source_position_z: f32,
+    pub source_previous_position: SourceVec2,
+    pub source_previous_position_z: f32,
     pub(crate) source_coll_last_pos: SourceVec2,
     pub(crate) source_coll_cur_pos: SourceVec2,
     pub(crate) source_coll_prev_pos: SourceVec2,
@@ -2424,6 +2715,7 @@ pub struct PlayerState {
     pub source_knockback_velocity_x: f32,
     pub source_knockback_velocity_y: f32,
     pub source_ground_knockback_velocity: f32,
+    pub source_attacker_shield_velocity_x: f32,
     pub player_nudge_x: f32,
     pub player_nudge_z: f32,
     pub ecb_bottom_offset_y: i32,
@@ -2440,12 +2732,16 @@ pub struct PlayerState {
     pub(crate) source_coll_x130_locked: bool,
     pub(crate) source_coll_floor_surface_index: Option<u8>,
     pub(crate) source_coll_floor_line_index: Option<u16>,
+    pub(crate) source_coll_floor_skip_line_index: Option<u16>,
+    pub(crate) source_coll_ledge_id_left: Option<u16>,
+    pub(crate) source_coll_ledge_id_right: Option<u16>,
     pub(crate) source_coll_env_flags: u32,
     pub(crate) source_coll_prev_env_flags: u32,
     pub jumps_remaining: u8,
     pub grounded: bool,
     pub fast_falling: bool,
     pub facing: i8,
+    pub(crate) source_model_facing: i8,
     pub attack_frame: u8,
     pub damage_percent: f32,
     pub damage_percent_temp: f32,
@@ -2463,12 +2759,14 @@ pub struct PlayerState {
     pub melee_action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
     pub source_action_total_frames: u8,
+    pub(crate) source_retained_model_pose: Option<SourceRetainedModelPose>,
     pub source_down_bound_pose: Option<SourceDownBoundPose>,
     pub source_force_damage_down_bound: bool,
     pub source_down_bound_use_z_axis: bool,
     pub source_down_bound_reverse_face_up: bool,
     pub source_down_wait_timer: f32,
     pub source_lr_digital_press_timer: u8,
+    pub source_lcancel_timer: u8,
     pub source_previous_lr_digital_press_timer: u8,
     pub source_jab_followup_timer: u8,
     pub source_jab_followup_queued: bool,
@@ -2493,6 +2791,8 @@ pub struct PlayerState {
     pub motion_frame: u8,
     pub source_motion_anim_frame: f32,
     pub motion_anim_frame_milli: i32,
+    pub(crate) source_fall_anim_blend: f32,
+    pub(crate) source_fall_anim_pose: MotionState,
     pub ground_velocity_x: f32,
     pub ground_accel_x: f32,
     pub ground_accel_x2: f32,
@@ -2509,9 +2809,17 @@ pub struct PlayerState {
     pub turn_latched_buttons: u8,
     pub turn_run_accel_mul: i8,
     pub run_no_interrupt_frames: u8,
+    pub source_allow_interrupt: bool,
     pub motion_cmd_var0: u32,
     pub motion_cmd_var1: u32,
     pub motion_throw_flags: u8,
+    pub source_grab_timer: f32,
+    pub source_grab_mash_x: i8,
+    pub source_grab_mash_y: i8,
+    pub source_capture_wait_timer: f32,
+    pub source_capture_wait_anim_timer: f32,
+    pub source_capture_wait_mashed: bool,
+    pub source_capture_wait_jump_queued: bool,
     pub source_throw_x4: bool,
     pub source_throw_hitboxes: [Option<SourceInstalledThrowHitbox>; 2],
     pub source_thrown_unk_bool: bool,
@@ -2522,6 +2830,7 @@ pub struct PlayerState {
     pub source_victim_index: Option<u8>,
     pub source_x1a5c_index: Option<u8>,
     pub source_x221b_b5: bool,
+    pub source_x2222_b3: bool,
     pub source_x2226_b2: bool,
     pub source_x1a70: SourceVec3,
     pub source_x34_scale_y: f32,
@@ -2538,12 +2847,26 @@ pub struct PlayerState {
     pub turn_run_completion_pending: bool,
     pub turn_run_completion_enters_run: bool,
     pub motion_anim_rate_milli: i32,
+    pub source_motion_anim_rate: f32,
     pub shield_turn_facing_after: i8,
     pub shield_turn_frame: u8,
     pub guard_catch_dash_window: u8,
+    pub guard_release_latched: bool,
     pub shield_health: f32,
     pub lightshield_amount: f32,
+    pub source_collision_lightshield_amount: f32,
     pub shield_release_lockout_frames: u8,
+    pub source_shield_collision_active: bool,
+    pub source_shield_hit_active: bool,
+    pub source_shield_hit_update_pos: bool,
+    pub source_shield_hit_position: SourcePosePoint,
+    pub source_shield_aim_angle_degrees: f32,
+    pub source_shield_aim_magnitude: f32,
+    pub source_x221c_b1: bool,
+    pub source_x221c_b2: bool,
+    pub source_x221c_b3: bool,
+    pub source_guard_reflect_timer: f32,
+    pub source_guard_reflect_damage_skip_timer: f32,
     pub jump_input: MeleeJumpInput,
     pub short_hop: bool,
     pub escape_air_iasa_timer: u8,
@@ -2567,6 +2890,7 @@ impl PlayerState {
     pub const fn new_with_profile(x: i32, y: i32, facing: i8, profile: FighterProfile) -> Self {
         Self {
             profile,
+            costume_index: 0,
             player_state: PLAYER_STATE_IN_GAME,
             stocks: DEFAULT_STOCK_COUNT,
             position: Vec2 { x, y },
@@ -2574,6 +2898,12 @@ impl PlayerState {
                 x: x as f32 / MELEE_UNIT_SCALE as f32,
                 y: y as f32 / MELEE_UNIT_SCALE as f32,
             },
+            source_position_z: 0.0,
+            source_previous_position: SourceVec2 {
+                x: x as f32 / MELEE_UNIT_SCALE as f32,
+                y: y as f32 / MELEE_UNIT_SCALE as f32,
+            },
+            source_previous_position_z: 0.0,
             source_coll_last_pos: SourceVec2 {
                 x: x as f32 / MELEE_UNIT_SCALE as f32,
                 y: y as f32 / MELEE_UNIT_SCALE as f32,
@@ -2596,6 +2926,7 @@ impl PlayerState {
             source_knockback_velocity_x: 0.0,
             source_knockback_velocity_y: 0.0,
             source_ground_knockback_velocity: 0.0,
+            source_attacker_shield_velocity_x: 0.0,
             player_nudge_x: 0.0,
             player_nudge_z: 0.0,
             ecb_bottom_offset_y: SOURCE_JOBJ_ECB_BOTTOM_OFFSET_Y,
@@ -2612,12 +2943,16 @@ impl PlayerState {
             source_coll_x130_locked: false,
             source_coll_floor_surface_index: None,
             source_coll_floor_line_index: None,
+            source_coll_floor_skip_line_index: None,
+            source_coll_ledge_id_left: None,
+            source_coll_ledge_id_right: None,
             source_coll_env_flags: 0,
             source_coll_prev_env_flags: 0,
             jumps_remaining: profile.reusable_air_jumps(),
             grounded: true,
             fast_falling: false,
             facing,
+            source_model_facing: facing,
             attack_frame: 0,
             damage_percent: 0.0,
             damage_percent_temp: 0.0,
@@ -2635,12 +2970,14 @@ impl PlayerState {
             melee_action_state_id: Some(melee_action_state_id_for_motion_state(MotionState::Wait)),
             source_action_key: Some(SourceActionKey::new("Wait1")),
             source_action_total_frames: 0,
+            source_retained_model_pose: None,
             source_down_bound_pose: None,
             source_force_damage_down_bound: false,
             source_down_bound_use_z_axis: false,
             source_down_bound_reverse_face_up: false,
             source_down_wait_timer: 0.0,
             source_lr_digital_press_timer: 0xff,
+            source_lcancel_timer: 0xff,
             source_previous_lr_digital_press_timer: 0xff,
             source_jab_followup_timer: 0,
             source_jab_followup_queued: false,
@@ -2665,6 +3002,8 @@ impl PlayerState {
             motion_frame: 0,
             source_motion_anim_frame: 0.0,
             motion_anim_frame_milli: 0,
+            source_fall_anim_blend: 0.0,
+            source_fall_anim_pose: MotionState::Fall,
             ground_velocity_x: 0.0,
             ground_accel_x: 0.0,
             ground_accel_x2: 0.0,
@@ -2681,9 +3020,17 @@ impl PlayerState {
             turn_latched_buttons: 0,
             turn_run_accel_mul: facing,
             run_no_interrupt_frames: 0,
+            source_allow_interrupt: false,
             motion_cmd_var0: 0,
             motion_cmd_var1: 0,
             motion_throw_flags: 0,
+            source_grab_timer: 0.0,
+            source_grab_mash_x: 0,
+            source_grab_mash_y: 0,
+            source_capture_wait_timer: 0.0,
+            source_capture_wait_anim_timer: 0.0,
+            source_capture_wait_mashed: false,
+            source_capture_wait_jump_queued: false,
             source_throw_x4: false,
             source_throw_hitboxes: [None; 2],
             source_thrown_unk_bool: false,
@@ -2694,6 +3041,7 @@ impl PlayerState {
             source_victim_index: None,
             source_x1a5c_index: None,
             source_x221b_b5: false,
+            source_x2222_b3: false,
             source_x2226_b2: false,
             source_x1a70: profile.source_create_x1a70,
             source_x34_scale_y: 1.0,
@@ -2710,12 +3058,26 @@ impl PlayerState {
             turn_run_completion_pending: false,
             turn_run_completion_enters_run: false,
             motion_anim_rate_milli: 1_000,
+            source_motion_anim_rate: 1.0,
             shield_turn_facing_after: facing,
             shield_turn_frame: 0,
             guard_catch_dash_window: 0,
+            guard_release_latched: false,
             shield_health: MeleeCommonData::PROVISIONAL.shield_start_health,
             lightshield_amount: 0.0,
+            source_collision_lightshield_amount: 0.0,
             shield_release_lockout_frames: 0,
+            source_shield_collision_active: false,
+            source_shield_hit_active: false,
+            source_shield_hit_update_pos: false,
+            source_shield_hit_position: SourcePosePoint::ZERO,
+            source_shield_aim_angle_degrees: 10.0,
+            source_shield_aim_magnitude: 0.0,
+            source_x221c_b1: false,
+            source_x221c_b2: false,
+            source_x221c_b3: false,
+            source_guard_reflect_timer: 0.0,
+            source_guard_reflect_damage_skip_timer: 0.0,
             jump_input: MeleeJumpInput::None,
             short_hop: false,
             escape_air_iasa_timer: 0,
@@ -2744,6 +3106,59 @@ impl PlayerState {
     pub fn set_source_motion_anim_frame_milli(&mut self, frame_milli: i32) {
         self.motion_anim_frame_milli = frame_milli.max(0);
         self.source_motion_anim_frame = self.motion_anim_frame_milli as f32 / 1000.0;
+    }
+
+    pub fn cur_anim_frame(self) -> f32 {
+        self.source_motion_anim_frame
+    }
+
+    pub fn cur_anim_frame_milli(self) -> i32 {
+        self.motion_anim_frame_milli
+    }
+
+    pub fn frame_speed_mul(self) -> f32 {
+        let source_rate_milli = (self.source_motion_anim_rate * 1_000.0).round() as i32;
+        if source_rate_milli == self.motion_anim_rate_milli {
+            self.source_motion_anim_rate
+        } else {
+            self.motion_anim_rate_milli as f32 / 1_000.0
+        }
+    }
+
+    pub fn set_source_motion_anim_rate(&mut self, rate: f32) {
+        self.source_motion_anim_rate = if rate.is_finite() { rate.max(0.0) } else { 0.0 };
+        self.motion_anim_rate_milli = (self.source_motion_anim_rate * 1_000.0).round() as i32;
+    }
+
+    pub fn frame_speed_mul_milli(self) -> i32 {
+        self.motion_anim_rate_milli
+    }
+
+    pub fn clear_source_guard_shield_object(&mut self) {
+        self.source_shield_collision_active = false;
+        self.source_shield_hit_active = false;
+        self.source_shield_hit_update_pos = false;
+    }
+
+    fn current_source_model_pose_for_retention(&self) -> Option<SourceRetainedModelPose> {
+        if let Some(pose) = self.source_retained_model_pose {
+            return Some(pose);
+        }
+        let motion_state = self.motion_state;
+        let binding = source_binding_for_motion_state(motion_state);
+        let source_action_key = self
+            .source_action_key
+            .or_else(|| binding.map(|binding| binding.source_action_key))?;
+        let action_state_id = self
+            .melee_action_state_id
+            .or_else(|| Some(melee_action_state_id_for_motion_state(motion_state)));
+        Some(SourceRetainedModelPose {
+            action_state_id,
+            source_action_key,
+            motion_state,
+            frame_milli: player_animation_pose_frame_milli(*self),
+            model_facing: player_model_facing(self),
+        })
     }
 
     pub fn set_source_floor_for_diagnostic(
@@ -2796,7 +3211,25 @@ impl PlayerState {
         };
     }
 
+    pub fn set_source_collision_ecb_from_world_for_diagnostic(&mut self, world_ecb: EcbDiamond) {
+        let source_ecb = source_fighter_ecb_from_local_ecb(world_ecb_to_local(
+            world_ecb,
+            self.position,
+            self.facing,
+        ));
+        self.source_coll_ecb = source_ecb;
+        self.source_coll_prev_ecb = source_ecb;
+        self.source_coll_desired_ecb = source_ecb;
+        self.source_coll_xe4_ecb = source_ecb;
+        self.source_coll_x64_ecb = source_ecb;
+    }
+
     pub fn set_motion_state_alias(&mut self, motion_state: MotionState) {
+        let retained_model_pose = if motion_state_keeps_previous_model_pose(motion_state) {
+            self.current_source_model_pose_for_retention()
+        } else {
+            None
+        };
         self.motion_state = motion_state;
         self.motion_state_alias = Some(motion_state);
         self.source_motion_entry_facing = self.facing;
@@ -2816,6 +3249,11 @@ impl PlayerState {
         self.source_rebirth_target_y = 0.0;
         self.source_rebirth_platform_index = 0;
         self.source_rebirth_stage_point_index = 0;
+        self.source_thrown_hitbox_owner_index = None;
+        self.source_thrown_hitbox_team_unk = 0;
+        self.source_thrown_hitbox_grabber_player_id = None;
+        self.source_x2222_b3 = false;
+        self.source_retained_model_pose = retained_model_pose;
         match source_binding_for_motion_state(motion_state) {
             Some(binding) => {
                 self.source_action_key = Some(binding.source_action_key);
@@ -2836,7 +3274,9 @@ impl PlayerState {
         entry_timer: u8,
     ) {
         let stocks = self.stocks;
+        let costume_index = self.costume_index;
         *self = Self::new_with_profile(x, y, facing, profile);
+        self.costume_index = costume_index;
         self.stocks = stocks;
         self.player_state = if stocks > 0 {
             PLAYER_STATE_IN_GAME
@@ -2909,9 +3349,11 @@ impl PlayerState {
     ) {
         let profile = self.profile;
         let stocks = self.stocks;
+        let costume_index = self.costume_index;
         let start_x = platform.final_x + platform.offset_x;
         let start_y = platform.top_y;
         *self = Self::new_with_profile(start_x, start_y, platform.facing, profile);
+        self.costume_index = costume_index;
         self.stocks = stocks;
         self.player_state = PLAYER_STATE_IN_GAME;
         self.shield_health = shield_health;
@@ -2964,9 +3406,9 @@ pub(crate) fn active_ecb_for_player(
     common_data: MeleeCommonData,
 ) -> EcbDiamond {
     local_ecb_to_world(
-        active_local_ecb_for_pose_frame_milli(
+        active_local_ecb_for_pose_frame(
             player,
-            player_animation_pose_frame_milli(*player),
+            player_animation_pose_frame_value(*player),
             common_data,
         ),
         player.position,
@@ -2998,12 +3440,11 @@ pub(crate) fn active_ecb_bottom_offset_y(
 }
 
 pub(crate) fn action_sample_frame_count_for_motion_state(motion_state: MotionState) -> Option<u8> {
-    let samples = falcon_ecb::falcon_ecb_samples_for_motion_state(motion_state)?;
-    u8::try_from(samples.len()).ok()
+    falcon_ecb::falcon_ecb_sample_count_for_motion_state(motion_state)
 }
 
-pub fn has_source_ecb_samples_for_motion_state(motion_state: MotionState) -> bool {
-    falcon_ecb::falcon_source_ecb_samples_for_motion_state(motion_state).is_some()
+pub fn has_source_ecb_pose_data_for_motion_state(motion_state: MotionState) -> bool {
+    falcon_ecb::falcon_has_source_ecb_jobj_for_motion_state(motion_state)
 }
 
 pub fn source_root_motion_delta(
@@ -3049,19 +3490,55 @@ pub(crate) fn active_source_local_ecb_for_player(
     player: &PlayerState,
     common_data: MeleeCommonData,
 ) -> SourceFighterEcb {
-    active_source_local_ecb_for_pose_frame_milli(
+    active_source_local_ecb_for_pose_frame(
         player,
-        player_animation_pose_frame_milli(*player),
+        player_animation_pose_frame_value(*player),
         common_data,
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn live_source_local_ecb_for_player_pose_frame_milli(
     player: &PlayerState,
     pose_frame_milli: i32,
     common_data: MeleeCommonData,
 ) -> SourceFighterEcb {
-    source_local_ecb_for_pose_frame_milli(player, pose_frame_milli, common_data)
+    live_source_local_ecb_for_player_pose_frame_with_flags(
+        player,
+        pose_frame_from_milli(pose_frame_milli),
+        common_data,
+        6,
+    )
+}
+
+#[allow(dead_code)]
+pub(crate) fn live_source_local_ecb_for_player_pose_frame_milli_with_flags(
+    player: &PlayerState,
+    pose_frame_milli: i32,
+    common_data: MeleeCommonData,
+    flags: u32,
+) -> SourceFighterEcb {
+    live_source_local_ecb_for_player_pose_frame_with_flags(
+        player,
+        pose_frame_from_milli(pose_frame_milli),
+        common_data,
+        flags,
+    )
+}
+
+pub(crate) fn live_source_local_ecb_for_player_pose_frame_with_flags(
+    player: &PlayerState,
+    pose_frame: f32,
+    common_data: MeleeCommonData,
+    flags: u32,
+) -> SourceFighterEcb {
+    source_local_ecb_for_pose_frame(
+        player,
+        pose_frame,
+        common_data,
+        SourcePoseSelection::ActiveDirectional,
+        flags,
+    )
 }
 
 fn active_local_ecb_for_pose_frame_milli(
@@ -3069,80 +3546,230 @@ fn active_local_ecb_for_pose_frame_milli(
     pose_frame_milli: i32,
     common_data: MeleeCommonData,
 ) -> EcbDiamond {
-    source_fighter_ecb_to_local_ecb(active_source_local_ecb_for_pose_frame_milli(
+    active_local_ecb_for_pose_frame(player, pose_frame_from_milli(pose_frame_milli), common_data)
+}
+
+fn active_local_ecb_for_pose_frame(
+    player: &PlayerState,
+    pose_frame: f32,
+    common_data: MeleeCommonData,
+) -> EcbDiamond {
+    source_fighter_ecb_to_local_ecb(active_source_local_ecb_for_pose_frame(
         player,
-        pose_frame_milli,
+        pose_frame,
         common_data,
     ))
 }
 
+#[allow(dead_code)]
 fn active_source_local_ecb_for_pose_frame_milli(
     player: &PlayerState,
     pose_frame_milli: i32,
     common_data: MeleeCommonData,
 ) -> SourceFighterEcb {
-    if player.ecb_bottom_lock_timer > 0 {
-        return source_fighter_ecb_from_local_ecb(fallback_local_ecb(
-            player,
-            player.ecb_bottom_offset_y,
-        ));
-    }
-
-    source_local_ecb_for_pose_frame_milli(player, pose_frame_milli, common_data)
+    active_source_local_ecb_for_pose_frame(
+        player,
+        pose_frame_from_milli(pose_frame_milli),
+        common_data,
+    )
 }
 
+fn active_source_local_ecb_for_pose_frame(
+    player: &PlayerState,
+    pose_frame: f32,
+    common_data: MeleeCommonData,
+) -> SourceFighterEcb {
+    source_local_ecb_for_pose_frame(
+        player,
+        pose_frame,
+        common_data,
+        SourcePoseSelection::ActiveDirectional,
+        6,
+    )
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SourcePoseSelection {
+    ActiveDirectional,
+}
+
+#[allow(dead_code)]
 fn source_local_ecb_for_pose_frame_milli(
     player: &PlayerState,
     pose_frame_milli: i32,
     common_data: MeleeCommonData,
+    selection: SourcePoseSelection,
+    flags: u32,
 ) -> SourceFighterEcb {
-    if let Some(source_action_table_id) = source_action_table_id_for_player(*player) {
-        if let Some(ecb) = falcon_ecb::falcon_source_ecb_jobj_for_action_table_id(
-            source_action_table_id,
-            pose_frame_milli,
-        ) {
-            return ecb;
-        }
+    source_local_ecb_for_pose_frame(
+        player,
+        pose_frame_from_milli(pose_frame_milli),
+        common_data,
+        selection,
+        flags,
+    )
+}
 
-        if let Some(samples) =
-            falcon_ecb::falcon_source_ecb_samples_for_action_table_id(source_action_table_id)
-        {
-            return sampled_source_ecb(samples, pose_frame_milli);
+fn source_local_ecb_for_pose_frame(
+    player: &PlayerState,
+    pose_frame: f32,
+    common_data: MeleeCommonData,
+    selection: SourcePoseSelection,
+    flags: u32,
+) -> SourceFighterEcb {
+    if player
+        .melee_action_state_id
+        .is_some_and(is_source_damage_action_state_id)
+    {
+        if let Some(ecb) = source_action_table_ecb_for_player(player, pose_frame, flags) {
+            return ecb;
         }
     }
 
-    let motion_state = active_pose_motion_state(player, common_data);
-    let sample_frame_milli = action_pose_sample_frame_milli(
+    let motion_state = match selection {
+        SourcePoseSelection::ActiveDirectional => active_pose_motion_state(player, common_data),
+    };
+    let sample_frame = action_pose_sample_frame(
         player,
         motion_state,
-        pose_frame_milli,
+        pose_frame,
         common_data,
         action_sample_frame_count_for_motion_state(motion_state)
             .map(usize::from)
             .unwrap_or(0),
     );
+    let sample_frame = decomp_non_loop_pose_frame(
+        sample_frame,
+        action_sample_frame_count_for_motion_state(motion_state)
+            .map(usize::from)
+            .unwrap_or(0),
+    );
     if let Some(ecb) =
-        falcon_ecb::falcon_source_ecb_jobj_for_motion_state(motion_state, sample_frame_milli)
+        source_fall_blended_ecb(player, motion_state, sample_frame, flags).or_else(|| {
+            falcon_ecb::falcon_source_ecb_jobj_for_motion_state_frame_with_flags_and_costume(
+                motion_state,
+                sample_frame,
+                flags,
+                player.costume_index,
+            )
+        })
     {
         return ecb;
     }
 
-    if let Some(samples) = falcon_ecb::falcon_source_ecb_samples_for_motion_state(motion_state) {
-        sampled_source_ecb(
-            samples,
-            action_pose_sample_frame_milli(
-                player,
-                motion_state,
-                pose_frame_milli,
-                common_data,
-                samples.len(),
-            ),
-        )
+    if let Some(ecb) = source_action_table_ecb_for_player(player, pose_frame, flags) {
+        return ecb;
+    }
+
+    source_fighter_ecb_from_local_ecb(fallback_local_ecb(player, fallback_bottom_offset_y(player)))
+}
+
+fn source_action_table_ecb_for_player(
+    player: &PlayerState,
+    pose_frame: f32,
+    flags: u32,
+) -> Option<SourceFighterEcb> {
+    let source_action_table_id = source_action_table_id_for_player(*player)?;
+    let sample_frame =
+        decomp_non_loop_pose_frame(pose_frame, usize::from(player.source_action_total_frames));
+    falcon_ecb::falcon_source_ecb_jobj_for_action_table_id_frame_with_flags_and_costume(
+        source_action_table_id,
+        sample_frame,
+        flags,
+        player.costume_index,
+    )
+}
+
+fn source_fall_blended_ecb(
+    player: &PlayerState,
+    motion_state: MotionState,
+    sample_frame: f32,
+    flags: u32,
+) -> Option<SourceFighterEcb> {
+    let (neutral, directional) = fall_blend_pose_pair(motion_state, player.source_fall_anim_pose)?;
+    let blend = player.source_fall_anim_blend.clamp(0.0, 1.0);
+    if blend <= f32::EPSILON {
+        return falcon_ecb::falcon_source_ecb_jobj_for_motion_state_frame_with_flags_and_costume(
+            neutral,
+            sample_frame,
+            flags,
+            player.costume_index,
+        );
+    }
+
+    // ftCo_Fall_Anim_Inner evaluates a newly selected secondary skeleton once,
+    // then ftCo_800CC988 evaluates it again before blending/copying its SRTs.
+    // The live skeleton receives only the ordinary frame evaluation, so the
+    // secondary FallF/FallB pose remains one animation evaluation ahead.
+    let directional_sample_frame = sample_frame + 1.0;
+    falcon_ecb::falcon_source_ecb_jobj_blend_for_motion_states_frames_with_flags_and_costume(
+        neutral,
+        directional,
+        sample_frame,
+        directional_sample_frame,
+        blend,
+        flags,
+        player.costume_index,
+    )
+}
+
+fn fall_blend_pose_pair(
+    motion_state: MotionState,
+    active_pose: MotionState,
+) -> Option<(MotionState, MotionState)> {
+    let (neutral, forward, backward) = match motion_state {
+        MotionState::Fall | MotionState::FallF | MotionState::FallB => {
+            (MotionState::Fall, MotionState::FallF, MotionState::FallB)
+        }
+        MotionState::FallAerial | MotionState::FallAerialF | MotionState::FallAerialB => (
+            MotionState::FallAerial,
+            MotionState::FallAerialF,
+            MotionState::FallAerialB,
+        ),
+        MotionState::FallSpecial | MotionState::FallSpecialF | MotionState::FallSpecialB => (
+            MotionState::FallSpecial,
+            MotionState::FallSpecialF,
+            MotionState::FallSpecialB,
+        ),
+        _ => return None,
+    };
+    let directional = match active_pose {
+        pose if pose == forward || pose == backward => pose,
+        _ => neutral,
+    };
+    Some((neutral, directional))
+}
+
+#[allow(dead_code)]
+fn decomp_non_loop_pose_frame_milli(pose_frame_milli: i32, total_frames: usize) -> i32 {
+    pose_frame_to_milli(decomp_non_loop_pose_frame(
+        pose_frame_from_milli(pose_frame_milli),
+        total_frames,
+    ))
+}
+
+fn decomp_non_loop_pose_frame(pose_frame: f32, total_frames: usize) -> f32 {
+    if total_frames == 0 {
+        return finite_pose_frame(pose_frame);
+    }
+    let max_frame = total_frames as f32;
+    finite_pose_frame(pose_frame).clamp(0.0, max_frame)
+}
+
+fn pose_frame_from_milli(pose_frame_milli: i32) -> f32 {
+    pose_frame_milli.max(0) as f32 / 1_000.0
+}
+
+#[allow(dead_code)]
+fn pose_frame_to_milli(pose_frame: f32) -> i32 {
+    (finite_pose_frame(pose_frame) * 1_000.0).round() as i32
+}
+
+fn finite_pose_frame(pose_frame: f32) -> f32 {
+    if pose_frame.is_finite() {
+        pose_frame.max(0.0)
     } else {
-        source_fighter_ecb_from_local_ecb(fallback_local_ecb(
-            player,
-            fallback_bottom_offset_y(player),
-        ))
+        0.0
     }
 }
 
@@ -3151,6 +3778,11 @@ fn source_action_table_id_for_player(player: PlayerState) -> Option<u16> {
         return None;
     }
     let action_state_id = player.melee_action_state_id?;
+    if let Some(binding) = source_binding_for_motion_state(player.motion_state) {
+        if binding.action_state_id == action_state_id {
+            return Some(binding.source_action_table_id);
+        }
+    }
     if let Some(binding) = source_special_action_binding_for_runtime_id(action_state_id) {
         return Some(binding.source_action_table_id);
     }
@@ -3158,6 +3790,15 @@ fn source_action_table_id_for_player(player: PlayerState) -> Option<u16> {
         .map(|binding| binding.source_action_table_id)
 }
 
+fn source_aobj_descriptor_for_motion_state(
+    motion_state: MotionState,
+) -> Option<SourceAObjDescriptor> {
+    let source_action_table_id =
+        source_binding_for_motion_state(motion_state)?.source_action_table_id;
+    falcon_ecb::falcon_aobj_descriptor_for_action_table_id(source_action_table_id)
+}
+
+#[allow(dead_code)]
 fn action_pose_sample_frame_milli(
     player: &PlayerState,
     motion_state: MotionState,
@@ -3165,34 +3806,73 @@ fn action_pose_sample_frame_milli(
     _common_data: MeleeCommonData,
     sample_count: usize,
 ) -> i32 {
-    match motion_state {
-        MotionState::LandingFallSpecial => pose_frame_milli,
+    pose_frame_to_milli(action_pose_sample_frame(
+        player,
+        motion_state,
+        pose_frame_from_milli(pose_frame_milli),
+        _common_data,
+        sample_count,
+    ))
+}
+
+fn action_pose_sample_frame(
+    player: &PlayerState,
+    motion_state: MotionState,
+    pose_frame: f32,
+    _common_data: MeleeCommonData,
+    sample_count: usize,
+) -> f32 {
+    let pose_frame = match motion_state {
+        MotionState::LandingFallSpecial => pose_frame,
         MotionState::LandingAirN
         | MotionState::LandingAirF
         | MotionState::LandingAirB
         | MotionState::LandingAirHi
-        | MotionState::LandingAirLw => landing_air_pose_sample_frame_milli(
-            player,
-            motion_state,
-            pose_frame_milli,
-            sample_count,
-        ),
-        _ => pose_frame_milli,
-    }
+        | MotionState::LandingAirLw => {
+            landing_air_pose_sample_frame(player, motion_state, pose_frame, sample_count)
+        }
+        _ => pose_frame,
+    };
+    let Some(descriptor) = source_aobj_descriptor_for_motion_state(motion_state) else {
+        return pose_frame;
+    };
+    let mut aobj = SourceAObjState::requested(
+        pose_frame,
+        0.0,
+        descriptor.rewind_frame,
+        descriptor.end_frame,
+        descriptor.flags,
+    );
+    aobj.interpret_frame().unwrap_or(pose_frame)
 }
 
+#[allow(dead_code)]
 fn landing_air_pose_sample_frame_milli(
     player: &PlayerState,
     motion_state: MotionState,
     pose_frame_milli: i32,
     sample_count: usize,
 ) -> i32 {
+    pose_frame_to_milli(landing_air_pose_sample_frame(
+        player,
+        motion_state,
+        pose_frame_from_milli(pose_frame_milli),
+        sample_count,
+    ))
+}
+
+fn landing_air_pose_sample_frame(
+    player: &PlayerState,
+    motion_state: MotionState,
+    pose_frame: f32,
+    sample_count: usize,
+) -> f32 {
     let landing_lag = if player.landing_lag_ticks == 0 {
         landing_air_profile_lag_ticks(motion_state, player.profile)
     } else {
         player.landing_lag_ticks
     };
-    scaled_landing_pose_sample_frame_milli_impl(pose_frame_milli, landing_lag, sample_count)
+    scaled_landing_pose_sample_frame_impl(pose_frame, landing_lag, sample_count)
 }
 
 pub fn landing_fall_special_lag_ticks(player: &PlayerState, common_data: MeleeCommonData) -> u8 {
@@ -3203,23 +3883,34 @@ pub fn landing_fall_special_lag_ticks(player: &PlayerState, common_data: MeleeCo
     }
 }
 
+#[allow(dead_code)]
 fn scaled_landing_pose_sample_frame_milli_impl(
     pose_frame_milli: i32,
     landing_lag: u8,
     sample_count: usize,
 ) -> i32 {
+    pose_frame_to_milli(scaled_landing_pose_sample_frame_impl(
+        pose_frame_from_milli(pose_frame_milli),
+        landing_lag,
+        sample_count,
+    ))
+}
+
+fn scaled_landing_pose_sample_frame_impl(
+    pose_frame: f32,
+    landing_lag: u8,
+    sample_count: usize,
+) -> f32 {
     if landing_lag == 0 || sample_count == 0 {
-        return pose_frame_milli;
+        return finite_pose_frame(pose_frame);
     }
 
     // ftCo_LandingAir_EnterWithMsidLag and ftCo_LandingFallSpecial_Enter
     // both scale the landing figatree by (source_frames + 0.1) / landing_lag.
-    let action_frames_tenths = sample_count.saturating_mul(10).saturating_add(1);
-    let scaled = i64::from(pose_frame_milli)
-        .saturating_mul(i64::try_from(action_frames_tenths).unwrap_or(i64::MAX))
-        / (i64::from(landing_lag) * 10);
-    let max_frame_milli = i64::try_from(sample_count.saturating_sub(1)).unwrap_or(i64::MAX) * 1_000;
-    i32::try_from(scaled.clamp(0, max_frame_milli)).unwrap_or(i32::MAX)
+    let action_frames = sample_count as f32 + 0.1;
+    let scaled = finite_pose_frame(pose_frame) * action_frames / f32::from(landing_lag);
+    let max_frame = sample_count.saturating_sub(1) as f32;
+    scaled.clamp(0.0, max_frame)
 }
 
 fn landing_air_profile_lag_ticks(motion_state: MotionState, profile: FighterProfile) -> u8 {
@@ -3241,13 +3932,17 @@ fn active_pose_motion_state(player: &PlayerState, common_data: MeleeCommonData) 
         return player.motion_state;
     }
 
-    let drift_ratio =
-        (milli_to_source_units(player.velocity.x).abs()) / player.profile.air_drift_max.abs();
+    let self_vel_x = if player.source_self_velocity_x != 0.0 || player.velocity.x == 0 {
+        player.source_self_velocity_x
+    } else {
+        milli_to_source_units(player.velocity.x)
+    };
+    let drift_ratio = self_vel_x.abs() / player.profile.air_drift_max.abs();
     if drift_ratio <= common_data.fall_animation_drift_threshold {
         return player.motion_state;
     }
 
-    if player.velocity.x * player.facing as i32 > 0 {
+    if self_vel_x * f32::from(player.facing) > 0.0 {
         forward
     } else {
         backward
@@ -3280,39 +3975,6 @@ fn fallback_local_ecb(player: &PlayerState, bottom_offset_y: i32) -> EcbDiamond 
         FALLBACK_ECB_WIDTH_UNITS,
         player.profile.standing_height_units,
     )
-}
-
-fn sampled_source_ecb(samples: &[SourceFighterEcb], pose_frame_milli: i32) -> SourceFighterEcb {
-    if samples.is_empty() {
-        return SourceFighterEcb::default();
-    }
-    let max_frame_milli =
-        i32::try_from(samples.len().saturating_sub(1)).unwrap_or(i32::MAX / 1_000) * 1_000;
-    let frame_milli = pose_frame_milli.clamp(0, max_frame_milli);
-    let lo = usize::try_from(frame_milli / 1_000).unwrap_or(0);
-    let hi = (lo + 1).min(samples.len().saturating_sub(1));
-    let t = (frame_milli - i32::try_from(lo).unwrap_or(i32::MAX) * 1_000) as f32 / 1_000.0;
-    source_fighter_ecb_lerp(samples[lo], samples[hi], t)
-}
-
-fn source_fighter_ecb_lerp(
-    current: SourceFighterEcb,
-    desired: SourceFighterEcb,
-    t: f32,
-) -> SourceFighterEcb {
-    SourceFighterEcb {
-        top: source_vec2_lerp(current.top, desired.top, t),
-        right: source_vec2_lerp(current.right, desired.right, t),
-        bottom: source_vec2_lerp(current.bottom, desired.bottom, t),
-        left: source_vec2_lerp(current.left, desired.left, t),
-    }
-}
-
-fn source_vec2_lerp(current: SourceVec2, desired: SourceVec2, t: f32) -> SourceVec2 {
-    SourceVec2 {
-        x: current.x + (desired.x - current.x) * t,
-        y: current.y + (desired.y - current.y) * t,
-    }
 }
 
 fn source_fighter_ecb_to_local_ecb(source: SourceFighterEcb) -> EcbDiamond {
@@ -3366,6 +4028,20 @@ fn local_ecb_to_world(local: EcbDiamond, root_position: Vec2, facing: i8) -> Ecb
     }
 }
 
+fn world_ecb_to_local(world: EcbDiamond, root_position: Vec2, facing: i8) -> EcbDiamond {
+    let (right, left) = if facing < 0 {
+        (world.left, world.right)
+    } else {
+        (world.right, world.left)
+    };
+    EcbDiamond {
+        top: world_point_to_local(world.top, root_position, facing),
+        right: world_point_to_local(right, root_position, facing),
+        bottom: world_point_to_local(world.bottom, root_position, facing),
+        left: world_point_to_local(left, root_position, facing),
+    }
+}
+
 fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
     let facing_sign = if facing < 0 { -1 } else { 1 };
     Vec2 {
@@ -3374,12 +4050,16 @@ fn local_point_to_world(local: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
     }
 }
 
-pub(crate) fn player_model_facing(player: &PlayerState) -> i8 {
-    if player.motion_state == MotionState::TurnRun {
-        player.turn_run_accel_mul
-    } else {
-        player.facing
+fn world_point_to_local(world: Vec2, root_position: Vec2, facing: i8) -> Vec2 {
+    let facing_sign = if facing < 0 { -1 } else { 1 };
+    Vec2 {
+        x: (world.x - root_position.x) * facing_sign,
+        y: world.y - root_position.y,
     }
+}
+
+pub(crate) fn player_model_facing(player: &PlayerState) -> i8 {
+    player.source_model_facing
 }
 
 fn player_source_pose_motion_state(
@@ -3400,6 +4080,9 @@ pub struct PlayerRenderSnapshot {
     pub stocks: i8,
     pub position: Vec2,
     pub source_position: SourceVec2,
+    pub source_position_z: f32,
+    pub source_previous_position: SourceVec2,
+    pub source_previous_position_z: f32,
     pub velocity: Vec2,
     pub camera_box: FighterCameraBox,
     pub active_ecb: EcbDiamond,
@@ -3424,9 +4107,16 @@ pub struct PlayerRenderSnapshot {
     pub source_coll_x130_locked: bool,
     pub source_coll_floor_surface_index: Option<u8>,
     pub source_coll_floor_line_index: Option<u16>,
+    pub source_coll_floor_skip_line_index: Option<u16>,
+    pub source_coll_ledge_id_left: Option<u16>,
+    pub source_coll_ledge_id_right: Option<u16>,
+    pub floor_skip_surface: Option<u8>,
     pub source_coll_env_flags: u32,
     pub source_coll_prev_env_flags: u32,
     pub profile_weight: f32,
+    pub profile_initial_shield_size: f32,
+    pub profile_model_scaling: f32,
+    pub profile_is_yoshi: bool,
     pub melee_action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
     pub source_action_total_frames: u8,
@@ -3444,14 +4134,19 @@ pub struct PlayerRenderSnapshot {
     pub source_pose_motion_state: MotionState,
     pub source_pose_frame: u8,
     pub source_pose_model_facing: i8,
+    pub source_fall_anim_blend: f32,
+    pub source_fall_anim_pose: MotionState,
     pub source_victim_index: Option<u8>,
     pub source_x1a5c_index: Option<u8>,
+    pub source_x2222_b3: bool,
     pub source_x2226_b2: bool,
     pub source_self_velocity_x: f32,
     pub source_self_velocity_y: f32,
     pub source_knockback_velocity_x: f32,
     pub source_knockback_velocity_y: f32,
     pub source_ground_knockback_velocity: f32,
+    pub player_nudge_x: f32,
+    pub player_nudge_z: f32,
     pub ground_velocity_x: f32,
     pub ground_accel_x: f32,
     pub ground_accel_x2: f32,
@@ -3477,9 +4172,21 @@ pub struct PlayerRenderSnapshot {
     pub turn_run_completion_pending: bool,
     pub turn_run_completion_enters_run: bool,
     pub motion_anim_rate_milli: i32,
+    pub source_motion_anim_rate: f32,
     pub shield_health: f32,
     pub lightshield_amount: f32,
     pub shield_release_lockout_frames: u8,
+    pub source_shield_collision_active: bool,
+    pub source_shield_hit_active: bool,
+    pub source_shield_hit_update_pos: bool,
+    pub source_shield_hit_position: SourcePosePoint,
+    pub source_shield_aim_angle_degrees: f32,
+    pub source_shield_aim_magnitude: f32,
+    pub source_x221c_b1: bool,
+    pub source_x221c_b2: bool,
+    pub source_x221c_b3: bool,
+    pub source_guard_reflect_timer: f32,
+    pub source_guard_reflect_damage_skip_timer: f32,
     pub entry_base_y: i32,
     pub entry_platform: FighterEntryPlatformProfile,
     pub entry_platform_offset_y: i32,
@@ -3507,11 +4214,30 @@ impl PlayerRenderSnapshot {
         } else {
             player.source_action_key
         };
+        let retained_model_pose = player.source_retained_model_pose;
+        let source_pose_action_state_id = retained_model_pose
+            .map(|pose| pose.action_state_id)
+            .unwrap_or(source_pose_action_state_id);
+        let source_pose_action_key = retained_model_pose
+            .map(|pose| Some(pose.source_action_key))
+            .unwrap_or(source_pose_action_key);
+        let source_pose_motion_state = retained_model_pose
+            .map(|pose| pose.motion_state)
+            .unwrap_or(source_pose_motion_state);
+        let source_pose_frame = retained_model_pose
+            .map(|pose| (pose.frame_milli / 1_000).clamp(0, u8::MAX as i32) as u8)
+            .unwrap_or_else(|| player_source_pose_frame(player));
+        let source_pose_model_facing = retained_model_pose
+            .map(|pose| pose.model_facing)
+            .unwrap_or_else(|| player_model_facing(&player));
         Self {
             player_state: player.player_state,
             stocks: player.stocks,
             position: player.position,
             source_position: player.source_position,
+            source_position_z: player.source_position_z,
+            source_previous_position: player.source_previous_position,
+            source_previous_position_z: player.source_previous_position_z,
             velocity: player.velocity,
             camera_box: player.profile.camera_box,
             active_ecb: active_ecb_for_player(&player, common_data),
@@ -3536,9 +4262,16 @@ impl PlayerRenderSnapshot {
             source_coll_x130_locked: player.source_coll_x130_locked,
             source_coll_floor_surface_index: player.source_coll_floor_surface_index,
             source_coll_floor_line_index: player.source_coll_floor_line_index,
+            source_coll_floor_skip_line_index: player.source_coll_floor_skip_line_index,
+            source_coll_ledge_id_left: player.source_coll_ledge_id_left,
+            source_coll_ledge_id_right: player.source_coll_ledge_id_right,
+            floor_skip_surface: player.floor_skip_surface,
             source_coll_env_flags: player.source_coll_env_flags,
             source_coll_prev_env_flags: player.source_coll_prev_env_flags,
             profile_weight: player.profile.weight,
+            profile_initial_shield_size: player.profile.initial_shield_size,
+            profile_model_scaling: player.profile.model_scaling,
+            profile_is_yoshi: player.profile.reference_character == "yoshi",
             melee_action_state_id: player.melee_action_state_id,
             source_action_key: player.source_action_key,
             source_action_total_frames: player.source_action_total_frames,
@@ -3554,16 +4287,21 @@ impl PlayerRenderSnapshot {
             source_pose_action_state_id,
             source_pose_action_key,
             source_pose_motion_state,
-            source_pose_frame: player_source_pose_frame(player),
-            source_pose_model_facing: player_model_facing(&player),
+            source_pose_frame,
+            source_pose_model_facing,
+            source_fall_anim_blend: player.source_fall_anim_blend,
+            source_fall_anim_pose: player.source_fall_anim_pose,
             source_victim_index: player.source_victim_index,
             source_x1a5c_index: player.source_x1a5c_index,
+            source_x2222_b3: player.source_x2222_b3,
             source_x2226_b2: player.source_x2226_b2,
             source_self_velocity_x: player.source_self_velocity_x,
             source_self_velocity_y: player.source_self_velocity_y,
             source_knockback_velocity_x: player.source_knockback_velocity_x,
             source_knockback_velocity_y: player.source_knockback_velocity_y,
             source_ground_knockback_velocity: player.source_ground_knockback_velocity,
+            player_nudge_x: player.player_nudge_x,
+            player_nudge_z: player.player_nudge_z,
             ground_velocity_x: player.ground_velocity_x,
             ground_accel_x: player.ground_accel_x,
             ground_accel_x2: player.ground_accel_x2,
@@ -3589,9 +4327,21 @@ impl PlayerRenderSnapshot {
             turn_run_completion_pending: player.turn_run_completion_pending,
             turn_run_completion_enters_run: player.turn_run_completion_enters_run,
             motion_anim_rate_milli: player.motion_anim_rate_milli,
+            source_motion_anim_rate: player.source_motion_anim_rate,
             shield_health: player.shield_health,
             lightshield_amount: player.lightshield_amount,
             shield_release_lockout_frames: player.shield_release_lockout_frames,
+            source_shield_collision_active: player.source_shield_collision_active,
+            source_shield_hit_active: player.source_shield_hit_active,
+            source_shield_hit_update_pos: player.source_shield_hit_update_pos,
+            source_shield_hit_position: player.source_shield_hit_position,
+            source_shield_aim_angle_degrees: player.source_shield_aim_angle_degrees,
+            source_shield_aim_magnitude: player.source_shield_aim_magnitude,
+            source_x221c_b1: player.source_x221c_b1,
+            source_x221c_b2: player.source_x221c_b2,
+            source_x221c_b3: player.source_x221c_b3,
+            source_guard_reflect_timer: player.source_guard_reflect_timer,
+            source_guard_reflect_damage_skip_timer: player.source_guard_reflect_damage_skip_timer,
             entry_base_y: player.entry_base_y,
             entry_platform: player.profile.entry_platform,
             entry_platform_offset_y: player.entry_platform_offset_y,
@@ -3605,9 +4355,12 @@ fn player_animation_pose_frame(player: PlayerState) -> u8 {
     (player_animation_pose_frame_milli(player) / 1_000).clamp(0, u8::MAX as i32) as u8
 }
 
-fn player_animation_pose_frame_milli(player: PlayerState) -> i32 {
-    if has_source_ecb_samples_for_motion_state(player.motion_state) {
-        return player.motion_anim_frame_milli;
+fn player_animation_pose_frame_value(player: PlayerState) -> f32 {
+    if source_binding_for_motion_state(player.motion_state).is_some()
+        || player.source_action_key.is_some()
+        || has_source_ecb_pose_data_for_motion_state(player.motion_state)
+    {
+        return player.cur_anim_frame();
     }
     match player.motion_state {
         MotionState::WalkSlow
@@ -3615,7 +4368,25 @@ fn player_animation_pose_frame_milli(player: PlayerState) -> i32 {
         | MotionState::WalkFast
         | MotionState::Run
         | MotionState::RunBrake
-        | MotionState::TurnRun => player.motion_anim_frame_milli,
+        | MotionState::TurnRun => player.cur_anim_frame(),
+        _ => f32::from(player.motion_frame),
+    }
+}
+
+fn player_animation_pose_frame_milli(player: PlayerState) -> i32 {
+    if source_binding_for_motion_state(player.motion_state).is_some()
+        || player.source_action_key.is_some()
+        || has_source_ecb_pose_data_for_motion_state(player.motion_state)
+    {
+        return player.cur_anim_frame_milli();
+    }
+    match player.motion_state {
+        MotionState::WalkSlow
+        | MotionState::WalkMiddle
+        | MotionState::WalkFast
+        | MotionState::Run
+        | MotionState::RunBrake
+        | MotionState::TurnRun => player.cur_anim_frame_milli(),
         _ => i32::from(player.motion_frame) * 1_000,
     }
 }
@@ -3732,9 +4503,13 @@ macro_rules! player_rollback_snapshot_fields {
     ($emit:ident) => {
         $emit! {
             position: Vec2,
+            costume_index: u8,
             player_state: u8,
             stocks: i8,
             source_position: SourceVec2,
+            source_position_z: f32,
+            source_previous_position: SourceVec2,
+            source_previous_position_z: f32,
             source_coll_last_pos: SourceVec2,
             source_coll_cur_pos: SourceVec2,
             source_coll_prev_pos: SourceVec2,
@@ -3745,6 +4520,7 @@ macro_rules! player_rollback_snapshot_fields {
             source_knockback_velocity_x: f32,
             source_knockback_velocity_y: f32,
             source_ground_knockback_velocity: f32,
+            source_attacker_shield_velocity_x: f32,
             player_nudge_x: f32,
             player_nudge_z: f32,
             ecb_bottom_offset_y: i32,
@@ -3761,12 +4537,16 @@ macro_rules! player_rollback_snapshot_fields {
             source_coll_x130_locked: bool,
             source_coll_floor_surface_index: Option<u8>,
             source_coll_floor_line_index: Option<u16>,
+            source_coll_floor_skip_line_index: Option<u16>,
+            source_coll_ledge_id_left: Option<u16>,
+            source_coll_ledge_id_right: Option<u16>,
             source_coll_env_flags: u32,
             source_coll_prev_env_flags: u32,
             jumps_remaining: u8,
             grounded: bool,
             fast_falling: bool,
             facing: i8,
+            source_model_facing: i8,
             attack_frame: u8,
             damage_percent: f32,
             damage_percent_temp: f32,
@@ -3784,12 +4564,14 @@ macro_rules! player_rollback_snapshot_fields {
             melee_action_state_id: Option<MeleeActionStateId>,
             source_action_key: Option<SourceActionKey>,
             source_action_total_frames: u8,
+            source_retained_model_pose: Option<SourceRetainedModelPose>,
             source_down_bound_pose: Option<SourceDownBoundPose>,
             source_force_damage_down_bound: bool,
             source_down_bound_use_z_axis: bool,
             source_down_bound_reverse_face_up: bool,
             source_down_wait_timer: f32,
             source_lr_digital_press_timer: u8,
+            source_lcancel_timer: u8,
             source_previous_lr_digital_press_timer: u8,
             source_jab_followup_timer: u8,
             source_jab_followup_queued: bool,
@@ -3814,6 +4596,8 @@ macro_rules! player_rollback_snapshot_fields {
             motion_frame: u8,
             source_motion_anim_frame: f32,
             motion_anim_frame_milli: i32,
+            source_fall_anim_blend: f32,
+            source_fall_anim_pose: MotionState,
             ground_velocity_x: f32,
             ground_accel_x: f32,
             ground_accel_x2: f32,
@@ -3830,9 +4614,17 @@ macro_rules! player_rollback_snapshot_fields {
             turn_latched_buttons: u8,
             turn_run_accel_mul: i8,
             run_no_interrupt_frames: u8,
+            source_allow_interrupt: bool,
             motion_cmd_var0: u32,
             motion_cmd_var1: u32,
             motion_throw_flags: u8,
+            source_grab_timer: f32,
+            source_grab_mash_x: i8,
+            source_grab_mash_y: i8,
+            source_capture_wait_timer: f32,
+            source_capture_wait_anim_timer: f32,
+            source_capture_wait_mashed: bool,
+            source_capture_wait_jump_queued: bool,
             source_throw_x4: bool,
             source_throw_hitboxes: [Option<SourceInstalledThrowHitbox>; 2],
             source_thrown_unk_bool: bool,
@@ -3843,7 +4635,15 @@ macro_rules! player_rollback_snapshot_fields {
             source_victim_index: Option<u8>,
             source_x1a5c_index: Option<u8>,
             source_x221b_b5: bool,
+            source_x2222_b3: bool,
             source_x2226_b2: bool,
+            source_x1a70: SourceVec3,
+            source_x34_scale_y: f32,
+            captain_special_hi_x0: u16,
+            captain_special_hi_vel_x: f32,
+            captain_special_hi_vel_y: f32,
+            captain_special_hi_x2_b0: bool,
+            captain_special_hi_x2_b1: bool,
             landing_lag_ticks: u8,
             run_brake_x0: bool,
             run_brake_frames_remaining: u8,
@@ -3852,12 +4652,26 @@ macro_rules! player_rollback_snapshot_fields {
             turn_run_completion_pending: bool,
             turn_run_completion_enters_run: bool,
             motion_anim_rate_milli: i32,
+            source_motion_anim_rate: f32,
             shield_health: f32,
             lightshield_amount: f32,
+            source_collision_lightshield_amount: f32,
             shield_release_lockout_frames: u8,
+            source_shield_collision_active: bool,
+            source_shield_hit_active: bool,
+            source_shield_hit_update_pos: bool,
+            source_shield_hit_position: SourcePosePoint,
+            source_shield_aim_angle_degrees: f32,
+            source_shield_aim_magnitude: f32,
+            source_x221c_b1: bool,
+            source_x221c_b2: bool,
+            source_x221c_b3: bool,
+            source_guard_reflect_timer: f32,
+            source_guard_reflect_damage_skip_timer: f32,
             shield_turn_facing_after: i8,
             shield_turn_frame: u8,
             guard_catch_dash_window: u8,
+            guard_release_latched: bool,
             jump_input: MeleeJumpInput,
             short_hop: bool,
             escape_air_iasa_timer: u8,
@@ -4257,6 +5071,14 @@ impl World {
         &mut self.players
     }
 
+    pub fn set_player_costume_index(&mut self, player_index: usize, costume_index: u8) -> bool {
+        let Some(player) = self.players.get_mut(player_index) else {
+            return false;
+        };
+        player.costume_index = costume_index;
+        true
+    }
+
     pub fn reset_player_to_stage_spawn(&mut self, player_index: usize) -> bool {
         let Some(player) = self.players.get_mut(player_index) else {
             return false;
@@ -4283,49 +5105,32 @@ impl World {
         player_index: usize,
         direction: SourceDeathDirection,
     ) -> bool {
-        let Some(player) = self.players.get_mut(player_index) else {
-            return false;
-        };
-        if player.player_state != PLAYER_STATE_IN_GAME || player.stocks <= 0 {
-            return false;
-        }
-
-        if player.stocks > 0 {
-            player.stocks -= 1;
-        }
-        if player.stocks <= 0 {
-            player.player_state = PLAYER_STATE_NONE;
-            player.velocity = Vec2 { x: 0, y: 0 };
-            player.source_self_velocity_x = 0.0;
-            player.source_self_velocity_y = 0.0;
-            player.source_knockback_velocity_x = 0.0;
-            player.source_knockback_velocity_y = 0.0;
-            player.source_ground_knockback_velocity = 0.0;
-            player.hitlag_frames = 0;
-            player.source_allow_sdi = false;
-            player.source_x2219_b5 = false;
-            player.damage_hitstun_frames = 0;
-            return true;
-        }
-
-        if direction == SourceDeathDirection::Up {
-            let roll = self.hsd_randi(100) + 1;
-            let motion_state = if roll <= self.common_data.top_blast_fall_ko_chance as i32 {
-                MotionState::DeadUpFall
-            } else {
-                MotionState::DeadUpStar
-            };
+        {
             let Some(player) = self.players.get_mut(player_index) else {
                 return false;
             };
-            player.enter_source_dead_motion_state_with_common_data(motion_state, self.common_data);
-            return true;
+            if player.player_state != PLAYER_STATE_IN_GAME || player.stocks <= 0 {
+                return false;
+            }
+            player.stocks -= 1;
         }
 
-        player.enter_source_dead_motion_state_with_common_data(
-            direction.motion_state(),
-            self.common_data,
-        );
+        let motion_state = if direction == SourceDeathDirection::Up {
+            let roll = self.hsd_randi(100) + 1;
+            if roll <= self.common_data.top_blast_fall_ko_chance as i32 {
+                MotionState::DeadUpFall
+            } else {
+                MotionState::DeadUpStar
+            }
+        } else {
+            direction.motion_state()
+        };
+
+        let player = &mut self.players[player_index];
+        player.enter_source_dead_motion_state_with_common_data(motion_state, self.common_data);
+        if player.stocks <= 0 {
+            player.player_state = PLAYER_STATE_NONE;
+        }
         true
     }
 
@@ -4428,7 +5233,9 @@ impl World {
             return false;
         };
         let previous_action_state_id = player.melee_action_state_id;
-        if state.motion_state_alias.is_some() {
+        if state.motion_state_alias.is_some()
+            && state.motion_state_alias != Some(state.motion_state)
+        {
             state.set_motion_state_alias(state.motion_state);
         }
         if state.source_motion_anim_frame == 0.0 && state.motion_anim_frame_milli != 0 {
@@ -4538,10 +5345,30 @@ impl World {
             })
             .collect::<Vec<_>>();
         let logged_confirms = self.source_hit_confirms_not_in_victim_log(raw_confirms.clone());
-        self.apply_source_deal_damage_hitlag_from_confirms(&logged_confirms);
-        let damage_gate_confirms = logged_confirms
+        self.apply_source_special_hit_detect_transitions(
+            &logged_confirms,
+            &mut action_total_frames,
+        );
+        let current_pose_confirms = logged_confirms
             .iter()
             .copied()
+            .filter(|confirm| self.source_hit_confirm_matches_current_victim_pose(*confirm))
+            .collect::<Vec<_>>();
+        self.release_stale_pose_confirms_from_victim_log(&logged_confirms, &current_pose_confirms);
+        self.apply_source_deal_damage_hitlag_from_confirms(&current_pose_confirms);
+        self.apply_source_shield_health_from_confirms(&current_pose_confirms);
+        self.apply_source_shield_setoff_from_confirms(
+            &current_pose_confirms,
+            &mut action_total_frames,
+        );
+        let damage_gate_confirms = current_pose_confirms
+            .iter()
+            .copied()
+            .filter(|confirm| !Self::source_hit_confirm_targets_shield(*confirm))
+            .filter(|confirm| {
+                !Self::source_hit_confirm_blocked_by_shield(*confirm, &logged_confirms)
+            })
+            .filter(|confirm| !self.source_hit_confirm_routes_hurtbox_detect_callback(*confirm))
             .filter(|confirm| self.source_hit_confirm_allowed_by_victim_damage_gate(*confirm))
             .collect::<Vec<_>>();
         let mut confirms = Vec::new();
@@ -4559,7 +5386,7 @@ impl World {
         let mut applied_stages = stages.clone();
         applied_stages.extend(held_victim_stages);
         confirms.extend(held_victim_confirms);
-        self.update_source_stale_moves_from_confirms(&logged_confirms);
+        self.update_source_stale_moves_from_confirms(&current_pose_confirms);
         let results = self.source_damage_results_for_stages(&stages);
         let applied_stage_count = self.apply_source_damage_stages(&applied_stages);
         SourceCollisionStep {
@@ -4682,6 +5509,7 @@ impl World {
             victim.source_x2226_b2 =
                 transition.constrain_airborne_victim_to_attacker_transn2 && victim_was_airborne;
             victim.facing = -attacker_facing;
+            victim.source_model_facing = victim.facing;
             victim.source_self_velocity_x = 0.0;
             victim.source_self_velocity_y = 0.0;
             victim.source_knockback_velocity_x = 0.0;
@@ -4711,6 +5539,7 @@ impl World {
         grabber.source_motion_anim_frame = grabber_source_motion_anim_frame;
         grabber.motion_anim_frame_milli = grabber_motion_anim_frame_milli;
         clear_source_grab_ground_velocity(grabber);
+        let grabber_facing = grabber.facing;
         grabber.source_victim_index = Some(victim_u8);
         grabber.source_x1a5c_index = Some(victim_u8);
         grabber.source_x221b_b5 = true;
@@ -4736,6 +5565,9 @@ impl World {
         victim.source_x1a5c_index = Some(grabber_u8);
         victim.source_x221b_b5 = false;
         victim.source_x2226_b2 = false;
+        victim.facing = -grabber_facing;
+        victim.source_model_facing = victim.facing;
+        victim.source_motion_entry_facing = victim.facing;
         victim.source_self_velocity_x = 0.0;
         victim.source_self_velocity_y = 0.0;
         victim.source_knockback_velocity_x = 0.0;
@@ -4763,7 +5595,7 @@ impl World {
         confirms: Vec<SourceHitConfirm>,
     ) -> Vec<SourceHitConfirm> {
         let mut accepted = Vec::new();
-        for confirm in confirms {
+        for confirm in confirms.iter().copied() {
             let hitbox = source_hitbox_log_key(confirm.collision.hit, confirm.hitbox);
             let entry = SourceHitVictimLogEntry {
                 hitbox,
@@ -4778,6 +5610,273 @@ impl World {
         accepted
     }
 
+    fn source_hit_confirm_targets_shield(confirm: SourceHitConfirm) -> bool {
+        confirm.hurtbox_id == SOURCE_SHIELD_HURTBOX_ID
+    }
+
+    fn source_hit_confirm_blocked_by_shield(
+        confirm: SourceHitConfirm,
+        confirms: &[SourceHitConfirm],
+    ) -> bool {
+        confirms.iter().copied().any(|shield_confirm| {
+            Self::source_hit_confirm_targets_shield(shield_confirm)
+                && shield_confirm.attacker_index == confirm.attacker_index
+                && shield_confirm.victim_index == confirm.victim_index
+                && shield_confirm.hitbox_id == confirm.hitbox_id
+        })
+    }
+
+    fn source_hit_confirm_routes_hurtbox_detect_callback(&self, confirm: SourceHitConfirm) -> bool {
+        let Some(attacker) = self.players.get(confirm.attacker_index) else {
+            return false;
+        };
+        let Some(action_state_id) = confirm.action_state_id.or(attacker.melee_action_state_id)
+        else {
+            return false;
+        };
+        source_special_hit_detect_transition_for_action_state_id(
+            attacker.profile.reference_character,
+            action_state_id,
+        )
+        .is_some()
+    }
+
+    fn apply_source_shield_health_from_confirms(&mut self, confirms: &[SourceHitConfirm]) {
+        for confirm in confirms
+            .iter()
+            .copied()
+            .filter(|confirm| Self::source_hit_confirm_targets_shield(*confirm))
+        {
+            let env_damage =
+                source_env_damage(self.source_stale_scaled_damage(
+                    confirm.attacker_index,
+                    confirm.hitbox.damage as f32,
+                ));
+            let Some(victim) = self.players.get_mut(confirm.victim_index) else {
+                continue;
+            };
+            if !victim.source_shield_collision_active {
+                continue;
+            }
+            if victim.source_x221c_b2 {
+                continue;
+            }
+            let shield_damage_taken =
+                (i32::from(env_damage) + i32::from(confirm.hitbox.shield_damage)).max(0) as f32;
+            let lightshield_scale = victim.source_collision_lightshield_amount
+                * (self.common_data.shield_hit_lightshield_max
+                    - self.common_data.shield_hit_lightshield_min)
+                + self.common_data.shield_hit_lightshield_min;
+            victim.shield_health -= self.common_data.shield_hit_drain_damage_scale
+                * (shield_damage_taken * (1.0 - lightshield_scale))
+                + self.common_data.shield_hit_drain_base;
+            if victim.shield_health < 0.0 {
+                enter_source_shield_break_fly(victim, self.common_data);
+            }
+        }
+    }
+
+    fn apply_source_shield_setoff_from_confirms(
+        &mut self,
+        confirms: &[SourceHitConfirm],
+        action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+    ) {
+        let mut best_by_victim: [Option<SourceHitConfirm>; PLAYER_COUNT] = [None; PLAYER_COUNT];
+        for confirm in confirms
+            .iter()
+            .copied()
+            .filter(|confirm| Self::source_hit_confirm_targets_shield(*confirm))
+        {
+            if self.source_hit_confirm_routes_hurtbox_detect_callback(confirm) {
+                continue;
+            }
+            let Some(victim) = self.players.get(confirm.victim_index) else {
+                continue;
+            };
+            if !source_player_can_enter_guard_setoff(*victim) {
+                continue;
+            }
+            let env_damage =
+                source_env_damage(self.source_stale_scaled_damage(
+                    confirm.attacker_index,
+                    confirm.hitbox.damage as f32,
+                ));
+            let best = &mut best_by_victim[confirm.victim_index];
+            if best.as_ref().is_none_or(|previous| {
+                env_damage
+                    > source_env_damage(self.source_stale_scaled_damage(
+                        previous.attacker_index,
+                        previous.hitbox.damage as f32,
+                    ))
+            }) {
+                *best = Some(confirm);
+            }
+        }
+
+        for confirm in best_by_victim.into_iter().flatten() {
+            let env_damage =
+                source_env_damage(self.source_stale_scaled_damage(
+                    confirm.attacker_index,
+                    confirm.hitbox.damage as f32,
+                ));
+            let hitlag_env_damage = env_damage;
+            let attacker_x = self
+                .players
+                .get(confirm.attacker_index)
+                .map(|attacker| attacker.source_position.x)
+                .unwrap_or(0.0);
+            let (victim_x, victim_lightshield) = self
+                .players
+                .get(confirm.victim_index)
+                .map(|victim| {
+                    (
+                        victim.source_position.x,
+                        victim.source_collision_lightshield_amount,
+                    )
+                })
+                .unwrap_or((attacker_x, 0.0));
+            if let Some(attacker) = self.players.get_mut(confirm.attacker_index) {
+                if attacker.grounded {
+                    let recoil = (victim_lightshield
+                        * f32::from(env_damage)
+                        * self.common_data.attacker_shield_knockback_damage_scale)
+                        + self.common_data.attacker_shield_knockback_base;
+                    attacker.source_attacker_shield_velocity_x =
+                        recoil * if victim_x > attacker_x { -1.0 } else { 1.0 };
+                }
+            }
+            let Some(victim) = self.players.get_mut(confirm.victim_index) else {
+                continue;
+            };
+            if !source_player_can_enter_guard_setoff(*victim) {
+                continue;
+            }
+            let setoff_frames = source_guard_setoff_frames(
+                self.common_data,
+                env_damage,
+                victim.source_collision_lightshield_amount,
+            );
+            let action_state_id = melee_action_state_id_for_motion_state(MotionState::GuardSetOff);
+            victim.set_motion_state_alias(MotionState::GuardSetOff);
+            victim.source_action_total_frames =
+                action_total_frames(action_state_id).unwrap_or(victim.source_action_total_frames);
+            let sampled_end_frame = f32::from(victim.source_action_total_frames);
+            let jobj_end_frame = sampled_end_frame + 1.0;
+            let setoff_anim_rate = (jobj_end_frame + 0.1) / setoff_frames.max(f32::EPSILON);
+            let setoff_ticks = (jobj_end_frame / setoff_anim_rate)
+                .ceil()
+                .clamp(1.0, f32::from(u8::MAX)) as u8;
+            victim.motion_frame = 0;
+            victim.set_source_motion_anim_frame(0.0);
+            victim.motion_anim_rate_milli = 1_000;
+            victim.source_motion_anim_rate = 1.0;
+            victim.source_common_timer = setoff_ticks;
+            victim.source_shield_collision_active = true;
+            victim.source_shield_hit_active = true;
+            victim.source_shield_hit_update_pos = true;
+            victim.grounded = true;
+            victim.source_self_velocity_x = 0.0;
+            victim.source_self_velocity_y = 0.0;
+            victim.source_knockback_velocity_x = 0.0;
+            victim.source_knockback_velocity_y = 0.0;
+            victim.source_ground_knockback_velocity = 0.0;
+            victim.velocity.y = 0;
+            let hitlag_frames =
+                source_hitlag_frames_for_env_damage(self.common_data, hitlag_env_damage);
+            victim.hitlag_frames = victim.hitlag_frames.max(hitlag_frames);
+            victim.source_allow_sdi = hitlag_frames != 0;
+            victim.source_x2219_b5 = hitlag_frames != 0;
+            if confirm.hitbox.element != 10 {
+                let pushback = source_guard_setoff_pushback(
+                    self.common_data,
+                    env_damage,
+                    victim.source_collision_lightshield_amount,
+                );
+                let push_dir = if victim.source_position.x > attacker_x {
+                    1.0
+                } else {
+                    -1.0
+                };
+                victim.ground_velocity_x = pushback * push_dir;
+                victim.velocity.x = source_units_to_milli(victim.ground_velocity_x);
+            }
+        }
+    }
+
+    fn apply_source_special_hit_detect_transitions(
+        &mut self,
+        confirms: &[SourceHitConfirm],
+        action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
+    ) {
+        for confirm in confirms {
+            let Some(attacker) = self.players.get_mut(confirm.attacker_index) else {
+                continue;
+            };
+            let Some(action_state_id) = confirm.action_state_id.or(attacker.melee_action_state_id)
+            else {
+                continue;
+            };
+            let Some(transition) = source_special_hit_detect_transition_for_action_state_id(
+                attacker.profile.reference_character,
+                action_state_id,
+            ) else {
+                continue;
+            };
+            if attacker.motion_cmd_var0 == 0 {
+                continue;
+            }
+            attacker.set_motion_state_alias(transition.next_motion_state);
+            attacker.melee_action_state_id = Some(transition.next_action_state_id);
+            attacker.source_action_key = Some(transition.next_source_action_key);
+            attacker.source_action_total_frames =
+                action_total_frames(transition.next_action_state_id).unwrap_or(0);
+            attacker.motion_frame = 0;
+            attacker.set_source_motion_anim_frame(0.0);
+            attacker.motion_anim_rate_milli = 1_000;
+            if transition.clear_self_velocity_y {
+                attacker.source_self_velocity_y = 0.0;
+                attacker.velocity.y = 0;
+            }
+            if transition.scale_ground_velocity_by_specials_gr_vel_x {
+                attacker.ground_velocity_x *=
+                    attacker.profile.captain_special_attrs.specials_gr_vel_x;
+                attacker.velocity.x = source_units_to_milli(attacker.ground_velocity_x);
+            }
+        }
+    }
+
+    fn release_stale_pose_confirms_from_victim_log(
+        &mut self,
+        logged_confirms: &[SourceHitConfirm],
+        current_pose_confirms: &[SourceHitConfirm],
+    ) {
+        let stale_entries = logged_confirms
+            .iter()
+            .copied()
+            .filter(|confirm| !current_pose_confirms.contains(confirm))
+            .map(|confirm| SourceHitVictimLogEntry {
+                hitbox: source_hitbox_log_key(confirm.collision.hit, confirm.hitbox),
+                victim_index: confirm.victim_index,
+            })
+            .filter(|entry| {
+                !current_pose_confirms.iter().copied().any(|confirm| {
+                    confirm.victim_index == entry.victim_index
+                        && source_hitbox_log_key(confirm.collision.hit, confirm.hitbox)
+                            == entry.hitbox
+                })
+            })
+            .collect::<Vec<_>>();
+        self.source_hit_victim_log
+            .retain(|entry| !stale_entries.contains(entry));
+    }
+    fn source_hit_confirm_matches_current_victim_pose(&self, confirm: SourceHitConfirm) -> bool {
+        let Some(captured_action_state_id) = confirm.collision.hurt.action_state_id else {
+            return true;
+        };
+        self.players
+            .get(confirm.victim_index)
+            .is_none_or(|victim| victim.melee_action_state_id == Some(captured_action_state_id))
+    }
     fn source_hit_confirm_allowed_by_thrown_hitbox_state(&self, confirm: SourceHitConfirm) -> bool {
         let Some(attacker) = self.players.get(confirm.attacker_index) else {
             return false;
@@ -4893,6 +5992,9 @@ impl World {
 
     fn update_source_stale_moves_from_confirms(&mut self, confirms: &[SourceHitConfirm]) {
         for confirm in confirms {
+            if confirm.hitbox.damage == 0 || Self::source_hit_confirm_targets_shield(*confirm) {
+                continue;
+            }
             self.update_source_stale_moves_from_fighter(
                 confirm.attacker_index,
                 confirm.victim_index,
@@ -4923,7 +6025,11 @@ impl World {
             let max_env_damage = confirms
                 .iter()
                 .filter(|confirm| confirm.attacker_index == attacker_index)
-                .map(|confirm| source_env_damage(confirm.hitbox.damage as f32))
+                .map(|confirm| {
+                    let scaled_damage = self
+                        .source_stale_scaled_damage(attacker_index, confirm.hitbox.damage as f32);
+                    source_env_damage(scaled_damage)
+                })
                 .max()
                 .unwrap_or(0);
             if max_env_damage == 0 {
@@ -5020,6 +6126,8 @@ impl World {
             if self.apply_source_damage_result_with_facing(
                 *result,
                 damage_facing_dir,
+                None,
+                None,
                 true,
                 &mut action_total_frames,
             ) {
@@ -5115,9 +6223,20 @@ impl World {
 
         self.apply_source_damage_stages(&[stage]);
         let thrower_facing = if thrower.facing < 0 { -1.0 } else { 1.0 };
+        // ftCo_800DD724 hands thrown victims to ftCo_800DE7C0. That helper
+        // forces motion 90 only for ThrowLw (motion_id 222), then applies DI.
+        let forced_action_state_id = (thrower.melee_action_state_id
+            == Some(MeleeActionStateId::new(222)))
+        .then_some(MeleeActionStateId::new(90));
+        let damage_facing_dir = -thrower_facing;
+        let final_facing_override = (throw_hitbox.hitbox.angle > 90
+            && throw_hitbox.hitbox.angle < 270)
+            .then_some(-damage_facing_dir);
         let applied = self.apply_source_damage_result_with_facing(
             result,
-            -thrower_facing,
+            damage_facing_dir,
+            final_facing_override,
+            forced_action_state_id,
             false,
             &mut action_total_frames,
         );
@@ -5134,6 +6253,8 @@ impl World {
         &mut self,
         result: SourceDamageResult,
         damage_facing_dir: f32,
+        final_facing_override: Option<f32>,
+        forced_action_state_id: Option<MeleeActionStateId>,
         apply_collision_hitlag: bool,
         action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
     ) -> bool {
@@ -5161,6 +6282,15 @@ impl World {
                     damage_vector,
                     victim_grounded_before_damage,
                 );
+            let damage_action_state_id = forced_action_state_id.unwrap_or_else(|| {
+                source_damage_action_state_id(
+                    self.common_data,
+                    result,
+                    angle,
+                    victim_grounded_before_damage,
+                    grounded_after_damage,
+                )
+            });
 
             victim.source_self_velocity_x = 0.0;
             victim.source_self_velocity_y = 0.0;
@@ -5177,10 +6307,21 @@ impl World {
             victim.ground_accel_x = 0.0;
             victim.ground_accel_x2 = 0.0;
             victim.grounded = grounded_after_damage;
+            if victim_grounded_before_damage
+                && !grounded_after_damage
+                && (87..=91).contains(&damage_action_state_id.get())
+            {
+                // All grounded launches call ftCommon_8007D5D4. Standard damage
+                // still needs its locked-bottom ASDI floor behavior before the
+                // lock can be enabled there without false landings.
+                source_ft_common_8007d5d4_damage_ground_to_air(victim);
+            }
             victim.damage_knockback = result.knockback;
             victim.damage_angle = result.angle;
             victim.damage_element = result.element;
-            victim.facing = source_damage_facing_i8(damage_facing_dir);
+            victim.facing =
+                source_damage_facing_i8(final_facing_override.unwrap_or(damage_facing_dir));
+            victim.source_model_facing = victim.facing;
             victim.source_motion_entry_facing = victim.facing;
             victim.hitlag_frames = if apply_collision_hitlag {
                 source_damage_hitlag_frames(self.common_data, result)
@@ -5189,11 +6330,7 @@ impl World {
             };
             victim.source_allow_sdi = victim.hitlag_frames != 0;
             victim.damage_hitstun_frames = source_damage_hitstun_frames(self.common_data, result);
-            let damage_action_state_id = source_damage_action_state_id(
-                self.common_data,
-                result,
-                victim_grounded_before_damage,
-            );
+            victim.clear_source_guard_shield_object();
             victim.melee_action_state_id = Some(damage_action_state_id);
             victim.source_action_key = None;
             victim.source_action_total_frames =
@@ -5202,6 +6339,9 @@ impl World {
             victim.source_down_wait_timer = 0.0;
             victim.motion_state_alias = None;
             victim.motion_frame = 0;
+            victim.set_source_motion_anim_frame(0.0);
+            victim.motion_anim_rate_milli = 1_000;
+            victim.source_retained_model_pose = None;
             if let Some(timers) = self.input_timers.get_mut(result.stage.victim_index) {
                 timers.x_tap = EXPIRED_INPUT_TIMER;
                 timers.y_tap = EXPIRED_INPUT_TIMER;
@@ -5291,12 +6431,16 @@ impl World {
         mix_u32(&mut hash, u32::from(self.source_stale_attack_instance));
         for player in self.players {
             mix_fighter_profile(&mut hash, player.profile);
+            mix_u8(&mut hash, player.costume_index);
             mix_u8(&mut hash, player.player_state);
             mix_u8(&mut hash, player.stocks as u8);
             mix_i32(&mut hash, player.position.x);
             mix_i32(&mut hash, player.position.y);
             mix_f32(&mut hash, player.source_position.x);
             mix_f32(&mut hash, player.source_position.y);
+            mix_f32(&mut hash, player.source_position_z);
+            mix_source_vec2(&mut hash, player.source_previous_position);
+            mix_f32(&mut hash, player.source_previous_position_z);
             mix_source_vec2(&mut hash, player.source_coll_last_pos);
             mix_source_vec2(&mut hash, player.source_coll_cur_pos);
             mix_source_vec2(&mut hash, player.source_coll_prev_pos);
@@ -5308,6 +6452,7 @@ impl World {
             mix_f32(&mut hash, player.source_knockback_velocity_x);
             mix_f32(&mut hash, player.source_knockback_velocity_y);
             mix_f32(&mut hash, player.source_ground_knockback_velocity);
+            mix_f32(&mut hash, player.source_attacker_shield_velocity_x);
             mix_f32(&mut hash, player.player_nudge_x);
             mix_f32(&mut hash, player.player_nudge_z);
             mix_i32(&mut hash, player.ecb_bottom_offset_y);
@@ -5324,12 +6469,16 @@ impl World {
             mix_u8(&mut hash, player.source_coll_x130_locked as u8);
             mix_optional_u8(&mut hash, player.source_coll_floor_surface_index);
             mix_optional_u16(&mut hash, player.source_coll_floor_line_index);
+            mix_optional_u16(&mut hash, player.source_coll_floor_skip_line_index);
+            mix_optional_u16(&mut hash, player.source_coll_ledge_id_left);
+            mix_optional_u16(&mut hash, player.source_coll_ledge_id_right);
             mix_u32(&mut hash, player.source_coll_env_flags);
             mix_u32(&mut hash, player.source_coll_prev_env_flags);
             mix_u8(&mut hash, player.jumps_remaining);
             mix_u8(&mut hash, player.grounded as u8);
             mix_u8(&mut hash, player.fast_falling as u8);
             mix_u8(&mut hash, player.facing as u8);
+            mix_u8(&mut hash, player.source_model_facing as u8);
             mix_u8(&mut hash, player.attack_frame);
             mix_f32(&mut hash, player.damage_percent);
             mix_f32(&mut hash, player.damage_percent_temp);
@@ -5345,15 +6494,19 @@ impl World {
             mix_u32(&mut hash, u32::from(player.source_attack_instance));
             mix_source_stale_move_table(&mut hash, player.source_stale_move_table);
             mix_u8(&mut hash, motion_state_id(player.motion_state));
+            mix_f32(&mut hash, player.source_fall_anim_blend);
+            mix_u8(&mut hash, motion_state_id(player.source_fall_anim_pose));
             mix_optional_action_state_id(&mut hash, player.melee_action_state_id);
             mix_optional_source_action_key(&mut hash, player.source_action_key);
             mix_u8(&mut hash, player.source_action_total_frames);
+            mix_optional_source_retained_model_pose(&mut hash, player.source_retained_model_pose);
             mix_optional_source_down_bound_pose(&mut hash, player.source_down_bound_pose);
             mix_u8(&mut hash, player.source_force_damage_down_bound as u8);
             mix_u8(&mut hash, player.source_down_bound_use_z_axis as u8);
             mix_u8(&mut hash, player.source_down_bound_reverse_face_up as u8);
             mix_f32(&mut hash, player.source_down_wait_timer);
             mix_u8(&mut hash, player.source_lr_digital_press_timer);
+            mix_u8(&mut hash, player.source_lcancel_timer);
             mix_u8(&mut hash, player.source_previous_lr_digital_press_timer);
             mix_u8(&mut hash, player.source_jab_followup_timer);
             mix_u8(&mut hash, player.source_jab_followup_queued as u8);
@@ -5399,9 +6552,17 @@ impl World {
             mix_u8(&mut hash, player.turn_latched_buttons);
             mix_u8(&mut hash, player.turn_run_accel_mul as u8);
             mix_u8(&mut hash, player.run_no_interrupt_frames);
+            mix_u8(&mut hash, player.source_allow_interrupt as u8);
             mix_u32(&mut hash, player.motion_cmd_var0);
             mix_u32(&mut hash, player.motion_cmd_var1);
             mix_u8(&mut hash, player.motion_throw_flags);
+            mix_f32(&mut hash, player.source_grab_timer);
+            mix_u8(&mut hash, player.source_grab_mash_x as u8);
+            mix_u8(&mut hash, player.source_grab_mash_y as u8);
+            mix_f32(&mut hash, player.source_capture_wait_timer);
+            mix_f32(&mut hash, player.source_capture_wait_anim_timer);
+            mix_u8(&mut hash, player.source_capture_wait_mashed as u8);
+            mix_u8(&mut hash, player.source_capture_wait_jump_queued as u8);
             mix_u8(&mut hash, player.source_throw_x4 as u8);
             for hitbox in player.source_throw_hitboxes {
                 mix_optional_source_installed_throw_hitbox(&mut hash, hitbox);
@@ -5414,6 +6575,7 @@ impl World {
             mix_optional_u8(&mut hash, player.source_victim_index);
             mix_optional_u8(&mut hash, player.source_x1a5c_index);
             mix_u8(&mut hash, player.source_x221b_b5 as u8);
+            mix_u8(&mut hash, player.source_x2222_b3 as u8);
             mix_u8(&mut hash, player.source_x2226_b2 as u8);
             mix_source_vec3(&mut hash, player.source_x1a70);
             mix_f32(&mut hash, player.source_x34_scale_y);
@@ -5430,12 +6592,28 @@ impl World {
             mix_u8(&mut hash, player.turn_run_completion_pending as u8);
             mix_u8(&mut hash, player.turn_run_completion_enters_run as u8);
             mix_i32(&mut hash, player.motion_anim_rate_milli);
+            mix_f32(&mut hash, player.source_motion_anim_rate);
             mix_f32(&mut hash, player.shield_health);
             mix_f32(&mut hash, player.lightshield_amount);
+            mix_f32(&mut hash, player.source_collision_lightshield_amount);
             mix_u8(&mut hash, player.shield_release_lockout_frames);
+            mix_u8(&mut hash, player.source_shield_collision_active as u8);
+            mix_u8(&mut hash, player.source_shield_hit_active as u8);
+            mix_u8(&mut hash, player.source_shield_hit_update_pos as u8);
+            mix_f32(&mut hash, player.source_shield_hit_position.x);
+            mix_f32(&mut hash, player.source_shield_hit_position.y);
+            mix_f32(&mut hash, player.source_shield_hit_position.z);
+            mix_f32(&mut hash, player.source_shield_aim_angle_degrees);
+            mix_f32(&mut hash, player.source_shield_aim_magnitude);
+            mix_u8(&mut hash, player.source_x221c_b1 as u8);
+            mix_u8(&mut hash, player.source_x221c_b2 as u8);
+            mix_u8(&mut hash, player.source_x221c_b3 as u8);
+            mix_f32(&mut hash, player.source_guard_reflect_timer);
+            mix_f32(&mut hash, player.source_guard_reflect_damage_skip_timer);
             mix_u8(&mut hash, player.shield_turn_facing_after as u8);
             mix_u8(&mut hash, player.shield_turn_frame);
             mix_u8(&mut hash, player.guard_catch_dash_window);
+            mix_u8(&mut hash, player.guard_release_latched as u8);
             mix_u8(&mut hash, jump_input_id(player.jump_input));
             mix_u8(&mut hash, player.short_hop as u8);
             mix_u8(&mut hash, player.escape_air_iasa_timer);
@@ -5542,7 +6720,7 @@ fn source_held_victim_damage_action_state_id(action_state_id: MeleeActionStateId
 fn source_held_victim_action_state_id(action_state_id: MeleeActionStateId) -> bool {
     matches!(
         action_state_id.get(),
-        223 | 224 | 226 | 227 | 239..=242 | 275
+        223 | 224 | 226 | 227 | 230 | 239..=242 | 275
     )
 }
 
@@ -5552,6 +6730,7 @@ fn enter_source_only_action_state(
     source_action_key: SourceActionKey,
     action_total_frames: &mut impl FnMut(MeleeActionStateId) -> Option<u8>,
 ) {
+    player.clear_source_guard_shield_object();
     player.melee_action_state_id = Some(action_state_id);
     player.source_action_key = Some(source_action_key);
     player.source_action_total_frames = action_total_frames(action_state_id).unwrap_or(0);
@@ -5567,6 +6746,7 @@ fn enter_source_only_action_state(
     player.source_allow_sdi = false;
     player.source_x2219_b5 = false;
     player.damage_hitstun_frames = 0;
+    player.source_x2222_b3 = false;
     player.source_x2226_b2 = false;
 }
 
@@ -5589,6 +6769,69 @@ fn clear_source_grab_ground_velocity(player: &mut PlayerState) {
     player.ground_accel_x = 0.0;
     player.ground_accel_x2 = 0.0;
     player.dash_entry_velocity_delta = 0.0;
+}
+
+fn source_profile_is_purin(profile: FighterProfile) -> bool {
+    matches!(profile.reference_character, "purin" | "jigglypuff")
+}
+
+fn source_player_can_enter_guard_setoff(player: PlayerState) -> bool {
+    player.source_shield_collision_active
+        && player
+            .melee_action_state_id
+            .is_some_and(|action_state_id| matches!(action_state_id.get(), 178 | 179 | 181 | 182))
+}
+
+fn source_guard_setoff_frames(
+    common_data: MeleeCommonData,
+    env_damage: u16,
+    lightshield_amount: f32,
+) -> f32 {
+    let lightshield_scale = lightshield_amount.clamp(0.0, 1.0)
+        * (common_data.shield_setoff_lightshield_max - common_data.shield_setoff_lightshield_min)
+        + common_data.shield_setoff_lightshield_min;
+    common_data.shield_setoff_duration_damage_scale
+        * (env_damage as f32 * (1.0 - lightshield_scale))
+        + common_data.shield_setoff_duration_base
+}
+
+fn source_guard_setoff_pushback(
+    common_data: MeleeCommonData,
+    env_damage: u16,
+    lightshield_amount: f32,
+) -> f32 {
+    (source_guard_setoff_frames(common_data, env_damage, lightshield_amount)
+        * common_data.shield_setoff_pushback_scale
+        * common_data.shield_setoff_nonreflect_pushback_multiplier)
+        .min(common_data.shield_setoff_pushback_cap)
+}
+
+pub(crate) fn enter_source_shield_break_fly(
+    player: &mut PlayerState,
+    common_data: MeleeCommonData,
+) {
+    player.shield_health = common_data.shield_break_reset_health;
+    player.clear_source_guard_shield_object();
+    player.set_motion_state_alias(MotionState::ShieldBreakFly);
+    player.motion_frame = 0;
+    player.set_source_motion_anim_frame(0.0);
+    player.motion_anim_rate_milli = 1_000;
+    player.grounded = false;
+    player.source_self_velocity_x = 0.0;
+    player.source_self_velocity_y = player.profile.shield_break_initial_velocity;
+    if source_profile_is_purin(player.profile) {
+        player.source_x2222_b3 = true;
+    }
+    player.source_knockback_velocity_x = 0.0;
+    player.source_knockback_velocity_y = 0.0;
+    player.source_ground_knockback_velocity = 0.0;
+    player.velocity = Vec2 {
+        x: 0,
+        y: source_units_to_milli(player.source_self_velocity_y),
+    };
+    player.ground_velocity_x = 0.0;
+    player.ground_accel_x = 0.0;
+    player.ground_accel_x2 = 0.0;
 }
 
 fn source_hitbox_log_key(
@@ -5678,6 +6921,17 @@ fn source_sync_damage_velocity_projection(player: &mut PlayerState) {
         source_units_to_milli(player.source_self_velocity_y + player.source_knockback_velocity_y);
 }
 
+fn source_ft_common_8007d5d4_damage_ground_to_air(player: &mut PlayerState) {
+    player.grounded = false;
+    player.ground_velocity_x = 0.0;
+    player.ground_accel_x = 0.0;
+    player.ground_accel_x2 = 0.0;
+    player.jumps_remaining = player.profile.max_jumps.saturating_sub(1);
+    player.ecb_bottom_offset_y = 0;
+    player.ecb_bottom_lock_timer = 10;
+    player.source_coll_x130_locked = true;
+}
+
 fn source_damage_entry_velocity(
     stage: StageProfile,
     common_data: MeleeCommonData,
@@ -5687,7 +6941,17 @@ fn source_damage_entry_velocity(
     victim_grounded_before_damage: bool,
 ) -> (f32, f32, f32, bool) {
     if !victim_grounded_before_damage {
-        return (damage_vector.x, damage_vector.y, 0.0, false);
+        let knockback_scale = if source_damage_check_air_motion(victim, common_data) {
+            common_data.damage_air_v_cancel_knockback_scale
+        } else {
+            1.0
+        };
+        return (
+            damage_vector.x * knockback_scale,
+            damage_vector.y * knockback_scale,
+            0.0,
+            false,
+        );
     }
 
     let floor_normal = source_ground_normal_for_damage_entry(stage, victim);
@@ -5698,7 +6962,14 @@ fn source_damage_entry_velocity(
 
     let tier = source_damage_motion_tier(common_data, result.knockback);
     if tier == 3 {
-        return (damage_vector.x, damage_vector.y, 0.0, false);
+        let velocity_y = if normal_angle
+            > std::f32::consts::FRAC_PI_2 + common_data.damage_floor_reflect_angle_radians
+        {
+            -damage_vector.y * common_data.damage_floor_reflect_velocity_scale
+        } else {
+            damage_vector.y
+        };
+        return (damage_vector.x, velocity_y, 0.0, false);
     }
 
     let ground_knockback_velocity = damage_vector.x;
@@ -5708,6 +6979,28 @@ fn source_damage_entry_velocity(
         ground_knockback_velocity,
         true,
     )
+}
+
+fn source_damage_check_air_motion(victim: &PlayerState, common_data: MeleeCommonData) -> bool {
+    matches!(
+        victim.motion_state,
+        MotionState::JumpF
+            | MotionState::JumpB
+            | MotionState::JumpAerialF
+            | MotionState::JumpAerialB
+            | MotionState::Fall
+            | MotionState::FallF
+            | MotionState::FallB
+            | MotionState::FallAerial
+            | MotionState::FallAerialF
+            | MotionState::FallAerialB
+            | MotionState::FallSpecial
+            | MotionState::FallSpecialF
+            | MotionState::FallSpecialB
+            | MotionState::DamageFall
+            | MotionState::EscapeAir
+    ) && victim.source_lr_digital_press_timer <= common_data.damage_air_v_cancel_window
+        && victim.source_previous_lr_digital_press_timer >= common_data.passive_input_age_threshold
 }
 
 fn source_ground_normal_for_damage_entry(stage: StageProfile, player: &PlayerState) -> SourceVec2 {
@@ -5816,7 +7109,9 @@ fn source_damage_motion_tier(common_data: MeleeCommonData, knockback: f32) -> us
 fn source_damage_action_state_id(
     common_data: MeleeCommonData,
     result: SourceDamageResult,
-    victim_grounded: bool,
+    damage_angle_radians: f32,
+    victim_grounded_before_damage: bool,
+    victim_grounded_after_damage: bool,
 ) -> MeleeActionStateId {
     const GROUND_DAMAGE_STATES: [[u16; 3]; 4] =
         [[81, 78, 75], [82, 79, 76], [83, 80, 77], [89, 88, 87]];
@@ -5829,15 +7124,14 @@ fn source_damage_action_state_id(
         "source hurt height must be 0=low, 1=mid, or 2=high"
     );
     let hurt_height = usize::from(result.stage.damaged_hurt_height);
-    let table = if victim_grounded {
+    let table = if victim_grounded_before_damage {
         GROUND_DAMAGE_STATES
     } else {
         AIR_DAMAGE_STATES
     };
-    if !victim_grounded && tier == 3 {
-        let angle = source_damage_angle_radians(common_data, result, victim_grounded);
-        if angle > common_data.damage_fly_top_angle_min_radians
-            && angle < common_data.damage_fly_top_angle_max_radians
+    if !victim_grounded_after_damage && tier == 3 {
+        if damage_angle_radians > common_data.damage_fly_top_angle_min_radians
+            && damage_angle_radians < common_data.damage_fly_top_angle_max_radians
         {
             return MeleeActionStateId::new(90);
         }
@@ -5846,13 +7140,30 @@ fn source_damage_action_state_id(
 }
 
 fn source_damage_hitlag_frames(common_data: MeleeCommonData, result: SourceDamageResult) -> u8 {
-    source_hitlag_frames_for_env_damage(common_data, result.stage.env_damage)
+    let multiplier = if result.element == 2 {
+        common_data.hitlag_electric_multiplier
+    } else {
+        1.0
+    };
+    source_hitlag_frames_for_env_damage_and_multiplier(
+        common_data,
+        result.stage.env_damage,
+        multiplier,
+    )
 }
 
 fn source_hitlag_frames_for_env_damage(common_data: MeleeCommonData, env_damage: u16) -> u8 {
+    source_hitlag_frames_for_env_damage_and_multiplier(common_data, env_damage, 1.0)
+}
+
+fn source_hitlag_frames_for_env_damage_and_multiplier(
+    common_data: MeleeCommonData,
+    env_damage: u16,
+    multiplier: f32,
+) -> u8 {
     let tmp = (env_damage as f32 * common_data.hitlag_damage_scale + common_data.hitlag_base_frames)
         as i32;
-    let raw = tmp;
+    let raw = (tmp as f32 * multiplier) as i32;
     raw.clamp(0, common_data.hitlag_max_frames as i32) as u8
 }
 
@@ -5909,6 +7220,7 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::FallAerial => 59,
         MotionState::FallAerialF => 60,
         MotionState::FallAerialB => 61,
+        MotionState::DamageFall => 94,
         MotionState::Guard => 21,
         MotionState::EscapeAir => 22,
         MotionState::SpecialSStart => 23,
@@ -5936,6 +7248,13 @@ const fn motion_state_id(state: MotionState) -> u8 {
         MotionState::GuardOff => 38,
         MotionState::GuardSetOff => 72,
         MotionState::GuardReflect => 56,
+        MotionState::ShieldBreakFly => 87,
+        MotionState::ShieldBreakFall => 88,
+        MotionState::ShieldBreakDownU => 89,
+        MotionState::ShieldBreakDownD => 90,
+        MotionState::ShieldBreakStandU => 91,
+        MotionState::ShieldBreakStandD => 92,
+        MotionState::Furafura => 93,
         MotionState::LandingFallSpecial => 39,
         MotionState::FallSpecial => 40,
         MotionState::FallSpecialF => 62,
@@ -6053,6 +7372,20 @@ fn mix_optional_source_action_key(hash: &mut u64, value: Option<SourceActionKey>
         Some(value) => {
             mix_u8(hash, 1);
             mix_str(hash, value.as_str());
+        }
+        None => mix_u8(hash, 0),
+    }
+}
+
+fn mix_optional_source_retained_model_pose(hash: &mut u64, value: Option<SourceRetainedModelPose>) {
+    match value {
+        Some(value) => {
+            mix_u8(hash, 1);
+            mix_optional_action_state_id(hash, value.action_state_id);
+            mix_str(hash, value.source_action_key.as_str());
+            mix_u8(hash, motion_state_id(value.motion_state));
+            mix_i32(hash, value.frame_milli);
+            mix_u8(hash, value.model_facing as u8);
         }
         None => mix_u8(hash, 0),
     }
@@ -6211,6 +7544,7 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.damage_motion_tier_1_threshold);
     mix_f32(hash, common.damage_motion_tier_2_threshold);
     mix_f32(hash, common.damage_motion_tier_3_threshold);
+    mix_f32(hash, common.damage_ground_knockback_init_clamp);
     mix_f32(hash, common.damage_fly_top_angle_min_radians);
     mix_f32(hash, common.damage_fly_top_angle_max_radians);
     mix_u32(
@@ -6220,16 +7554,23 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.damage_fly_top_random_chance);
     mix_f32(hash, common.damage_landing_down_bound_knockback_threshold);
     mix_f32(hash, common.damage_landing_basic_knockback_threshold);
+    mix_f32(hash, common.damage_floor_reflect_angle_radians);
+    mix_f32(hash, common.damage_floor_reflect_velocity_scale);
+    mix_u8(hash, common.damage_air_v_cancel_window);
+    mix_f32(hash, common.damage_air_v_cancel_knockback_scale);
     mix_u8(hash, common.passive_input_age_threshold);
     mix_f32(hash, common.passive_window_max);
     mix_f32(hash, common.passive_stand_stick_x);
     mix_f32(hash, common.special_air_drift_stick_threshold);
+    mix_u8(hash, common.grab_mash_stick_threshold as u8);
     mix_i32(hash, i32::from(common.down_stand_stick_y));
+    mix_i32(hash, i32::from(common.down_roll_stick_x));
     mix_f32(hash, common.down_wait_timer);
     mix_f32(hash, common.hitlag_max_frames);
     mix_f32(hash, common.hitlag_damage_scale);
     mix_f32(hash, common.hitlag_base_frames);
     mix_f32(hash, common.hitlag_crouch_multiplier);
+    mix_f32(hash, common.hitlag_electric_multiplier);
     mix_f32(hash, common.di_angle_degrees);
     mix_f32(hash, common.trigger_di_knockback_multiplier);
     mix_f32(hash, common.air_speed_clamp_friction);
@@ -6252,6 +7593,22 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.escapeair_decay);
     mix_u8(hash, common.escapeair_landing_lag_ticks);
     mix_u32(hash, u32::from(common.throw_collision_lockout_ticks));
+    mix_f32(hash, common.throw_weight_animation_scale);
+    mix_f32(hash, common.grab_timer_base);
+    mix_f32(hash, common.grab_timer_handicap_scale);
+    mix_f32(hash, common.grab_timer_handicap_offset);
+    mix_f32(hash, common.grab_timer_rank_scale);
+    mix_f32(hash, common.grab_timer_rank_offset);
+    mix_f32(hash, common.grab_timer_percent_scale);
+    mix_f32(hash, common.catch_cut_ground_velocity);
+    mix_f32(hash, common.capture_jump_velocity_x);
+    mix_f32(hash, common.capture_jump_velocity_y);
+    mix_f32(hash, common.grab_timer_decrement);
+    mix_f32(hash, common.grab_mash_timer_decrement);
+    mix_f32(hash, common.capture_wait_jump_input_window);
+    mix_f32(hash, common.capture_wait_mash_anim_timer);
+    mix_f32(hash, common.capture_wait_mash_anim_rate);
+    mix_f32(hash, common.capture_pulled_high_delta_y);
     mix_f32(hash, common.walk_middle_velocity_ratio);
     mix_f32(hash, common.walk_fast_velocity_ratio);
     mix_f32(hash, common.walk_accel_taper);
@@ -6263,22 +7620,41 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_f32(hash, common.animation_velocity_scale);
     mix_f32(hash, common.fall_animation_drift_threshold);
     mix_f32(hash, common.fall_animation_blend);
+    mix_f32(hash, common.shield_aim_smoothing);
     mix_f32(hash, common.player_nudge_x);
     mix_f32(hash, common.player_nudge_z);
     mix_f32(hash, common.player_nudge_z_clamp);
     mix_f32(hash, common.transformed_player_nudge_z);
     mix_f32(hash, common.transformed_player_nudge_z_clamp);
     mix_f32(hash, common.shield_start_health);
+    mix_f32(hash, common.shield_size_health_scale);
     mix_u8(hash, common.shield_release_lockout_frames);
     mix_f32(hash, common.shield_hold_drain);
     mix_f32(hash, common.shield_regen);
     mix_f32(hash, common.shield_break_reset_health);
     mix_f32(hash, common.shield_hit_drain_damage_scale);
     mix_f32(hash, common.shield_hit_drain_base);
+    mix_f32(hash, common.shield_setoff_duration_damage_scale);
+    mix_f32(hash, common.shield_setoff_duration_base);
+    mix_f32(hash, common.shield_setoff_pushback_scale);
+    mix_f32(hash, common.shield_setoff_pushback_cap);
+    mix_f32(hash, common.shield_setoff_nonreflect_pushback_multiplier);
+    mix_f32(hash, common.attacker_shield_knockback_damage_scale);
+    mix_f32(hash, common.attacker_shield_knockback_base);
+    mix_f32(hash, common.attacker_shield_knockback_frame_decay);
+    mix_f32(hash, common.attacker_shield_ground_friction_multiplier);
+    mix_f32(hash, common.shield_size_light_min);
+    mix_f32(hash, common.shield_size_light_max);
     mix_f32(hash, common.shield_hit_lightshield_min);
     mix_f32(hash, common.shield_hit_lightshield_max);
+    mix_f32(hash, common.shield_setoff_lightshield_min);
+    mix_f32(hash, common.shield_setoff_lightshield_max);
     mix_f32(hash, common.shield_hold_lightshield_min);
     mix_f32(hash, common.shield_hold_lightshield_max);
+    mix_f32(hash, common.shield_break_furafura_percent_base);
+    mix_f32(hash, common.shield_break_furafura_timer_base);
+    mix_f32(hash, common.shield_break_furafura_timer_decrement);
+    mix_f32(hash, common.shield_break_furafura_mash_decrement);
     mix_u8(hash, common.fallspecial_platform_landing_y as u8);
     mix_u8(hash, common.platform_pass_y as u8);
     mix_u8(hash, common.platform_pass_y_tap_window);
@@ -6319,11 +7695,15 @@ fn mix_common_data(hash: &mut u64, common: MeleeCommonData) {
     mix_u8(hash, common.run_x as u8);
     mix_u8(hash, common.guard_on_catch_dash_window);
     mix_u8(hash, common.guard_reflect_input_window);
+    mix_f32(hash, common.guard_reflect_timer);
+    mix_f32(hash, common.guard_reflect_damage_skip_timer);
     mix_u8(hash, common.run_turn_run_no_interrupt_frames);
 }
 
 fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_f32(hash, profile.model_scaling);
+    mix_f32(hash, profile.initial_shield_size);
+    mix_f32(hash, profile.shield_break_initial_velocity);
     mix_source_vec3(hash, profile.source_create_x1a70);
     mix_f32(hash, profile.walk_initial_velocity);
     mix_fighter_action_frames(hash, profile.action_frames);
@@ -6359,10 +7739,13 @@ fn mix_fighter_profile(hash: &mut u64, profile: FighterProfile) {
     mix_f32(hash, profile.aerial_friction);
     mix_f32(hash, profile.air_max_horizontal_velocity);
     mix_f32(hash, profile.weight);
+    mix_u8(hash, profile.weight_independent_throws_mask);
     mix_f32(hash, profile.gravity);
     mix_f32(hash, profile.terminal_velocity);
     mix_f32(hash, profile.fast_fall_velocity);
     mix_f32(hash, profile.jump_vertical_initial_velocity);
+    mix_f32(hash, profile.ledge_jump_horizontal_velocity);
+    mix_f32(hash, profile.ledge_jump_vertical_velocity);
     mix_f32(hash, profile.hop_vertical_initial_velocity);
     mix_i32(hash, profile.full_hop_height);
     mix_i32(hash, profile.short_hop_height);
@@ -6479,6 +7862,114 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rollback_snapshot_restores_all_recent_authoritative_player_fields() {
+        let mut world = World::for_two_players();
+        let player = &mut world.players_mut()[0];
+        player.source_previous_position = SourceVec2 { x: 1.25, y: -2.5 };
+        player.source_previous_position_z = 3.75;
+        player.source_attacker_shield_velocity_x = -4.5;
+        player.source_coll_floor_skip_line_index = Some(7);
+        player.source_coll_ledge_id_left = Some(8);
+        player.source_coll_ledge_id_right = Some(9);
+        player.source_fall_anim_blend = 0.375;
+        player.source_fall_anim_pose = MotionState::FallAerialB;
+        player.source_allow_interrupt = true;
+        player.source_x1a70 = SourceVec3 {
+            x: 10.0,
+            y: 11.0,
+            z: 12.0,
+        };
+        player.source_x34_scale_y = 1.25;
+        player.captain_special_hi_x0 = 13;
+        player.captain_special_hi_vel_x = 14.0;
+        player.captain_special_hi_vel_y = -15.0;
+        player.captain_special_hi_x2_b0 = true;
+        player.captain_special_hi_x2_b1 = true;
+        player.source_collision_lightshield_amount = 0.625;
+
+        let expected_player = world.players()[0];
+        let expected_checksum = world.checksum();
+        let snapshot = world.rollback_snapshot();
+
+        world.players_mut()[0] = PlayerState::new(0, 0, 1);
+        assert_ne!(world.checksum(), expected_checksum);
+        world.restore_rollback_snapshot(&snapshot);
+
+        assert_eq!(world.players()[0], expected_player);
+        assert_eq!(world.checksum(), expected_checksum);
+    }
+
+    #[test]
+    fn source_aobj_first_play_evaluates_requested_frame_without_advancing() {
+        let mut aobj = SourceAObjState::requested(4.5, 1.0, 0.0, 8.0, 0);
+
+        assert_eq!(aobj.interpret_frame(), Some(4.5));
+        assert_eq!(aobj.curr_frame, 4.5);
+        assert_eq!(aobj.flags & SOURCE_AOBJ_FIRST_PLAY, 0);
+
+        assert_eq!(aobj.interpret_frame(), Some(5.5));
+        assert_eq!(aobj.curr_frame, 5.5);
+    }
+
+    #[test]
+    fn source_aobj_non_loop_evaluates_endpoint_then_stops() {
+        let mut aobj = SourceAObjState::requested(7.0, 1.0, 0.0, 8.0, 0);
+        assert_eq!(aobj.interpret_frame(), Some(7.0));
+        assert_eq!(aobj.interpret_frame(), Some(8.0));
+        assert_ne!(aobj.flags & SOURCE_AOBJ_NO_ANIM, 0);
+        assert_eq!(aobj.interpret_frame(), None);
+    }
+
+    #[test]
+    fn source_aobj_loop_wraps_over_rewind_to_end_interval() {
+        let mut aobj = SourceAObjState::requested(7.5, 1.0, 2.0, 8.0, SOURCE_AOBJ_LOOP);
+        assert_eq!(aobj.interpret_frame(), Some(7.5));
+        assert_eq!(aobj.interpret_frame(), Some(2.5));
+        assert_ne!(aobj.flags & SOURCE_AOBJ_REWINDED, 0);
+    }
+
+    #[test]
+    fn fall_aobj_descriptor_uses_extracted_figatree_endpoint() {
+        let player = PlayerState::new(0, 0, 1);
+        let mut fall = player;
+        fall.set_motion_state_alias(MotionState::Fall);
+
+        let descriptor = source_aobj_descriptor_for_motion_state(fall.motion_state)
+            .expect("Fall must have extracted AObj descriptor metadata");
+        assert_eq!(descriptor.end_frame, 8.0);
+        assert_eq!(descriptor.rewind_frame, 0.0);
+        assert_ne!(descriptor.flags & SOURCE_AOBJ_LOOP, 0);
+        assert_eq!(
+            action_pose_sample_frame(
+                &fall,
+                MotionState::Fall,
+                8.0,
+                MeleeCommonData::PROVISIONAL,
+                9
+            ),
+            0.0,
+            "Fall's Fighter_WaitAnimData loop flag must wrap its AObj over [0, end_frame)"
+        );
+    }
+
+    #[test]
+    fn escape_air_binding_preserves_motion_state_and_action_table_id_spaces() {
+        let binding = source_binding_for_motion_state(MotionState::EscapeAir)
+            .expect("EscapeAir must have a source binding");
+
+        assert_eq!(
+            binding.melee_motion_state_id,
+            Some(MeleeMotionStateId::new(236))
+        );
+        assert_eq!(
+            binding.source_action_table_index,
+            SourceActionTableIndex::new(44)
+        );
+        assert_eq!(binding.source_action_key.as_str(), "EscapeAir");
+        assert_eq!(binding.runtime_motion_state, Some(MotionState::EscapeAir));
+    }
+
+    #[test]
     fn common_throw_actions_use_decomp_motion_state_move_ids() {
         assert_eq!(
             source_move_id_for_action_state_id(MeleeActionStateId::new(219)),
@@ -6523,56 +8014,129 @@ mod tests {
         }
     }
 
+    fn source_ecb(
+        top: (f32, f32),
+        right: (f32, f32),
+        bottom: (f32, f32),
+        left: (f32, f32),
+    ) -> SourceFighterEcb {
+        SourceFighterEcb {
+            top: SourceVec2 { x: top.0, y: top.1 },
+            right: SourceVec2 {
+                x: right.0,
+                y: right.1,
+            },
+            bottom: SourceVec2 {
+                x: bottom.0,
+                y: bottom.1,
+            },
+            left: SourceVec2 {
+                x: left.0,
+                y: left.1,
+            },
+        }
+    }
+
     #[test]
-    fn jumpaerialf_live_jobj_ecb_matches_baked_source_pose_frame_10() {
+    fn jumpaerialf_live_jobj_ecb_matches_extracted_source_pose_frame_10() {
         let live =
             falcon_ecb::falcon_source_ecb_jobj_for_motion_state(MotionState::JumpAerialF, 10_000)
                 .expect("JumpAerialF should have live JObj ECB data");
-        let samples =
-            falcon_ecb::falcon_source_ecb_samples_for_motion_state(MotionState::JumpAerialF)
-                .expect("JumpAerialF should have baked source ECB samples");
-        let baked = sampled_source_ecb(samples, 10_000);
+        let extracted = source_ecb(
+            (0.0, 11.493333),
+            (2.6196253, 8.329991),
+            (0.0, 5.1666503),
+            (-2.6196253, 8.329991),
+        );
 
-        assert_source_ecb_close(live, baked);
+        assert_source_ecb_close(live, extracted);
     }
 
     #[test]
-    fn specialhi_live_jobj_ecb_matches_baked_source_pose_frame_55() {
+    fn active_live_jobj_ecb_preserves_decomp_float_pose_frame() {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.set_motion_state_alias(MotionState::AttackAirHi);
+        player.set_source_motion_anim_frame(2.9977806);
+
+        let actual = active_source_local_ecb_for_player(&player, MeleeCommonData::PROVISIONAL);
+        let expected = source_ecb(
+            (0.0, 18.575452),
+            (3.115442, 10.884598),
+            (0.0, 3.193743),
+            (-3.115442, 10.884598),
+        );
+
+        assert!(
+            (player.cur_anim_frame() - 2.9977806).abs() <= f32::EPSILON,
+            "PlayerState must retain the decomp HSD_AObj f32 frame before ECB sampling"
+        );
+        assert_source_ecb_close(actual, expected);
+    }
+
+    #[test]
+    fn specialhi_live_jobj_ecb_matches_extracted_source_pose_frame_55() {
         let live =
             falcon_ecb::falcon_source_ecb_jobj_for_motion_state(MotionState::SpecialHi, 55_000)
                 .expect("SpecialHi should have live JObj ECB data");
-        let samples =
-            falcon_ecb::falcon_source_ecb_samples_for_motion_state(MotionState::SpecialHi)
-                .expect("SpecialHi should have baked source ECB samples");
-        let baked = sampled_source_ecb(samples, 55_000);
+        let extracted = source_ecb(
+            (0.0, 12.37972),
+            (2.3788543, 10.093167),
+            (0.0, 7.8066134),
+            (-2.3788543, 10.093167),
+        );
 
-        assert_source_ecb_close(live, baked);
+        assert_source_ecb_close(live, extracted);
     }
 
     #[test]
-    fn specialhi_live_jobj_ecb_matches_baked_source_pose_frame_60() {
+    fn specialhi_live_jobj_ecb_matches_extracted_source_pose_frame_60() {
         let live =
             falcon_ecb::falcon_source_ecb_jobj_for_motion_state(MotionState::SpecialHi, 60_000)
                 .expect("SpecialHi should have live JObj ECB data");
-        let samples =
-            falcon_ecb::falcon_source_ecb_samples_for_motion_state(MotionState::SpecialHi)
-                .expect("SpecialHi should have baked source ECB samples");
-        let baked = sampled_source_ecb(samples, 60_000);
+        let extracted = source_ecb(
+            (0.0, 14.468869),
+            (2.1326225, 12.125606),
+            (0.0, 9.782342),
+            (-2.1326225, 12.125606),
+        );
 
-        assert_source_ecb_close(live, baked);
+        assert_source_ecb_close(live, extracted);
     }
 
     #[test]
-    fn landingfallspecial_live_jobj_ecb_matches_baked_source_pose_frame_0() {
+    fn landingfallspecial_live_jobj_ecb_matches_extracted_source_pose_frame_0() {
         let live =
             falcon_ecb::falcon_source_ecb_jobj_for_motion_state(MotionState::LandingFallSpecial, 0)
                 .expect("LandingFallSpecial should have live JObj ECB data");
-        let samples =
-            falcon_ecb::falcon_source_ecb_samples_for_motion_state(MotionState::LandingFallSpecial)
-                .expect("LandingFallSpecial should have baked source ECB samples");
-        let baked = sampled_source_ecb(samples, 0);
+        let extracted = source_ecb(
+            (0.0, 9.347474),
+            (4.511843, 4.673737),
+            (0.0, 0.0),
+            (-4.511843, 4.673737),
+        );
 
-        assert_source_ecb_close(live, baked);
+        assert_source_ecb_close(live, extracted);
+    }
+
+    #[test]
+    fn fall_runtime_ecb_wraps_to_first_source_pose_after_loop_endpoint() {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.set_motion_state_alias(MotionState::Fall);
+        player.motion_anim_frame_milli = 8_000;
+
+        let actual = live_source_local_ecb_for_player_pose_frame_milli(
+            &player,
+            8_000,
+            MeleeCommonData::PROVISIONAL,
+        );
+        let expected = source_ecb(
+            (0.0, 10.779321),
+            (3.9122283, 6.3886514),
+            (0.0, 1.9979814),
+            (-3.9122283, 6.3886514),
+        );
+
+        assert_source_ecb_close(actual, expected);
     }
 
     #[test]
@@ -6585,6 +8149,74 @@ mod tests {
         player.source_coll_x130_locked = true;
 
         let actual = live_source_local_ecb_for_player_pose_frame_milli(
+            &player,
+            55_000,
+            MeleeCommonData::PROVISIONAL,
+        );
+        let expected =
+            falcon_ecb::falcon_source_ecb_jobj_for_motion_state(MotionState::SpecialHi, 55_000)
+                .expect("SpecialHi should have live JObj ECB data");
+
+        assert_source_ecb_close(actual, expected);
+    }
+
+    #[test]
+    fn falcon_costume_skeleton_changes_live_jobj_ecb() {
+        let neutral =
+            falcon_ecb::falcon_source_ecb_jobj_for_motion_state_frame_with_flags_and_costume(
+                MotionState::AttackAirHi,
+                5.0,
+                6,
+                0,
+            )
+            .expect("neutral AttackAirHi should have live JObj ECB data");
+        let blue =
+            falcon_ecb::falcon_source_ecb_jobj_for_motion_state_frame_with_flags_and_costume(
+                MotionState::AttackAirHi,
+                5.0,
+                6,
+                5,
+            )
+            .expect("blue AttackAirHi should have live JObj ECB data");
+
+        assert_source_ecb_close(
+            blue,
+            source_ecb(
+                (0.0, 11.636957),
+                (4.7629714, 8.532203),
+                (0.0, 5.4274487),
+                (-4.7629714, 8.532203),
+            ),
+        );
+        assert_ne!(neutral.top.y.to_bits(), blue.top.y.to_bits());
+        assert_ne!(neutral.left.y.to_bits(), blue.left.y.to_bits());
+    }
+
+    #[test]
+    fn fighter_lifecycle_resets_preserve_costume_index() {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.costume_index = 5;
+        player.reset_for_entry_spawn(1_000, 2_000, -1, player.profile, 60.0, 5);
+        assert_eq!(player.costume_index, 5);
+
+        player.enter_source_rebirth_state(
+            StageProfile::battlefield().respawn_platforms[0],
+            60.0,
+            30,
+        );
+        assert_eq!(player.costume_index, 5);
+    }
+
+    #[test]
+    fn active_source_jobj_ecb_stays_live_while_coll_bottom_is_locked() {
+        let mut player = PlayerState::new(0, 0, 1);
+        player.set_motion_state_alias(MotionState::SpecialHi);
+        player.motion_anim_frame_milli = 55_000;
+        player.ecb_bottom_offset_y = 0;
+        player.ecb_bottom_lock_timer = 5;
+        player.source_coll_x130_locked = true;
+
+        let actual = active_source_local_ecb_for_pose_frame_milli(
             &player,
             55_000,
             MeleeCommonData::PROVISIONAL,

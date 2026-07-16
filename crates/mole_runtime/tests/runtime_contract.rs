@@ -4,46 +4,57 @@ use mole_core::collision::{
     source_damage_result_for_victim, source_grab_confirms, Capsule3, SourceCollisionCapsule,
     SourceDamageResultInput, SourceDamageStage, SourceHitboxAttributes, Vec3,
     SOURCE_HIT_ELEMENT_CATCH, SOURCE_HURT_HEIGHT_HIGH, SOURCE_HURT_HEIGHT_LOW,
+    SOURCE_SHIELD_HURTBOX_ID,
 };
 use mole_core::{
     source_units_to_milli, step_world, EcbDiamond, FighterEntryPlatformProfile, FighterProfile,
     Frame, GameCubeButtonState, GameCubePadStatus, MatchPhase, MeleeActionStateId, MeleeCommonData,
-    MotionState, PlayerInput, SourceActionKey, SourceVec2, SourceVec3, StageProfile, Vec2,
-    WalkSpeedBucket, World, PLAYER_STATE_NONE, SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_NANOS,
-    UCF_DASHBACK_AMENDMENT_BIT,
+    MotionState, PlayerInput, SourceActionKey, SourcePosePoint, SourceVec2, SourceVec3,
+    StageProfile, Vec2, WalkSpeedBucket, World, PLAYER_STATE_NONE,
+    SOURCE_COLLISION_STATE_HURT_INTANGIBLE, TICK_NANOS, UCF_DASHBACK_AMENDMENT_BIT,
 };
 use mole_runtime::{
     apply_source_collisions_for_world, compare_slippi_export_from_match_start_with_core,
-    compare_slippi_export_with_core, frame_pacing_coarse_sleep_nanos, frame_pacing_sleep_nanos,
-    legacy_animation_for_motion_state, map_gamecube_pad_to_player_input, map_physical_input,
-    native_replay_path, packaged_asset_root_for_exe, parse_wup_report,
-    preload_runtime_source_frame_data, project_asset_root, runtime_source_frame_data_is_preloaded,
-    scan_slippi_export_from_match_start_with_core, slippi_core_report_path,
-    slippi_visual_replay_inputs_from_match_start, source_collision_frame_from_frame,
-    source_collision_hits_from_frame, source_collision_step_from_frame,
-    source_damage_results_from_frame, source_damage_results_from_stages_for_frame,
-    source_damage_stages_from_frame, source_hit_confirms_from_frame,
-    step_world_with_source_collision_step, step_world_with_source_collisions,
-    trace_slippi_export_from_match_start_with_core, visual_platform_ledge_probe_world,
-    write_slippi_core_trace_report, ControllerInputTraceLog, DebugOverlay,
-    DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout, InputSource,
-    InputTraceWriter, LegacyAnimationKey, LegacySpriteCue, NetplayLogEvent, NetplayLogRole,
-    PhysicalInput, RenderCameraState, RenderColor, RenderFrame, RenderRect, RenderScene,
-    RenderTransform, ReplayCapture, SlippiCoreComparisonConfig, SlippiCoreDivergenceKind,
-    SlippiCoreDivergenceScanConfig, SlippiCoreTraceConfig, UdpRuntimeConfig, UdpRuntimeStats,
-    WupInputConfig, WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
+    compare_slippi_export_with_core, first_slippi_divergence_from_match_start_with_core,
+    frame_pacing_coarse_sleep_nanos, frame_pacing_sleep_nanos, legacy_animation_for_motion_state,
+    map_gamecube_pad_to_player_input, map_physical_input, native_replay_path,
+    packaged_asset_root_for_exe, parse_wup_report, preload_runtime_source_frame_data,
+    project_asset_root, render_source_hitbox_selection, render_source_hurtbox_selection,
+    runtime_source_frame_data_is_preloaded, scan_slippi_export_from_match_start_with_core,
+    slippi_core_report_path, slippi_match_start_world_from_export,
+    slippi_visual_replay_divergence_for_frame, slippi_visual_replay_inputs_from_match_start,
+    source_collision_frame_from_frame, source_collision_hits_from_frame,
+    source_collision_step_from_frame, source_damage_results_from_frame,
+    source_damage_results_from_stages_for_frame, source_damage_stages_from_frame,
+    source_hit_confirms_from_frame, step_world_with_source_collision_step,
+    step_world_with_source_collisions, trace_slippi_export_from_match_start_with_core,
+    visual_platform_ledge_probe_world, write_slippi_core_trace_report, ControllerInputTraceLog,
+    DebugOverlay, DolphinMoleVisualProfile, FixedStepClock, FrameDebugLog, InputReadout,
+    InputSource, InputTraceWriter, LegacyAnimationKey, LegacySpriteCue, NetplayLogEvent,
+    NetplayLogRole, PhysicalInput, RenderCameraState, RenderCapsule, RenderColor, RenderFrame,
+    RenderRect, RenderScene, RenderTransform, ReplayCapture, SlippiCoreComparisonConfig,
+    SlippiCoreDivergenceKind, SlippiCoreDivergenceScanConfig, SlippiCoreTraceConfig,
+    SlippiVisualReplayDivergenceGate, UdpRuntimeConfig, UdpRuntimeStats, WupInputConfig,
+    WupInputMapper, WupPort, LEGACY_DOLPHIN_MOLE_ANIMATIONS,
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
 fn read_slippi_match_start_fixture_export() -> Option<String> {
-    let replay_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+    let slippi_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
         .expect("crate should be inside workspace")
         .join("debug")
-        .join("slippi")
-        .join("Game_20260530T214929.full.inputs.json");
-    fs::read_to_string(&replay_path).ok()
+        .join("slippi");
+    for filename in [
+        "Game_20260530T214929.inputs.json",
+        "Game_20260530T214929.full.inputs.json",
+    ] {
+        if let Ok(text) = fs::read_to_string(slippi_dir.join(filename)) {
+            return Some(text);
+        }
+    }
+    None
 }
 
 #[test]
@@ -280,31 +291,47 @@ fn runtime_export_includes_source_only_grab_throw_capture_bindings() {
     let generated_rs = fs::read_to_string(manifest_dir.join("src/generated/source_frame_data.rs"))
         .expect("generated runtime source frame data module should exist");
 
-    for (runtime_id, source_key) in [
-        (213, "Catch"),
-        (216, "CatchWait"),
-        (219, "ThrowF"),
-        (220, "ThrowB"),
-        (221, "ThrowHi"),
-        (222, "ThrowLw"),
-        (239, "TCaptainThrowF"),
-        (240, "TCaptainThrowB"),
-        (241, "TCaptainThrowHi"),
-        (242, "TCaptainThrowLw"),
-        (275, "TCaptainSpecialHi"),
-        (223, "CapturePulledHi"),
-        (224, "CaptureWaitHi"),
-        (226, "CapturePulledLw"),
-        (227, "CaptureWaitLw"),
+    for (runtime_id, source_table_index, source_key) in [
+        (213, 242, "Catch"),
+        (216, 244, "CatchWait"),
+        (219, 247, "ThrowF"),
+        (220, 248, "ThrowB"),
+        (221, 249, "ThrowHi"),
+        (222, 250, "ThrowLw"),
+        (239, 262, "TCaptainThrowF"),
+        (240, 263, "TCaptainThrowB"),
+        (241, 264, "TCaptainThrowHi"),
+        (242, 265, "TCaptainThrowLw"),
+        (275, 276, "TCaptainSpecialHi"),
+        (223, 251, "CapturePulledHi"),
+        (224, 252, "CaptureWaitHi"),
+        (226, 254, "CapturePulledLw"),
+        (227, 255, "CaptureWaitLw"),
     ] {
         let binding = format!(
-            "RuntimeActionBinding {{ action_state_id: MeleeActionStateId::new({runtime_id}), source_action_key: \"{source_key}\", motion_state: None }}"
+            "RuntimeActionBinding {{ melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new({source_table_index}), source_action_key: \"{source_key}\", motion_state: None }}"
         );
         assert!(
             generated_rs.contains(&binding),
-            "runtime source export must bake source-only common binding {runtime_id}/{source_key}"
+            "runtime source export must bake source-only common binding {runtime_id}/{source_table_index}/{source_key}"
         );
     }
+}
+
+#[test]
+fn runtime_action_bindings_do_not_reintroduce_ambiguous_raw_action_state_id_field() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let generated_rs = fs::read_to_string(manifest_dir.join("src/generated/source_frame_data.rs"))
+        .expect("generated runtime source frame data module should exist");
+
+    assert!(
+        !generated_rs.contains("RuntimeActionBinding { action_state_id:"),
+        "generated runtime bindings must use explicit melee_motion_state_id and source_action_table_index fields"
+    );
+    assert!(
+        !generated_rs.contains("pub(crate) action_state_id:"),
+        "RuntimeActionBinding must not expose an unqualified action_state_id field"
+    );
 }
 
 #[test]
@@ -437,7 +464,7 @@ fn runtime_executable_steps_gameplay_with_source_collision_damage() {
 }
 
 #[test]
-fn source_collision_match_start_keeps_spawn_fall_airborne_until_slippi_landing_frame() {
+fn source_collision_match_start_holds_spawn_fall_until_final_source_ecb_crosses_platform() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let mut world = World::for_slippi_battlefield_singles_match_start();
     let neutral = [PlayerInput::neutral(), PlayerInput::neutral()];
@@ -449,11 +476,18 @@ fn source_collision_match_start_keeps_spawn_fall_airborne_until_slippi_landing_f
     assert_eq!(
         world.players()[0].motion_state,
         MotionState::Fall,
-        "Slippi source frame -48 still reports P1 Fall; source collision must not snap the entry spawn fall onto Battlefield's left platform one frame early"
+        "Falcon Fall's source figatree is non-looping; after frame 7 the runtime ECB must hold the final source pose, keeping the Battlefield side-platform sweep above the floor for this tick"
     );
     assert_eq!(
         world.players()[0].position.y,
         mole_core::melee_units_f32(25.114_899)
+    );
+    assert!(!world.players()[0].grounded);
+    assert_eq!(world.players()[0].source_floor_for_diagnostic().1, None);
+    assert_eq!(
+        world.players()[0].velocity.y,
+        mole_core::melee_units_f32(-1.56),
+        "ftCo_Fall_Phys applies gravity before map collision; the held final Fall ECB must not commit the landing until the next source frame"
     );
 
     step_world_with_source_collisions(&mut world, Frame(76), &neutral);
@@ -462,6 +496,13 @@ fn source_collision_match_start_keeps_spawn_fall_airborne_until_slippi_landing_f
     assert_eq!(
         world.players()[0].position.y,
         mole_core::melee_units_f32(27.200_1)
+    );
+    assert!(world.players()[0].grounded);
+    assert_eq!(world.players()[0].source_floor_for_diagnostic().1, Some(2));
+    assert_eq!(
+        world.players()[0].velocity.y,
+        mole_core::melee_units_f32(-1.69),
+        "ftCo_Landing_Enter_Basic changes state in map phase; Landing physics clears self_vel.y on the following physics tick, not during the collision callback"
     );
 }
 
@@ -719,6 +760,29 @@ fn slippi_match_start_frame76_p2_dash_jump_enters_kneebend_on_retained_source_fl
 }
 
 #[test]
+fn slippi_match_start_frame55_p2_escape_air_lands_on_solid_floor() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+
+    let comparison = compare_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [false, true],
+            max_frames: Some(80),
+        },
+    )
+    .expect("match-start replay fixture should compare");
+
+    assert!(
+        comparison.first_state_mismatch.is_none(),
+        "solid Battlefield floor contact must still enter LandingFallSpecial at source frame 55; first mismatch was {:?}",
+        comparison.first_state_mismatch
+    );
+}
+
+#[test]
 fn slippi_match_start_frame92_p2_escape_air_source_collision_enters_landing_fall_special() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
     let Some(export) = read_slippi_match_start_fixture_export() else {
@@ -766,6 +830,375 @@ fn slippi_match_start_frame281_p2_escape_air_source_collision_enters_landing_fal
         Some((1, 281)),
         "ftCo_EscapeAir_Coll must route ft_80082C74's floor callback into ftCo_80099D70/ftCo_LandingFallSpecial_Enter at the second P2 airdodge landing"
     );
+}
+
+#[test]
+fn slippi_match_start_frame142_p2_double_jump_ecb_lock_avoids_false_platform_commit() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [false, true],
+            max_frames: Some(300),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    assert!(
+        scan.scenarios
+            .iter()
+            .all(|scenario| !(scenario.player_index == 1 && scenario.source_frame == 142)),
+        "ftCo_JumpAerial_Enter_Basic must reset ftCommon_8007D5D4's ECB lock so the later EscapeAir pose change does not manufacture a soft-platform crossing"
+    );
+
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(300))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+
+    for frame in frames {
+        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 142 {
+            break;
+        }
+    }
+
+    let player = world.players()[1];
+    assert_eq!(player.motion_state, MotionState::EscapeAir);
+    assert!(!player.grounded);
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: 32_781,
+            y: 23_112
+        }
+    );
+}
+
+#[test]
+fn slippi_match_start_frame_negative48_p1_fall_platform_commit_is_mixed_phase_witness() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, false],
+            max_frames: Some(120),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    let frame_negative48 = scan
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.player_index == 0 && scenario.source_frame == -48)
+        .expect("frame -48 P1 should be represented in the divergence scan");
+    assert_eq!(
+        frame_negative48.kind,
+        SlippiCoreDivergenceKind::MixedPhaseWitness
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2625_p2_wait_platform_commit_stays_aligned_after_ecb_lock_fix() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [false, true],
+            max_frames: Some(2800),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    let frame2625 = scan
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.player_index == 1 && scenario.source_frame == 2625);
+    assert!(
+        frame2625.is_none(),
+        "source frame 2625 should remain aligned after ecb_lock is consumed in the Fighter_procMap phase, not tracked as a live divergence"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2686_p2_damage_lw3_stays_aligned_after_damage_anim_rate_fix() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [false, true],
+            max_frames: Some(2_820),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    let frame2686 = scan
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.player_index == 1 && scenario.source_frame == 2686);
+    assert!(
+        frame2686.is_none(),
+        "DamageLw3 entry must seed frame_speed_mul=1.0F and mpColl_LoadECB_JObj must sample the post-ftAnim pose, keeping source 2686 aligned instead of snapping to Landing one row early"
+    );
+}
+
+#[test]
+fn slippi_match_start_comparison_carries_first_non_witness_divergence() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let comparison = compare_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreComparisonConfig {
+            compare_players: [false, true],
+            max_frames: Some(3_200),
+        },
+    )
+    .expect("match-start replay fixture should compare");
+    let first = comparison
+        .first_divergence
+        .expect("comparison should carry the first classified divergence");
+
+    assert_eq!(first.kind, SlippiCoreDivergenceKind::StateMismatch);
+    assert_eq!(first.player_index, 1);
+    assert_eq!(first.source_frame, 2586);
+    assert_eq!(first.core_frame, Frame(2709));
+}
+
+#[test]
+fn visual_replay_gate_skips_proven_telemetry_and_pauses_on_first_state_mismatch() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_200))
+        .expect("visual replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut gate = SlippiVisualReplayDivergenceGate::new(0);
+    let mut stop = None;
+
+    for frame in frames.iter() {
+        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        let divergence = slippi_visual_replay_divergence_for_frame(
+            frame,
+            world.snapshot(),
+            SlippiCoreDivergenceScanConfig::default(),
+        );
+        if let Some(divergence) = gate.observe(divergence) {
+            stop = Some(divergence);
+            break;
+        }
+        if frame.source_frame >= 2584 {
+            break;
+        }
+    }
+
+    let stop = stop.expect("visual replay should stop at the first engine-state disagreement");
+    assert_eq!(
+        stop.source_frame, 2583,
+        "same-state rows with exact source velocity components are telemetry witnesses, but the SpecialSStart/SpecialS state mismatch must stop immediately"
+    );
+    assert_eq!(
+        stop.kind,
+        SlippiCoreDivergenceKind::StateMismatch,
+        "source frame 2583 is the first actual state disagreement after proven telemetry witnesses"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame_negative47_p1_landing_velocity_drift_cascades_from_floor_commit_witness(
+) {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, false],
+            max_frames: Some(120),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    let frame_negative47 = scan
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.player_index == 0 && scenario.source_frame == -47)
+        .expect("frame -47 P1 should be represented in the divergence scan");
+    assert_eq!(
+        frame_negative47.kind,
+        SlippiCoreDivergenceKind::VelocityDrift
+    );
+    assert_eq!(
+        frame_negative47.cascades_from_source_frame,
+        Some(-48),
+        "ftCommon_ApplyGroundMovement clears self_vel.y on the first flat-floor Landing physics tick; Slippi's stale y-speed row should cascade from the proven frame -48 floor-commit witness"
+    );
+}
+
+#[test]
+fn slippi_first_divergence_reports_first_non_witness_divergence() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let first = first_slippi_divergence_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, true],
+            max_frames: Some(3_200),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan first divergence");
+
+    let first =
+        first.expect("frame-by-frame parity should report the first non-witness divergence");
+    assert_eq!(first.kind, SlippiCoreDivergenceKind::StateMismatch);
+    assert_eq!(first.player_index, 0);
+    assert_eq!(first.source_frame, 2583);
+}
+
+#[test]
+fn slippi_match_start_frame390_p1_dash_position_drift_cascades_from_p2_unresolved_root() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let scan = scan_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreDivergenceScanConfig {
+            compare_players: [true, true],
+            max_frames: Some(650),
+            max_scenarios: Some(30),
+            ..SlippiCoreDivergenceScanConfig::default()
+        },
+    )
+    .expect("match-start replay fixture should scan");
+    let frame390 = scan
+        .scenarios
+        .iter()
+        .find(|scenario| scenario.player_index == 0 && scenario.source_frame == 390)
+        .expect("frame 390 P1 should be represented in the divergence scan");
+
+    assert_eq!(frame390.kind, SlippiCoreDivergenceKind::PositionDrift);
+    assert_eq!(frame390.first_frame.actual_motion_state, MotionState::Dash);
+    assert_eq!(
+        frame390.first_frame.expected_motion_state,
+        Some(MotionState::Dash)
+    );
+    assert_eq!(
+        frame390.first_frame.actual_velocity_x - frame390.first_frame.expected_ground_velocity_x,
+        0,
+        "P1 frame 390 agrees on Dash self velocity; the position drift begins when P2's unresolved frame-142 worldline prevents decomp player-nudge overlap"
+    );
+    assert_eq!(
+        frame390.cascades_from_source_frame,
+        Some(142),
+        "cross-player player-nudge drift must be classified as cascading from the unresolved P2 mixed-phase root"
+    );
+}
+
+#[test]
+fn runtime_escape_air_frame212_p2_lands_when_decomp_floor_sweep_crosses_platform() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut player = world.players()[1];
+    player.motion_state = MotionState::JumpAerialF;
+    player.set_motion_state_alias(MotionState::JumpAerialF);
+    player.melee_action_state_id = Some(MeleeActionStateId::new(27));
+    player.source_action_key = Some(SourceActionKey::new("JumpAerialF"));
+    player.source_action_total_frames = 50;
+    player.motion_frame = 11;
+    player.set_source_motion_anim_frame(11.0);
+    player.position = Vec2 {
+        x: source_units_to_milli(32.561_07),
+        y: source_units_to_milli(28.650_091),
+    };
+    player.velocity = Vec2 {
+        x: source_units_to_milli(0.969_500_06),
+        y: source_units_to_milli(1.229_999_3),
+    };
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(1, player));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(208),
+        &[
+            PlayerInput::neutral(),
+            PlayerInput::neutral().with_left_stick(-114, -56),
+        ],
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::JumpAerialF);
+
+    let shield_airdodge = PlayerInput::neutral()
+        .with_left_stick(-113, -56)
+        .with_left_trigger_analog(255)
+        .with_left_trigger_digital(true);
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(209),
+        &[PlayerInput::neutral(), shield_airdodge],
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::EscapeAir);
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(210),
+        &[PlayerInput::neutral(), shield_airdodge],
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::EscapeAir);
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(211),
+        &[PlayerInput::neutral(), shield_airdodge],
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::EscapeAir);
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(212),
+        &[PlayerInput::neutral(), shield_airdodge],
+    );
+
+    let player = world.players()[1];
+    assert_eq!(
+        player.motion_state,
+        MotionState::LandingFallSpecial,
+        "ftCo_EscapeAir_Coll routes ft_80082C74/mpColl_800471F8 floor contact into LandingFallSpecial as soon as the ECB bottom crosses the platform"
+    );
+    assert!(player.grounded);
+    assert_eq!(player.position.y, source_units_to_milli(27.200_1));
+
+    step_world_with_source_collisions(
+        &mut world,
+        Frame(213),
+        &[PlayerInput::neutral(), shield_airdodge],
+    );
+
+    let player = world.players()[1];
+    assert_eq!(
+        player.motion_state,
+        MotionState::LandingFallSpecial,
+        "LandingFallSpecial should continue after the decomp contact frame"
+    );
+    assert!(player.grounded);
+    assert_eq!(player.position.y, source_units_to_milli(27.200_1));
 }
 
 #[test]
@@ -2480,14 +2913,7 @@ fn slippi_match_start_frame2319_throw_hi_release_runs_decomp_damage_entry_update
 #[test]
 fn slippi_match_start_frame2454_falcon_fair_enters_damage_n3() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let replay_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .expect("crate should be inside workspace")
-        .join("debug")
-        .join("slippi")
-        .join("Game_20260530T214929.inputs.json");
-    let Ok(export) = fs::read_to_string(&replay_path) else {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
         return;
     };
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_578))
@@ -2657,6 +3083,2274 @@ fn slippi_match_start_frame2454_falcon_fair_enters_damage_n3() {
 }
 
 #[test]
+fn slippi_match_start_frame1759_p1_jumpf_lower_ecb_edge_hits_battlefield_left_wall() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 1759,
+            source_frame_end: 1759,
+            max_frames: Some(1_800),
+        },
+    )
+    .expect("replay fixture should trace");
+    let row = trace.rows.first().expect("source frame 1759 should trace");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(25))
+    );
+    assert_eq!(row.actual_velocity_x, -399);
+    assert_eq!(row.actual_velocity_y, -2_260);
+    assert_eq!(
+        source_units_to_milli(row.actual_source_position.x),
+        -71_853,
+        "mpColl_80045B74_LeftWall's airborne bottom-to-right ECB edge has no floor-connected-wall exclusion, so Battlefield line 17 must correct P1 at source frame 1759. row={row:?}"
+    );
+    assert_eq!(source_units_to_milli(row.actual_source_position.y), -5_940);
+}
+
+#[test]
+fn slippi_match_start_frame1771_p2_fall_lower_ecb_edge_hits_battlefield_right_ledge_wall() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 1771,
+            source_frame_end: 1771,
+            max_frames: Some(1_800),
+        },
+    )
+    .expect("replay fixture should trace");
+    let row = trace.rows.first().expect("source frame 1771 should trace");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(29))
+    );
+    assert_eq!(row.actual_velocity_x, 601);
+    assert_eq!(row.actual_velocity_y, -3_500);
+    assert_eq!(
+        source_units_to_milli(row.actual_source_position.x),
+        70_526,
+        "mpColl_80044E10_RightWall's airborne lower ECB checks must preserve the valid Battlefield right-ledge correction while P2 falls toward CliffCatch. row={row:?}"
+    );
+    assert_eq!(source_units_to_milli(row.actual_source_position.y), -3_630);
+}
+
+#[test]
+fn slippi_match_start_frame2833_p2_cliff_catch_rejects_p1_dair_hit() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 2833,
+            source_frame_end: 2833,
+            max_frames: Some(2_840),
+        },
+    )
+    .expect("replay fixture should trace");
+    let row = trace.rows.first().expect("source frame 2833 should trace");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(252)),
+        "ftCliffCommon_80081370 must preserve CliffCatch against P1's active dair at source frame 2833. row={row:?}"
+    );
+    assert_eq!(row.actual_source_knockback_velocity_x, 0.0);
+    assert_eq!(row.actual_source_knockback_velocity_y, 0.0);
+    assert_eq!(row.actual_velocity_x, 0);
+    assert_eq!(row.actual_velocity_y, 0);
+}
+
+#[test]
+fn slippi_match_start_frame3025_p2_attackairhi_right_wall_scrape_matches_source_position() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 3025,
+            source_frame_end: 3025,
+            max_frames: Some(3_030),
+        },
+    )
+    .expect("replay fixture should trace");
+    let row = trace.rows.first().expect("source frame 3025 should trace");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(68))
+    );
+    assert_eq!(row.actual_velocity_x, -533);
+    assert_eq!(row.actual_velocity_y, 1880);
+    assert_eq!(
+        source_units_to_milli(row.actual_source_position.x),
+        72_291,
+        "Slippi source frame 3025 keeps P2 in AttackAirHi with matching velocity, so the right-wall scrape must correct the root position before the later source-frame 3126 Bair geometry. row={row:?}"
+    );
+    assert_eq!(source_units_to_milli(row.actual_source_position.y), -7_336);
+}
+
+#[test]
+fn slippi_match_start_frame3026_p2_attackairhi_entry_pose_does_not_false_right_wall_correct() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 3026,
+            source_frame_end: 3026,
+            max_frames: Some(3_030),
+        },
+    )
+    .expect("replay fixture should trace");
+    let row = trace.rows.first().expect("source frame 3026 should trace");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(MeleeActionStateId::new(68))
+    );
+    assert_eq!(row.actual_velocity_x, -579);
+    assert_eq!(row.actual_velocity_y, 1750);
+    assert_eq!(
+        source_units_to_milli(row.actual_source_position.x),
+        71_713,
+        "source frame 3026 must not let Battlefield line 16 push P2 away from the underside; this regression exercises the live AttackAirHi ECB pose rather than the ground-only mpColl_80048AB0 exclusion path. row={row:?}"
+    );
+    assert_eq!(source_units_to_milli(row.actual_source_position.y), -5_586);
+}
+
+#[test]
+fn slippi_match_start_frame3126_p1_bair_does_not_damage_p2_escape_air() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_300))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame3126_step = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3126 {
+            frame3126_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame3126_step.expect("source frame 3126 should be present in the replay fixture");
+    let p1_bair_p2_confirms = step
+        .confirms
+        .iter()
+        .filter(|confirm| {
+            confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.source_action_key == Some(SourceActionKey::new("AttackAirB"))
+        })
+        .map(|confirm| {
+            (
+                confirm.hitbox_id,
+                confirm.hurtbox_id,
+                confirm.source_frame,
+                confirm.damaged_hurt_height,
+                confirm.hitbox.damage,
+                confirm.hitbox.angle,
+            )
+        })
+        .collect::<Vec<_>>();
+    let p1_bair_p2_stages = step
+        .stages
+        .iter()
+        .filter(|stage| {
+            stage.attacker_index == 0
+                && stage.victim_index == 1
+                && stage.source_action_key == Some(SourceActionKey::new("AttackAirB"))
+        })
+        .map(|stage| {
+            (
+                stage.hitbox_id,
+                stage.hurtbox_id,
+                stage.source_frame,
+                stage.damage,
+                stage.env_damage,
+                stage.hitbox.damage,
+                stage.hitbox.angle,
+            )
+        })
+        .collect::<Vec<_>>();
+    let p1_bair_p2_results = step
+        .results
+        .iter()
+        .filter(|result| {
+            result.stage.attacker_index == 0
+                && result.stage.victim_index == 1
+                && result.stage.source_action_key == Some(SourceActionKey::new("AttackAirB"))
+        })
+        .map(|result| {
+            (
+                result.stage.hitbox_id,
+                result.stage.hurtbox_id,
+                result.stage.source_frame,
+                result.knockback,
+                result.angle,
+                result.element,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        p1_bair_p2_confirms.is_empty()
+            && p1_bair_p2_stages.is_empty()
+            && p1_bair_p2_results.is_empty(),
+        "Slippi source frame 3126 keeps P2 in EscapeAir with no attack velocity, so the Rust source collision pass must not apply a P1 AttackAirB damage confirm here. confirms={p1_bair_p2_confirms:?} stages={p1_bair_p2_stages:?} results={p1_bair_p2_results:?} all_confirms={:?} all_stages={:?} all_results={:?} p1={:?} p2={:?}",
+        step.confirms,
+        step.stages,
+        step.results,
+        world.players()[0],
+        world.players()[1],
+    );
+    assert_eq!(
+        world.players()[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(236)),
+        "with no decomp-valid damage confirm, P2 should remain in ftCo_MS_EscapeAir for the exported 3126 row"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame3183_p1_nair_sets_off_p2_guard_not_body_damage() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_310))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame3183_step = None;
+    let mut p2_after_3182 = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3182 {
+            p2_after_3182 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 3183 {
+            frame3183_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame3183_step.expect("source frame 3183 should be present in the replay fixture");
+    let p1_nair_p2_shield_confirms = step
+        .logged_confirms
+        .iter()
+        .filter(|confirm| {
+            confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.source_action_key == Some(SourceActionKey::new("AttackAirN"))
+                && confirm.hurtbox_id == SOURCE_SHIELD_HURTBOX_ID
+        })
+        .collect::<Vec<_>>();
+    let p1_nair_p2_body_results = step
+        .results
+        .iter()
+        .filter(|result| {
+            result.stage.attacker_index == 0
+                && result.stage.victim_index == 1
+                && result.stage.source_action_key == Some(SourceActionKey::new("AttackAirN"))
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        !p1_nair_p2_shield_confirms.is_empty() && p1_nair_p2_body_results.is_empty(),
+        "Slippi source frame 3183 has P1 AttackAirN hit P2's held shield: ftColl_80076CBC should drive ftCo_80092E50/GuardDamage instead of ordinary body damage. shield_confirms={p1_nair_p2_shield_confirms:?} body_results={p1_nair_p2_body_results:?} p2_after_3182={p2_after_3182:?} logged={:?} results={:?} p1={:?} p2={:?}",
+        step.logged_confirms,
+        step.results,
+        world.players()[0],
+        world.players()[1],
+    );
+    assert_eq!(
+        world.players()[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(181)),
+        "P2 should enter ftCo_MS_GuardDamage/GuardSetOff on the shield-hit frame"
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::GuardSetOff);
+    assert_eq!(
+        source_units_to_milli(world.players()[1].ground_velocity_x),
+        -510
+    );
+    assert_eq!(world.players()[1].velocity.y, 0);
+}
+
+#[test]
+fn slippi_match_start_frame3190_guard_setoff_survives_hitlag_before_jump() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_320))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_at_3190 = None;
+    let mut p2_at_3191 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3190 {
+            p2_at_3190 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 3191 {
+            p2_at_3191 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let p2_at_3190 = p2_at_3190.expect("source frame 3190 should be present");
+    let p2_at_3191 = p2_at_3191.expect("source frame 3191 should be present");
+
+    assert_eq!(
+        p2_at_3190.melee_action_state_id,
+        Some(MeleeActionStateId::new(181)),
+        "ftCo_80092F2C drives GuardSetOff by animation duration; hitlag must not consume the GuardDamage lifetime early"
+    );
+    assert_eq!(p2_at_3190.motion_state, MotionState::GuardSetOff);
+    assert_eq!(
+        p2_at_3191.melee_action_state_id,
+        Some(MeleeActionStateId::new(24)),
+        "once GuardSetOff's decomp lifetime expires, the held jump should begin KneeBend on source frame 3191"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2454_electric_fair_uses_decomp_hitlag_multiplier() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_591))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut hit_frame_hitlag = None;
+    let mut frozen_2466 = None;
+    let mut moving_2467 = None;
+    for frame in frames {
+        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        let player = world.players()[0];
+        if frame.source_frame == 2454 {
+            hit_frame_hitlag = Some(player.hitlag_frames);
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(80))
+            );
+        }
+        if frame.source_frame == 2466 {
+            frozen_2466 = Some((
+                player.position,
+                player.source_knockback_velocity_x,
+                player.source_knockback_velocity_y,
+                player.hitlag_frames,
+            ));
+        }
+        if frame.source_frame == 2467 {
+            moving_2467 = Some((
+                player.position,
+                player.source_knockback_velocity_x,
+                player.source_knockback_velocity_y,
+                player.hitlag_frames,
+            ));
+            break;
+        }
+    }
+
+    let hit_frame_hitlag = hit_frame_hitlag.expect("source 2454 should be simulated");
+    assert_eq!(
+        hit_frame_hitlag, 13,
+        "ftColl_8007A06C sets x1960_vibrateMult from p_ftCommonData->x1A4 for element-2 hits, and Fighter_ProcessHit_8006D1EC passes that multiplier to ftCommon_CalcHitlag"
+    );
+    let frozen_2466 = frozen_2466.expect("source 2466 should be simulated");
+    assert_eq!(frozen_2466.0, Vec2 { x: 2325, y: 0 });
+    assert_eq!(frozen_2466.3, 1);
+    assert!(
+        (frozen_2466.1 - -1.697_094).abs() <= 0.000_01
+            && (frozen_2466.2 - 1.060_462).abs() <= 0.000_01,
+        "knockback velocity should be stored but not consumed while x195c hitlag remains"
+    );
+    let moving_2467 = moving_2467.expect("source 2467 should be simulated");
+    assert_eq!(moving_2467.3, 0);
+    assert_eq!(
+        moving_2467.0,
+        Vec2 { x: -1874, y: -1465 },
+        "first post-hitlag DamageN3 physics step should line up with Slippi source 2467"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2486_walk_analog_trigger_enters_guard_on_from_held_lr() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_610))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame2486 = None;
+    for frame in frames {
+        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 2486 {
+            frame2486 = Some(world.players()[0]);
+            break;
+        }
+    }
+
+    let player = frame2486.expect("source 2486 should be simulated");
+    assert_eq!(
+        player.motion_state,
+        MotionState::GuardOn,
+        "ftCo_Walk_IASA reaches ftCo_80091A4C, whose GuardOn path only requires held_inputs & HSD_PAD_LR plus shield health"
+    );
+    assert_eq!(player.position, Vec2 { x: -24_379, y: 0 });
+    assert_eq!(
+        player.velocity.x, 440,
+        "GuardOn_Phys/ft_80084F3C should apply source ground traction on the entry tick"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2583_raptor_boost_routes_shield_detect_callback() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_760))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut step2583 = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 2583 {
+            step2583 = Some(step);
+            break;
+        }
+    }
+
+    let step = step2583.expect("source 2583 should be simulated");
+    let render_frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&render_frame);
+    let p1_hits = collision_frame
+        .hits
+        .iter()
+        .filter(|capsule| capsule.owner_index == 0)
+        .copied()
+        .collect::<Vec<_>>();
+    let p2_hurts = collision_frame
+        .hurts
+        .iter()
+        .filter(|capsule| capsule.owner_index == 1)
+        .copied()
+        .collect::<Vec<_>>();
+    let players = world.players();
+    assert!(
+        step.logged_confirms.iter().any(|confirm| {
+            confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.action_state_id == Some(MeleeActionStateId::new(349))
+                && confirm.source_action_key == Some(SourceActionKey::new("SpecialSStart"))
+        }),
+        "source 2583 should expose a detected fighter before ftCa_SpecialS_OnDetect; decomp ftCa_SpecialS_OnDetect routes on detected fighter/item object, not shield-specific contact; geometry={:?} raw={:?} logged={:?} p1_hits={:?} p2_hurts={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        p1_hits,
+        p2_hurts,
+        players[0],
+        players[1]
+    );
+    assert_eq!(
+        players[0].melee_action_state_id,
+        Some(MeleeActionStateId::new(350)),
+        "ftCa_SpecialS_OnDetect should route SpecialSStart to SpecialS on the same source row"
+    );
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(180)),
+        "the source 2583 shield contact should feed Raptor Boost detect without also routing the guarded defender through body damage; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?} p1_hits={:?} p2_hurts={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+        p1_hits,
+        p2_hurts,
+        players[0],
+        players[1]
+    );
+    assert!(
+        step.stages.is_empty() && step.applied_stage_count == 0,
+        "ftCa_SpecialS_OnDetect is a hurtbox-detect callback path, not ftColl_8007BE3C damage finalization; stages={:?}",
+        step.stages
+    );
+    assert!(
+        (players[0].ground_velocity_x - 0.6076804).abs() <= 0.00001,
+        "onDetectGround should multiply gr_vel by specials_gr_vel_x"
+    );
+    assert_eq!(
+        players[0].velocity.x, 608,
+        "grounded ftCa_SpecialS_OnDetect leaves self_vel.x as Slippi's air velocity field, but the public/composed velocity must follow scaled gr_vel"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2586_raptor_boost_followthrough_clears_guard_shield_object() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_760))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut previous_steps = Vec::new();
+    let mut step2586 = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if (2580..=2585).contains(&frame.source_frame) {
+            previous_steps.push((frame.source_frame, step.clone()));
+        }
+        if frame.source_frame == 2586 {
+            step2586 = Some(step);
+            break;
+        }
+    }
+
+    let step = step2586.expect("source 2586 should be simulated");
+    let render_frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&render_frame);
+    let p1_hits = collision_frame
+        .hits
+        .iter()
+        .filter(|capsule| capsule.owner_index == 0)
+        .copied()
+        .collect::<Vec<_>>();
+    let p2_hurts = collision_frame
+        .hurts
+        .iter()
+        .filter(|capsule| capsule.owner_index == 1)
+        .copied()
+        .collect::<Vec<_>>();
+    let mut next_specials_frame = render_frame;
+    next_specials_frame.player_source_motion_anim_frames[0] = 4.0;
+    next_specials_frame.player_source_pose_frames[0] = 4;
+    let next_specials_confirms = source_hit_confirms_from_frame(&next_specials_frame);
+    let mut previous_victim_root_frame = render_frame;
+    previous_victim_root_frame.player_source_positions[1] =
+        render_frame.player_source_previous_positions[1];
+    let previous_victim_root_confirms = source_hit_confirms_from_frame(&previous_victim_root_frame);
+    let players = world.players();
+    assert_eq!(
+        players[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(90)),
+        "source 2586 should route the defender through ftCo_Damage into DamageFlyTop before any stale GuardOff shield object can consume another hit; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?} next_specials_confirms={:?} previous_victim_root_confirms={:?} p1_hits={:?} p2_hurts={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+        next_specials_confirms,
+        previous_victim_root_confirms,
+        p1_hits,
+        p2_hurts,
+        players[0],
+        players[1]
+    );
+    assert_eq!(step.stages.len(), 1);
+    assert_eq!(
+        step.stages[0].damage.to_bits(),
+        7.0_f32.to_bits(),
+        "Raptor Boost body hit should enter ftColl_8007ABD0 with full unstaled damage before knockback; stages={:?} previous_steps={:?}",
+        step.stages,
+        previous_steps
+    );
+    assert!(
+        !players[1].source_shield_collision_active
+            && !players[1].source_shield_hit_active
+            && !players[1].source_shield_hit_update_pos,
+        "Fighter_ChangeMotionState clears x221A_b7/x221B_b0; p2={:?}",
+        players[1]
+    );
+    assert!(
+        !p2_hurts
+            .iter()
+            .any(|hurt| hurt.capsule_id == SOURCE_SHIELD_HURTBOX_ID),
+        "GuardOff/damage should not expose the stale source shield hurt capsule; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?} p1_hits={:?} p2_hurts={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+        p1_hits,
+        p2_hurts,
+        players[0],
+        players[1]
+    );
+}
+
+#[test]
+fn slippi_match_start_frame2586_p2_damage_velocity_uses_composed_slippi_lane() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 2586,
+            source_frame_end: 2610,
+            max_frames: Some(2_760),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 2586-2610");
+    assert_eq!(trace.rows.len(), 25);
+
+    let frame2586 = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 2586)
+        .expect("source frame 2586 should be traced");
+    assert_eq!(
+        frame2586.actual_action_state_id,
+        Some(MeleeActionStateId::new(90))
+    );
+    assert_eq!(frame2586.actual_position, frame2586.expected_position);
+    assert_eq!(
+        frame2586.actual_velocity_y, frame2586.expected_composed_velocity_y,
+        "DamageFlyTop comparison should include knockback on the first damage row"
+    );
+    assert_eq!(
+        frame2586.expected_velocity_y, 0,
+        "Slippi's raw self-y lane stays zero while composed damage velocity carries knockback"
+    );
+    assert_eq!(frame2586.actual_velocity_y, 3_232);
+
+    for row in &trace.rows {
+        assert_eq!(
+            row.actual_position, row.expected_position,
+            "source frame {} should not introduce position drift",
+            row.source_frame
+        );
+        assert_eq!(
+            row.actual_velocity_x, row.expected_composed_velocity_x,
+            "source frame {} should keep composed X velocity aligned",
+            row.source_frame
+        );
+        assert_eq!(
+            row.actual_velocity_y, row.expected_composed_velocity_y,
+            "source frame {} should keep composed Y velocity aligned",
+            row.source_frame
+        );
+    }
+}
+
+#[test]
+fn slippi_match_start_frame3268_p1_damageair2_uses_source_di_velocity() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_400))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame3268_step = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3268 {
+            frame3268_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame3268_step.expect("source frame 3268 should be present in the replay fixture");
+    let p2_nair_p1_results = step
+        .results
+        .iter()
+        .filter(|result| {
+            result.stage.attacker_index == 1
+                && result.stage.victim_index == 0
+                && result.stage.source_action_key == Some(SourceActionKey::new("AttackAirN"))
+        })
+        .map(|result| (result.stage.hitbox_id, result.angle))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        p2_nair_p1_results,
+        vec![(1, 78)],
+        "decomp same-group victim logging should select the 78-degree NAir capsule before damage velocity is composed; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results
+    );
+
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 3268,
+            source_frame_end: 3272,
+            max_frames: Some(3_400),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 3268-3272");
+
+    let frame3268 = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 3268)
+        .expect("source frame 3268 should be traced");
+    assert_eq!(
+        frame3268.actual_action_state_id,
+        Some(MeleeActionStateId::new(85))
+    );
+    assert_eq!(frame3268.actual_position, frame3268.expected_position);
+    assert_eq!(
+        frame3268.actual_velocity_x, frame3268.expected_composed_velocity_x,
+        "DamageAir2 should expose Slippi's DI-adjusted attack velocity on the hit frame"
+    );
+    assert_eq!(
+        frame3268.actual_velocity_y, frame3268.expected_composed_velocity_y,
+        "DamageAir2 should expose Slippi's DI-adjusted attack velocity on the hit frame"
+    );
+
+    let frame3272 = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 3272)
+        .expect("source frame 3272 should be traced");
+    assert_eq!(
+        frame3272.actual_position, frame3272.expected_position,
+        "hitlag should release on the same source frame as Slippi"
+    );
+    assert_eq!(
+        frame3272.actual_velocity_y, frame3272.expected_composed_velocity_y,
+        "damage gravity should resume on the same source frame as Slippi"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame3426_p2_raptor_detect_precedes_nair_damage() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_560))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut step3426 = None;
+    let mut p2_frame3426 = None;
+    let mut p2_frame3428 = None;
+    let mut p2_frame3433 = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3426 {
+            step3426 = Some(step);
+            p2_frame3426 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 3428 {
+            p2_frame3428 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 3433 {
+            p2_frame3433 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let step = step3426.expect("source frame 3426 should be simulated");
+    let p2_frame3426 = p2_frame3426.expect("P2 frame 3426 should be captured");
+    assert_eq!(
+        p2_frame3426.melee_action_state_id,
+        Some(MeleeActionStateId::new(350)),
+        "Raptor Boost detect should enter SpecialS before P1's NAir damages P2 on source frame 3428; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+        p2_frame3426
+    );
+    assert_eq!(p2_frame3426.velocity.x, 839);
+    assert_eq!(p2_frame3426.velocity.y, 0);
+
+    let p2_frame3428 = p2_frame3428.expect("P2 frame 3428 should be captured");
+    assert_eq!(
+        p2_frame3428.melee_action_state_id,
+        Some(MeleeActionStateId::new(88)),
+        "the stale frame-3426 overlap must not enter the victim log and suppress the real NAir hit on frame 3428"
+    );
+    assert_eq!(
+        p2_frame3428.velocity,
+        Vec2 {
+            x: -1_998,
+            y: 1_930
+        }
+    );
+    assert_eq!(p2_frame3428.hitlag_frames, 5);
+
+    let p2_frame3433 = p2_frame3433.expect("P2 frame 3433 should be captured");
+    assert_eq!(
+        p2_frame3433.melee_action_state_id,
+        Some(MeleeActionStateId::new(199)),
+        "the grounded damage launch must retain its ECB bottom through hitlag so the first active floor collision can enter Passive"
+    );
+    assert_eq!(p2_frame3433.position.y, 0);
+    assert_eq!(p2_frame3433.velocity, Vec2 { x: -2_236, y: -130 });
+}
+#[test]
+fn slippi_match_start_frame2300_p2_capture_pulled_lw_stays_grounded() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_430))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_frame2300 = None;
+    let mut p2_frame2301 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 2300 {
+            p2_frame2300 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 2301 {
+            p2_frame2301 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let p2_frame2300 = p2_frame2300.expect("P2 frame 2300 should be captured");
+    assert_eq!(
+        p2_frame2300.melee_action_state_id,
+        Some(MeleeActionStateId::new(226)),
+        "a grounded center-stage pull must remain CapturePulledLw"
+    );
+    assert!(p2_frame2300.grounded);
+    assert_eq!(p2_frame2300.position, Vec2 { x: 46_050, y: 0 });
+
+    let p2_frame2301 = p2_frame2301.expect("P2 frame 2301 should be captured");
+    assert_eq!(
+        p2_frame2301.melee_action_state_id,
+        Some(MeleeActionStateId::new(227)),
+        "CatchPull should advance the grounded victim to CaptureWaitLw"
+    );
+    assert!(p2_frame2301.grounded);
+}
+#[test]
+fn slippi_match_start_frame3467_p2_capture_pulled_lw_transitions_airborne_hi() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_620))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_frame3467 = None;
+    let mut p2_frame3468 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3467 {
+            p2_frame3467 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 3468 {
+            p2_frame3468 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let p2_frame3467 = p2_frame3467.expect("P2 frame 3467 should be captured");
+    assert_eq!(
+        p2_frame3467.melee_action_state_id,
+        Some(MeleeActionStateId::new(223)),
+        "CapturePulledLw_Coll must enter CapturePulledHi when the capture-joint pull loses floor support"
+    );
+    assert!(!p2_frame3467.grounded);
+    assert_eq!(
+        p2_frame3467.position,
+        Vec2 {
+            x: -74_683,
+            y: -493
+        }
+    );
+
+    let p2_frame3468 = p2_frame3468.expect("P2 frame 3468 should be captured");
+    assert_eq!(
+        p2_frame3468.melee_action_state_id,
+        Some(MeleeActionStateId::new(224)),
+        "CatchPull should advance the airborne victim from CapturePulledHi to CaptureWaitHi"
+    );
+    assert!(!p2_frame3468.grounded);
+}
+
+#[test]
+fn slippi_match_start_frame3473_down_throw_uses_weight_scaled_pose_rate() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_620))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut players_frame3473 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3473 {
+            players_frame3473 = Some(*world.players());
+            break;
+        }
+    }
+
+    let [thrower, victim] = players_frame3473.expect("source frame 3473 should be captured");
+    assert_eq!(
+        thrower.melee_action_state_id,
+        Some(MeleeActionStateId::new(222))
+    );
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(242))
+    );
+    assert_eq!(
+        thrower.motion_anim_rate_milli, 962,
+        "ftCo_800DD4B0 scales Falcon down-throw animation by victim weight because bit 3 is clear in weight_independent_throws_mask"
+    );
+    assert_eq!(victim.motion_anim_rate_milli, 962);
+    assert_eq!(
+        victim.position,
+        Vec2 {
+            x: -70_317,
+            y: -1_754
+        },
+        "ftCo_800DE508 should constrain the thrown victim to the weight-scaled ThrowLw TransN2 pose"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame3493_down_throw_release_uses_damage_fly_top() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_630))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_frame3493 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3493 {
+            p2_frame3493 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let victim = p2_frame3493.expect("P2 frame 3493 should be captured");
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(90)),
+        "ftCo_800DE7C0 forces motion 90 when the released victim came from ThrowLw; damage_angle={} knockback={} velocity=({}, {})",
+        victim.damage_angle,
+        victim.damage_knockback,
+        victim.source_knockback_velocity_x,
+        victim.source_knockback_velocity_y,
+    );
+    assert_eq!(victim.velocity, Vec2 { x: -406, y: 2_628 });
+}
+
+#[test]
+fn slippi_match_start_frame3514_throw_end_runs_wait_iasa_same_tick() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_650))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p1_frame3514 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3514 {
+            p1_frame3514 = Some(world.players()[0]);
+            break;
+        }
+    }
+
+    let thrower = p1_frame3514.expect("P1 frame 3514 should be captured");
+    assert_eq!(
+        thrower.melee_action_state_id,
+        Some(MeleeActionStateId::new(20)),
+        "ThrowLw_Anim enters Wait through ftCommon_8007D92C, then the new Wait IASA callback must consume the same tick's fresh left input"
+    );
+    assert_eq!(thrower.motion_state, MotionState::Dash);
+    assert_eq!(thrower.ground_velocity_x, -2.0);
+    assert_eq!(thrower.position, Vec2 { x: -66_491, y: 0 });
+}
+
+#[test]
+fn slippi_match_start_frame3530_damage_hitstun_end_runs_air_jump_before_rehit() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_670))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_frame3530 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3530 {
+            p2_frame3530 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let victim = p2_frame3530.expect("P2 frame 3530 should be captured");
+    assert_eq!(
+        victim.melee_action_state_id,
+        Some(MeleeActionStateId::new(88))
+    );
+    assert_eq!(
+        victim.position,
+        Vec2 {
+            x: -84_733,
+            y: -15_018
+        },
+        "DamageFlyTop_Anim clears hitstun before DamageFly_IASA consumes Y into JumpAerialF; jump physics must run before the fair collision starts new hitlag"
+    );
+    assert_eq!(victim.jumps_remaining, 0);
+    assert_eq!(
+        victim.velocity,
+        Vec2 {
+            x: -3_897,
+            y: 2_435
+        }
+    );
+}
+
+#[test]
+fn slippi_match_start_frame3542_damage_hitlag_uses_current_input_for_sdi() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_680))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p2_frame3542 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3542 {
+            p2_frame3542 = Some(world.players()[1]);
+            break;
+        }
+    }
+
+    let victim = p2_frame3542.expect("P2 frame 3542 should be captured");
+    assert_eq!(
+        victim.position,
+        Vec2 {
+            x: -79_033,
+            y: -13_218
+        },
+        "Damage_OnEveryHitlag must consume the current 0.95/0.30 stick tap, producing the decomp's +5.7/+1.8 SDI displacement"
+    );
+    assert_eq!(
+        victim.velocity,
+        Vec2 {
+            x: -3_897,
+            y: 2_435
+        }
+    );
+}
+
+#[test]
+fn slippi_match_start_frame3973_jumpsquat_iasa_nair_runs_attack_air_gravity() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_110))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p1_frame3973 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 3973 {
+            p1_frame3973 = Some(world.players()[0]);
+            break;
+        }
+    }
+
+    let player = p1_frame3973.expect("P1 frame 3973 should be captured");
+    assert_eq!(player.motion_state, MotionState::AttackAirN);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(65))
+    );
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: 17_110,
+            y: 1_770
+        }
+    );
+    assert_eq!(player.velocity, Vec2 { x: 1_210, y: 1_770 });
+}
+
+#[test]
+fn slippi_match_start_frame4109_turn_cancel_preserves_pre_turn_facing_for_back_jump() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p1_frame4109 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4109 {
+            p1_frame4109 = Some(world.players()[0]);
+            break;
+        }
+    }
+
+    let player = p1_frame4109.expect("P1 frame 4109 should be captured");
+    assert_eq!(player.facing, 1);
+    assert_eq!(player.motion_state, MotionState::JumpAerialB);
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(28))
+    );
+    assert_eq!(player.velocity, Vec2 { x: -854, y: 2_660 });
+}
+
+#[test]
+fn slippi_match_start_frame4118_double_jump_ecb_lock_prevents_false_air_dodge_landing() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut p1_frame4118 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4118 {
+            p1_frame4118 = Some(world.players()[0]);
+            break;
+        }
+    }
+
+    let player = p1_frame4118.expect("P1 frame 4118 should be captured");
+    assert_eq!(player.motion_state, MotionState::EscapeAir);
+    assert!(!player.grounded);
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: 50_144,
+            y: 23_266
+        },
+        "ftCo_JumpAerial_Enter_Basic resets the ftCommon_8007D5D4 ECB lock; when it expires on this tick, the bottom moves upward from the locked value and mpCheckFloor must not invent a platform crossing"
+    );
+    assert_eq!(
+        player.velocity,
+        Vec2 {
+            x: -2_467,
+            y: -1_304
+        }
+    );
+}
+
+#[test]
+fn slippi_match_start_frame4119_p2_nair_hits_p1_escape_air() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame4119_step = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4119 {
+            frame4119_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame4119_step.expect("source frame 4119 should be present");
+    let player = world.players()[0];
+    assert_eq!(
+        player.melee_action_state_id,
+        Some(MeleeActionStateId::new(86)),
+        "P2 AttackAirN must hit P1 EscapeAir on the same frame as Slippi; geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+    );
+    assert_eq!(
+        player.position,
+        Vec2 {
+            x: 47_924,
+            y: 22_093
+        }
+    );
+    assert_eq!(
+        player.velocity,
+        Vec2 { x: 1_256, y: 1_256 },
+        "ftCo_Damage_CheckAirMotion must apply x190 from the x680/x684 digital-LR timers; results={:?} stages={:?} trigger_timer={}",
+        step.results,
+        step.stages,
+        world.input_timers()[0].trigger,
+    );
+}
+
+#[test]
+fn slippi_match_start_frame4182_p1_upair_sets_off_p2_guard() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_310))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame4182_step = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4182 {
+            frame4182_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame4182_step.expect("source frame 4182 should be present");
+    let shield_confirms = step
+        .logged_confirms
+        .iter()
+        .filter(|confirm| {
+            confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.source_action_key == Some(SourceActionKey::new("AttackAirHi"))
+                && confirm.hurtbox_id == SOURCE_SHIELD_HURTBOX_ID
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        !shield_confirms.is_empty(),
+        "source frame 4182 must route P1 AttackAirHi through P2's newly installed shield; geometry={:?} raw={:?} logged={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+    );
+    assert_eq!(
+        world.players()[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(181))
+    );
+    assert_eq!(world.players()[1].motion_state, MotionState::GuardSetOff);
+    assert_eq!(
+        source_units_to_milli(world.players()[1].ground_velocity_x),
+        888
+    );
+}
+
+#[test]
+fn slippi_match_start_frame4192_upair_update_does_not_rehit_p2_guard() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_330))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame4192_step = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4192 {
+            frame4192_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame4192_step.expect("source frame 4192 should be present");
+    assert!(
+        step.logged_confirms.iter().all(|confirm| {
+            !(confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.hurtbox_id == SOURCE_SHIELD_HURTBOX_ID)
+        }),
+        "the in-place up-air hitbox update must retain the decomp victim log; logged={:?}",
+        step.logged_confirms,
+    );
+    let guard = world.players()[1];
+    assert_eq!(guard.motion_state, MotionState::GuardSetOff);
+    assert_eq!(guard.motion_frame, 4);
+    assert_eq!(source_units_to_milli(guard.ground_velocity_x), 488);
+}
+
+#[test]
+fn slippi_match_start_frame4378_guard_setoff_exits_hitlag_at_source_position() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_510))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4378 {
+            let guard = world.players()[0];
+            assert_eq!(guard.motion_state, MotionState::GuardSetOff);
+            assert_eq!(guard.position, Vec2 { x: -16_509, y: 0 });
+            assert_eq!(source_units_to_milli(guard.ground_velocity_x), -592);
+            return;
+        }
+    }
+    panic!("source frame 4378 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4403_grounded_downward_hit_reflects_from_floor() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_535))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4403 {
+            let victim = world.players()[1];
+            assert_eq!(
+                victim.melee_action_state_id,
+                Some(MeleeActionStateId::new(88))
+            );
+            assert_eq!(
+                source_units_to_milli(victim.source_knockback_velocity_y),
+                2_815
+            );
+            assert_eq!(victim.position, Vec2 { x: -12_895, y: 0 });
+            return;
+        }
+    }
+    panic!("source frame 4403 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4426_lcancel_timer_survives_hitlag() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4426 {
+            let player = world.players()[0];
+            assert_eq!(
+                player.motion_state,
+                MotionState::KneeBend,
+                "source_lr_timer={} trigger_timer={} landing_lag={}",
+                player.source_lr_digital_press_timer,
+                world.input_timers()[0].trigger,
+                player.landing_lag_ticks,
+            );
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(24))
+            );
+            assert_eq!(player.position, Vec2 { x: 1_098, y: 0 });
+            return;
+        }
+    }
+    panic!("source frame 4426 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4488_down_wait_enters_forward_roll() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4488 {
+            let player = world.players()[1];
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(196)),
+                "input={:?} stick=({}, {}) cstick=({}, {}) facing={} action_key={:?}",
+                frame.inputs[1],
+                frame.inputs[1].stick_x(),
+                frame.inputs[1].stick_y(),
+                frame.inputs[1].c_stick_x(),
+                frame.inputs[1].c_stick_y(),
+                player.facing,
+                player.source_action_key,
+            );
+            assert_eq!(
+                player.position,
+                Vec2 {
+                    x: -49_660,
+                    y: 27_200
+                }
+            );
+            return;
+        }
+    }
+    panic!("source frame 4488 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4511_down_roll_clamps_to_floor_edge() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4511 {
+            let player = world.players()[1];
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(196))
+            );
+            assert_eq!(
+                player.position,
+                Vec2 {
+                    x: -20_000,
+                    y: 27_200
+                }
+            );
+            assert_eq!(source_units_to_milli(player.ground_velocity_x), 1_029);
+            return;
+        }
+    }
+    panic!("source frame 4511 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4518_upair_hits_down_roll() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4518 {
+            let victim = world.players()[1];
+            assert_eq!(
+                victim.melee_action_state_id,
+                Some(MeleeActionStateId::new(80)),
+                "geometry={:?} raw={:?} logged={:?} confirms={:?} collision_state={} hurt_state={}",
+                step.geometry_confirms,
+                step.raw_confirms,
+                step.logged_confirms,
+                step.confirms,
+                victim.source_collision_state,
+                victim.source_hurt_collision_state,
+            );
+            return;
+        }
+    }
+    panic!("source frame 4518 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4557_released_guard_startup_rejects_z_grab() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4557 {
+            assert_eq!(
+                world.players()[1].melee_action_state_id,
+                Some(MeleeActionStateId::new(178)),
+                "ftCo_Catch_CheckInput requires held LR together with the synthetic A press from Z"
+            );
+            return;
+        }
+    }
+    panic!("source frame 4557 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4641_raptor_boost_detects_waiting_fighter() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut recent = Vec::new();
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame >= 4638 {
+            recent.push((
+                frame.source_frame,
+                step.geometry_confirms.len(),
+                step.raw_confirms.len(),
+                step.logged_confirms.len(),
+                world.players()[0].melee_action_state_id,
+            ));
+        }
+        if frame.source_frame == 4641 {
+            let collision_frame =
+                source_collision_frame_from_frame(&RenderFrame::from_world(&world));
+            assert_eq!(
+                world.players()[0].melee_action_state_id,
+                Some(MeleeActionStateId::new(350)),
+                "recent={:?} geometry={:?} raw={:?} logged={:?} hits={:?} hurts={:?}",
+                recent,
+                step.geometry_confirms,
+                step.raw_confirms,
+                step.logged_confirms,
+                collision_frame.hits,
+                collision_frame.hurts,
+            );
+            return;
+        }
+    }
+    panic!("source frame 4641 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4693_damage_fly_landing_enters_passive() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4693 {
+            let player = world.players()[1];
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(199)),
+                "current_lr_timer={} previous_lr_timer={} grounded={} action={:?}",
+                player.source_lr_digital_press_timer,
+                player.source_previous_lr_digital_press_timer,
+                player.grounded,
+                player.source_action_key,
+            );
+            return;
+        }
+    }
+    panic!("source frame 4693 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4709_landing_to_squat_wait_keeps_ground_physics() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4709 {
+            let player = world.players()[0];
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(40))
+            );
+            assert_eq!(player.position, Vec2 { x: -36_299, y: 0 });
+            assert_eq!(source_units_to_milli(player.ground_velocity_x), -566);
+            return;
+        }
+    }
+    panic!("source frame 4709 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4720_wait_has_no_stale_guard_collision_object() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4720 {
+            let player = world.players()[1];
+            assert_eq!(
+                player.melee_action_state_id,
+                Some(MeleeActionStateId::new(14))
+            );
+            assert!(
+                !player.source_shield_collision_active && !player.source_shield_hit_active,
+                "Wait must not retain ftColl's Guard hit object: {player:?}"
+            );
+            return;
+        }
+    }
+    panic!("source frame 4720 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4721_new_guard_object_collides_on_next_fighter_pass() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut state_4721 = None;
+    let mut state_4722 = None;
+    let mut hitlag_4722 = None;
+    for frame in frames {
+        step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4721 {
+            state_4721 = world.players()[1].melee_action_state_id;
+        }
+        if frame.source_frame == 4722 {
+            state_4722 = world.players()[1].melee_action_state_id;
+            hitlag_4722 = Some((
+                world.players()[0].hitlag_frames,
+                world.players()[1].hitlag_frames,
+            ));
+            break;
+        }
+    }
+    assert_eq!(state_4721, Some(MeleeActionStateId::new(178)));
+    assert_eq!(state_4722, Some(MeleeActionStateId::new(181)));
+    assert_eq!(hitlag_4722, Some((6, 6)));
+}
+
+#[test]
+fn slippi_match_start_frame4788_bair_uses_source_knockback_magnitude() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4788 {
+            let victim = world.players()[1];
+            assert_eq!(
+                victim.melee_action_state_id,
+                Some(MeleeActionStateId::new(88))
+            );
+            assert_eq!(
+                source_units_to_milli(victim.source_knockback_velocity_x),
+                -3001,
+                "results={:?} confirms={:?} attacker={:?} victim={:?}",
+                step.results,
+                step.logged_confirms,
+                world.players()[0],
+                victim
+            );
+            assert_eq!(
+                source_units_to_milli(victim.source_knockback_velocity_y),
+                2898
+            );
+            return;
+        }
+    }
+    panic!("source frame 4788 should be present");
+}
+
+#[test]
+fn slippi_match_start_frame4904_p2_jump_aerial_f_uses_right_facing_live_ecb() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 4904,
+            source_frame_end: 4904,
+            max_frames: Some(5_100),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 4904");
+    let row = trace.rows.first().expect("source frame 4904 should exist");
+
+    assert_eq!(row.actual_position, row.expected_position, "Fighter creation sets TopN rot_y to +PI/2 for facing_dir +1; the right-facing live JumpAerialF ECB must therefore retain the +PI/2 baked orientation during Battlefield wall correction: {row:?}");
+}
+
+#[test]
+fn slippi_match_start_frame4926_p2_attack_air_hi_expanding_ecb_matches_left_wall() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 4926,
+            source_frame_end: 4926,
+            max_frames: Some(5_100),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 4926");
+    let row = trace.rows.first().expect("source frame 4926 should exist");
+
+    assert_eq!(
+        row.actual_position, row.expected_position,
+        "AttackAirHi frame 6 expands the live ECB while P2 hugs Battlefield line 17; the translated JObj pose and left-wall correction must remain exact: {row:?}"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame4958_p1_damage_air2_animation_enters_fall() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 4958,
+            source_frame_end: 4958,
+            max_frames: Some(5_100),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 4958");
+    let row = trace.rows.first().expect("source frame 4958 should exist");
+
+    assert_eq!(row.actual_action_state_id, Some(row.expected_action_state_id), "ftCo_8008DC0C calls ftAnim_8006EBA4 immediately after entering DamageAir2, so its frame timeline must reach animation completion and ftCo_Fall_Enter on the same tick as the source: {row:?}");
+    assert_eq!(row.actual_motion_state, MotionState::Fall);
+    assert_eq!(row.actual_velocity_x, row.expected_composed_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_composed_velocity_y);
+}
+
+#[test]
+fn slippi_match_start_through_frame4966_p2_grab_does_not_capture_p1() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 4965,
+            source_frame_end: 4966,
+            max_frames: Some(5_100),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 through source frame 4966");
+    let states = trace
+        .rows
+        .iter()
+        .map(|row| {
+            (
+                row.source_frame,
+                row.expected_action_state_id,
+                row.actual_action_state_id,
+                row.actual_motion_state,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        trace.rows.iter().all(|row| {
+            row.actual_action_state_id == Some(row.expected_action_state_id)
+                && row.actual_motion_state == MotionState::Landing
+        }),
+        "ftColl_80078A2C passes each fighter's cur_pos.z to lbColl_80007ECC; preserving their Z separation must keep P1 in Landing: {states:?}"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame4989_p2_catch_completion_allows_guard_on() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 4989,
+            source_frame_end: 4989,
+            max_frames: Some(5_150),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 4989");
+    let row = trace.rows.first().expect("source frame 4989 should exist");
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::GuardOn);
+}
+
+#[test]
+fn slippi_match_start_frame4722_shield_setoff_uses_collision_phase_inputs() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 4722,
+            source_frame_end: 4722,
+            max_frames: Some(4_850),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 4722");
+    let row = trace.rows.first().expect("source frame 4722 should exist");
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::GuardSetOff);
+    assert_eq!(row.actual_ground_velocity_x, -2.0);
+    assert_eq!(
+        row.actual_ground_velocity_x,
+        row.expected_ground_velocity_x_source
+    );
+}
+
+#[test]
+fn slippi_match_start_frame5016_grounded_attacker_receives_shield_recoil() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5016,
+            source_frame_end: 5016,
+            max_frames: Some(5_150),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5016");
+    let row = trace.rows.first().expect("source frame 5016 should exist");
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5037_special_s_completion_runs_wait_input_and_walk_physics() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5037,
+            source_frame_end: 5037,
+            max_frames: Some(5_175),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5037");
+    let row = trace.rows.first().expect("source frame 5037 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::WalkSlow);
+    assert_eq!(row.actual_velocity_x, row.expected_ground_velocity_x);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5040_early_dash_digital_shield_enters_escape_forward() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5040,
+            source_frame_end: 5040,
+            max_frames: Some(5_175),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5040");
+    let row = trace.rows.first().expect("source frame 5040 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::EscapeF);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5081_attack_dash_uses_transn_ground_motion() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5081,
+            source_frame_end: 5081,
+            max_frames: Some(5_250),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5081");
+    let row = trace.rows.first().expect("source frame 5081 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::AttackDash);
+    assert_eq!(row.actual_velocity_x, row.expected_ground_velocity_x);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5118_squat_collision_enters_fall_off_left_edge() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5118,
+            source_frame_end: 5118,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5118");
+    let row = trace.rows.first().expect("source frame 5118 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::Fall);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame326_escape_air_landing_preserves_horizontal_travel() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 326,
+            source_frame_end: 326,
+            max_frames: Some(500),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 326");
+    let row = trace.rows.first().expect("source frame 326 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::LandingFallSpecial);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn visual_slippi_frame4926_uses_export_configured_costume_world() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(5_050))
+        .expect("visual replay fixture should parse");
+    let mut world = slippi_match_start_world_from_export(&export)
+        .expect("visual replay should construct its gameplay world from match settings");
+
+    let mut target = None;
+    for frame in frames {
+        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 4926 {
+            target = Some(frame);
+            break;
+        }
+    }
+    let frame = target.expect("source frame 4926 should exist");
+    let divergence = slippi_visual_replay_divergence_for_frame(
+        &frame,
+        world.snapshot(),
+        SlippiCoreDivergenceScanConfig::default(),
+    );
+
+    assert!(
+        divergence.is_none(),
+        "SDL visual playback must use the same export-configured gameplay world as match-start comparison: {divergence:?}"
+    );
+}
+
+#[test]
+fn slippi_match_start_frame5124_cliff_jump_quick_uses_air_collision_correction() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 5124,
+            source_frame_end: 5124,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 5124");
+    let row = trace.rows.first().expect("source frame 5124 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::CliffJumpQuick1);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5131_cliff_jump_quick_2_sets_entry_velocity() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 5131,
+            source_frame_end: 5131,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 5131");
+    let row = trace.rows.first().expect("source frame 5131 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::CliffJumpQuick2);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_velocity_y);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5126_p1_fall_preserves_left_wall_position() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5125,
+            source_frame_end: 5126,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 through source frame 5126");
+    let row = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 5126)
+        .expect("source frame 5126 should exist");
+
+    assert_eq!(row.actual_motion_state, MotionState::Fall);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_velocity_y);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5162_p2_cliff_jump_quick2_rejects_soft_platform() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 5161,
+            source_frame_end: 5162,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 through source frame 5162");
+    let row = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 5162)
+        .expect("source frame 5162 should exist");
+
+    assert_eq!(row.actual_motion_state, MotionState::CliffJumpQuick2);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_velocity_y);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5163_p2_cliff_jump_quick2_ends_with_aobj() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 5163,
+            source_frame_end: 5163,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 source frame 5163");
+    let row = trace.rows.first().expect("source frame 5163 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::Fall);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_velocity_y);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame5189_final_stock_enters_dead_down() {
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 0,
+            source_frame_start: 5189,
+            source_frame_end: 5189,
+            max_frames: Some(5_313),
+        },
+    )
+    .expect("match-start replay fixture should trace P1 source frame 5189");
+    let row = trace.rows.first().expect("source frame 5189 should exist");
+
+    assert_eq!(
+        row.actual_action_state_id,
+        Some(row.expected_action_state_id)
+    );
+    assert_eq!(row.actual_motion_state, MotionState::DeadDown);
+    assert_eq!(row.actual_velocity_x, row.expected_air_velocity_x);
+    assert_eq!(row.actual_velocity_y, row.expected_velocity_y);
+    assert_eq!(row.actual_position, row.expected_position);
+}
+
+#[test]
+fn slippi_match_start_frame3289_p2_fast_falls_after_attacker_hitlag() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &export,
+        SlippiCoreTraceConfig {
+            player_index: 1,
+            source_frame_start: 3284,
+            source_frame_end: 3289,
+            max_frames: Some(3_420),
+        },
+    )
+    .expect("match-start replay fixture should trace P2 3284-3289");
+
+    let frame3289 = trace
+        .rows
+        .iter()
+        .find(|row| row.source_frame == 3289)
+        .expect("source frame 3289 should be traced");
+    assert_eq!(frame3289.actual_motion_state, MotionState::AttackAirN);
+    assert_eq!(frame3289.actual_position, frame3289.expected_position);
+    assert_eq!(
+        frame3289.actual_velocity_y, frame3289.expected_composed_velocity_y,
+        "the downward tap during attacker hitlag should remain fresh enough to fast-fall on the first active frame"
+    );
+    assert_eq!(frame3289.actual_velocity_y, -3_500);
+}
+
+#[test]
 fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_not_generically_damaged(
 ) {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
@@ -2666,9 +5360,12 @@ fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_n
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_436))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame2312_step = None;
     for frame in frames {
-        step_world_with_source_collisions(&mut world, frame.core_frame, &frame.inputs);
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
         if frame.source_frame == 2312 {
+            frame2312_step = Some(step);
             break;
         }
     }
@@ -2720,6 +5417,94 @@ fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_n
         players[0].source_x2219_b5 && players[1].source_x2219_b5,
         "Fighter_UnkRecursiveFunc_8006D044 propagates x2219_b5 through fp->x1A5C for held throw links"
     );
+    let step = frame2312_step.expect("frame 2312 should be reached");
+    assert_eq!(
+        step.stages.len(),
+        1,
+        "ThrowHi frame-11 held-victim confirm should stage damage without entering generic damage; geometry={:?} raw={:?} logged={:?} confirms={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        players[0],
+        players[1]
+    );
+    assert!(
+        step.results.is_empty(),
+        "held-victim throw hit before throw_flags_b3 should not calculate normal knockback"
+    );
+    assert!(
+        (players[1].damage_percent - 15.369_999).abs() <= 0.000_01,
+        "held-victim throw hit should commit the visible +4 percent before release; actual={:.6} temp={:.6} applied={}",
+        players[1].damage_percent,
+        players[1].damage_percent_temp,
+        players[1].damage_applied
+    );
+    assert_eq!(players[1].damage_applied, 0);
+}
+
+#[test]
+fn slippi_match_start_frame2662_p1_upair_hits_p2_body_not_guard_setoff() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let Some(export) = read_slippi_match_start_fixture_export() else {
+        return;
+    };
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_860))
+        .expect("replay fixture should parse");
+    let mut world = World::for_slippi_battlefield_singles_match_start();
+    let mut frame2662_step = None;
+    let mut p2_after_2661 = None;
+    for frame in frames {
+        let step =
+            step_world_with_source_collision_step(&mut world, frame.core_frame, &frame.inputs);
+        if frame.source_frame == 2661 {
+            p2_after_2661 = Some(world.players()[1]);
+        }
+        if frame.source_frame == 2662 {
+            frame2662_step = Some(step);
+            break;
+        }
+    }
+
+    let step = frame2662_step.expect("source frame 2662 should be present in the replay fixture");
+    let p1_upair_p2_shield_confirms = step
+        .logged_confirms
+        .iter()
+        .filter(|confirm| {
+            confirm.attacker_index == 0
+                && confirm.victim_index == 1
+                && confirm.source_action_key == Some(SourceActionKey::new("AttackAirHi"))
+                && confirm.hurtbox_id == SOURCE_SHIELD_HURTBOX_ID
+        })
+        .collect::<Vec<_>>();
+    let p1_upair_p2_body_results = step
+        .results
+        .iter()
+        .filter(|result| {
+            result.stage.attacker_index == 0
+                && result.stage.victim_index == 1
+                && result.stage.source_action_key == Some(SourceActionKey::new("AttackAirHi"))
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        !p1_upair_p2_body_results.is_empty(),
+        "Slippi source frame 2662 has P1 AttackAirHi put P2 into DamageLw3, so shield contact must not suppress the body damage result. shield_confirms={p1_upair_p2_shield_confirms:?} body_results={p1_upair_p2_body_results:?} p2_after_2661={p2_after_2661:?} geometry={:?} raw={:?} logged={:?} confirms={:?} stages={:?} results={:?} p1={:?} p2={:?}",
+        step.geometry_confirms,
+        step.raw_confirms,
+        step.logged_confirms,
+        step.confirms,
+        step.stages,
+        step.results,
+        world.players()[0],
+        world.players()[1],
+    );
+    assert_eq!(
+        world.players()[1].melee_action_state_id,
+        Some(MeleeActionStateId::new(83))
+    );
+    assert!((world.players()[1].source_knockback_velocity_x - 1.495_804).abs() <= 0.000_01);
+    assert!((world.players()[1].source_knockback_velocity_y - 1.444_481).abs() <= 0.000_01);
 }
 
 #[test]
@@ -3484,14 +6269,73 @@ fn render_scene_draws_translucent_bubble_shield_for_guard_states() {
 
     let scene = RenderScene::from_frame(&frame, 960, 540);
     let shield = scene.player_shields[0].expect("guarding player should expose a shield bubble");
-    let player = scene.players[0];
+    let source_shield_position = frame.player_source_shield_hit_positions[0];
+    let expected_center = scene.transform.world_to_screen(Vec2 {
+        x: mole_core::source_units_to_milli(source_shield_position.x),
+        y: mole_core::source_units_to_milli(source_shield_position.y),
+    });
 
     assert!(scene.player_shields[1].is_none());
-    assert_eq!(shield.center.x, player.x + player.width as i32 / 2);
-    assert_eq!(shield.center.y, player.y + player.height as i32 / 2);
-    assert!(shield.radius > player.width / 2);
-    assert!(shield.radius < player.height);
+    assert_eq!(shield.center, expected_center);
+    assert!(shield.radius > 0);
     assert_eq!(shield.color.a, 96);
+}
+
+#[test]
+fn render_scene_draws_source_shield_from_decomp_center_and_scale() {
+    let common = MeleeCommonData {
+        shield_start_health: 60.0,
+        shield_size_health_scale: 0.15,
+        shield_size_light_min: 1.0,
+        shield_size_light_max: 0.5,
+        ..MeleeCommonData::PROVISIONAL
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let mut player = world.players()[0];
+    player.profile = FighterProfile {
+        reference_character: "captain_falcon",
+        initial_shield_size: 20.0,
+        model_scaling: 0.5,
+        ..FighterProfile::FALCON_LIKE
+    };
+    player.grounded = true;
+    player.shield_health = 30.0;
+    player.lightshield_amount = 0.5;
+    player.source_shield_collision_active = true;
+    player.source_shield_hit_active = true;
+    player.source_shield_hit_position = SourcePosePoint {
+        x: 12.0,
+        y: 34.0,
+        z: 0.0,
+    };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let frame = RenderFrame::from_world(&world);
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    let shield = scene.player_shields[0].expect("active source shield should render a bubble");
+    let expected_center = scene.transform.world_to_screen(Vec2 {
+        x: mole_core::source_units_to_milli(12.0),
+        y: mole_core::source_units_to_milli(34.0),
+    });
+    let health_frac = 30.0_f32 / 60.0_f32;
+    let light_scale = 0.5_f32 * (common.shield_size_light_max - common.shield_size_light_min)
+        + common.shield_size_light_min;
+    let expected_size = ((1.0 - common.shield_size_health_scale) * (health_frac * light_scale)
+        + common.shield_size_health_scale)
+        * 20.0
+        * 0.5;
+    let expected_radius = scene
+        .transform
+        .core_length_to_screen(mole_core::source_units_to_milli(expected_size));
+
+    assert_eq!(
+        shield.center, expected_center,
+        "ftdrawcommon gates shield drawing through shield_hit, so the visible bubble should follow the source shield joint instead of the sprite rectangle"
+    );
+    assert_eq!(
+        shield.radius, expected_radius,
+        "ftCo inlineB0 scales non-Yoshi shields by health/lightshield, then the shield JObj matrix contributes fighter model scale before rendering"
+    );
 }
 
 #[test]
@@ -3580,6 +6424,63 @@ fn render_scene_keeps_cliff_states_visible_with_source_wireframes() {
             "{motion_state:?} should render baked source hurtbox wireframes"
         );
     }
+}
+
+#[test]
+fn render_scene_keeps_shieldbreakfly_body_visible_after_shield_object_clears() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let common = MeleeCommonData {
+        shield_break_reset_health: 30.0,
+        shield_hold_drain: 2.0,
+        shield_hold_lightshield_min: 1.0,
+        shield_hold_lightshield_max: 1.0,
+        ..MeleeCommonData::PROVISIONAL
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let mut player = world.players()[0];
+    player.grounded = true;
+    player.set_motion_state_alias(MotionState::Guard);
+    player.motion_frame = 4;
+    player.set_source_motion_anim_frame(10.0);
+    player.shield_health = 1.0;
+    player.lightshield_amount = 0.0;
+    player.source_shield_collision_active = true;
+    player.source_shield_hit_active = true;
+    player.source_shield_hit_update_pos = true;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    step_world(
+        &mut world,
+        Frame(0),
+        &[
+            PlayerInput::neutral().with_left_trigger_digital(true),
+            PlayerInput::neutral(),
+        ],
+    );
+
+    let frame = RenderFrame::from_world(&world);
+    assert_eq!(frame.player_motion_states[0], MotionState::ShieldBreakFly);
+    assert_eq!(
+        frame.player_source_pose_action_keys[0],
+        Some(SourceActionKey::new("Guard")),
+        "ShieldBreakFly should retain the previous model pose for source body capsules without reinstalling the shield object"
+    );
+
+    let scene = RenderScene::from_frame(&frame, 960, 540);
+    assert!(scene.player_shields[0].is_none());
+    assert!(
+        !scene.player_hurtbox_pills[0].is_empty(),
+        "ftCo_80098B20 clears the shield object, but Fighter_ChangeMotionState no-animation handling must not erase the fighter body model/hurt capsules"
+    );
+
+    let collision = source_collision_frame_from_frame(&frame);
+    assert!(
+        collision
+            .hurts
+            .iter()
+            .any(|hurt| hurt.owner_index == 0 && hurt.capsule_id != SOURCE_SHIELD_HURTBOX_ID),
+        "gameplay source collision should keep body hurt capsules visible during ShieldBreakFly"
+    );
 }
 
 #[test]
@@ -4344,6 +7245,616 @@ fn runtime_source_collision_routes_falcon_dive_hit_through_capture_captain_callb
     assert!(
         step.stages.is_empty() && victim.damage_percent_temp == 0.0,
         "Falcon Dive's contact hitbox is routed through the special capture callback, not generic damage"
+    );
+}
+
+#[test]
+fn runtime_source_collision_routes_falcon_raptor_boost_detect_callback() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 0, y: 0 };
+    attacker.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+    attacker.grounded = true;
+    attacker.facing = 1;
+    attacker.set_motion_state_alias(MotionState::SpecialSStart);
+    attacker.motion_frame = 20;
+    attacker.set_source_motion_anim_frame(21.0);
+    attacker.motion_cmd_var0 = 1;
+    attacker.ground_velocity_x = 3.3760004;
+    attacker.source_self_velocity_x = 3.3760004;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 0, y: 0 };
+    victim.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+    victim.grounded = true;
+    victim.facing = -1;
+    victim.set_motion_state_alias(MotionState::Guard);
+    victim.motion_frame = 5;
+    victim.set_source_motion_anim_frame(5.0);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let mut probe_frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&probe_frame);
+    let mut overlap_position = None;
+    'candidate: for hit in collision_frame
+        .hits
+        .iter()
+        .filter(|hit| hit.owner_index == 0 && hit.hitbox.is_some())
+    {
+        for hurt in collision_frame
+            .hurts
+            .iter()
+            .filter(|hurt| hurt.owner_index == 1)
+        {
+            for hit_point in [hit.capsule.a, hit.capsule.b] {
+                for hurt_point in [hurt.capsule.a, hurt.capsule.b] {
+                    let source_position = SourceVec2 {
+                        x: (hit_point.x - hurt_point.x) / 1_000.0,
+                        y: (hit_point.y - hurt_point.y) / 1_000.0,
+                    };
+                    probe_frame.player_positions[1] = source_position.to_milli();
+                    probe_frame.player_source_positions[1] = source_position;
+                    probe_frame.player_source_previous_positions[1] = source_position;
+                    if source_hit_confirms_from_frame(&probe_frame)
+                        .iter()
+                        .any(|confirm| confirm.attacker_index == 0 && confirm.victim_index == 1)
+                    {
+                        overlap_position = Some(source_position);
+                        break 'candidate;
+                    }
+                }
+            }
+        }
+    }
+    let overlap_position =
+        overlap_position.expect("test fixture should find a Raptor Boost source hit overlap");
+    let mut victim = world.players()[1];
+    victim.position = overlap_position.to_milli();
+    victim.source_position = overlap_position;
+    victim.grounded = true;
+    victim.facing = -1;
+    victim.set_motion_state_alias(MotionState::Guard);
+    victim.motion_frame = 5;
+    victim.set_source_motion_anim_frame(5.0);
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let step = apply_source_collisions_for_world(&mut world);
+    let attacker = world.players()[0];
+
+    assert!(
+        step.geometry_confirms
+            .iter()
+            .any(|confirm| confirm.attacker_index == 0 && confirm.victim_index == 1),
+        "Raptor Boost source hitbox should detect the shielded fighter before ftCa_SpecialS_OnDetect is routed"
+    );
+    assert_eq!(
+        attacker.melee_action_state_id,
+        Some(MeleeActionStateId::new(350)),
+        "ftCa_SpecialS_OnDetect changes grounded SpecialSStart to ftCa_MS_SpecialS"
+    );
+    assert_eq!(
+        attacker.source_action_key,
+        Some(SourceActionKey::new("SpecialS"))
+    );
+    assert_eq!(attacker.motion_state, MotionState::SpecialS);
+    assert!(
+        (attacker.ground_velocity_x - 0.60768014).abs() < 0.00001,
+        "onDetectGround multiplies fp->gr_vel by specials_gr_vel_x; got {}",
+        attacker.ground_velocity_x
+    );
+    assert_eq!(attacker.source_self_velocity_y, 0.0);
+}
+
+#[test]
+fn runtime_source_collision_detects_raptor_boost_against_guard_shield_at_replay_2706() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let mut attacker = world.players()[0];
+    attacker.position = Vec2 { x: 23_228, y: 0 };
+    attacker.source_position = SourceVec2 {
+        x: 23.228433,
+        y: 0.0001,
+    };
+    attacker.grounded = true;
+    attacker.facing = 1;
+    attacker.set_motion_state_alias(MotionState::SpecialSStart);
+    attacker.motion_frame = 20;
+    attacker.set_source_motion_anim_frame(21.0);
+    attacker.motion_cmd_var0 = 1;
+    attacker.ground_velocity_x = 3.376002;
+    attacker.source_self_velocity_x = 3.376002;
+    assert!(world.set_player_state_for_diagnostic(0, attacker));
+    let mut victim = world.players()[1];
+    victim.position = Vec2 { x: 41_930, y: 0 };
+    victim.source_position = SourceVec2 {
+        x: 41.93023,
+        y: 0.0001,
+    };
+    victim.grounded = true;
+    victim.facing = -1;
+    victim.set_motion_state_alias(MotionState::GuardOff);
+    victim.motion_frame = 10;
+    victim.set_source_motion_anim_frame(10.0);
+    victim.shield_health = 59.004993;
+    victim.lightshield_amount = 0.0;
+    assert!(world.set_player_state_for_diagnostic(1, victim));
+
+    let frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&frame);
+    let confirms = source_hit_confirms_from_frame(&frame);
+
+    assert!(
+        confirms
+            .iter()
+            .any(|confirm| confirm.attacker_index == 0 && confirm.victim_index == 1),
+        "source shield collision should detect the 2706 Raptor Boost/GuardOff contact; hits={} hurts={} p1_hits={} p2_hurts={:?} confirms={confirms:?}",
+        collision_frame.hits.len(),
+        collision_frame.hurts.len(),
+        collision_frame.hits.iter().filter(|hit| hit.owner_index == 0).count(),
+        collision_frame
+            .hurts
+            .iter()
+            .filter(|hurt| hurt.owner_index == 1)
+            .map(|hurt| (hurt.capsule_id, hurt.capsule))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn runtime_updates_aimed_guard_shield_position_from_guard_aim_frame_not_motion_playback_frame() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn shield_world_with_aim_angle(angle_degrees: f32) -> World {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = 5;
+        player.set_source_motion_anim_frame(5.0);
+        player.source_shield_hit_active = true;
+        player.source_shield_hit_update_pos = true;
+        player.source_shield_aim_angle_degrees = angle_degrees;
+        player.source_shield_aim_magnitude = 1.0;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let mut other = world.players()[1];
+        other.position = Vec2 { x: 200_000, y: 0 };
+        other.source_position = SourceVec2 { x: 200.0, y: 0.0 };
+        assert!(world.set_player_state_for_diagnostic(1, other));
+        world
+    }
+
+    let shield_held = [
+        PlayerInput::neutral().with_left_trigger_digital(true),
+        PlayerInput::neutral(),
+    ];
+    let mut low_aim = shield_world_with_aim_angle(55.0);
+    let mut high_aim = shield_world_with_aim_angle(200.0);
+
+    step_world_with_source_collision_step(&mut low_aim, Frame(0), &shield_held);
+    step_world_with_source_collision_step(&mut high_aim, Frame(0), &shield_held);
+
+    assert_ne!(
+        low_aim.players()[0].source_shield_hit_position,
+        high_aim.players()[0].source_shield_hit_position,
+        "ftCo_80091E78 poses the shield object from Guard action 38 at mv.co.guard.x8; different shield aim frames must move the hit object center"
+    );
+}
+
+#[test]
+fn runtime_guard_shield_position_blends_aimed_pose_by_shield_magnitude_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn shield_position_with_aim_magnitude(aim_magnitude: f32) -> SourcePosePoint {
+        let mut world = World::for_two_players_with_common_data(MeleeCommonData {
+            shield_aim_smoothing: 0.0,
+            ..MeleeCommonData::provisional_mole()
+        });
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = 5;
+        player.set_source_motion_anim_frame(5.0);
+        player.source_shield_hit_active = true;
+        player.source_shield_hit_update_pos = true;
+        player.source_shield_aim_angle_degrees = 200.0;
+        player.source_shield_aim_magnitude = aim_magnitude;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let shield_held = [
+            PlayerInput::neutral().with_left_trigger_digital(true),
+            PlayerInput::neutral(),
+        ];
+        step_world_with_source_collision_step(&mut world, Frame(0), &shield_held);
+        world.players()[0].source_shield_hit_position
+    }
+
+    let base = shield_position_with_aim_magnitude(0.0);
+    let quarter = shield_position_with_aim_magnitude(0.25);
+    let full = shield_position_with_aim_magnitude(1.0);
+    let base_to_quarter = ((base.x - quarter.x).abs()
+        + (base.y - quarter.y).abs()
+        + (base.z - quarter.z).abs()) as f64;
+    let base_to_full =
+        ((base.x - full.x).abs() + (base.y - full.y).abs() + (base.z - full.z).abs()) as f64;
+
+    assert!(
+        base_to_quarter > 0.0 && base_to_full > base_to_quarter,
+        "ftCo_80091E78 blends the aimed Guard pose by mv.co.guard.x4 before updating the shield object center"
+    );
+    assert!(
+        base_to_quarter < base_to_full * 0.75,
+        "partial shield aim should not move the shield object as far as full shield aim; base_to_quarter={base_to_quarter}, base_to_full={base_to_full}"
+    );
+}
+
+#[test]
+fn runtime_guard_neutral_stick_does_not_play_guard_direction_table_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn shield_position_for_guard_playback_frame(playback_frame: f32) -> SourcePosePoint {
+        let mut world = World::for_two_players_with_common_data(MeleeCommonData {
+            shield_aim_smoothing: 0.0,
+            ..MeleeCommonData::provisional_mole()
+        });
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = playback_frame as u8;
+        player.set_source_motion_anim_frame(playback_frame);
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_hit_update_pos = true;
+        player.source_shield_aim_angle_degrees = 10.0;
+        player.source_shield_aim_magnitude = 0.0;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let shield_held = [
+            PlayerInput::neutral().with_left_trigger_digital(true),
+            PlayerInput::neutral(),
+        ];
+        step_world_with_source_collision_step(&mut world, Frame(0), &shield_held);
+        world.players()[0].source_shield_hit_position
+    }
+
+    let early = shield_position_for_guard_playback_frame(1.0);
+    let late = shield_position_for_guard_playback_frame(19.0);
+
+    assert_eq!(
+        early, late,
+        "ftCo_80091E78 only samples Guard action 38 as a direction table when mv.co.guard.x4 is nonzero; neutral stick must not cycle shield position through Guard playback frames"
+    );
+}
+
+#[test]
+fn render_guard_neutral_stick_wireframe_does_not_play_guard_direction_table_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn scene_for_guard_playback_frame(playback_frame: f32) -> RenderScene {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = playback_frame as u8;
+        player.set_source_motion_anim_frame(playback_frame);
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_aim_angle_degrees = 10.0;
+        player.source_shield_aim_magnitude = 0.0;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let mut other = world.players()[1];
+        other.position = Vec2 { x: 200_000, y: 0 };
+        other.source_position = SourceVec2 { x: 200.0, y: 0.0 };
+        assert!(world.set_player_state_for_diagnostic(1, other));
+
+        RenderScene::from_frame(&RenderFrame::from_world(&world), 960, 540)
+    }
+
+    let early = scene_for_guard_playback_frame(1.0);
+    let late = scene_for_guard_playback_frame(19.0);
+
+    assert_eq!(
+        early.player_hurtbox_pills[0], late.player_hurtbox_pills[0],
+        "ftCo_80091E78 keeps neutral shield pose on the non-directional branch; the wireframe/hurt capsules must not cycle through Guard action 38 while mv.co.guard.x4 is zero"
+    );
+}
+
+#[test]
+fn render_guard_hurtbox_wireframe_uses_aimed_guard_pose_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn frame_with_guard_aim(angle_degrees: f32) -> RenderFrame {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = 5;
+        player.set_source_motion_anim_frame(5.0);
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_aim_angle_degrees = angle_degrees;
+        player.source_shield_aim_magnitude = 1.0;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let mut other = world.players()[1];
+        other.position = Vec2 { x: 200_000, y: 0 };
+        other.source_position = SourceVec2 { x: 200.0, y: 0.0 };
+        assert!(world.set_player_state_for_diagnostic(1, other));
+        RenderFrame::from_world(&world)
+    }
+
+    let low_aim_scene = RenderScene::from_frame(&frame_with_guard_aim(55.0), 960, 540);
+    let high_aim_scene = RenderScene::from_frame(&frame_with_guard_aim(200.0), 960, 540);
+
+    assert!(
+        !low_aim_scene.player_hurtbox_pills[0].is_empty()
+            && !high_aim_scene.player_hurtbox_pills[0].is_empty(),
+        "Guard should expose source hurt capsules for shield-aim pose verification"
+    );
+    assert_ne!(
+        low_aim_scene.player_hurtbox_pills[0],
+        high_aim_scene.player_hurtbox_pills[0],
+        "ftCo_80091E78 samples Guard action 38 at mv.co.guard.x8 before animating TransN; aimed shield wireframe/hurt capsules must follow that posed skeleton, not the ordinary Guard playback frame"
+    );
+}
+
+#[test]
+fn render_guard_hurtbox_wireframe_blends_aimed_pose_by_shield_magnitude_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn scene_with_guard_aim(angle_degrees: f32, aim_magnitude: f32) -> RenderScene {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = 5;
+        player.set_source_motion_anim_frame(5.0);
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_aim_angle_degrees = angle_degrees;
+        player.source_shield_aim_magnitude = aim_magnitude;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let mut other = world.players()[1];
+        other.position = Vec2 { x: 200_000, y: 0 };
+        other.source_position = SourceVec2 { x: 200.0, y: 0.0 };
+        assert!(world.set_player_state_for_diagnostic(1, other));
+
+        RenderScene::from_frame(&RenderFrame::from_world(&world), 960, 540)
+    }
+
+    fn source_capsule_delta(left: &[RenderCapsule], right: &[RenderCapsule]) -> f64 {
+        left.iter()
+            .zip(right.iter())
+            .map(|(left, right)| {
+                (left.source.a.x - right.source.a.x).abs()
+                    + (left.source.a.y - right.source.a.y).abs()
+                    + (left.source.a.z - right.source.a.z).abs()
+                    + (left.source.b.x - right.source.b.x).abs()
+                    + (left.source.b.y - right.source.b.y).abs()
+                    + (left.source.b.z - right.source.b.z).abs()
+            })
+            .sum()
+    }
+
+    let base_scene = scene_with_guard_aim(200.0, 0.0);
+    let quarter_scene = scene_with_guard_aim(200.0, 0.25);
+    let full_scene = scene_with_guard_aim(200.0, 1.0);
+    let base_to_quarter = source_capsule_delta(
+        &base_scene.player_hurtbox_pills[0],
+        &quarter_scene.player_hurtbox_pills[0],
+    );
+    let base_to_full = source_capsule_delta(
+        &base_scene.player_hurtbox_pills[0],
+        &full_scene.player_hurtbox_pills[0],
+    );
+
+    assert!(
+        base_to_quarter > 0.0 && base_to_full > base_to_quarter,
+        "ftCo_80091E78 uses mv.co.guard.x4 as the Guard-pose blend weight; a partial shield aim magnitude must not snap to the full aimed skeleton"
+    );
+    assert!(
+        base_to_quarter < base_to_full * 0.75,
+        "partial shield aim should stay closer to the ordinary Guard pose than to the fully aimed Guard pose; base_to_quarter={base_to_quarter}, base_to_full={base_to_full}"
+    );
+}
+
+#[test]
+fn source_collision_guard_hurt_capsules_use_aimed_guard_pose_like_ftco_80091e78() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+
+    fn body_hurts_with_guard_aim(angle_degrees: f32) -> Vec<SourceCollisionCapsule> {
+        let mut world = World::for_two_players();
+        let mut player = world.players()[0];
+        player.position = Vec2 { x: 0, y: 0 };
+        player.source_position = SourceVec2 { x: 0.0, y: 0.0 };
+        player.source_position_z = 0.0;
+        player.grounded = true;
+        player.facing = 1;
+        player.set_motion_state_alias(MotionState::Guard);
+        player.motion_frame = 5;
+        player.set_source_motion_anim_frame(5.0);
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_aim_angle_degrees = angle_degrees;
+        player.source_shield_aim_magnitude = 1.0;
+        assert!(world.set_player_state_for_diagnostic(0, player));
+
+        let mut other = world.players()[1];
+        other.position = Vec2 { x: 200_000, y: 0 };
+        other.source_position = SourceVec2 { x: 200.0, y: 0.0 };
+        assert!(world.set_player_state_for_diagnostic(1, other));
+
+        source_collision_frame_from_frame(&RenderFrame::from_world(&world))
+            .hurts
+            .into_iter()
+            .filter(|hurt| hurt.owner_index == 0 && hurt.capsule_id != SOURCE_SHIELD_HURTBOX_ID)
+            .collect()
+    }
+
+    let low_aim_hurts = body_hurts_with_guard_aim(55.0);
+    let high_aim_hurts = body_hurts_with_guard_aim(200.0);
+
+    assert!(
+        !low_aim_hurts.is_empty() && !high_aim_hurts.is_empty(),
+        "Guard should expose source body hurt capsules for shield-aim collision verification"
+    );
+    assert_ne!(
+        low_aim_hurts, high_aim_hurts,
+        "ftCo_80091E78 samples Guard action 38 at mv.co.guard.x8 before hit processing; gameplay hurt capsules must follow the same aimed skeleton as the shield object"
+    );
+}
+
+#[test]
+fn runtime_source_shield_collision_uses_x221b_b0_gate_not_stale_hit_object_position() {
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.grounded = true;
+    player.set_motion_state_alias(MotionState::GuardOff);
+    player.source_shield_collision_active = false;
+    player.source_shield_hit_active = true;
+    player.source_shield_hit_update_pos = false;
+    player.source_shield_hit_position = SourcePosePoint {
+        x: 0.0,
+        y: 8.0,
+        z: 0.0,
+    };
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&frame);
+
+    assert!(
+        !collision_frame
+            .hurts
+            .iter()
+            .any(|hurt| hurt.owner_index == 0 && hurt.capsule_id == SOURCE_SHIELD_HURTBOX_ID),
+        "ftcoll.c gates shield collision on fp->x221B_b0; a stale shield_hit position must not export a live shield hurtbox"
+    );
+}
+
+#[test]
+fn runtime_source_shield_collision_scales_radius_by_fighter_model_scale() {
+    let common = MeleeCommonData {
+        shield_start_health: 60.0,
+        shield_size_health_scale: 0.15,
+        shield_size_light_min: 1.0,
+        shield_size_light_max: 0.6,
+        ..MeleeCommonData::PROVISIONAL
+    };
+    let mut world = World::for_two_players_with_common_data(common);
+    let mut player = world.players()[0];
+    player.profile = FighterProfile {
+        reference_character: "captain_falcon",
+        initial_shield_size: 20.0,
+        model_scaling: 0.5,
+        ..FighterProfile::FALCON_LIKE
+    };
+    player.grounded = true;
+    player.shield_health = common.shield_start_health;
+    player.lightshield_amount = 0.0;
+    player.source_shield_collision_active = true;
+    player.source_shield_hit_active = true;
+    player.source_shield_hit_position = Default::default();
+    assert!(world.set_player_state_for_diagnostic(0, player));
+
+    let frame = RenderFrame::from_world(&world);
+    let collision_frame = source_collision_frame_from_frame(&frame);
+    let shield_radius = collision_frame
+        .hurts
+        .iter()
+        .find(|hurt| hurt.owner_index == 0 && hurt.capsule_id == SOURCE_SHIELD_HURTBOX_ID)
+        .expect("active shield should expose a source shield hurt capsule")
+        .capsule
+        .radius;
+
+    assert_eq!(
+        shield_radius, 10_000.0,
+        "lbColl_80007BCC tests the shield desc through the shield JObj matrix, so the collision radius includes the fighter model scale as well as inlineB0's local shield scale"
+    );
+}
+
+#[test]
+fn runtime_source_shield_size_uses_yoshi_initial_size_branch_like_ftco_inlineb0() {
+    let common = MeleeCommonData {
+        shield_start_health: 60.0,
+        shield_size_health_scale: 0.15,
+        shield_size_light_min: 1.0,
+        shield_size_light_max: 0.6,
+        ..MeleeCommonData::PROVISIONAL
+    };
+
+    fn shield_radius_for_profile(common: MeleeCommonData, profile: FighterProfile) -> f32 {
+        let mut world = World::for_two_players_with_common_data(common);
+        let mut player = world.players()[0];
+        player.profile = profile;
+        player.grounded = true;
+        player.shield_health = 12.0;
+        player.lightshield_amount = 0.75;
+        player.source_shield_collision_active = true;
+        player.source_shield_hit_active = true;
+        player.source_shield_hit_position = Default::default();
+        assert!(world.set_player_state_for_diagnostic(0, player));
+        let frame = mole_runtime::RenderFrame::from_world(&world);
+        let collision_frame = source_collision_frame_from_frame(&frame);
+        collision_frame
+            .hurts
+            .iter()
+            .find(|hurt| hurt.owner_index == 0 && hurt.capsule_id == SOURCE_SHIELD_HURTBOX_ID)
+            .expect("active shield should expose a source shield hurt capsule")
+            .capsule
+            .radius
+    }
+
+    let normal_radius = shield_radius_for_profile(
+        common,
+        FighterProfile {
+            reference_character: "captain_falcon",
+            initial_shield_size: 20.0,
+            model_scaling: 0.5,
+            ..FighterProfile::FALCON_LIKE
+        },
+    );
+    let yoshi_radius = shield_radius_for_profile(
+        common,
+        FighterProfile {
+            reference_character: "yoshi",
+            initial_shield_size: 20.0,
+            model_scaling: 0.5,
+            ..FighterProfile::FALCON_LIKE
+        },
+    );
+
+    assert!(normal_radius < yoshi_radius);
+    assert_eq!(
+        yoshi_radius, 10_000.0,
+        "ftCo inlineB0 hard-returns initial_shield_size for FTKIND_YOSHI before the shield JObj matrix contributes fighter model scale"
     );
 }
 
@@ -5495,6 +9006,126 @@ fn motion_visual_changes_keep_sprite_anchor_at_character_position() {
 }
 
 #[test]
+fn render_source_selection_reports_escape_air_action_44_for_authoritative_capsules() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+    frame.player_motion_states[0] = MotionState::EscapeAir;
+    frame.player_source_pose_motion_states[0] = MotionState::EscapeAir;
+    frame.player_source_pose_action_state_ids[0] = Some(MeleeActionStateId::new(236));
+    frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new("EscapeAir"));
+    frame.player_source_action_keys[0] = Some(SourceActionKey::new("EscapeAir"));
+    frame.player_source_pose_frames[0] = 11;
+    frame.player_source_motion_anim_frames[0] = 10.0;
+
+    let hitbox = render_source_hitbox_selection(&frame, 0);
+    let hurtbox = render_source_hurtbox_selection(&frame, 0);
+
+    assert_eq!(
+        hitbox.source_action_key,
+        Some(SourceActionKey::new("EscapeAir"))
+    );
+    assert_eq!(
+        hurtbox.source_action_key,
+        Some(SourceActionKey::new("EscapeAir"))
+    );
+    assert_eq!(hitbox.source_frame, 11);
+    assert_eq!(hurtbox.source_frame, 11);
+}
+
+#[test]
+fn render_source_selection_reports_landing_and_landing_air_aliases() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+
+    for (motion_state, action_state_id, source_key) in [
+        (MotionState::Landing, 42, "Landing"),
+        (MotionState::LandingFallSpecial, 43, "Landing"),
+        (MotionState::LandingAirN, 70, "LandingAirN"),
+        (MotionState::LandingAirF, 71, "LandingAirF"),
+        (MotionState::LandingAirB, 72, "LandingAirB"),
+        (MotionState::LandingAirHi, 73, "LandingAirHi"),
+        (MotionState::LandingAirLw, 74, "LandingAirLw"),
+    ] {
+        frame.player_motion_states[0] = motion_state;
+        frame.player_source_pose_motion_states[0] = motion_state;
+        frame.player_source_pose_action_state_ids[0] =
+            Some(MeleeActionStateId::new(action_state_id));
+        frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new(source_key));
+        frame.player_source_action_keys[0] = Some(SourceActionKey::new(source_key));
+        frame.player_source_pose_frames[0] = 6;
+        frame.player_source_motion_anim_frames[0] = 5.0;
+
+        let selection = render_source_hurtbox_selection(&frame, 0);
+        assert_eq!(
+            selection.source_action_key,
+            Some(SourceActionKey::new(source_key)),
+            "{motion_state:?} must render authoritative source capsules from {source_key}"
+        );
+        assert_eq!(selection.source_frame, 6);
+    }
+}
+
+#[test]
+fn render_source_selection_reports_source_only_jab_grab_throw_capture_actions() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let world = World::for_two_players();
+    let mut frame = RenderFrame::from_world(&world);
+
+    for (action_state_id, source_key) in [
+        (45, "Attack12"),
+        (46, "Attack13"),
+        (47, "Attack100Start"),
+        (48, "Attack100Loop"),
+        (49, "Attack100End"),
+        (216, "CatchWait"),
+        (217, "CatchAttack"),
+        (218, "CatchCut"),
+        (219, "ThrowF"),
+        (220, "ThrowB"),
+        (221, "ThrowHi"),
+        (222, "ThrowLw"),
+        (223, "CapturePulledHi"),
+        (224, "CaptureWaitHi"),
+        (225, "CaptureDamageHi"),
+        (226, "CapturePulledLw"),
+        (227, "CaptureWaitLw"),
+        (228, "CaptureDamageLw"),
+        (229, "CaptureCut"),
+        (230, "CaptureJump"),
+        (239, "TCaptainThrowF"),
+        (240, "TCaptainThrowB"),
+        (241, "TCaptainThrowHi"),
+        (242, "TCaptainThrowLw"),
+        (275, "TCaptainSpecialHi"),
+    ] {
+        frame.player_source_pose_action_state_ids[0] =
+            Some(MeleeActionStateId::new(action_state_id));
+        frame.player_source_pose_action_keys[0] = Some(SourceActionKey::new(source_key));
+        frame.player_source_action_keys[0] = Some(SourceActionKey::new(source_key));
+        frame.player_source_pose_frames[0] = 4;
+        frame.player_source_motion_anim_frames[0] = 3.0;
+
+        let hitbox = render_source_hitbox_selection(&frame, 0);
+        let hurtbox = render_source_hurtbox_selection(&frame, 0);
+
+        assert_eq!(
+            hitbox.source_action_key,
+            Some(SourceActionKey::new(source_key)),
+            "source hitboxes must stay keyed to source-only action {action_state_id}/{source_key}"
+        );
+        assert_eq!(
+            hurtbox.source_action_key,
+            Some(SourceActionKey::new(source_key)),
+            "source hurtboxes must stay keyed to source-only action {action_state_id}/{source_key}"
+        );
+        assert_eq!(hitbox.source_frame, 4);
+        assert_eq!(hurtbox.source_frame, 4);
+    }
+}
+
+#[test]
 fn turn_run_capsule_projection_uses_model_entry_facing_not_mid_action_gameplay_facing() {
     let world = World::for_two_players();
     let mut frame = RenderFrame::from_world(&world);
@@ -5609,6 +9240,45 @@ fn special_air_hi_capsules_render_after_melee_transn_reset() {
         first_hurtbox.a,
         scene.transform.world_to_screen(expected_world_a),
         "Falcon Up-B render capsules must use the same decomp TransN reset as the core fighter root, not an additional live-root offset"
+    );
+}
+
+#[test]
+fn special_air_hi_hit_collision_uses_melee_transn_reset() {
+    preload_runtime_source_frame_data().expect("runtime source frame data should preload");
+    let mut world = World::for_two_players();
+    let mut player = world.players()[0];
+    player.motion_state = MotionState::SpecialAirHi;
+    player.motion_frame = 13;
+    player.motion_anim_frame_milli = 13_000;
+    player.source_position = SourceVec2 { x: 12.0, y: 24.0 };
+    player.position = player.source_position.to_milli();
+    player.facing = 1;
+    player.grounded = false;
+    assert!(world.set_player_state_for_diagnostic(0, player));
+    let frame = RenderFrame::from_world(&world);
+
+    let rendered = RenderScene::from_frame(&frame, 960, 540).player_hitbox_pills[0][0];
+    let collision = source_collision_frame_from_frame(&frame)
+        .hits
+        .into_iter()
+        .find(|hit| hit.owner_index == 0)
+        .expect("Falcon Up-B should expose its active source catch capsule");
+    let transn = mole_core::source_root_motion_position(
+        MotionState::SpecialAirHi,
+        frame.player_source_pose_frames[0],
+    )
+    .expect("SpecialAirHi source pose should expose TransN root position");
+    let expected_b_x = frame.player_source_positions[0].x * 1_000.0
+        + (rendered.source.b.x as f32 - transn.z) * 1_000.0;
+    let expected_b_y = frame.player_source_positions[0].y * 1_000.0
+        + (rendered.source.b.y as f32 - transn.y) * 1_000.0;
+
+    assert!(
+        (collision.capsule.b.x - expected_b_x).abs() <= 0.5
+            && (collision.capsule.b.y - expected_b_y).abs() <= 0.5,
+        "ftAnim_8006E054 clears TransN before hit collision reads the live JObj pose; collision={:?}, expected_b=({expected_b_x}, {expected_b_y})",
+        collision.capsule
     );
 }
 
@@ -6051,6 +9721,23 @@ fn friend_connect_main_debug_overlay_is_opt_in_for_playtest_performance() {
         .expect("Friend Connect SDL body should be present");
     assert!(!friend_connect_body.contains("Some(&overlay)"));
     assert!(friend_connect_body.contains("overlay.as_ref()"));
+}
+
+#[test]
+fn visual_slippi_replay_runtime_uses_zero_delay_diagnostic_stop_gate() {
+    let source =
+        std::fs::read_to_string(project_asset_root().join("crates/mole_runtime/src/main.rs"))
+            .expect("runtime main source should be readable");
+    let sdl_runtime_body = source
+        .split("fn run_sdl_smoke(")
+        .nth(1)
+        .and_then(|body| body.split("fn write_visual_slippi_divergence_log(").next())
+        .expect("SDL runtime body should be present");
+
+    assert!(
+        sdl_runtime_body.contains("SlippiVisualReplayDivergenceGate::new(0)"),
+        "visual replay should not add a realignment delay; mixed-phase/cascade suppression belongs inside the diagnostic stop gate"
+    );
 }
 
 #[test]

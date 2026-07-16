@@ -15,6 +15,8 @@ use std::sync::{
 #[cfg(feature = "wup")]
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(all(feature = "sdl", feature = "wup"))]
+use mole_core::World;
 use mole_core::{Frame, PlayerInput};
 #[cfg(all(feature = "sdl", feature = "wup"))]
 use mole_rollback::{RollbackSession, SlippiDelayedInput, SlippiInputDelayBuffer};
@@ -2952,12 +2954,12 @@ fn run_sdl_smoke(
     let texture_creator = canvas.texture_creator();
     let mut texture_cache =
         SdlTextureCache::new(&texture_creator, mole_runtime::project_asset_root());
-    let visual_slippi_frames =
+    let visual_slippi_replay =
         load_visual_slippi_replay_frames(visual_slippi_source.as_ref(), frames)?;
     let frames_to_run = if visual_slippi_source.is_some() && frames == u32::MAX {
-        visual_slippi_frames
+        visual_slippi_replay
             .as_ref()
-            .map(|frames| frames.len() as u32)
+            .map(|replay| replay.frames.len() as u32)
             .unwrap_or(frames)
     } else {
         frames
@@ -2966,16 +2968,17 @@ fn run_sdl_smoke(
     let mut sdl_shell_input = SdlInputSource::new(&sdl)?;
     let mut gameplay_input_source = open_optional_wup_input_source(ucf_enabled, "local SDL");
     let mut input_trace_writer = create_input_trace_writer(input_trace)?;
-    let initial = if visual_platform_ledge_probe {
+    let initial = if let Some(replay) = visual_slippi_replay.as_ref() {
+        replay.initial_world.clone()
+    } else if visual_platform_ledge_probe {
         mole_runtime::visual_platform_ledge_probe_world()
     } else {
         mole_runtime::default_play_world()
     };
     let mut world = initial.clone();
     let mut replay_capture = replay_path.map(|_| mole_runtime::ReplayCapture::new(initial));
-    let mut visual_slippi_divergence_gate = mole_runtime::SlippiVisualReplayDivergenceGate::new(
-        mole_runtime::SlippiCoreDivergenceScanConfig::default().lookahead_frames,
-    );
+    let mut visual_slippi_divergence_gate = mole_runtime::SlippiVisualReplayDivergenceGate::new(0);
+    let mut visual_slippi_stop_divergence = None;
     let mut timing_stats = SdlFrameTimingStats::default();
     let _timer_resolution = request_high_resolution_frame_timer();
     let frame_budget = frame_pacing_budget_duration();
@@ -2992,9 +2995,10 @@ fn run_sdl_smoke(
             .map(|_| mole_runtime::RenderFrame::from_world(&world));
         let (inputs, wup_trace) = if visual_platform_ledge_probe {
             ([PlayerInput::neutral(); 2], None)
-        } else if let Some(slippi_frames) = visual_slippi_frames.as_ref() {
+        } else if let Some(slippi_replay) = visual_slippi_replay.as_ref() {
             (
-                slippi_frames
+                slippi_replay
+                    .frames
                     .get(frame.0 as usize)
                     .map(|slippi_frame| slippi_frame.inputs)
                     .unwrap_or([PlayerInput::neutral(); 2]),
@@ -3020,11 +3024,11 @@ fn run_sdl_smoke(
         let mut stop_after_draw = false;
         let scene_started = Instant::now();
         let render_frame = mole_runtime::RenderFrame::from_world(&world);
-        if let (Some(slippi_frames), Some(log_path)) = (
-            visual_slippi_frames.as_ref(),
+        if let (Some(slippi_replay), Some(log_path)) = (
+            visual_slippi_replay.as_ref(),
             slippi_divergence_log_path.as_ref(),
         ) {
-            if let Some(slippi_frame) = slippi_frames.get(frame.0 as usize) {
+            if let Some(slippi_frame) = slippi_replay.frames.get(frame.0 as usize) {
                 let divergence = mole_runtime::slippi_visual_replay_divergence_for_frame(
                     slippi_frame,
                     world.snapshot(),
@@ -3044,6 +3048,7 @@ fn run_sdl_smoke(
                         divergence.player_index + 1,
                         divergence.kind
                     );
+                    visual_slippi_stop_divergence = Some(divergence);
                     stop_after_draw = true;
                 }
             }
@@ -3062,7 +3067,8 @@ fn run_sdl_smoke(
                 ))
                 .map_err(|error| error.to_string())?;
         }
-        let overlay = debug_overlay.then(|| DebugOverlay::from_frame(&render_frame));
+        let overlay = runtime_debug_overlay_enabled(debug_overlay, visual_slippi_source.is_some())
+            .then(|| DebugOverlay::from_frame(&render_frame));
         let (width, height) = canvas.output_size().map_err(|error| error.to_string())?;
         let scene =
             RenderScene::from_frame_with_camera(&render_frame, width, height, &mut render_camera);
@@ -3089,9 +3095,9 @@ fn run_sdl_smoke(
                 .as_ref()
                 .expect("checked screenshot request");
             save_sdl_canvas_png(&canvas, &request.path)?;
-            let source_frame = visual_slippi_frames
+            let source_frame = visual_slippi_replay
                 .as_ref()
-                .and_then(|slippi_frames| slippi_frames.get(frame.0 as usize))
+                .and_then(|replay| replay.frames.get(frame.0 as usize))
                 .map(|slippi_frame| slippi_frame.source_frame);
             println!(
                 "screenshot_path={} frame={} source_frame={}",
@@ -3138,6 +3144,15 @@ fn run_sdl_smoke(
         world.checksum(),
         sdl_shell_input.gamepad_count()
     );
+    if let Some(divergence) = visual_slippi_stop_divergence.as_ref() {
+        println!(
+            "slippi_stop_summary source_frame={} core_frame={} player=P{} kind={:?}",
+            divergence.source_frame,
+            divergence.core_frame.0,
+            divergence.player_index + 1,
+            divergence.kind
+        );
+    }
     if timing {
         println!("{}", timing_stats.summary_json(frame_cap_enabled));
     }
@@ -3172,6 +3187,7 @@ fn write_visual_slippi_divergence_log(
         "left_trigger": row.input_left_trigger,
         "right_trigger": row.input_right_trigger,
         "ucf_dashback_amendment": row.input_ucf_dashback_amendment,
+        "ucf_shield_drop_amendment": row.input_ucf_shield_drop_amendment,
     });
     let row_json = serde_json::json!({
         "core_frame": row.core_frame.0,
@@ -3222,6 +3238,7 @@ fn write_visual_slippi_divergence_log(
         "actual_source_knockback_velocity_x": row.actual_source_knockback_velocity_x,
         "actual_source_knockback_velocity_y": row.actual_source_knockback_velocity_y,
         "actual_source_ground_knockback_velocity": row.actual_source_ground_knockback_velocity,
+        "actual_floor_skip_surface": row.actual_floor_skip_surface,
         "actual_source_floor_surface": row.actual_source_floor_surface,
         "actual_source_floor_line": row.actual_source_floor_line,
         "actual_source_coll_env_flags": row.actual_source_coll_env_flags,
@@ -3257,9 +3274,15 @@ fn write_visual_slippi_divergence_log(
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
+fn runtime_debug_overlay_enabled(debug_overlay: bool, visual_slippi_replay_active: bool) -> bool {
+    debug_overlay || visual_slippi_replay_active
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn slippi_divergence_kind_label(kind: mole_runtime::SlippiCoreDivergenceKind) -> &'static str {
     match kind {
         mole_runtime::SlippiCoreDivergenceKind::UnsupportedState => "unsupported_state",
+        mole_runtime::SlippiCoreDivergenceKind::MixedPhaseWitness => "mixed_phase_witness",
         mole_runtime::SlippiCoreDivergenceKind::StateMismatch => "state_mismatch",
         mole_runtime::SlippiCoreDivergenceKind::PositionDrift => "position_drift",
         mole_runtime::SlippiCoreDivergenceKind::VelocityDrift => "velocity_drift",
@@ -3267,10 +3290,16 @@ fn slippi_divergence_kind_label(kind: mole_runtime::SlippiCoreDivergenceKind) ->
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
+struct LoadedVisualSlippiReplay {
+    initial_world: World,
+    frames: Vec<mole_runtime::SlippiVisualReplayFrame>,
+}
+
+#[cfg(all(feature = "sdl", feature = "wup"))]
 fn load_visual_slippi_replay_frames(
     source: Option<&VisualSlippiSource>,
     frames: u32,
-) -> Result<Option<Vec<mole_runtime::SlippiVisualReplayFrame>>, String> {
+) -> Result<Option<LoadedVisualSlippiReplay>, String> {
     let Some(source) = source else {
         return Ok(None);
     };
@@ -3280,9 +3309,14 @@ fn load_visual_slippi_replay_frames(
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?,
         VisualSlippiSource::ReplayPath(path) => export_visual_slippi_replay_json(path, max_frames)?,
     };
+    let initial_world = mole_runtime::slippi_match_start_world_from_export(&text)
+        .map_err(|error| error.to_string())?;
     let frames = mole_runtime::slippi_visual_replay_inputs_from_match_start(&text, max_frames)
         .map_err(|error| error.to_string())?;
-    Ok(Some(frames))
+    Ok(Some(LoadedVisualSlippiReplay {
+        initial_world,
+        frames,
+    }))
 }
 
 #[cfg(all(feature = "sdl", feature = "wup"))]
@@ -3878,7 +3912,7 @@ fn draw_debug_overlay(canvas: &mut WindowCanvas, overlay: &DebugOverlay) -> Resu
         draw_sdl_label(canvas, line, x, 18 + index as i32 * 18, 3, state_color)?;
     }
 
-    let color = Color::RGBA(235, 240, 248, 255);
+    let color = state_color;
     for (index, line) in overlay.lines.iter().enumerate() {
         draw_sdl_label(canvas, line, 12, 12 + index as i32 * 18, 3, color)?;
     }
@@ -4404,6 +4438,15 @@ mod tests {
             "--hold-final-frame".to_string()
         ]));
         assert!(!super::parse_hold_final_frame(&["--sdl".to_string()]));
+    }
+
+    #[cfg(all(feature = "sdl", feature = "wup"))]
+    #[test]
+    fn runtime_debug_overlay_is_automatic_for_visual_slippi_replay() {
+        assert!(super::runtime_debug_overlay_enabled(false, true));
+        assert!(super::runtime_debug_overlay_enabled(true, true));
+        assert!(super::runtime_debug_overlay_enabled(true, false));
+        assert!(!super::runtime_debug_overlay_enabled(false, false));
     }
 
     #[cfg(all(feature = "sdl", feature = "wup"))]

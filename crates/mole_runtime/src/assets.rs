@@ -269,7 +269,12 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::CatchDash
         | MotionState::Squat
         | MotionState::SquatWait
-        | MotionState::SquatRv => LegacyAnimationKey::Standing,
+        | MotionState::SquatRv
+        | MotionState::ShieldBreakDownU
+        | MotionState::ShieldBreakDownD
+        | MotionState::ShieldBreakStandU
+        | MotionState::ShieldBreakStandD
+        | MotionState::Furafura => LegacyAnimationKey::Standing,
         MotionState::WalkSlow | MotionState::WalkMiddle | MotionState::WalkFast => {
             LegacyAnimationKey::Walking
         }
@@ -291,6 +296,7 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::FallAerial
         | MotionState::FallAerialF
         | MotionState::FallAerialB
+        | MotionState::DamageFall
         | MotionState::Pass
         | MotionState::AttackAirN
         | MotionState::AttackAirF
@@ -309,6 +315,8 @@ pub fn legacy_animation_for_motion_state(motion_state: MotionState) -> LegacyAni
         | MotionState::CliffJumpSlow2
         | MotionState::CliffJumpQuick1
         | MotionState::CliffJumpQuick2
+        | MotionState::ShieldBreakFly
+        | MotionState::ShieldBreakFall
         | MotionState::SpecialAirN
         | MotionState::SpecialAirSStart
         | MotionState::SpecialAirS

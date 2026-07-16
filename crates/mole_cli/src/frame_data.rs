@@ -1307,7 +1307,8 @@ struct RuntimeFigatreeChunkExport {
 
 #[derive(Debug, Clone)]
 struct RuntimeStateBindingExport {
-    action_state_id: u64,
+    melee_motion_state_id: Option<u64>,
+    source_action_table_index: u64,
     runtime_motion_state: Option<String>,
     source_action_key: String,
 }
@@ -1421,10 +1422,16 @@ impl RuntimeSourceExportModule {
                         source_only_action_count += 1;
                         continue;
                     };
-                    let action_state_id = u64::from(source_binding.action_state_id.get());
-                    if state_binding_ids.insert(action_state_id) {
+                    let melee_motion_state_id = source_binding
+                        .melee_motion_state_id
+                        .map(|id| u64::from(id.get()));
+                    let source_action_table_index =
+                        u64::from(source_binding.source_action_table_index.get());
+                    if state_binding_ids.insert((melee_motion_state_id, source_action_table_index))
+                    {
                         state_bindings.push(RuntimeStateBindingExport {
-                            action_state_id,
+                            melee_motion_state_id,
+                            source_action_table_index,
                             runtime_motion_state: Some(runtime_motion_state.to_string()),
                             source_action_key: source_binding
                                 .source_action_key
@@ -1454,9 +1461,10 @@ impl RuntimeSourceExportModule {
                         )
                     },
                 )?;
-            let source_action_table_id = u64::from(source_binding.source_action_table_id);
+            let source_action_table_index =
+                u64::from(source_binding.source_action_table_index.get());
             let source_action_key = source_binding.source_action_key.as_str();
-            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_index)?;
             add_runtime_manifest_action(
                 &plcaaj_path,
                 action,
@@ -1473,10 +1481,13 @@ impl RuntimeSourceExportModule {
             {
                 source_only_action_count = source_only_action_count.saturating_sub(1);
             }
-            let action_state_id = u64::from(source_binding.action_state_id.get());
-            if state_binding_ids.insert(action_state_id) {
+            let melee_motion_state_id = source_binding
+                .melee_motion_state_id
+                .map(|id| u64::from(id.get()));
+            if state_binding_ids.insert((melee_motion_state_id, source_action_table_index)) {
                 state_bindings.push(RuntimeStateBindingExport {
-                    action_state_id,
+                    melee_motion_state_id,
+                    source_action_table_index,
                     runtime_motion_state: Some((*runtime_motion_state).to_string()),
                     source_action_key: source_action_key.to_string(),
                 });
@@ -1488,8 +1499,8 @@ impl RuntimeSourceExportModule {
             if state_filter.is_some_and(|state_filter| state_filter != source_action_key) {
                 continue;
             }
-            let source_action_table_id = u64::from(source_binding.source_action_table_id);
-            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            let source_action_table_index = u64::from(source_binding.source_action_table_id);
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_index)?;
             add_runtime_manifest_action(
                 &plcaaj_path,
                 action,
@@ -1499,10 +1510,10 @@ impl RuntimeSourceExportModule {
                 false,
             )?;
             source_only_action_count = source_only_action_count.saturating_sub(1);
-            let action_state_id = u64::from(source_binding.action_state_id.get());
-            if state_binding_ids.insert(action_state_id) {
+            if state_binding_ids.insert((None, source_action_table_index)) {
                 state_bindings.push(RuntimeStateBindingExport {
-                    action_state_id,
+                    melee_motion_state_id: None,
+                    source_action_table_index,
                     runtime_motion_state: None,
                     source_action_key: source_action_key.to_string(),
                 });
@@ -1518,8 +1529,8 @@ impl RuntimeSourceExportModule {
             if state_filter.is_some_and(|state_filter| state_filter != source_action_key) {
                 continue;
             }
-            let source_action_table_id = u64::from(source_binding.source_action_table_id);
-            let action = manifest_action_for_action_state_id(manifest, source_action_table_id)?;
+            let source_action_table_index = u64::from(source_binding.source_action_table_id);
+            let action = manifest_action_for_action_state_id(manifest, source_action_table_index)?;
             add_runtime_manifest_action(
                 &plcaaj_path,
                 action,
@@ -1529,10 +1540,11 @@ impl RuntimeSourceExportModule {
                 false,
             )?;
             source_only_action_count = source_only_action_count.saturating_sub(1);
-            let action_state_id = u64::from(source_binding.action_state_id.get());
-            if state_binding_ids.insert(action_state_id) {
+            let melee_motion_state_id = Some(u64::from(source_binding.action_state_id.get()));
+            if state_binding_ids.insert((melee_motion_state_id, source_action_table_index)) {
                 state_bindings.push(RuntimeStateBindingExport {
-                    action_state_id,
+                    melee_motion_state_id,
+                    source_action_table_index,
                     runtime_motion_state: None,
                     source_action_key: source_action_key.to_string(),
                 });
@@ -1704,7 +1716,7 @@ fn generate_runtime_source_export_module(
         "// Gameplay must not depend on raw ISO/decomp paths.\n\n",
         "// Canonical Melee action-state bindings may have no Rust MotionState alias.\n",
         "use std::sync::OnceLock;\n",
-        "use mole_core::{MeleeActionStateId, MotionState};\n",
+        "use mole_core::{MeleeActionStateId, MeleeMotionStateId, MotionState, SourceActionTableIndex};\n",
         "use mole_frame_data::{RuntimeFigatreeChunk, RuntimeSourceExport};\n",
         "pub(crate) const SOURCE_ARTIFACT_KIND: &str = \"runtime_source_frame_data\";\n",
     ));
@@ -1767,7 +1779,8 @@ fn generate_runtime_source_export_module(
     output.push_str(concat!(
         "#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n",
         "pub(crate) struct RuntimeActionBinding {\n",
-        "    pub(crate) action_state_id: MeleeActionStateId,\n",
+        "    pub(crate) melee_motion_state_id: Option<MeleeMotionStateId>,\n",
+        "    pub(crate) source_action_table_index: SourceActionTableIndex,\n",
         "    pub(crate) source_action_key: &'static str,\n",
         "    pub(crate) motion_state: Option<MotionState>,\n",
         "}\n\n",
@@ -1782,9 +1795,13 @@ fn generate_runtime_source_export_module(
             }
             None => "None".to_string(),
         };
+        let melee_motion_state_id = binding
+            .melee_motion_state_id
+            .map(|id| format!("Some(MeleeMotionStateId::new({id}))"))
+            .unwrap_or_else(|| "None".to_string());
         output.push_str(&format!(
-            "    RuntimeActionBinding {{ action_state_id: MeleeActionStateId::new({}), source_action_key: {}, motion_state: {motion_state} }},\n",
-            binding.action_state_id,
+            "    RuntimeActionBinding {{ melee_motion_state_id: {melee_motion_state_id}, source_action_table_index: SourceActionTableIndex::new({}), source_action_key: {}, motion_state: {motion_state} }},\n",
+            binding.source_action_table_index,
             rust_string_literal(&binding.source_action_key)
         ));
     }
@@ -1800,7 +1817,18 @@ fn generate_runtime_source_export_module(
         ") -> Option<&'static str> {\n",
         "    ACTION_BINDINGS\n",
         "        .iter()\n",
-        "        .find(|binding| binding.action_state_id == action_state_id)\n",
+        "        .find(|binding| binding.melee_motion_state_id.map(|id| id.get()) == Some(action_state_id.get()))\n",
+        "        .or_else(|| ACTION_BINDINGS.iter().find(|binding| binding.source_action_table_index.get() == action_state_id.get()))\n",
+        "        .map(|binding| binding.source_action_key)\n",
+        "}\n\n",
+        "pub(crate) fn source_action_key_for_source_pose_action_state_id(\n",
+        "    action_state_id: MeleeActionStateId,\n",
+        ") -> Option<&'static str> {\n",
+        "    ACTION_BINDINGS\n",
+        "        .iter()\n",
+        "        .find(|binding| binding.melee_motion_state_id.map(|id| id.get()) == Some(action_state_id.get()))\n",
+        "        .or_else(|| ACTION_BINDINGS.iter().find(|binding| binding.source_action_table_index.get() == action_state_id.get() && binding.motion_state.is_none()))\n",
+        "        .or_else(|| ACTION_BINDINGS.iter().find(|binding| binding.source_action_table_index.get() == action_state_id.get()))\n",
         "        .map(|binding| binding.source_action_key)\n",
         "}\n\n",
         "pub(crate) fn source_action_key_for_state(state: MotionState) -> Option<&'static str> {\n",
@@ -2012,16 +2040,27 @@ fn compact_runtime_hurtbox_init(hurtbox: &Value) -> Result<Value, String> {
 }
 
 fn compact_runtime_procedures(action: &Value) -> Result<Vec<Value>, String> {
-    Ok(
-        required_manifest_array(action, &["decoded_action_script", "procedures"])?
-            .iter()
-            .filter_map(|procedure| {
-                let name = procedure.get("procedure").and_then(Value::as_str)?;
-                matches!(
+    let Some(procedures) = action
+        .get("decoded_action_script")
+        .and_then(|script| script.get("procedures"))
+        .and_then(Value::as_array)
+    else {
+        // Null action-script pointers execute no commands.
+        return Ok(Vec::new());
+    };
+    Ok(procedures
+        .iter()
+        .filter_map(|procedure| {
+            let name = procedure.get("procedure").and_then(Value::as_str)?;
+            matches!(
                 name,
                 "fighter.spawn_hitbox"
                     | "fighter.clear_all_hitboxes"
                     | "fighter.set_cmd_var"
+                    | "fighter.allow_interrupt"
+                    | "fighter.set_airborne_state"
+                    | "fighter.set_collision_state"
+                    | "fighter.set_all_hurt_state"
                     | "fighter.set_hurt_state"
                     | "fighter.set_throw_flag"
                     | "fighter.set_throw_hitbox"
@@ -2082,9 +2121,8 @@ fn compact_runtime_procedures(action: &Value) -> Result<Vec<Value>, String> {
                 }
                 compact
             })
-            })
-            .collect(),
-    )
+        })
+        .collect())
 }
 
 fn required_manifest_value<'a>(value: &'a Value, path: &[&str]) -> Result<&'a Value, String> {
@@ -2878,7 +2916,11 @@ struct DecodedActionScript {
 enum DecodedProcedure {
     SpawnHitbox(DecodedHitbox),
     SetHurtState(DecodedHurtState),
+    SetAllHurtState(DecodedAllHurtState),
     SetCmdVar(DecodedCmdVar),
+    AllowInterrupt(DecodedAllowInterrupt),
+    SetAirborneState(DecodedAirborneState),
+    SetCollisionState(DecodedCollisionState),
     SetThrowFlag(DecodedThrowFlag),
     SetThrowHitbox(DecodedThrowHitbox),
     SetJabCombo(DecodedJabCombo),
@@ -2931,12 +2973,43 @@ struct DecodedHurtState {
 }
 
 #[derive(Debug, Clone)]
+struct DecodedAllHurtState {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    state: u64,
+}
+
+#[derive(Debug, Clone)]
 struct DecodedCmdVar {
     frame: u64,
     word_offset: usize,
     raw_word: u32,
     cmd_var: u64,
     value: u64,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedAllowInterrupt {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedAirborneState {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    state: u64,
+}
+
+#[derive(Debug, Clone)]
+struct DecodedCollisionState {
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+    state: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -3336,7 +3409,10 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                 cursor += 4;
             }
             2 => {
-                current_frame = command_frame_value(value);
+                // An asynchronous timer waits until an absolute animation frame.
+                // If that frame has already passed, Command_Execute continues in
+                // the current script tick; it cannot rewind the action timeline.
+                current_frame = current_frame.max(command_frame_value(value));
                 cursor += 4;
             }
             5 => {
@@ -3401,12 +3477,34 @@ fn decode_action_script(raw: &[u8], script_offset: usize) -> Option<Vec<DecodedP
                             word,
                         )));
                     }
+                    15 => {
+                        procedures.push(DecodedProcedure::SetAirborneState(
+                            decode_set_airborne_state(current_frame, word_offset, word),
+                        ));
+                    }
+                    16 => {
+                        procedures.push(DecodedProcedure::SetCollisionState(
+                            decode_set_collision_state(current_frame, word_offset, word),
+                        ));
+                    }
+                    17 => {
+                        procedures.push(DecodedProcedure::SetAllHurtState(
+                            decode_set_all_hurt_state(current_frame, word_offset, word),
+                        ));
+                    }
                     10 => {
                         procedures.push(DecodedProcedure::SetThrowFlag(decode_set_throw_flag(
                             current_frame,
                             word_offset,
                             word,
                         )));
+                    }
+                    13 => {
+                        procedures.push(DecodedProcedure::AllowInterrupt(DecodedAllowInterrupt {
+                            frame: current_frame,
+                            word_offset,
+                            raw_word: word,
+                        }));
                     }
                     24 => {
                         let raw_words = read_words(raw, cursor, 3)?;
@@ -3531,6 +3629,41 @@ fn decode_set_cmd_var(frame: u64, word_offset: usize, raw_word: u32) -> DecodedC
         raw_word,
         cmd_var: ((raw_word >> 24) & 0x03) as u64,
         value: (raw_word & 0x00ff_ffff) as u64,
+    }
+}
+
+fn decode_set_airborne_state(
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+) -> DecodedAirborneState {
+    DecodedAirborneState {
+        frame,
+        word_offset,
+        raw_word,
+        state: (raw_word & 0x03ff_ffff) as u64,
+    }
+}
+
+fn decode_set_collision_state(
+    frame: u64,
+    word_offset: usize,
+    raw_word: u32,
+) -> DecodedCollisionState {
+    DecodedCollisionState {
+        frame,
+        word_offset,
+        raw_word,
+        state: (raw_word & 0x03ff_ffff) as u64,
+    }
+}
+
+fn decode_set_all_hurt_state(frame: u64, word_offset: usize, raw_word: u32) -> DecodedAllHurtState {
+    DecodedAllHurtState {
+        frame,
+        word_offset,
+        raw_word,
+        state: (raw_word & 0x03ff_ffff) as u64,
     }
 }
 
@@ -3676,6 +3809,15 @@ fn decoded_action_script_json(decoded: &DecodedActionScript, root: &Path) -> Val
                 "state": hurt_capsule_state_name(hurt_state.state),
                 "state_raw": hurt_state.state,
             }),
+            DecodedProcedure::SetAllHurtState(hurt_state) => json!({
+                "procedure": "fighter.set_all_hurt_state",
+                "handler": "ftAction_80071A58",
+                "frame": hurt_state.frame,
+                "word_offset": hurt_state.word_offset,
+                "raw_words": raw_words_json(&[hurt_state.raw_word]),
+                "state": hurt_capsule_state_name(hurt_state.state),
+                "state_raw": hurt_state.state,
+            }),
             DecodedProcedure::SetCmdVar(cmd_var) => json!({
                 "procedure": "fighter.set_cmd_var",
                 "handler": "ftAction_80071820",
@@ -3684,6 +3826,29 @@ fn decoded_action_script_json(decoded: &DecodedActionScript, root: &Path) -> Val
                 "raw_words": raw_words_json(&[cmd_var.raw_word]),
                 "cmd_var": cmd_var.cmd_var,
                 "value": cmd_var.value,
+            }),
+            DecodedProcedure::AllowInterrupt(allow_interrupt) => json!({
+                "procedure": "fighter.allow_interrupt",
+                "handler": "ftAction_80071950",
+                "frame": allow_interrupt.frame,
+                "word_offset": allow_interrupt.word_offset,
+                "raw_words": raw_words_json(&[allow_interrupt.raw_word]),
+            }),
+            DecodedProcedure::SetAirborneState(airborne_state) => json!({
+                "procedure": "fighter.set_airborne_state",
+                "handler": "ftAction_80071998",
+                "frame": airborne_state.frame,
+                "word_offset": airborne_state.word_offset,
+                "raw_words": raw_words_json(&[airborne_state.raw_word]),
+                "state": airborne_state.state,
+            }),
+            DecodedProcedure::SetCollisionState(collision_state) => json!({
+                "procedure": "fighter.set_collision_state",
+                "handler": "ftAction_80071A14",
+                "frame": collision_state.frame,
+                "word_offset": collision_state.word_offset,
+                "raw_words": raw_words_json(&[collision_state.raw_word]),
+                "state": collision_state.state,
             }),
             DecodedProcedure::SetThrowFlag(throw_flag) => json!({
                 "procedure": "fighter.set_throw_flag",
@@ -4191,7 +4356,11 @@ where
                     active.clear();
                 }
                 DecodedProcedure::SetHurtState(_)
+                | DecodedProcedure::SetAllHurtState(_)
                 | DecodedProcedure::SetCmdVar(_)
+                | DecodedProcedure::AllowInterrupt(_)
+                | DecodedProcedure::SetAirborneState(_)
+                | DecodedProcedure::SetCollisionState(_)
                 | DecodedProcedure::SetThrowFlag(_)
                 | DecodedProcedure::SetThrowHitbox(_)
                 | DecodedProcedure::SetJabCombo(_)
@@ -4238,7 +4407,11 @@ fn procedure_frame(procedure: &DecodedProcedure) -> u64 {
     match procedure {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.frame,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.frame,
+        DecodedProcedure::SetAllHurtState(hurt_state) => hurt_state.frame,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.frame,
+        DecodedProcedure::AllowInterrupt(allow_interrupt) => allow_interrupt.frame,
+        DecodedProcedure::SetAirborneState(airborne_state) => airborne_state.frame,
+        DecodedProcedure::SetCollisionState(collision_state) => collision_state.frame,
         DecodedProcedure::SetThrowFlag(throw_flag) => throw_flag.frame,
         DecodedProcedure::SetThrowHitbox(throw_hitbox) => throw_hitbox.frame,
         DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.frame,
@@ -4251,7 +4424,11 @@ fn procedure_word_offset(procedure: &DecodedProcedure) -> usize {
     match procedure {
         DecodedProcedure::SpawnHitbox(hitbox) => hitbox.word_offset,
         DecodedProcedure::SetHurtState(hurt_state) => hurt_state.word_offset,
+        DecodedProcedure::SetAllHurtState(hurt_state) => hurt_state.word_offset,
         DecodedProcedure::SetCmdVar(cmd_var) => cmd_var.word_offset,
+        DecodedProcedure::AllowInterrupt(allow_interrupt) => allow_interrupt.word_offset,
+        DecodedProcedure::SetAirborneState(airborne_state) => airborne_state.word_offset,
+        DecodedProcedure::SetCollisionState(collision_state) => collision_state.word_offset,
         DecodedProcedure::SetThrowFlag(throw_flag) => throw_flag.word_offset,
         DecodedProcedure::SetThrowHitbox(throw_hitbox) => throw_hitbox.word_offset,
         DecodedProcedure::SetJabCombo(jab_combo) => jab_combo.word_offset,
@@ -4480,4 +4657,67 @@ fn remove_gap(artifact: &mut Value, field: &str) {
         return;
     };
     gaps.retain(|gap| gap.get("field").and_then(Value::as_str) != Some(field));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn asynchronous_timer_does_not_rewind_past_current_script_frame() {
+        let words = [
+            0x0400_000e_u32,
+            0x2c00_3808,
+            0,
+            0,
+            0,
+            0,
+            0x0800_000d,
+            0x4000_0000,
+            0,
+        ];
+        let raw = words
+            .into_iter()
+            .flat_map(u32::to_be_bytes)
+            .collect::<Vec<_>>();
+
+        let procedures = decode_action_script(&raw, 0).expect("script should decode");
+        let clear_frame = procedures
+            .iter()
+            .find_map(|procedure| match procedure {
+                DecodedProcedure::ClearAllHitboxes { frame, .. } => Some(*frame),
+                _ => None,
+            })
+            .expect("script should contain clear-all");
+
+        assert_eq!(clear_frame, 14);
+    }
+
+    #[test]
+    fn decodes_global_collision_and_hurt_state_commands() {
+        let raw = [0x6800_0002_u32, 0x6c00_0001, 0]
+            .into_iter()
+            .flat_map(u32::to_be_bytes)
+            .collect::<Vec<_>>();
+
+        let procedures = decode_action_script(&raw, 0).expect("script should decode");
+        assert!(matches!(
+            procedures.first(),
+            Some(DecodedProcedure::SetCollisionState(DecodedCollisionState {
+                frame: 0,
+                word_offset: 0,
+                raw_word: 0x6800_0002,
+                state: 2,
+            }))
+        ));
+        assert!(matches!(
+            procedures.get(1),
+            Some(DecodedProcedure::SetAllHurtState(DecodedAllHurtState {
+                frame: 0,
+                word_offset: 1,
+                raw_word: 0x6c00_0001,
+                state: 1,
+            }))
+        ));
+    }
 }

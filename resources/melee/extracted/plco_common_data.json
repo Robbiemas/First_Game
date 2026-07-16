@@ -60,6 +60,42 @@
       "source_name": "x4",
       "stick_byte": 36
     },
+    "capture_jump_velocity_x": {
+      "kind": "source_f32",
+      "offset": 884,
+      "raw": 1.0,
+      "source_name": "x374"
+    },
+    "capture_jump_velocity_y": {
+      "kind": "source_f32",
+      "offset": 888,
+      "raw": 2.0,
+      "source_name": "x378"
+    },
+    "capture_wait_jump_input_window": {
+      "kind": "source_f32",
+      "offset": 940,
+      "raw": 16.0,
+      "source_name": "x3AC"
+    },
+    "capture_wait_mash_anim_rate": {
+      "kind": "source_f32",
+      "offset": 948,
+      "raw": 2.0,
+      "source_name": "x3B4"
+    },
+    "capture_wait_mash_anim_timer": {
+      "kind": "source_f32",
+      "offset": 944,
+      "raw": 10.0,
+      "source_name": "x3B0"
+    },
+    "catch_cut_ground_velocity": {
+      "kind": "source_f32",
+      "offset": 880,
+      "raw": 1.0,
+      "source_name": "x370"
+    },
     "catch_ground_friction_multiplier": {
       "kind": "source_f32",
       "offset": 100,
@@ -158,6 +194,12 @@
       "offset": 512,
       "raw": 1.0,
       "source_name": "x200"
+    },
+    "damage_ground_knockback_init_clamp": {
+      "kind": "source_f32",
+      "offset": 356,
+      "raw": 8.300000190734863,
+      "source_name": "x164"
     },
     "damage_knockback_frame_decay": {
       "kind": "source_f32",
@@ -476,6 +518,61 @@
       "source_name": "x88",
       "stick_byte": 84
     },
+    "grab_mash_stick_threshold": {
+      "kind": "stick",
+      "offset": 776,
+      "raw": 0.5,
+      "source_name": "x308",
+      "stick_byte": 64
+    },
+    "grab_mash_timer_decrement": {
+      "kind": "source_f32",
+      "offset": 936,
+      "raw": 6.0,
+      "source_name": "x3A8"
+    },
+    "grab_timer_base": {
+      "kind": "source_f32",
+      "offset": 852,
+      "raw": 30.0,
+      "source_name": "x354"
+    },
+    "grab_timer_decrement": {
+      "kind": "source_f32",
+      "offset": 932,
+      "raw": 1.0,
+      "source_name": "grab_timer_decrement"
+    },
+    "grab_timer_handicap_offset": {
+      "kind": "source_f32",
+      "offset": 860,
+      "raw": 9.0,
+      "source_name": "x35C"
+    },
+    "grab_timer_handicap_scale": {
+      "kind": "source_f32",
+      "offset": 856,
+      "raw": 8.0,
+      "source_name": "x358"
+    },
+    "grab_timer_percent_scale": {
+      "kind": "source_f32",
+      "offset": 872,
+      "raw": 1.600000023841858,
+      "source_name": "x368"
+    },
+    "grab_timer_rank_offset": {
+      "kind": "source_f32",
+      "offset": 868,
+      "raw": 4.0,
+      "source_name": "x364"
+    },
+    "grab_timer_rank_scale": {
+      "kind": "source_f32",
+      "offset": 864,
+      "raw": 15.0,
+      "source_name": "x360"
+    },
     "guard_on_catch_dash_window": {
       "kind": "f32_ticks",
       "offset": 104,
@@ -483,12 +580,24 @@
       "source_name": "x68",
       "ticks": 3
     },
+    "guard_reflect_damage_skip_timer": {
+      "kind": "source_f32",
+      "offset": 692,
+      "raw": 3.0,
+      "source_name": "x2B4"
+    },
     "guard_reflect_input_window": {
       "kind": "i32_ticks",
       "offset": 672,
       "raw": 2,
       "source_name": "x2A0",
       "ticks": 2
+    },
+    "guard_reflect_timer": {
+      "kind": "source_f32",
+      "offset": 676,
+      "raw": 1.0,
+      "source_name": "x2A4"
     },
     "high_speed_ground_friction_multiplier": {
       "kind": "source_f32",
@@ -513,6 +622,12 @@
       "offset": 408,
       "raw": 0.3333333432674408,
       "source_name": "x198"
+    },
+    "hitlag_electric_multiplier": {
+      "kind": "source_f32",
+      "offset": 420,
+      "raw": 1.5,
+      "source_name": "x1A4"
     },
     "hitlag_max_frames": {
       "kind": "source_f32",
@@ -726,6 +841,36 @@
       "source_name": "sdi_stick_window",
       "ticks": 4
     },
+    "shield_aim_smoothing": {
+      "kind": "source_f32",
+      "offset": 1100,
+      "raw": 0.5,
+      "source_name": "x44C"
+    },
+    "shield_break_furafura_mash_decrement": {
+      "kind": "source_f32",
+      "offset": 772,
+      "raw": 3.0,
+      "source_name": "x304"
+    },
+    "shield_break_furafura_percent_base": {
+      "kind": "source_f32",
+      "offset": 760,
+      "raw": 400.0,
+      "source_name": "x2F8"
+    },
+    "shield_break_furafura_timer_base": {
+      "kind": "source_f32",
+      "offset": 764,
+      "raw": 90.0,
+      "source_name": "x2FC"
+    },
+    "shield_break_furafura_timer_decrement": {
+      "kind": "source_f32",
+      "offset": 768,
+      "raw": 1.0,
+      "source_name": "x300"
+    },
     "shield_break_reset_health": {
       "kind": "source_f32",
       "offset": 640,
@@ -787,6 +932,48 @@
       "source_name": "x268",
       "ticks": 8
     },
+    "shield_setoff_duration_base": {
+      "kind": "source_f32",
+      "offset": 656,
+      "raw": 2.0,
+      "source_name": "x290"
+    },
+    "shield_setoff_duration_damage_scale": {
+      "kind": "source_f32",
+      "offset": 652,
+      "raw": 1.5,
+      "source_name": "x28C"
+    },
+    "shield_setoff_lightshield_max": {
+      "kind": "source_f32",
+      "offset": 744,
+      "raw": 0.699999988079071,
+      "source_name": "x2E8"
+    },
+    "shield_setoff_lightshield_min": {
+      "kind": "source_f32",
+      "offset": 740,
+      "raw": 0.05000000074505806,
+      "source_name": "x2E4"
+    },
+    "shield_setoff_nonreflect_pushback_multiplier": {
+      "kind": "source_f32",
+      "offset": 700,
+      "raw": 0.6000000238418579,
+      "source_name": "x2BC"
+    },
+    "shield_setoff_pushback_cap": {
+      "kind": "source_f32",
+      "offset": 664,
+      "raw": 2.0,
+      "source_name": "x298"
+    },
+    "shield_setoff_pushback_scale": {
+      "kind": "source_f32",
+      "offset": 660,
+      "raw": 0.20000000298023224,
+      "source_name": "x294"
+    },
     "shield_start_health": {
       "kind": "source_f32",
       "offset": 608,
@@ -841,11 +1028,24 @@
       "source_name": "x348",
       "ticks": 8
     },
+    "throw_down_y": {
+      "kind": "stick",
+      "offset": 176,
+      "raw": -0.25,
+      "source_name": "xB0",
+      "stick_byte": -32
+    },
     "throw_knockback_weight": {
       "kind": "source_f32",
       "offset": 268,
       "raw": 100.0,
       "source_name": "x10C"
+    },
+    "throw_weight_animation_scale": {
+      "kind": "source_f32",
+      "offset": 892,
+      "raw": 0.009999999776482582,
+      "source_name": "x37C"
     },
     "tilt_x": {
       "kind": "stick",
@@ -860,13 +1060,6 @@
       "raw": 0.25,
       "source_name": "attackhi3_stick_threshold_y",
       "stick_byte": 32
-    },
-    "throw_down_y": {
-      "kind": "stick",
-      "offset": 176,
-      "raw": -0.25,
-      "source_name": "xB0",
-      "stick_byte": -32
     },
     "top_blast_fall_ko_chance": {
       "kind": "i32_ticks",

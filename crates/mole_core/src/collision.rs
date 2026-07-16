@@ -4,7 +4,7 @@ use crate::{
         StageCollisionLineKind, StageLedge, StageLedgeSide, StageProfile, StageSurface,
         StageSurfaceKind,
     },
-    state::{MeleeActionStateId, SourceActionKey, Vec2},
+    state::{is_source_damage_action_state_id, MeleeActionStateId, SourceActionKey, Vec2},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,6 +59,52 @@ impl Mat3x4 {
                 + self.rows[2][3],
         )
     }
+
+    pub fn transform_vector(&self, vector: Vec3) -> Vec3 {
+        Vec3::new(
+            self.rows[0][0] * vector.x + self.rows[0][1] * vector.y + self.rows[0][2] * vector.z,
+            self.rows[1][0] * vector.x + self.rows[1][1] * vector.y + self.rows[1][2] * vector.z,
+            self.rows[2][0] * vector.x + self.rows[2][1] * vector.y + self.rows[2][2] * vector.z,
+        )
+    }
+
+    pub fn inverse_linear(self) -> Option<Self> {
+        let m = self.rows;
+        let a = m[0][0];
+        let b = m[0][1];
+        let c = m[0][2];
+        let d = m[1][0];
+        let e = m[1][1];
+        let f = m[1][2];
+        let g = m[2][0];
+        let h = m[2][1];
+        let i = m[2][2];
+        let det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+        if det.abs() <= f32::EPSILON {
+            return None;
+        }
+        let inv_det = 1.0 / det;
+        Some(Self::from_rows([
+            [
+                (e * i - f * h) * inv_det,
+                (c * h - b * i) * inv_det,
+                (b * f - c * e) * inv_det,
+                0.0,
+            ],
+            [
+                (f * g - d * i) * inv_det,
+                (a * i - c * g) * inv_det,
+                (c * d - a * f) * inv_det,
+                0.0,
+            ],
+            [
+                (d * h - e * g) * inv_det,
+                (b * g - a * h) * inv_det,
+                (a * e - b * d) * inv_det,
+                0.0,
+            ],
+        ]))
+    }
 }
 
 fn dot(a: Vec3, b: Vec3) -> f32 {
@@ -77,7 +123,12 @@ fn mul3(v: Vec3, scalar: f32) -> Vec3 {
     Vec3::new(v.x * scalar, v.y * scalar, v.z * scalar)
 }
 
-fn closest_distance_sq_between_segments(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) -> f32 {
+fn closest_points_and_distance_sq_between_segments(
+    p1: Vec3,
+    q1: Vec3,
+    p2: Vec3,
+    q2: Vec3,
+) -> (Vec3, Vec3, f32) {
     let d1 = sub3(q1, p1);
     let d2 = sub3(q2, p2);
     let r = sub3(p1, p2);
@@ -87,7 +138,7 @@ fn closest_distance_sq_between_segments(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) 
 
     let (mut s, mut t);
     if a <= f32::EPSILON && e <= f32::EPSILON {
-        return dot(r, r);
+        return (p1, p2, dot(r, r));
     }
     if a <= f32::EPSILON {
         s = 0.0;
@@ -118,12 +169,178 @@ fn closest_distance_sq_between_segments(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) 
 
     let c1 = add3(p1, mul3(d1, s));
     let c2 = add3(p2, mul3(d2, t));
-    dot(sub3(c1, c2), sub3(c1, c2))
+    (c1, c2, dot(sub3(c1, c2), sub3(c1, c2)))
+}
+
+fn closest_distance_sq_between_segments(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) -> f32 {
+    closest_points_and_distance_sq_between_segments(p1, q1, p2, q2).2
+}
+
+fn source_point_segment_distance_sq(start: Vec3, end: Vec3, point: Vec3) -> (f32, f32) {
+    let delta = sub3(end, start);
+    let from_point = sub3(start, point);
+    let param = (-dot(delta, from_point) / dot(delta, delta)).clamp(0.0, 1.0);
+    let closest = add3(start, mul3(delta, param));
+    let offset = sub3(closest, point);
+    (dot(offset, offset), param)
+}
+
+fn source_closest_points_between_segments(
+    hit_start: Vec3,
+    hit_end: Vec3,
+    hurt_start: Vec3,
+    hurt_end: Vec3,
+) -> (Vec3, Vec3) {
+    const NEAR_ZERO: f32 = 1.0e-5;
+
+    let hit_delta = sub3(hit_end, hit_start);
+    let hurt_delta = sub3(hurt_end, hurt_start);
+    let start_delta = sub3(hit_start, hurt_start);
+    let hit_len_sq = dot(hit_delta, hit_delta);
+    let hurt_len_sq = dot(hurt_delta, hurt_delta);
+    let segment_dot = dot(hit_delta, hurt_delta);
+    let hit_start_dot = dot(hit_delta, start_delta);
+    let hurt_start_dot = dot(hurt_delta, start_delta);
+    let denom = hit_len_sq * hurt_len_sq - segment_dot * segment_dot;
+
+    let (hit_param, hurt_param) = if hurt_len_sq.abs() < NEAR_ZERO {
+        if hit_len_sq.abs() < NEAR_ZERO {
+            (0.0, 0.0)
+        } else {
+            ((-hit_start_dot / hit_len_sq).clamp(0.0, 1.0), 0.0)
+        }
+    } else if denom.abs() < NEAR_ZERO {
+        let hurt_mid = add3(hurt_start, mul3(hurt_delta, 0.5));
+        let start_mid = sub3(hit_start, hurt_mid);
+        let end_mid = sub3(hit_end, hurt_mid);
+        if dot(start_mid, start_mid) < dot(end_mid, end_mid) {
+            let (_, hurt_param) = source_point_segment_distance_sq(hurt_start, hurt_end, hit_start);
+            (0.0, hurt_param)
+        } else {
+            let (_, hurt_param) = source_point_segment_distance_sq(hurt_start, hurt_end, hit_end);
+            (1.0, hurt_param)
+        }
+    } else {
+        let unconstrained_hit =
+            (segment_dot * hurt_start_dot - hurt_len_sq * hit_start_dot) / denom;
+        let unconstrained_hurt =
+            (hit_len_sq * hurt_start_dot - segment_dot * hit_start_dot) / denom;
+        if !(0.0..=1.0).contains(&unconstrained_hit) || !(0.0..=1.0).contains(&unconstrained_hurt) {
+            let hit_endpoint_param = if unconstrained_hit < 0.0 { 0.0 } else { 1.0 };
+            let hit_endpoint = if hit_endpoint_param == 0.0 {
+                hit_start
+            } else {
+                hit_end
+            };
+            let (hit_endpoint_dist_sq, candidate_hurt_param) =
+                source_point_segment_distance_sq(hurt_start, hurt_end, hit_endpoint);
+
+            let hurt_endpoint_param = if unconstrained_hurt < 0.0 { 0.0 } else { 1.0 };
+            let hurt_endpoint = if hurt_endpoint_param == 0.0 {
+                hurt_start
+            } else {
+                hurt_end
+            };
+            let (hurt_endpoint_dist_sq, candidate_hit_param) =
+                source_point_segment_distance_sq(hit_start, hit_end, hurt_endpoint);
+
+            if hit_endpoint_dist_sq < hurt_endpoint_dist_sq {
+                (hit_endpoint_param, candidate_hurt_param)
+            } else {
+                (candidate_hit_param, hurt_endpoint_param)
+            }
+        } else {
+            (unconstrained_hit, unconstrained_hurt)
+        }
+    };
+
+    (
+        add3(hit_start, mul3(hit_delta, hit_param)),
+        add3(hurt_start, mul3(hurt_delta, hurt_param)),
+    )
+}
+
+fn source_capsule_broadphase_rejects(hit: &Capsule3, hurt: &Capsule3) -> bool {
+    // lbColl_8000805C passes 3 * hurt fighter scale. Runtime capsules already
+    // include fighter scale, so the remaining source broadphase factor is 3.
+    let radius = hit.radius + hurt.radius * 3.0;
+    for (hit_start, hit_end, hurt_start, hurt_end) in [
+        (hit.a.x, hit.b.x, hurt.a.x, hurt.b.x),
+        (hit.a.y, hit.b.y, hurt.a.y, hurt.b.y),
+        (hit.a.z, hit.b.z, hurt.a.z, hurt.b.z),
+    ] {
+        if hit_start > hit_end {
+            if hit_start + radius < hurt_start && hit_start + radius < hurt_end {
+                return true;
+            }
+            if hit_end - radius > hurt_start && hit_end - radius > hurt_end {
+                return true;
+            }
+        } else {
+            if hit_start - radius > hurt_start && hit_start - radius > hurt_end {
+                return true;
+            }
+            if hit_end + radius < hurt_start && hit_end + radius < hurt_end {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 pub fn capsules_intersect_3d(hit: &Capsule3, hurt: &Capsule3) -> bool {
     let allowed = hit.radius + hurt.radius;
     closest_distance_sq_between_segments(hit.a, hit.b, hurt.a, hurt.b) <= allowed * allowed
+}
+
+pub fn capsules_intersect_3d_with_hurt_matrix(
+    hit: &Capsule3,
+    hurt: &Capsule3,
+    hurt_matrix: Option<Mat3x4>,
+) -> bool {
+    source_capsule_overlap_3d_with_hurt_matrix(hit, hurt, hurt_matrix)
+        .is_some_and(|overlap| overlap >= 0.0)
+}
+
+pub fn source_capsule_overlap_3d_with_hurt_matrix(
+    hit: &Capsule3,
+    hurt: &Capsule3,
+    hurt_matrix: Option<Mat3x4>,
+) -> Option<f32> {
+    if source_capsule_broadphase_rejects(hit, hurt) {
+        return None;
+    }
+    let Some(hurt_matrix) = hurt_matrix else {
+        let (hit_closest, hurt_closest) =
+            source_closest_points_between_segments(hit.a, hit.b, hurt.a, hurt.b);
+        let overlap = hit.radius + hurt.radius
+            - dot(
+                sub3(hit_closest, hurt_closest),
+                sub3(hit_closest, hurt_closest),
+            )
+            .sqrt();
+        return (overlap >= 0.0).then_some(overlap);
+    };
+    let (hit_closest, hurt_closest) =
+        source_closest_points_between_segments(hit.a, hit.b, hurt.a, hurt.b);
+    let closest_delta = sub3(hit_closest, hurt_closest);
+    let closest_dist_sq = dot(closest_delta, closest_delta);
+    let closest_dist = closest_dist_sq.sqrt();
+    if closest_dist.abs() < 1.0e-5 {
+        return Some(hit.radius + hurt.radius);
+    }
+    let Some(inv_hurt_matrix) = hurt_matrix.inverse_linear() else {
+        let overlap = hit.radius + hurt.radius - closest_dist;
+        return (overlap >= 0.0).then_some(overlap);
+    };
+    let local_delta = inv_hurt_matrix.transform_vector(sub3(hit_closest, hurt_closest));
+    let local_dist = dot(local_delta, local_delta).sqrt();
+    if local_dist <= f32::EPSILON {
+        return Some(hit.radius + hurt.radius);
+    }
+    let scaled_hurt_radius = (hurt.radius * closest_dist) / local_dist;
+    let overlap = hit.radius + scaled_hurt_radius - closest_dist;
+    (overlap >= 0.0).then_some(overlap)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -257,6 +474,7 @@ pub struct SourceCollisionCapsule {
     pub capsule_id: u64,
     pub capsule: Capsule3,
     pub previous_capsule: Option<Capsule3>,
+    pub hurt_matrix: Option<Mat3x4>,
     pub owner_grounded: Option<bool>,
     pub action_state_id: Option<MeleeActionStateId>,
     pub source_action_key: Option<SourceActionKey>,
@@ -274,6 +492,7 @@ impl SourceCollisionCapsule {
             capsule_id,
             capsule,
             previous_capsule: None,
+            hurt_matrix: None,
             owner_grounded: None,
             action_state_id: None,
             source_action_key: None,
@@ -287,6 +506,16 @@ impl SourceCollisionCapsule {
 
     pub const fn with_previous_capsule(mut self, previous_capsule: Capsule3) -> Self {
         self.previous_capsule = Some(previous_capsule);
+        self
+    }
+
+    pub const fn with_hurt_matrix(mut self, hurt_matrix: Mat3x4) -> Self {
+        self.hurt_matrix = Some(hurt_matrix);
+        self
+    }
+
+    pub const fn with_optional_hurt_matrix(mut self, hurt_matrix: Option<Mat3x4>) -> Self {
+        self.hurt_matrix = hurt_matrix;
         self
     }
 
@@ -445,6 +674,8 @@ pub struct SourceDamageStage {
     pub hitbox: SourceHitboxAttributes,
 }
 
+pub const SOURCE_SHIELD_HURTBOX_ID: u64 = 1_000_000;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceDamageAccumulator {
     pub victim_index: usize,
@@ -490,7 +721,11 @@ pub fn source_collision_hits(frame: &SourceCollisionFrame) -> Vec<SourceCollisio
                 continue;
             }
             let pair_hurt = source_pair_hurt_capsule(*hit, *hurt);
-            if capsules_intersect_3d(&hit.capsule, &pair_hurt.capsule) {
+            if capsules_intersect_3d_with_hurt_matrix(
+                &hit.capsule,
+                &pair_hurt.capsule,
+                pair_hurt.hurt_matrix,
+            ) {
                 collisions.push(SourceCollisionHit {
                     hit: *hit,
                     hurt: pair_hurt,
@@ -502,7 +737,7 @@ pub fn source_collision_hits(frame: &SourceCollisionFrame) -> Vec<SourceCollisio
 }
 
 pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm> {
-    let mut confirms = Vec::new();
+    let mut confirms: Vec<SourceHitConfirm> = Vec::new();
     for hit in &frame.hits {
         let Some(hitbox) = hit.hitbox else {
             continue;
@@ -516,14 +751,19 @@ pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm
                 continue;
             }
             let pair_hurt = source_pair_hurt_capsule(*hit, *hurt);
-            if confirmed_victims.contains(&hurt.owner_index) {
+            let hurt_targets_shield = hurt.capsule_id == SOURCE_SHIELD_HURTBOX_ID;
+            if confirmed_victims.contains(&hurt.owner_index) && !hurt_targets_shield {
                 continue;
             }
             if !source_hitbox_can_hit_hurtbox(hitbox, pair_hurt) {
                 continue;
             }
-            if capsules_intersect_3d(&hit.capsule, &pair_hurt.capsule) {
-                confirms.push(SourceHitConfirm {
+            if capsules_intersect_3d_with_hurt_matrix(
+                &hit.capsule,
+                &pair_hurt.capsule,
+                pair_hurt.hurt_matrix,
+            ) {
+                let confirm = SourceHitConfirm {
                     attacker_index: hit.owner_index,
                     victim_index: hurt.owner_index,
                     hitbox_id: hit.capsule_id,
@@ -537,8 +777,24 @@ pub fn source_hit_confirms(frame: &SourceCollisionFrame) -> Vec<SourceHitConfirm
                         hit: *hit,
                         hurt: pair_hurt,
                     },
-                });
-                confirmed_victims.push(hurt.owner_index);
+                };
+                if hurt_targets_shield {
+                    if let Some(existing) = confirms.iter_mut().find(|existing| {
+                        existing.attacker_index == confirm.attacker_index
+                            && existing.victim_index == confirm.victim_index
+                            && existing.hitbox_id == confirm.hitbox_id
+                    }) {
+                        *existing = confirm;
+                    } else {
+                        confirms.push(confirm);
+                    }
+                    if !confirmed_victims.contains(&hurt.owner_index) {
+                        confirmed_victims.push(hurt.owner_index);
+                    }
+                } else {
+                    confirms.push(confirm);
+                    confirmed_victims.push(hurt.owner_index);
+                }
             }
         }
     }
@@ -591,7 +847,13 @@ fn source_pair_hurt_capsule(
     hit: SourceCollisionCapsule,
     hurt: SourceCollisionCapsule,
 ) -> SourceCollisionCapsule {
-    if hit.owner_index < hurt.owner_index && source_hitbox_lifecycle_starts_on_source_frame(hit) {
+    let hurt_is_in_damage_motion = hurt
+        .action_state_id
+        .is_some_and(is_source_damage_action_state_id);
+    if hit.owner_index < hurt.owner_index
+        && source_hitbox_lifecycle_starts_on_source_frame(hit)
+        && !hurt_is_in_damage_motion
+    {
         if let Some(previous_capsule) = hurt.previous_capsule {
             return SourceCollisionCapsule {
                 capsule: previous_capsule,
@@ -707,6 +969,9 @@ pub fn source_damage_result_for_victim(
     let mut best: Option<SourceDamageResult> = None;
     for stage in stages {
         if stage.victim_index != input.victim_index {
+            continue;
+        }
+        if stage.damage <= 0.0 && stage.env_damage == 0 {
             continue;
         }
         let knockback = source_knockback(
@@ -1132,4 +1397,50 @@ pub(crate) fn floor_surface_index_for_bottom(
             bottom.y == surface.y && bottom.x >= surface.left_x && bottom.x <= surface.right_x
         })
         .map(|(index, surface)| (index as u8, surface))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hurt_matrix_scales_radius_like_lb_coll_80006e58() {
+        let hit = Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0), 1.0);
+        let hurt = Capsule3::new(Vec3::new(4.0, 0.0, 0.0), Vec3::new(4.0, 0.0, 0.0), 1.0);
+        let hurt_matrix = Mat3x4::from_rows([
+            [4.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ]);
+
+        assert!(!capsules_intersect_3d(&hit, &hurt));
+        assert!(capsules_intersect_3d_with_hurt_matrix(
+            &hit,
+            &hurt,
+            Some(hurt_matrix),
+        ));
+    }
+
+    #[test]
+    fn lb_coll_80006e58_frame3268_nair_slot_zero_remains_a_real_overlap() {
+        let hit = Capsule3::new(
+            Vec3::new(-14982.361, 18751.096, -7751.8584),
+            Vec3::new(-7983.7065, 22236.332, -2287.4084),
+            4296.875,
+        );
+        let hurt = Capsule3::new(
+            Vec3::new(-10431.543, 18021.605, 2022.5189),
+            Vec3::new(-11773.329, 18342.662, 269.26648),
+            1440.0,
+        );
+        let hurt_matrix = Mat3x4::from_rows([
+            [0.10491562, -0.5906068, -0.7622837, 0.0],
+            [-0.89780337, -0.33965224, 0.13959011, 0.0],
+            [-0.35191157, 0.6904491, -0.5833852, 0.0],
+        ]);
+
+        let overlap = source_capsule_overlap_3d_with_hurt_matrix(&hit, &hurt, Some(hurt_matrix))
+            .expect("the decomp segment solver still intersects this pair");
+        assert!((overlap - 349.5957).abs() < 0.01, "overlap={overlap}");
+    }
 }

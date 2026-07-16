@@ -173,6 +173,7 @@ COMMON_FIELDS = (
     Field("damage_motion_tier_1_threshold", "x158", 0x158, "source_f32"),
     Field("damage_motion_tier_2_threshold", "x15C", 0x15C, "source_f32"),
     Field("damage_motion_tier_3_threshold", "x160", 0x160, "source_f32"),
+    Field("damage_ground_knockback_init_clamp", "x164", 0x164, "source_f32"),
     Field("damage_fly_top_angle_min_radians", "x234", 0x234, "source_f32"),
     Field("damage_fly_top_angle_max_radians", "x238", 0x238, "source_f32"),
     Field("damage_fly_top_random_percent_threshold", "x23C", 0x23C, "i32_ticks"),
@@ -181,6 +182,7 @@ COMMON_FIELDS = (
     Field("hitlag_damage_scale", "x198", 0x198, "source_f32"),
     Field("hitlag_base_frames", "x19C", 0x19C, "source_f32"),
     Field("hitlag_crouch_multiplier", "x1A0", 0x1A0, "source_f32"),
+    Field("hitlag_electric_multiplier", "x1A4", 0x1A4, "source_f32"),
     Field("di_angle_degrees", "x1A8", 0x1A8, "source_f32"),
     Field("trigger_di_knockback_multiplier", "x1AC", 0x1AC, "source_f32"),
     Field("air_speed_clamp_friction", "x1FC", 0x1FC, "source_f32"),
@@ -198,11 +200,25 @@ COMMON_FIELDS = (
     Field("shield_break_reset_health", "x280_unkShieldHealth", 0x280, "source_f32"),
     Field("shield_hit_drain_damage_scale", "x284", 0x284, "source_f32"),
     Field("shield_hit_drain_base", "x288", 0x288, "source_f32"),
+    Field("shield_setoff_duration_damage_scale", "x28C", 0x28C, "source_f32"),
+    Field("shield_setoff_duration_base", "x290", 0x290, "source_f32"),
+    Field("shield_setoff_pushback_scale", "x294", 0x294, "source_f32"),
+    Field("shield_setoff_pushback_cap", "x298", 0x298, "source_f32"),
+    Field("shield_setoff_nonreflect_pushback_multiplier", "x2BC", 0x2BC, "source_f32"),
     Field("shield_hit_lightshield_min", "x2DC", 0x2DC, "source_f32"),
     Field("shield_hit_lightshield_max", "x2E0", 0x2E0, "source_f32"),
+    Field("shield_setoff_lightshield_min", "x2E4", 0x2E4, "source_f32"),
+    Field("shield_setoff_lightshield_max", "x2E8", 0x2E8, "source_f32"),
     Field("shield_hold_lightshield_min", "x2EC", 0x2EC, "source_f32"),
     Field("shield_hold_lightshield_max", "x2F0", 0x2F0, "source_f32"),
+    Field("shield_break_furafura_percent_base", "x2F8", 0x2F8, "source_f32"),
+    Field("shield_break_furafura_timer_base", "x2FC", 0x2FC, "source_f32"),
+    Field("shield_break_furafura_timer_decrement", "x300", 0x300, "source_f32"),
+    Field("shield_break_furafura_mash_decrement", "x304", 0x304, "source_f32"),
     Field("guard_reflect_input_window", "x2A0", 0x2A0, "i32_ticks"),
+    Field("guard_reflect_timer", "x2A4", 0x2A4, "source_f32"),
+    Field("guard_reflect_damage_skip_timer", "x2B4", 0x2B4, "source_f32"),
+    Field("grab_mash_stick_threshold", "x308", 0x308, "stick"),
     Field("escape_y", "x314", 0x314, "stick"),
     Field("escape_y_tap_window", "x318", 0x318, "i32_ticks"),
     Field("escape_x", "x31C", 0x31C, "stick"),
@@ -215,12 +231,28 @@ COMMON_FIELDS = (
     Field("escapeair_decay", "escapeair_decay", 0x33C, "source_f32"),
     Field("escapeair_landing_lag_ticks", "x344", 0x344, "f32_ticks"),
     Field("throw_collision_lockout_ticks", "x348", 0x348, "i32_ticks"),
+    Field("throw_weight_animation_scale", "x37C", 0x37C, "source_f32"),
+    Field("grab_timer_base", "x354", 0x354, "source_f32"),
+    Field("grab_timer_handicap_scale", "x358", 0x358, "source_f32"),
+    Field("grab_timer_handicap_offset", "x35C", 0x35C, "source_f32"),
+    Field("grab_timer_rank_scale", "x360", 0x360, "source_f32"),
+    Field("grab_timer_rank_offset", "x364", 0x364, "source_f32"),
+    Field("grab_timer_percent_scale", "x368", 0x368, "source_f32"),
+    Field("catch_cut_ground_velocity", "x370", 0x370, "source_f32"),
+    Field("capture_jump_velocity_x", "x374", 0x374, "source_f32"),
+    Field("capture_jump_velocity_y", "x378", 0x378, "source_f32"),
+    Field("grab_timer_decrement", "grab_timer_decrement", 0x3A4, "source_f32"),
+    Field("grab_mash_timer_decrement", "x3A8", 0x3A8, "source_f32"),
+    Field("capture_wait_jump_input_window", "x3AC", 0x3AC, "source_f32"),
+    Field("capture_wait_mash_anim_timer", "x3B0", 0x3B0, "source_f32"),
+    Field("capture_wait_mash_anim_rate", "x3B4", 0x3B4, "source_f32"),
     Field("down_wait_timer", "x424", 0x424, "source_f32"),
     Field("run_brake_animation_pause_velocity", "x42C", 0x42C, "source_f32"),
     Field("run_turn_run_no_interrupt_frames", "x430", 0x430, "f32_ticks"),
     Field("animation_velocity_scale", "x440", 0x440, "source_f32"),
     Field("fall_animation_drift_threshold", "x444", 0x444, "source_f32"),
     Field("fall_animation_blend", "x448", 0x448, "source_f32"),
+    Field("shield_aim_smoothing", "x44C", 0x44C, "source_f32"),
     Field("platform_pass_y", "x464", 0x464, "stick"),
     Field("platform_pass_y_tap_window", "x468", 0x468, "f32_ticks"),
     Field("pass_initial_y_velocity", "x46C", 0x46C, "source_f32"),
@@ -343,7 +375,10 @@ PROFILE_FIELDS = (
     Field("air_max_horizontal_velocity", "air_max_horizontal_velocity", 0x78, "source_f32"),
     Field("frames_to_change_direction_on_standing_turn", "frames_to_change_direction_on_standing_turn", 0x84, "f32_ticks"),
     Field("weight", "weight", 0x88, "source_f32"),
+    Field("weight_independent_throws_mask", "weight_independent_throws_mask", 0x180, "source_u8"),
     Field("model_scaling", "model_scaling", 0x8C, "source_f32"),
+    Field("initial_shield_size", "initial_shield_size", 0x90, "source_f32"),
+    Field("shield_break_initial_velocity", "shield_break_initial_velocity", 0x94, "source_f32"),
     Field("normal_landing_lag", "normal_landing_lag", 0xE4, "f32_ticks"),
     Field("landingairn_lag", "landingairn_lag", 0xE8, "f32_ticks"),
     Field("landingairf_lag", "landingairf_lag", 0xEC, "f32_ticks"),
@@ -613,6 +648,8 @@ def find_root(dat: bytes, predicate: Callable[[str], bool], description: str) ->
 def field_value(block: bytes, field: Field) -> dict[str, object]:
     if field.kind in ("i32_ticks", "source_i32"):
         raw = read_i32(block, field.offset)
+    elif field.kind == "source_u8":
+        raw = block[field.offset]
     elif field.kind == "source_u32":
         raw = read_u32(block, field.offset)
     else:
@@ -629,7 +666,7 @@ def field_value(block: bytes, field: Field) -> dict[str, object]:
         result["trigger_byte"] = rust_round(float(raw) * 255.0)
     elif field.kind == "milli":
         result["milli"] = rust_round(float(raw) * 1000.0)
-    elif field.kind in ("source_f32", "source_i32", "source_u32"):
+    elif field.kind in ("source_f32", "source_i32", "source_u8", "source_u32"):
         pass
     elif field.kind == "f32_ticks":
         result["ticks"] = rust_round(float(raw))
@@ -1305,6 +1342,7 @@ def extract_character_common_parts_from_dat(
         },
     }
     if parts_table is not None:
+        result["part_to_joint"] = parts_table["part_to_joint"]
         result["transn_joint"] = _fighter_part_to_joint(parts_table, FTPART_TRANSN, "FtPart_TransN")
         result["xrotn_joint"] = _fighter_part_to_joint(parts_table, FTPART_XROTN, "FtPart_XRotN")
         result["hipn_joint"] = _fighter_part_to_joint(parts_table, FTPART_HIPN, "FtPart_HipN")
@@ -1358,6 +1396,16 @@ def extract_character_ecb_source_from_dat(
             "joint_indices": joint_indices,
             "side_midpoint_offset_raw": side_midpoint_offset,
             "side_midpoint_offset_milli": rust_round(side_midpoint_offset * 1000.0),
+            "min_height_raw": 10.0,
+            "min_height_milli": 10000,
+            "min_height_source": (
+                "ft_80081B38 sets ecb_source.x128 = 10.0F * fp->x34_scale.y"
+            ),
+            "min_width_raw": 10.0,
+            "min_width_milli": 10000,
+            "min_width_source": (
+                "ft_80081B38 sets ecb_source.x12C = 10.0F * fp->x34_scale.y"
+            ),
             "ledge_snap_x_raw": ledge_snap_x,
             "ledge_snap_x_milli": rust_round(ledge_snap_x * 1000.0),
             "ledge_snap_y_raw": ledge_snap_y,
@@ -1983,13 +2031,13 @@ def compute_ecb_from_jobj_pose(
         bottom_y -= 2.0
         top_y += 2.0
 
-    min_width = 10.0
+    min_width = max(4.0, float(ecb_source.get("min_width_raw", 10.0)))
     width = abs(right_x - left_x)
     if width < min_width:
         right_x = 0.5 * width
         left_x = -right_x
 
-    min_height = 10.0
+    min_height = max(4.0, float(ecb_source.get("min_height_raw", 10.0)))
     height = abs(top_y - bottom_y)
     if height < min_height:
         half_height = 0.5 * height
@@ -2205,6 +2253,8 @@ def extract_character_action_animation_table(
         )
         actions.append(
             {
+                "identity_kind": "fighter_wait_anim_data_index",
+                "action_table_index": action_state_id,
                 "action_state_id": action_state_id,
                 "name": name,
                 "figatree_archive_offset": figatree_archive_offset,
@@ -2262,6 +2312,9 @@ def extract_captain_action_ecb_samples(
     ecb_source = ecb_source_snapshot.get("ecb_source", ecb_source_snapshot)
     if not isinstance(ecb_source, dict):
         raise DatExtractError("Captain ECB source snapshot is malformed")
+    ecb_source = dict(ecb_source)
+    ecb_source["min_height_raw"] = float(ecb_source.get("min_height_raw", 10.0)) * model_scale
+    ecb_source["min_width_raw"] = float(ecb_source.get("min_width_raw", 10.0)) * model_scale
     actions = action_table.get("actions")
     if not isinstance(actions, list):
         raise DatExtractError("Captain action animation table is malformed")
@@ -2325,6 +2378,8 @@ def extract_captain_action_ecb_samples(
             )
         sampled_actions.append(
             {
+                "identity_kind": "fighter_wait_anim_data_index",
+                "action_table_index": action_state_id,
                 "action_state_id": action_state_id,
                 "name": action.get("name", ""),
                 "figatree_root": action.get("figatree_root"),

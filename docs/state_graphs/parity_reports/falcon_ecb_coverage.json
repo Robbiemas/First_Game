@@ -1,7 +1,7 @@
 {
   "id": "falcon_ecb_coverage",
-  "mapped_action_count": 69,
-  "mapped_motion_state_count": 74,
+  "mapped_action_count": 79,
+  "mapped_motion_state_count": 84,
   "mapped_motion_states": [
     {
       "action_state_id": 2,
@@ -428,6 +428,76 @@
       "motion_state": "CliffWait",
       "sample_frames": 50,
       "source_action": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 219,
+      "motion_state": "CliffClimbSlow",
+      "sample_frames": 59,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffClimbSlow_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 220,
+      "motion_state": "CliffClimbQuick",
+      "sample_frames": 33,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffClimbQuick_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 221,
+      "motion_state": "CliffAttackSlow",
+      "sample_frames": 69,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffAttackSlow_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 222,
+      "motion_state": "CliffAttackQuick",
+      "sample_frames": 55,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffAttackQuick_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 223,
+      "motion_state": "CliffEscapeSlow",
+      "sample_frames": 79,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffEscapeSlow_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 224,
+      "motion_state": "CliffEscapeQuick",
+      "sample_frames": 49,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffEscapeQuick_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 225,
+      "motion_state": "CliffJumpSlow1",
+      "sample_frames": 19,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffJumpSlow1_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 226,
+      "motion_state": "CliffJumpSlow2",
+      "sample_frames": 36,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffJumpSlow2_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 227,
+      "motion_state": "CliffJumpQuick1",
+      "sample_frames": 12,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffJumpQuick1_figatree",
+      "status": "mapped_exact_action_table"
+    },
+    {
+      "action_state_id": 228,
+      "motion_state": "CliffJumpQuick2",
+      "sample_frames": 33,
+      "source_action": "PlyCaptain5K_Share_ACTION_CliffJumpQuick2_figatree",
       "status": "mapped_exact_action_table"
     },
     {

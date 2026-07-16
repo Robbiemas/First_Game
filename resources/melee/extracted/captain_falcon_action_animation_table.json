@@ -2,6 +2,7 @@
   "actions": [
     {
       "action_state_id": 0,
+      "action_table_index": 0,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -1345,6 +1346,7 @@
       "figatree_archive_size": 7478,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -1352,6 +1354,7 @@
     },
     {
       "action_state_id": 1,
+      "action_table_index": 1,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -2551,6 +2554,7 @@
       "figatree_archive_size": 5046,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -2558,6 +2562,7 @@
     },
     {
       "action_state_id": 2,
+      "action_table_index": 2,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -3757,6 +3762,7 @@
       "figatree_archive_size": 10009,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Wait1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -3764,6 +3770,7 @@
     },
     {
       "action_state_id": 3,
+      "action_table_index": 3,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -4963,6 +4970,7 @@
       "figatree_archive_size": 15801,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Wait2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -4970,6 +4978,7 @@
     },
     {
       "action_state_id": 4,
+      "action_table_index": 4,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -6169,6 +6178,7 @@
       "figatree_archive_size": 18249,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Wait3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Wait3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -6176,12 +6186,14 @@
     },
     {
       "action_state_id": 5,
+      "action_table_index": 5,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -6189,6 +6201,7 @@
     },
     {
       "action_state_id": 6,
+      "action_table_index": 6,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -7388,6 +7401,7 @@
       "figatree_archive_size": 9892,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WaitItem_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WaitItem_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -7395,6 +7409,7 @@
     },
     {
       "action_state_id": 7,
+      "action_table_index": 7,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -8549,6 +8564,7 @@
       "figatree_archive_size": 3676,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkSlow_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WalkSlow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -8556,6 +8572,7 @@
     },
     {
       "action_state_id": 8,
+      "action_table_index": 8,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -9710,6 +9727,7 @@
       "figatree_archive_size": 4074,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkMiddle_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WalkMiddle_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -9717,6 +9735,7 @@
     },
     {
       "action_state_id": 9,
+      "action_table_index": 9,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -10871,6 +10890,7 @@
       "figatree_archive_size": 4864,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WalkFast_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WalkFast_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -10878,6 +10898,7 @@
     },
     {
       "action_state_id": 10,
+      "action_table_index": 10,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -12077,6 +12098,7 @@
       "figatree_archive_size": 5208,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Turn_figatree",
       "flags_raw": "0x00000082",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Turn_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -12084,6 +12106,7 @@
     },
     {
       "action_state_id": 11,
+      "action_table_index": 11,
       "cmd_var_events": [
         {
           "cmd_var": 1,
@@ -13290,6 +13313,7 @@
       "figatree_archive_size": 9079,
       "figatree_root": "PlyCaptain5K_Share_ACTION_TurnRun_figatree",
       "flags_raw": "0x80000082",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_TurnRun_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -13297,6 +13321,7 @@
     },
     {
       "action_state_id": 12,
+      "action_table_index": 12,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -14509,6 +14534,7 @@
       "figatree_archive_size": 10088,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Dash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Dash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -14516,6 +14542,7 @@
     },
     {
       "action_state_id": 13,
+      "action_table_index": 13,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -15715,6 +15742,7 @@
       "figatree_archive_size": 7527,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Run_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Run_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -15722,6 +15750,7 @@
     },
     {
       "action_state_id": 14,
+      "action_table_index": 14,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -16934,6 +16963,7 @@
       "figatree_archive_size": 8648,
       "figatree_root": "PlyCaptain5K_Share_ACTION_RunBrake_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_RunBrake_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -16941,6 +16971,7 @@
     },
     {
       "action_state_id": 15,
+      "action_table_index": 15,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -18608,6 +18639,7 @@
       "figatree_archive_size": 8587,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -18615,6 +18647,7 @@
     },
     {
       "action_state_id": 16,
+      "action_table_index": 16,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -19922,6 +19955,7 @@
       "figatree_archive_size": 5553,
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_JumpF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -19929,6 +19963,7 @@
     },
     {
       "action_state_id": 17,
+      "action_table_index": 17,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -21236,6 +21271,7 @@
       "figatree_archive_size": 7509,
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpB_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_JumpB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -21243,6 +21279,7 @@
     },
     {
       "action_state_id": 18,
+      "action_table_index": 18,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -22550,6 +22587,7 @@
       "figatree_archive_size": 8375,
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpAerialF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_JumpAerialF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -22557,6 +22595,7 @@
     },
     {
       "action_state_id": 19,
+      "action_table_index": 19,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -23864,6 +23903,7 @@
       "figatree_archive_size": 8519,
       "figatree_root": "PlyCaptain5K_Share_ACTION_JumpAerialB_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_JumpAerialB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -23871,6 +23911,7 @@
     },
     {
       "action_state_id": 20,
+      "action_table_index": 20,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -25070,6 +25111,7 @@
       "figatree_archive_size": 3944,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Fall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Fall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -25077,6 +25119,7 @@
     },
     {
       "action_state_id": 21,
+      "action_table_index": 21,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -26276,6 +26319,7 @@
       "figatree_archive_size": 3837,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallF_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -26283,6 +26327,7 @@
     },
     {
       "action_state_id": 22,
+      "action_table_index": 22,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -27482,6 +27527,7 @@
       "figatree_archive_size": 3869,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallB_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -27489,6 +27535,7 @@
     },
     {
       "action_state_id": 23,
+      "action_table_index": 23,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -28688,6 +28735,7 @@
       "figatree_archive_size": 4006,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerial_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallAerial_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -28695,6 +28743,7 @@
     },
     {
       "action_state_id": 24,
+      "action_table_index": 24,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -29894,6 +29943,7 @@
       "figatree_archive_size": 3839,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerialF_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallAerialF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -29901,6 +29951,7 @@
     },
     {
       "action_state_id": 25,
+      "action_table_index": 25,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -31100,6 +31151,7 @@
       "figatree_archive_size": 3851,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallAerialB_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallAerialB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -31107,6 +31159,7 @@
     },
     {
       "action_state_id": 26,
+      "action_table_index": 26,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -32306,6 +32359,7 @@
       "figatree_archive_size": 3795,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecial_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallSpecial_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -32313,6 +32367,7 @@
     },
     {
       "action_state_id": 27,
+      "action_table_index": 27,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -33512,6 +33567,7 @@
       "figatree_archive_size": 3608,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecialF_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallSpecialF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -33519,6 +33575,7 @@
     },
     {
       "action_state_id": 28,
+      "action_table_index": 28,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -34718,6 +34775,7 @@
       "figatree_archive_size": 3780,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FallSpecialB_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FallSpecialB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -34725,6 +34783,7 @@
     },
     {
       "action_state_id": 29,
+      "action_table_index": 29,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -35924,6 +35983,7 @@
       "figatree_archive_size": 5046,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -35931,6 +35991,7 @@
     },
     {
       "action_state_id": 30,
+      "action_table_index": 30,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -37598,6 +37659,7 @@
       "figatree_archive_size": 6985,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Squat_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Squat_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -37605,6 +37667,7 @@
     },
     {
       "action_state_id": 31,
+      "action_table_index": 31,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -39272,6 +39335,7 @@
       "figatree_archive_size": 5797,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SquatWait_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SquatWait_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -39279,12 +39343,14 @@
     },
     {
       "action_state_id": 32,
+      "action_table_index": 32,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -39292,12 +39358,14 @@
     },
     {
       "action_state_id": 33,
+      "action_table_index": 33,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -39305,6 +39373,7 @@
     },
     {
       "action_state_id": 34,
+      "action_table_index": 34,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -40972,6 +41041,7 @@
       "figatree_archive_size": 7611,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SquatRv_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SquatRv_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -40979,6 +41049,7 @@
     },
     {
       "action_state_id": 35,
+      "action_table_index": 35,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -42646,6 +42717,7 @@
       "figatree_archive_size": 8587,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -42653,6 +42725,7 @@
     },
     {
       "action_state_id": 36,
+      "action_table_index": 36,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -44320,6 +44393,7 @@
       "figatree_archive_size": 8587,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Landing_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -44327,6 +44401,7 @@
     },
     {
       "action_state_id": 37,
+      "action_table_index": 37,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -45481,6 +45556,7 @@
       "figatree_archive_size": 4019,
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_GuardOn_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -45488,6 +45564,7 @@
     },
     {
       "action_state_id": 38,
+      "action_table_index": 38,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -46642,6 +46719,7 @@
       "figatree_archive_size": 4353,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Guard_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Guard_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -46649,6 +46727,7 @@
     },
     {
       "action_state_id": 39,
+      "action_table_index": 39,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -47803,6 +47882,7 @@
       "figatree_archive_size": 6760,
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardOff_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_GuardOff_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -47810,6 +47890,7 @@
     },
     {
       "action_state_id": 40,
+      "action_table_index": 40,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -48973,6 +49054,7 @@
       "figatree_archive_size": 3991,
       "figatree_root": "PlyCaptain5K_Share_ACTION_GuardDamage_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_GuardDamage_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -48980,6 +49062,7 @@
     },
     {
       "action_state_id": 41,
+      "action_table_index": 41,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -50287,6 +50370,7 @@
       "figatree_archive_size": 7871,
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeN_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_EscapeN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -50294,6 +50378,7 @@
     },
     {
       "action_state_id": 42,
+      "action_table_index": 42,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -51601,6 +51686,7 @@
       "figatree_archive_size": 11179,
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeF_figatree",
       "flags_raw": "0x800000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_EscapeF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -51608,6 +51694,7 @@
     },
     {
       "action_state_id": 43,
+      "action_table_index": 43,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -52915,6 +53002,7 @@
       "figatree_archive_size": 13499,
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeB_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_EscapeB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -52922,6 +53010,7 @@
     },
     {
       "action_state_id": 44,
+      "action_table_index": 44,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -54236,6 +54325,7 @@
       "figatree_archive_size": 8441,
       "figatree_root": "PlyCaptain5K_Share_ACTION_EscapeAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_EscapeAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -54243,6 +54333,7 @@
     },
     {
       "action_state_id": 45,
+      "action_table_index": 45,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -55550,6 +55641,7 @@
       "figatree_archive_size": 7107,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Rebound_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Rebound_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -55557,6 +55649,7 @@
     },
     {
       "action_state_id": 46,
+      "action_table_index": 46,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -56774,6 +56867,7 @@
       "figatree_archive_size": 4616,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack11_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack11_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -56781,6 +56875,7 @@
     },
     {
       "action_state_id": 47,
+      "action_table_index": 47,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -57998,6 +58093,7 @@
       "figatree_archive_size": 5232,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack12_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -58005,6 +58101,7 @@
     },
     {
       "action_state_id": 48,
+      "action_table_index": 48,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -59222,6 +59319,7 @@
       "figatree_archive_size": 7880,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack13_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack13_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -59229,6 +59327,7 @@
     },
     {
       "action_state_id": 49,
+      "action_table_index": 49,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -60446,6 +60545,7 @@
       "figatree_archive_size": 4130,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100Start_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack100Start_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -60453,6 +60553,7 @@
     },
     {
       "action_state_id": 50,
+      "action_table_index": 50,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -61670,6 +61771,7 @@
       "figatree_archive_size": 8853,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack100Loop_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -61677,6 +61779,7 @@
     },
     {
       "action_state_id": 51,
+      "action_table_index": 51,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -62894,6 +62997,7 @@
       "figatree_archive_size": 5740,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Attack100End_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Attack100End_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -62901,6 +63005,7 @@
     },
     {
       "action_state_id": 52,
+      "action_table_index": 52,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -64118,6 +64223,7 @@
       "figatree_archive_size": 7174,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -64125,6 +64231,7 @@
     },
     {
       "action_state_id": 53,
+      "action_table_index": 53,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -65243,6 +65350,7 @@
       "figatree_archive_size": 6274,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3Hi_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS3Hi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -65250,6 +65358,7 @@
     },
     {
       "action_state_id": 54,
+      "action_table_index": 54,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -66368,6 +66477,7 @@
       "figatree_archive_size": 6175,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3HiS_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS3HiS_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -66375,6 +66485,7 @@
     },
     {
       "action_state_id": 55,
+      "action_table_index": 55,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -67493,6 +67604,7 @@
       "figatree_archive_size": 6097,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3S_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS3S_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -67500,6 +67612,7 @@
     },
     {
       "action_state_id": 56,
+      "action_table_index": 56,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -68618,6 +68731,7 @@
       "figatree_archive_size": 6171,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3LwS_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS3LwS_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -68625,6 +68739,7 @@
     },
     {
       "action_state_id": 57,
+      "action_table_index": 57,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -69743,6 +69858,7 @@
       "figatree_archive_size": 6202,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS3Lw_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS3Lw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -69750,6 +69866,7 @@
     },
     {
       "action_state_id": 58,
+      "action_table_index": 58,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -71012,6 +71129,7 @@
       "figatree_archive_size": 9925,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackHi3_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackHi3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -71019,6 +71137,7 @@
     },
     {
       "action_state_id": 59,
+      "action_table_index": 59,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -72281,6 +72400,7 @@
       "figatree_archive_size": 10817,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackLw3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackLw3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -72288,6 +72408,7 @@
     },
     {
       "action_state_id": 60,
+      "action_table_index": 60,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -73829,6 +73950,7 @@
       "figatree_archive_size": 13542,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4Hi_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS4Hi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -73836,12 +73958,14 @@
     },
     {
       "action_state_id": 61,
+      "action_table_index": 61,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -73849,6 +73973,7 @@
     },
     {
       "action_state_id": 62,
+      "action_table_index": 62,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -75390,6 +75515,7 @@
       "figatree_archive_size": 13173,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4S_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS4S_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -75397,12 +75523,14 @@
     },
     {
       "action_state_id": 63,
+      "action_table_index": 63,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -75410,6 +75538,7 @@
     },
     {
       "action_state_id": 64,
+      "action_table_index": 64,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -76951,6 +77080,7 @@
       "figatree_archive_size": 13430,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackS4Lw_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackS4Lw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -76958,12 +77088,14 @@
     },
     {
       "action_state_id": 65,
+      "action_table_index": 65,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -76971,6 +77103,7 @@
     },
     {
       "action_state_id": 66,
+      "action_table_index": 66,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -78107,6 +78240,7 @@
       "figatree_archive_size": 12565,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackHi4_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackHi4_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -78114,6 +78248,7 @@
     },
     {
       "action_state_id": 67,
+      "action_table_index": 67,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -79250,6 +79385,7 @@
       "figatree_archive_size": 12469,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackLw4_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackLw4_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -79257,6 +79393,7 @@
     },
     {
       "action_state_id": 68,
+      "action_table_index": 68,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -80721,6 +80858,7 @@
       "figatree_archive_size": 11614,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackAirN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -80728,6 +80866,7 @@
     },
     {
       "action_state_id": 69,
+      "action_table_index": 69,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -82192,6 +82331,7 @@
       "figatree_archive_size": 12506,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackAirF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -82199,6 +82339,7 @@
     },
     {
       "action_state_id": 70,
+      "action_table_index": 70,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -83663,6 +83804,7 @@
       "figatree_archive_size": 9378,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirB_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackAirB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -83670,6 +83812,7 @@
     },
     {
       "action_state_id": 71,
+      "action_table_index": 71,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -85134,6 +85277,7 @@
       "figatree_archive_size": 7115,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackAirHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -85141,6 +85285,7 @@
     },
     {
       "action_state_id": 72,
+      "action_table_index": 72,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -86605,6 +86750,7 @@
       "figatree_archive_size": 9387,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AttackAirLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AttackAirLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -86612,6 +86758,7 @@
     },
     {
       "action_state_id": 73,
+      "action_table_index": 73,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -88063,6 +88210,7 @@
       "figatree_archive_size": 7819,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirN_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LandingAirN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -88070,6 +88218,7 @@
     },
     {
       "action_state_id": 74,
+      "action_table_index": 74,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -89521,6 +89670,7 @@
       "figatree_archive_size": 6819,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LandingAirF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -89528,6 +89678,7 @@
     },
     {
       "action_state_id": 75,
+      "action_table_index": 75,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -90979,6 +91130,7 @@
       "figatree_archive_size": 7659,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirB_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LandingAirB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -90986,6 +91138,7 @@
     },
     {
       "action_state_id": 76,
+      "action_table_index": 76,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -92437,6 +92590,7 @@
       "figatree_archive_size": 7412,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LandingAirHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -92444,6 +92598,7 @@
     },
     {
       "action_state_id": 77,
+      "action_table_index": 77,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -93895,6 +94050,7 @@
       "figatree_archive_size": 5912,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LandingAirLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LandingAirLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -93902,6 +94058,7 @@
     },
     {
       "action_state_id": 78,
+      "action_table_index": 78,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -95551,6 +95708,7 @@
       "figatree_archive_size": 6108,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightGet_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightGet_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -95558,6 +95716,7 @@
     },
     {
       "action_state_id": 79,
+      "action_table_index": 79,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -97207,6 +97366,7 @@
       "figatree_archive_size": 8591,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -97214,6 +97374,7 @@
     },
     {
       "action_state_id": 80,
+      "action_table_index": 80,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -98863,6 +99024,7 @@
       "figatree_archive_size": 8507,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -98870,6 +99032,7 @@
     },
     {
       "action_state_id": 81,
+      "action_table_index": 81,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -100519,6 +100682,7 @@
       "figatree_archive_size": 8552,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -100526,6 +100690,7 @@
     },
     {
       "action_state_id": 82,
+      "action_table_index": 82,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -102175,6 +102340,7 @@
       "figatree_archive_size": 7812,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -102182,6 +102348,7 @@
     },
     {
       "action_state_id": 83,
+      "action_table_index": 83,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -103831,6 +103998,7 @@
       "figatree_archive_size": 9074,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -103838,6 +104006,7 @@
     },
     {
       "action_state_id": 84,
+      "action_table_index": 84,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -105487,6 +105656,7 @@
       "figatree_archive_size": 5302,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowDrop_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowDrop_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -105494,6 +105664,7 @@
     },
     {
       "action_state_id": 85,
+      "action_table_index": 85,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -106684,6 +106855,7 @@
       "figatree_archive_size": 6394,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -106691,6 +106863,7 @@
     },
     {
       "action_state_id": 86,
+      "action_table_index": 86,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -107881,6 +108054,7 @@
       "figatree_archive_size": 5858,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -107888,6 +108062,7 @@
     },
     {
       "action_state_id": 87,
+      "action_table_index": 87,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -109078,6 +109253,7 @@
       "figatree_archive_size": 5963,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -109085,6 +109261,7 @@
     },
     {
       "action_state_id": 88,
+      "action_table_index": 88,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -110275,6 +110452,7 @@
       "figatree_archive_size": 5695,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -110282,6 +110460,7 @@
     },
     {
       "action_state_id": 89,
+      "action_table_index": 89,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -111598,6 +111777,7 @@
       "figatree_archive_size": 7636,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyGet_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyGet_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -111605,6 +111785,7 @@
     },
     {
       "action_state_id": 90,
+      "action_table_index": 90,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -112921,6 +113102,7 @@
       "figatree_archive_size": 4310,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyWalk1_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyWalk1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -112928,6 +113110,7 @@
     },
     {
       "action_state_id": 91,
+      "action_table_index": 91,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -114244,6 +114427,7 @@
       "figatree_archive_size": 4498,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyWalk2_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyWalk2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -114251,6 +114435,7 @@
     },
     {
       "action_state_id": 92,
+      "action_table_index": 92,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -115567,6 +115752,7 @@
       "figatree_archive_size": 7235,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -115574,6 +115760,7 @@
     },
     {
       "action_state_id": 93,
+      "action_table_index": 93,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -116890,6 +117077,7 @@
       "figatree_archive_size": 7655,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -116897,6 +117085,7 @@
     },
     {
       "action_state_id": 94,
+      "action_table_index": 94,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -118213,6 +118402,7 @@
       "figatree_archive_size": 7284,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -118220,6 +118410,7 @@
     },
     {
       "action_state_id": 95,
+      "action_table_index": 95,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -119536,6 +119727,7 @@
       "figatree_archive_size": 7124,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -119543,6 +119735,7 @@
     },
     {
       "action_state_id": 96,
+      "action_table_index": 96,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -121192,6 +121385,7 @@
       "figatree_archive_size": 8591,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -121199,6 +121393,7 @@
     },
     {
       "action_state_id": 97,
+      "action_table_index": 97,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -122848,6 +123043,7 @@
       "figatree_archive_size": 8507,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -122855,6 +123051,7 @@
     },
     {
       "action_state_id": 98,
+      "action_table_index": 98,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -124504,6 +124701,7 @@
       "figatree_archive_size": 8552,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -124511,6 +124709,7 @@
     },
     {
       "action_state_id": 99,
+      "action_table_index": 99,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -126160,6 +126359,7 @@
       "figatree_archive_size": 7812,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -126167,6 +126367,7 @@
     },
     {
       "action_state_id": 100,
+      "action_table_index": 100,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -127357,6 +127558,7 @@
       "figatree_archive_size": 6394,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -127364,6 +127566,7 @@
     },
     {
       "action_state_id": 101,
+      "action_table_index": 101,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -128554,6 +128757,7 @@
       "figatree_archive_size": 5858,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -128561,6 +128765,7 @@
     },
     {
       "action_state_id": 102,
+      "action_table_index": 102,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -129751,6 +129956,7 @@
       "figatree_archive_size": 5963,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -129758,6 +129964,7 @@
     },
     {
       "action_state_id": 103,
+      "action_table_index": 103,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -130948,6 +131155,7 @@
       "figatree_archive_size": 5695,
       "figatree_root": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_LightThrowAirLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -130955,6 +131163,7 @@
     },
     {
       "action_state_id": 104,
+      "action_table_index": 104,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -132271,6 +132480,7 @@
       "figatree_archive_size": 7235,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -132278,6 +132488,7 @@
     },
     {
       "action_state_id": 105,
+      "action_table_index": 105,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -133594,6 +133805,7 @@
       "figatree_archive_size": 7655,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "flags_raw": "0x000000c2",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -133601,6 +133813,7 @@
     },
     {
       "action_state_id": 106,
+      "action_table_index": 106,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -134917,6 +135130,7 @@
       "figatree_archive_size": 7284,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -134924,6 +135138,7 @@
     },
     {
       "action_state_id": 107,
+      "action_table_index": 107,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -136240,6 +136455,7 @@
       "figatree_archive_size": 7124,
       "figatree_root": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_HeavyThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -136247,6 +136463,7 @@
     },
     {
       "action_state_id": 108,
+      "action_table_index": 108,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -137608,6 +137825,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -137615,6 +137833,7 @@
     },
     {
       "action_state_id": 109,
+      "action_table_index": 109,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -138976,6 +139195,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -138983,6 +139203,7 @@
     },
     {
       "action_state_id": 110,
+      "action_table_index": 110,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -140344,6 +140565,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -140351,6 +140573,7 @@
     },
     {
       "action_state_id": 111,
+      "action_table_index": 111,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -141712,6 +141935,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -141719,6 +141943,7 @@
     },
     {
       "action_state_id": 112,
+      "action_table_index": 112,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -143080,6 +143305,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -143087,6 +143313,7 @@
     },
     {
       "action_state_id": 113,
+      "action_table_index": 113,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -144448,6 +144675,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -144455,6 +144683,7 @@
     },
     {
       "action_state_id": 114,
+      "action_table_index": 114,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -145816,6 +146045,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -145823,6 +146053,7 @@
     },
     {
       "action_state_id": 115,
+      "action_table_index": 115,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -147184,6 +147415,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -147191,6 +147423,7 @@
     },
     {
       "action_state_id": 116,
+      "action_table_index": 116,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -148552,6 +148785,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -148559,6 +148793,7 @@
     },
     {
       "action_state_id": 117,
+      "action_table_index": 117,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -149920,6 +150155,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -149927,6 +150163,7 @@
     },
     {
       "action_state_id": 118,
+      "action_table_index": 118,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -151288,6 +151525,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -151295,6 +151533,7 @@
     },
     {
       "action_state_id": 119,
+      "action_table_index": 119,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -152656,6 +152895,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -152663,6 +152903,7 @@
     },
     {
       "action_state_id": 120,
+      "action_table_index": 120,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -154031,6 +154272,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -154038,6 +154280,7 @@
     },
     {
       "action_state_id": 121,
+      "action_table_index": 121,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -155406,6 +155649,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -155413,6 +155657,7 @@
     },
     {
       "action_state_id": 122,
+      "action_table_index": 122,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -156781,6 +157026,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -156788,6 +157034,7 @@
     },
     {
       "action_state_id": 123,
+      "action_table_index": 123,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -158149,6 +158396,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -158156,6 +158404,7 @@
     },
     {
       "action_state_id": 124,
+      "action_table_index": 124,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -159517,6 +159766,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -159524,6 +159774,7 @@
     },
     {
       "action_state_id": 125,
+      "action_table_index": 125,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -160885,6 +161136,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -160892,6 +161144,7 @@
     },
     {
       "action_state_id": 126,
+      "action_table_index": 126,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -162253,6 +162506,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -162260,6 +162514,7 @@
     },
     {
       "action_state_id": 127,
+      "action_table_index": 127,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -163621,6 +163876,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -163628,6 +163884,7 @@
     },
     {
       "action_state_id": 128,
+      "action_table_index": 128,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -164989,6 +165246,7 @@
       "figatree_archive_size": 6930,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -164996,6 +165254,7 @@
     },
     {
       "action_state_id": 129,
+      "action_table_index": 129,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -166357,6 +166616,7 @@
       "figatree_archive_size": 8366,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -166364,6 +166624,7 @@
     },
     {
       "action_state_id": 130,
+      "action_table_index": 130,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -167725,6 +167986,7 @@
       "figatree_archive_size": 11743,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing41_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -167732,6 +167994,7 @@
     },
     {
       "action_state_id": 131,
+      "action_table_index": 131,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -169093,6 +169356,7 @@
       "figatree_archive_size": 11305,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SwingDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -169100,6 +169364,7 @@
     },
     {
       "action_state_id": 132,
+      "action_table_index": 132,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -170308,6 +170573,7 @@
       "figatree_archive_size": 4750,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemHammerWait_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemHammerWait_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -170315,6 +170581,7 @@
     },
     {
       "action_state_id": 133,
+      "action_table_index": 133,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -171523,6 +171790,7 @@
       "figatree_archive_size": 4562,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemHammerMove_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemHammerMove_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -171530,6 +171798,7 @@
     },
     {
       "action_state_id": 134,
+      "action_table_index": 134,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -172738,6 +173007,7 @@
       "figatree_archive_size": 5363,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolOpen_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemParasolOpen_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -172745,6 +173015,7 @@
     },
     {
       "action_state_id": 135,
+      "action_table_index": 135,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -173953,6 +174224,7 @@
       "figatree_archive_size": 4995,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -173960,6 +174232,7 @@
     },
     {
       "action_state_id": 136,
+      "action_table_index": 136,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -175168,6 +175441,7 @@
       "figatree_archive_size": 4995,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemParasolFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -175175,6 +175449,7 @@
     },
     {
       "action_state_id": 137,
+      "action_table_index": 137,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -176374,6 +176649,7 @@
       "figatree_archive_size": 5046,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -176381,6 +176657,7 @@
     },
     {
       "action_state_id": 138,
+      "action_table_index": 138,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -177544,6 +177821,7 @@
       "figatree_archive_size": 8965,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -177551,6 +177829,7 @@
     },
     {
       "action_state_id": 139,
+      "action_table_index": 139,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -178714,6 +178993,7 @@
       "figatree_archive_size": 8444,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -178721,6 +179001,7 @@
     },
     {
       "action_state_id": 140,
+      "action_table_index": 140,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -179884,6 +180165,7 @@
       "figatree_archive_size": 8965,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -179891,6 +180173,7 @@
     },
     {
       "action_state_id": 141,
+      "action_table_index": 141,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -181054,6 +181337,7 @@
       "figatree_archive_size": 8444,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -181061,6 +181345,7 @@
     },
     {
       "action_state_id": 142,
+      "action_table_index": 142,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -182224,6 +182509,7 @@
       "figatree_archive_size": 8965,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShoot_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -182231,6 +182517,7 @@
     },
     {
       "action_state_id": 143,
+      "action_table_index": 143,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -183394,6 +183681,7 @@
       "figatree_archive_size": 8444,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemShootAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -183401,6 +183689,7 @@
     },
     {
       "action_state_id": 144,
+      "action_table_index": 144,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -184582,6 +184871,7 @@
       "figatree_archive_size": 5085,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrew_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScrew_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -184589,6 +184879,7 @@
     },
     {
       "action_state_id": 145,
+      "action_table_index": 145,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -185770,6 +186061,7 @@
       "figatree_archive_size": 5012,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScrewAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -185777,6 +186069,7 @@
     },
     {
       "action_state_id": 146,
+      "action_table_index": 146,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -186965,6 +187258,7 @@
       "figatree_archive_size": 5063,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -186972,6 +187266,7 @@
     },
     {
       "action_state_id": 147,
+      "action_table_index": 147,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -188160,6 +188455,7 @@
       "figatree_archive_size": 5063,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScrewDamage_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -188167,6 +188463,7 @@
     },
     {
       "action_state_id": 148,
+      "action_table_index": 148,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -189321,6 +189618,7 @@
       "figatree_archive_size": 9213,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemBlind_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemBlind_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -189328,6 +189626,7 @@
     },
     {
       "action_state_id": 149,
+      "action_table_index": 149,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -190563,6 +190862,7 @@
       "figatree_archive_size": 6114,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -190570,6 +190870,7 @@
     },
     {
       "action_state_id": 150,
+      "action_table_index": 150,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -191805,6 +192106,7 @@
       "figatree_archive_size": 3838,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -191812,6 +192114,7 @@
     },
     {
       "action_state_id": 151,
+      "action_table_index": 151,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -193047,6 +193350,7 @@
       "figatree_archive_size": 8097,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -193054,6 +193358,7 @@
     },
     {
       "action_state_id": 152,
+      "action_table_index": 152,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -194289,6 +194594,7 @@
       "figatree_archive_size": 6736,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -194296,6 +194602,7 @@
     },
     {
       "action_state_id": 153,
+      "action_table_index": 153,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -195531,6 +195838,7 @@
       "figatree_archive_size": 5741,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -195538,6 +195846,7 @@
     },
     {
       "action_state_id": 154,
+      "action_table_index": 154,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -196773,6 +197082,7 @@
       "figatree_archive_size": 3917,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -196780,6 +197090,7 @@
     },
     {
       "action_state_id": 155,
+      "action_table_index": 155,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -198015,6 +198326,7 @@
       "figatree_archive_size": 7224,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -198022,6 +198334,7 @@
     },
     {
       "action_state_id": 156,
+      "action_table_index": 156,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -199257,6 +199570,7 @@
       "figatree_archive_size": 6307,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -199264,6 +199578,7 @@
     },
     {
       "action_state_id": 157,
+      "action_table_index": 157,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -200499,6 +200814,7 @@
       "figatree_archive_size": 6114,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -200506,6 +200822,7 @@
     },
     {
       "action_state_id": 158,
+      "action_table_index": 158,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -201741,6 +202058,7 @@
       "figatree_archive_size": 3838,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeRapid_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -201748,6 +202066,7 @@
     },
     {
       "action_state_id": 159,
+      "action_table_index": 159,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -202983,6 +203302,7 @@
       "figatree_archive_size": 8097,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeFire_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -202990,6 +203310,7 @@
     },
     {
       "action_state_id": 160,
+      "action_table_index": 160,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -204225,6 +204546,7 @@
       "figatree_archive_size": 6736,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -204232,6 +204554,7 @@
     },
     {
       "action_state_id": 161,
+      "action_table_index": 161,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -205467,6 +205790,7 @@
       "figatree_archive_size": 5741,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -205474,6 +205798,7 @@
     },
     {
       "action_state_id": 162,
+      "action_table_index": 162,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -206709,6 +207034,7 @@
       "figatree_archive_size": 3917,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirRapid_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -206716,6 +207042,7 @@
     },
     {
       "action_state_id": 163,
+      "action_table_index": 163,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -207951,6 +208278,7 @@
       "figatree_archive_size": 7224,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirFire_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -207958,6 +208286,7 @@
     },
     {
       "action_state_id": 164,
+      "action_table_index": 164,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -209193,6 +209522,7 @@
       "figatree_archive_size": 6307,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ItemScopeAirEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -209200,6 +209530,7 @@
     },
     {
       "action_state_id": 165,
+      "action_table_index": 165,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -210462,6 +210793,7 @@
       "figatree_archive_size": 5449,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageHi1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -210469,6 +210801,7 @@
     },
     {
       "action_state_id": 166,
+      "action_table_index": 166,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -211731,6 +212064,7 @@
       "figatree_archive_size": 6629,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageHi2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -211738,6 +212072,7 @@
     },
     {
       "action_state_id": 167,
+      "action_table_index": 167,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -213000,6 +213335,7 @@
       "figatree_archive_size": 7741,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageHi3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageHi3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -213007,6 +213343,7 @@
     },
     {
       "action_state_id": 168,
+      "action_table_index": 168,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -214269,6 +214606,7 @@
       "figatree_archive_size": 5588,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageN1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -214276,6 +214614,7 @@
     },
     {
       "action_state_id": 169,
+      "action_table_index": 169,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -215538,6 +215877,7 @@
       "figatree_archive_size": 6404,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageN2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -215545,6 +215885,7 @@
     },
     {
       "action_state_id": 170,
+      "action_table_index": 170,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -216807,6 +217148,7 @@
       "figatree_archive_size": 6460,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageN3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageN3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -216814,6 +217156,7 @@
     },
     {
       "action_state_id": 171,
+      "action_table_index": 171,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -218076,6 +218419,7 @@
       "figatree_archive_size": 5501,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageLw1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -218083,6 +218427,7 @@
     },
     {
       "action_state_id": 172,
+      "action_table_index": 172,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -219345,6 +219690,7 @@
       "figatree_archive_size": 6489,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageLw2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -219352,6 +219698,7 @@
     },
     {
       "action_state_id": 173,
+      "action_table_index": 173,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -220614,6 +220961,7 @@
       "figatree_archive_size": 7933,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageLw3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageLw3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -220621,6 +220969,7 @@
     },
     {
       "action_state_id": 174,
+      "action_table_index": 174,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -221883,6 +222232,7 @@
       "figatree_archive_size": 5754,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir1_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageAir1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -221890,6 +222240,7 @@
     },
     {
       "action_state_id": 175,
+      "action_table_index": 175,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -223152,6 +223503,7 @@
       "figatree_archive_size": 5674,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageAir2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -223159,6 +223511,7 @@
     },
     {
       "action_state_id": 176,
+      "action_table_index": 176,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -224421,6 +224774,7 @@
       "figatree_archive_size": 6430,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageAir3_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageAir3_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -224428,6 +224782,7 @@
     },
     {
       "action_state_id": 177,
+      "action_table_index": 177,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -225690,6 +226045,7 @@
       "figatree_archive_size": 5951,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -225697,6 +226053,7 @@
     },
     {
       "action_state_id": 178,
+      "action_table_index": 178,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -226959,6 +227316,7 @@
       "figatree_archive_size": 5482,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyN_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -226966,6 +227324,7 @@
     },
     {
       "action_state_id": 179,
+      "action_table_index": 179,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -228228,6 +228587,7 @@
       "figatree_archive_size": 6047,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -228235,6 +228595,7 @@
     },
     {
       "action_state_id": 180,
+      "action_table_index": 180,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -229497,6 +229858,7 @@
       "figatree_archive_size": 6320,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -229504,6 +229866,7 @@
     },
     {
       "action_state_id": 181,
+      "action_table_index": 181,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -230766,6 +231129,7 @@
       "figatree_archive_size": 3697,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyRoll_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyRoll_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -230773,12 +231137,14 @@
     },
     {
       "action_state_id": 182,
+      "action_table_index": 182,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -230786,6 +231152,7 @@
     },
     {
       "action_state_id": 183,
+      "action_table_index": 183,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -232264,6 +232631,7 @@
       "figatree_archive_size": 8374,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -232271,6 +232639,7 @@
     },
     {
       "action_state_id": 184,
+      "action_table_index": 184,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -233749,6 +234118,7 @@
       "figatree_archive_size": 5185,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownWaitU_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownWaitU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -233756,6 +234126,7 @@
     },
     {
       "action_state_id": 185,
+      "action_table_index": 185,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -235234,6 +235605,7 @@
       "figatree_archive_size": 6823,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownDamageU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownDamageU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -235241,6 +235613,7 @@
     },
     {
       "action_state_id": 186,
+      "action_table_index": 186,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -236719,6 +237092,7 @@
       "figatree_archive_size": 8782,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -236726,6 +237100,7 @@
     },
     {
       "action_state_id": 187,
+      "action_table_index": 187,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -238204,6 +238579,7 @@
       "figatree_archive_size": 14847,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownAttackU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownAttackU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -238211,6 +238587,7 @@
     },
     {
       "action_state_id": 188,
+      "action_table_index": 188,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -239689,6 +240066,7 @@
       "figatree_archive_size": 11039,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownFowardU_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownFowardU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -239696,6 +240074,7 @@
     },
     {
       "action_state_id": 189,
+      "action_table_index": 189,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -241174,6 +241553,7 @@
       "figatree_archive_size": 10561,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBackU_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBackU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -241181,12 +241561,14 @@
     },
     {
       "action_state_id": 190,
+      "action_table_index": 190,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -241194,6 +241576,7 @@
     },
     {
       "action_state_id": 191,
+      "action_table_index": 191,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -243077,6 +243460,7 @@
       "figatree_archive_size": 8998,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -243084,6 +243468,7 @@
     },
     {
       "action_state_id": 192,
+      "action_table_index": 192,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -244967,6 +245352,7 @@
       "figatree_archive_size": 6957,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownWaitD_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownWaitD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -244974,6 +245360,7 @@
     },
     {
       "action_state_id": 193,
+      "action_table_index": 193,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -246857,6 +247244,7 @@
       "figatree_archive_size": 7899,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownDamageD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownDamageD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -246864,6 +247252,7 @@
     },
     {
       "action_state_id": 194,
+      "action_table_index": 194,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -248747,6 +249136,7 @@
       "figatree_archive_size": 11074,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -248754,6 +249144,7 @@
     },
     {
       "action_state_id": 195,
+      "action_table_index": 195,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -250637,6 +251028,7 @@
       "figatree_archive_size": 14211,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownAttackD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownAttackD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -250644,6 +251036,7 @@
     },
     {
       "action_state_id": 196,
+      "action_table_index": 196,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -252527,6 +252920,7 @@
       "figatree_archive_size": 12099,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownFowardD_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownFowardD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -252534,6 +252928,7 @@
     },
     {
       "action_state_id": 197,
+      "action_table_index": 197,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -254417,6 +254812,7 @@
       "figatree_archive_size": 11173,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBackD_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBackD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -254424,6 +254820,7 @@
     },
     {
       "action_state_id": 198,
+      "action_table_index": 198,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -256307,6 +256704,7 @@
       "figatree_archive_size": 9633,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownSpotD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownSpotD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -256314,6 +256712,7 @@
     },
     {
       "action_state_id": 199,
+      "action_table_index": 199,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -257693,6 +258092,7 @@
       "figatree_archive_size": 8039,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Passive_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Passive_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -257700,6 +258100,7 @@
     },
     {
       "action_state_id": 200,
+      "action_table_index": 200,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -259079,6 +259480,7 @@
       "figatree_archive_size": 8261,
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveStandF_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_PassiveStandF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -259086,6 +259488,7 @@
     },
     {
       "action_state_id": 201,
+      "action_table_index": 201,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -260465,6 +260868,7 @@
       "figatree_archive_size": 8401,
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveStandB_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_PassiveStandB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -260472,6 +260876,7 @@
     },
     {
       "action_state_id": 202,
+      "action_table_index": 202,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -261851,6 +262256,7 @@
       "figatree_archive_size": 5975,
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveWall_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_PassiveWall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -261858,6 +262264,7 @@
     },
     {
       "action_state_id": 203,
+      "action_table_index": 203,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -263237,6 +263644,7 @@
       "figatree_archive_size": 6675,
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveWallJump_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_PassiveWallJump_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -263244,6 +263652,7 @@
     },
     {
       "action_state_id": 204,
+      "action_table_index": 204,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -264623,6 +265032,7 @@
       "figatree_archive_size": 6591,
       "figatree_root": "PlyCaptain5K_Share_ACTION_PassiveCeil_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_PassiveCeil_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -264630,6 +265040,7 @@
     },
     {
       "action_state_id": 205,
+      "action_table_index": 205,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -265757,6 +266168,7 @@
       "figatree_archive_size": 6116,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraFura_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FuraFura_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -265764,6 +266176,7 @@
     },
     {
       "action_state_id": 206,
+      "action_table_index": 206,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -267044,6 +267457,7 @@
       "figatree_archive_size": 6566,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepStart_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FuraSleepStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -267051,6 +267465,7 @@
     },
     {
       "action_state_id": 207,
+      "action_table_index": 207,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -268331,6 +268746,7 @@
       "figatree_archive_size": 3825,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepLoop_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FuraSleepLoop_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -268338,6 +268754,7 @@
     },
     {
       "action_state_id": 208,
+      "action_table_index": 208,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -269618,6 +270035,7 @@
       "figatree_archive_size": 7088,
       "figatree_root": "PlyCaptain5K_Share_ACTION_FuraSleepEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_FuraSleepEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -269625,6 +270043,7 @@
     },
     {
       "action_state_id": 209,
+      "action_table_index": 209,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -270968,6 +271387,7 @@
       "figatree_archive_size": 8148,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Pass_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Pass_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -270975,6 +271395,7 @@
     },
     {
       "action_state_id": 210,
+      "action_table_index": 210,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -272318,6 +272739,7 @@
       "figatree_archive_size": 4727,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Ottotto_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Ottotto_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -272325,6 +272747,7 @@
     },
     {
       "action_state_id": 211,
+      "action_table_index": 211,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -273668,6 +274091,7 @@
       "figatree_archive_size": 7959,
       "figatree_root": "PlyCaptain5K_Share_ACTION_OttottoWait_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_OttottoWait_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -273675,6 +274099,7 @@
     },
     {
       "action_state_id": 212,
+      "action_table_index": 212,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -275018,6 +275443,7 @@
       "figatree_archive_size": 7478,
       "figatree_root": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_WallDamage_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -275025,6 +275451,7 @@
     },
     {
       "action_state_id": 213,
+      "action_table_index": 213,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -276368,6 +276795,7 @@
       "figatree_archive_size": 6260,
       "figatree_root": "PlyCaptain5K_Share_ACTION_StopWall_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_StopWall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -276375,6 +276803,7 @@
     },
     {
       "action_state_id": 214,
+      "action_table_index": 214,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -277718,6 +278147,7 @@
       "figatree_archive_size": 6440,
       "figatree_root": "PlyCaptain5K_Share_ACTION_StopCeil_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_StopCeil_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -277725,6 +278155,7 @@
     },
     {
       "action_state_id": 215,
+      "action_table_index": 215,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -279068,6 +279499,7 @@
       "figatree_archive_size": 6396,
       "figatree_root": "PlyCaptain5K_Share_ACTION_MissFoot_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_MissFoot_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -279075,6 +279507,7 @@
     },
     {
       "action_state_id": 216,
+      "action_table_index": 216,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -280562,6 +280995,7 @@
       "figatree_archive_size": 5014,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffCatch_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -280569,6 +281003,7 @@
     },
     {
       "action_state_id": 217,
+      "action_table_index": 217,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -282056,6 +282491,7 @@
       "figatree_archive_size": 4482,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
       "flags_raw": "0xc0000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffWait1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -282063,6 +282499,7 @@
     },
     {
       "action_state_id": 218,
+      "action_table_index": 218,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -283550,6 +283987,7 @@
       "figatree_archive_size": 8218,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffWait2_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffWait2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -283557,6 +283995,7 @@
     },
     {
       "action_state_id": 219,
+      "action_table_index": 219,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -285044,6 +285483,7 @@
       "figatree_archive_size": 12998,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffClimbSlow_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffClimbSlow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -285051,6 +285491,7 @@
     },
     {
       "action_state_id": 220,
+      "action_table_index": 220,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -286538,6 +286979,7 @@
       "figatree_archive_size": 10903,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffClimbQuick_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffClimbQuick_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -286545,6 +286987,7 @@
     },
     {
       "action_state_id": 221,
+      "action_table_index": 221,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -288032,6 +288475,7 @@
       "figatree_archive_size": 17799,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffAttackSlow_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffAttackSlow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -288039,6 +288483,7 @@
     },
     {
       "action_state_id": 222,
+      "action_table_index": 222,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -289526,6 +289971,7 @@
       "figatree_archive_size": 15808,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffAttackQuick_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffAttackQuick_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -289533,6 +289979,7 @@
     },
     {
       "action_state_id": 223,
+      "action_table_index": 223,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -291020,6 +291467,7 @@
       "figatree_archive_size": 17315,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffEscapeSlow_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffEscapeSlow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -291027,6 +291475,7 @@
     },
     {
       "action_state_id": 224,
+      "action_table_index": 224,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -292514,6 +292963,7 @@
       "figatree_archive_size": 15452,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffEscapeQuick_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffEscapeQuick_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -292521,6 +292971,7 @@
     },
     {
       "action_state_id": 225,
+      "action_table_index": 225,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -294008,6 +294459,7 @@
       "figatree_archive_size": 8306,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpSlow1_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffJumpSlow1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -294015,6 +294467,7 @@
     },
     {
       "action_state_id": 226,
+      "action_table_index": 226,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -295502,6 +295955,7 @@
       "figatree_archive_size": 10354,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpSlow2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffJumpSlow2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -295509,6 +295963,7 @@
     },
     {
       "action_state_id": 227,
+      "action_table_index": 227,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -296996,6 +297451,7 @@
       "figatree_archive_size": 7795,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpQuick1_figatree",
       "flags_raw": "0x80000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffJumpQuick1_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -297003,6 +297459,7 @@
     },
     {
       "action_state_id": 228,
+      "action_table_index": 228,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -298490,6 +298947,7 @@
       "figatree_archive_size": 8523,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CliffJumpQuick2_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CliffJumpQuick2_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -298497,12 +298955,14 @@
     },
     {
       "action_state_id": 229,
+      "action_table_index": 229,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298510,12 +298970,14 @@
     },
     {
       "action_state_id": 230,
+      "action_table_index": 230,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298523,12 +298985,14 @@
     },
     {
       "action_state_id": 231,
+      "action_table_index": 231,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298536,12 +299000,14 @@
     },
     {
       "action_state_id": 232,
+      "action_table_index": 232,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298549,12 +299015,14 @@
     },
     {
       "action_state_id": 233,
+      "action_table_index": 233,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298562,12 +299030,14 @@
     },
     {
       "action_state_id": 234,
+      "action_table_index": 234,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298575,12 +299045,14 @@
     },
     {
       "action_state_id": 235,
+      "action_table_index": 235,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298588,12 +299060,14 @@
     },
     {
       "action_state_id": 236,
+      "action_table_index": 236,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298601,12 +299075,14 @@
     },
     {
       "action_state_id": 237,
+      "action_table_index": 237,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -298614,6 +299090,7 @@
     },
     {
       "action_state_id": 238,
+      "action_table_index": 238,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -299660,6 +300137,7 @@
       "figatree_archive_size": 2805,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Entry_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Entry_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -299667,6 +300145,7 @@
     },
     {
       "action_state_id": 239,
+      "action_table_index": 239,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -301433,6 +301912,7 @@
       "figatree_archive_size": 15023,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AppealR_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AppealR_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -301440,6 +301920,7 @@
     },
     {
       "action_state_id": 240,
+      "action_table_index": 240,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -303206,6 +303687,7 @@
       "figatree_archive_size": 13679,
       "figatree_root": "PlyCaptain5K_Share_ACTION_AppealL_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_AppealL_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -303213,12 +303695,14 @@
     },
     {
       "action_state_id": 241,
+      "action_table_index": 241,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -303226,6 +303710,7 @@
     },
     {
       "action_state_id": 242,
+      "action_table_index": 242,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -304434,6 +304919,7 @@
       "figatree_archive_size": 8469,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Catch_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Catch_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -304441,6 +304927,7 @@
     },
     {
       "action_state_id": 243,
+      "action_table_index": 243,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -305649,6 +306136,7 @@
       "figatree_archive_size": 10149,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CatchDash_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -305656,6 +306144,7 @@
     },
     {
       "action_state_id": 244,
+      "action_table_index": 244,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -306864,6 +307353,7 @@
       "figatree_archive_size": 3901,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchWait_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CatchWait_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -306871,6 +307361,7 @@
     },
     {
       "action_state_id": 245,
+      "action_table_index": 245,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -308079,6 +308570,7 @@
       "figatree_archive_size": 5643,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchAttack_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CatchAttack_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -308086,6 +308578,7 @@
     },
     {
       "action_state_id": 246,
+      "action_table_index": 246,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -309294,6 +309787,7 @@
       "figatree_archive_size": 6960,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CatchCut_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CatchCut_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -309301,6 +309795,7 @@
     },
     {
       "action_state_id": 247,
+      "action_table_index": 247,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -310626,6 +311121,7 @@
       "figatree_archive_size": 7910,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowF_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -310633,6 +311129,7 @@
     },
     {
       "action_state_id": 248,
+      "action_table_index": 248,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -311958,6 +312455,7 @@
       "figatree_archive_size": 10582,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowB_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -311965,6 +312463,7 @@
     },
     {
       "action_state_id": 249,
+      "action_table_index": 249,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -313290,6 +313789,7 @@
       "figatree_archive_size": 9027,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -313297,6 +313797,7 @@
     },
     {
       "action_state_id": 250,
+      "action_table_index": 250,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -314622,6 +315123,7 @@
       "figatree_archive_size": 9859,
       "figatree_root": "PlyCaptain5K_Share_ACTION_ThrowLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_ThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -314629,6 +315131,7 @@
     },
     {
       "action_state_id": 251,
+      "action_table_index": 251,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -315864,6 +316367,7 @@
       "figatree_archive_size": 4479,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CapturePulledHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CapturePulledHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -315871,6 +316375,7 @@
     },
     {
       "action_state_id": 252,
+      "action_table_index": 252,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -317106,6 +317611,7 @@
       "figatree_archive_size": 5553,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureWaitHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -317113,6 +317619,7 @@
     },
     {
       "action_state_id": 253,
+      "action_table_index": 253,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -318348,6 +318855,7 @@
       "figatree_archive_size": 4883,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureDamageHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -318355,6 +318863,7 @@
     },
     {
       "action_state_id": 254,
+      "action_table_index": 254,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -319581,6 +320090,7 @@
       "figatree_archive_size": 5751,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CapturePulledLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CapturePulledLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -319588,6 +320098,7 @@
     },
     {
       "action_state_id": 255,
+      "action_table_index": 255,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -320814,6 +321325,7 @@
       "figatree_archive_size": 4877,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureWaitLw_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureWaitLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -320821,6 +321333,7 @@
     },
     {
       "action_state_id": 256,
+      "action_table_index": 256,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -322047,6 +322560,7 @@
       "figatree_archive_size": 5267,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureDamageLw_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureDamageLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -322054,6 +322568,7 @@
     },
     {
       "action_state_id": 257,
+      "action_table_index": 257,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -323280,6 +323795,7 @@
       "figatree_archive_size": 6774,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureCut_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureCut_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -323287,6 +323803,7 @@
     },
     {
       "action_state_id": 258,
+      "action_table_index": 258,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -324513,6 +325030,7 @@
       "figatree_archive_size": 7863,
       "figatree_root": "PlyCaptain5K_Share_ACTION_CaptureJump_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_CaptureJump_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -324520,12 +325038,14 @@
     },
     {
       "action_state_id": 259,
+      "action_table_index": 259,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -324533,12 +325053,14 @@
     },
     {
       "action_state_id": 260,
+      "action_table_index": 260,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -324546,12 +325068,14 @@
     },
     {
       "action_state_id": 261,
+      "action_table_index": 261,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -324559,6 +325083,7 @@
     },
     {
       "action_state_id": 262,
+      "action_table_index": 262,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
@@ -325279,6 +325804,7 @@
       "figatree_archive_size": 3613,
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowF_figatree",
       "flags_raw": "0x80000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyTaro_Share_ACTION_TCaptainThrowF_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -325286,6 +325812,7 @@
     },
     {
       "action_state_id": 263,
+      "action_table_index": 263,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
@@ -326006,6 +326533,7 @@
       "figatree_archive_size": 3981,
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowB_figatree",
       "flags_raw": "0x80000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyTaro_Share_ACTION_TCaptainThrowB_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -326013,6 +326541,7 @@
     },
     {
       "action_state_id": 264,
+      "action_table_index": 264,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
@@ -326733,6 +327262,7 @@
       "figatree_archive_size": 3958,
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowHi_figatree",
       "flags_raw": "0x80000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyTaro_Share_ACTION_TCaptainThrowHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -326740,6 +327270,7 @@
     },
     {
       "action_state_id": 265,
+      "action_table_index": 265,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 52,
@@ -327460,6 +327991,7 @@
       "figatree_archive_size": 4490,
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainThrowLw_figatree",
       "flags_raw": "0x80000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyTaro_Share_ACTION_TCaptainThrowLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -327467,12 +327999,14 @@
     },
     {
       "action_state_id": 266,
+      "action_table_index": 266,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327480,12 +328014,14 @@
     },
     {
       "action_state_id": 267,
+      "action_table_index": 267,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327493,12 +328029,14 @@
     },
     {
       "action_state_id": 268,
+      "action_table_index": 268,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327506,12 +328044,14 @@
     },
     {
       "action_state_id": 269,
+      "action_table_index": 269,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327519,12 +328059,14 @@
     },
     {
       "action_state_id": 270,
+      "action_table_index": 270,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327532,12 +328074,14 @@
     },
     {
       "action_state_id": 271,
+      "action_table_index": 271,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327545,12 +328089,14 @@
     },
     {
       "action_state_id": 272,
+      "action_table_index": 272,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327558,12 +328104,14 @@
     },
     {
       "action_state_id": 273,
+      "action_table_index": 273,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327571,12 +328119,14 @@
     },
     {
       "action_state_id": 274,
+      "action_table_index": 274,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327584,12 +328134,14 @@
     },
     {
       "action_state_id": 275,
+      "action_table_index": 275,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -327597,6 +328149,7 @@
     },
     {
       "action_state_id": 276,
+      "action_table_index": 276,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 53,
@@ -328372,6 +328925,7 @@
       "figatree_archive_size": 2296,
       "figatree_root": "PlyTaro_Share_ACTION_TCaptainSpecialHi_figatree",
       "flags_raw": "0x80000221",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyTaro_Share_ACTION_TCaptainSpecialHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -328379,12 +328933,14 @@
     },
     {
       "action_state_id": 277,
+      "action_table_index": 277,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328392,12 +328948,14 @@
     },
     {
       "action_state_id": 278,
+      "action_table_index": 278,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328405,12 +328963,14 @@
     },
     {
       "action_state_id": 279,
+      "action_table_index": 279,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328418,12 +328978,14 @@
     },
     {
       "action_state_id": 280,
+      "action_table_index": 280,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328431,12 +328993,14 @@
     },
     {
       "action_state_id": 281,
+      "action_table_index": 281,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328444,12 +329008,14 @@
     },
     {
       "action_state_id": 282,
+      "action_table_index": 282,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328457,12 +329023,14 @@
     },
     {
       "action_state_id": 283,
+      "action_table_index": 283,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328470,12 +329038,14 @@
     },
     {
       "action_state_id": 284,
+      "action_table_index": 284,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328483,12 +329053,14 @@
     },
     {
       "action_state_id": 285,
+      "action_table_index": 285,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x40000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -328496,6 +329068,7 @@
     },
     {
       "action_state_id": 286,
+      "action_table_index": 286,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -329758,6 +330331,7 @@
       "figatree_archive_size": 6320,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFlyTop_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -329765,6 +330339,7 @@
     },
     {
       "action_state_id": 287,
+      "action_table_index": 287,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -330964,6 +331539,7 @@
       "figatree_archive_size": 5046,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "flags_raw": "0x40000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DamageFall_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -330971,6 +331547,7 @@
     },
     {
       "action_state_id": 288,
+      "action_table_index": 288,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -332449,6 +333026,7 @@
       "figatree_archive_size": 8374,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -332456,6 +333034,7 @@
     },
     {
       "action_state_id": 289,
+      "action_table_index": 289,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -334339,6 +334918,7 @@
       "figatree_archive_size": 8998,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownBoundD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -334346,6 +334926,7 @@
     },
     {
       "action_state_id": 290,
+      "action_table_index": 290,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -335824,6 +336405,7 @@
       "figatree_archive_size": 8782,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownStandU_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -335831,6 +336413,7 @@
     },
     {
       "action_state_id": 291,
+      "action_table_index": 291,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -337714,6 +338297,7 @@
       "figatree_archive_size": 11074,
       "figatree_root": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_DownStandD_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -337721,12 +338305,14 @@
     },
     {
       "action_state_id": 292,
+      "action_table_index": 292,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -337734,12 +338320,14 @@
     },
     {
       "action_state_id": 293,
+      "action_table_index": 293,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -337747,12 +338335,14 @@
     },
     {
       "action_state_id": 294,
+      "action_table_index": 294,
       "cmd_var_events": [],
       "figatree": null,
       "figatree_archive_offset": 0,
       "figatree_archive_size": 0,
       "figatree_root": null,
       "flags_raw": "0x00000021",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "",
       "runtime_archive_pointer_raw": 0,
       "status": "no_figatree_for_action_state",
@@ -337760,6 +338350,7 @@
     },
     {
       "action_state_id": 295,
+      "action_table_index": 295,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -339121,6 +339712,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -339128,6 +339720,7 @@
     },
     {
       "action_state_id": 296,
+      "action_table_index": 296,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -340489,6 +341082,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -340496,6 +341090,7 @@
     },
     {
       "action_state_id": 297,
+      "action_table_index": 297,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -341857,6 +342452,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -341864,6 +342460,7 @@
     },
     {
       "action_state_id": 298,
+      "action_table_index": 298,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -343232,6 +343829,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -343239,6 +343837,7 @@
     },
     {
       "action_state_id": 299,
+      "action_table_index": 299,
       "cmd_var_events": [
         {
           "cmd_var": 1,
@@ -344607,6 +345206,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -344614,6 +345214,7 @@
     },
     {
       "action_state_id": 300,
+      "action_table_index": 300,
       "cmd_var_events": [
         {
           "cmd_var": 1,
@@ -345982,6 +346583,7 @@
       "figatree_archive_size": 12087,
       "figatree_root": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_Swing42_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -345989,6 +346591,7 @@
     },
     {
       "action_state_id": 301,
+      "action_table_index": 301,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -347224,6 +347827,7 @@
       "figatree_archive_size": 14016,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -347231,6 +347835,7 @@
     },
     {
       "action_state_id": 302,
+      "action_table_index": 302,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -348485,6 +349090,7 @@
       "figatree_archive_size": 14711,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirN_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirN_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -348492,6 +349098,7 @@
     },
     {
       "action_state_id": 303,
+      "action_table_index": 303,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -349716,6 +350323,7 @@
       "figatree_archive_size": 9297,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialSStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -349723,6 +350331,7 @@
     },
     {
       "action_state_id": 304,
+      "action_table_index": 304,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -350922,6 +351531,7 @@
       "figatree_archive_size": 5520,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialS_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialS_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -350929,6 +351539,7 @@
     },
     {
       "action_state_id": 305,
+      "action_table_index": 305,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -352159,6 +352770,7 @@
       "figatree_archive_size": 7948,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirSStart_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -352166,6 +352778,7 @@
     },
     {
       "action_state_id": 306,
+      "action_table_index": 306,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -353365,6 +353978,7 @@
       "figatree_archive_size": 6423,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirS_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirS_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -353372,6 +353986,7 @@
     },
     {
       "action_state_id": 307,
+      "action_table_index": 307,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -355649,6 +356264,7 @@
       "figatree_archive_size": 15141,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -355656,6 +356272,7 @@
     },
     {
       "action_state_id": 308,
+      "action_table_index": 308,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -357933,6 +358550,7 @@
       "figatree_archive_size": 15124,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirHi_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -357940,6 +358558,7 @@
     },
     {
       "action_state_id": 309,
+      "action_table_index": 309,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -360210,6 +360829,7 @@
       "figatree_archive_size": 6554,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiCatch_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialHiCatch_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -360217,6 +360837,7 @@
     },
     {
       "action_state_id": 310,
+      "action_table_index": 310,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -362494,6 +363115,7 @@
       "figatree_archive_size": 12098,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -362501,6 +363123,7 @@
     },
     {
       "action_state_id": 311,
+      "action_table_index": 311,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -363797,6 +364420,7 @@
       "figatree_archive_size": 6085,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLw_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -363804,6 +364428,7 @@
     },
     {
       "action_state_id": 312,
+      "action_table_index": 312,
       "cmd_var_events": [
         {
           "cmd_var": 2,
@@ -365112,6 +365737,7 @@
       "figatree_archive_size": 7420,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLwEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialLwEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -365119,6 +365745,7 @@
     },
     {
       "action_state_id": 313,
+      "action_table_index": 313,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -366415,6 +367042,7 @@
       "figatree_archive_size": 6756,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLw_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirLw_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -366422,6 +367050,7 @@
     },
     {
       "action_state_id": 314,
+      "action_table_index": 314,
       "cmd_var_events": [
         {
           "cmd_var": 2,
@@ -367724,6 +368353,7 @@
       "figatree_archive_size": 7151,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLwEnd_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirLwEnd_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -367731,6 +368361,7 @@
     },
     {
       "action_state_id": 315,
+      "action_table_index": 315,
       "cmd_var_events": [
         {
           "cmd_var": 0,
@@ -369033,6 +369664,7 @@
       "figatree_archive_size": 6287,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialLwEndAir_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialLwEndAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -369040,6 +369672,7 @@
     },
     {
       "action_state_id": 316,
+      "action_table_index": 316,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -370329,6 +370962,7 @@
       "figatree_archive_size": 6710,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialAirLwEndAir_figatree",
       "flags_raw": "0x00000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialAirLwEndAir_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",
@@ -370336,6 +370970,7 @@
     },
     {
       "action_state_id": 317,
+      "action_table_index": 317,
       "cmd_var_events": [],
       "figatree": {
         "animated_node_count": 63,
@@ -372606,6 +373241,7 @@
       "figatree_archive_size": 12098,
       "figatree_root": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "flags_raw": "0x82000002",
+      "identity_kind": "fighter_wait_anim_data_index",
       "name": "PlyCaptain5K_Share_ACTION_SpecialHiThrow_figatree",
       "runtime_archive_pointer_raw": 0,
       "status": "available_for_jobj_sampling",

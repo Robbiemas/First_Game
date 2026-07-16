@@ -1,15 +1,8 @@
-import struct
-
 from tools.generate_falcon_ecb_rust import (
     build_coverage_payload,
     render_generated_rust,
     render_live_jobj_payload,
 )
-
-
-def f32_bits(value: float) -> str:
-    bits = struct.unpack(">I", struct.pack(">f", value))[0]
-    return f"f32::from_bits(0x{bits:08x})"
 
 
 def test_live_jobj_payload_clears_transn_per_action_anim_flags():
@@ -38,6 +31,7 @@ def test_live_jobj_payload_clears_transn_per_action_anim_flags():
                 },
                 "model_scaling": 1.0,
                 "transn_joint_index": 1,
+                "ftanim_copy_joints": [],
                 "actions": {
                     36: {
                         "clear_transn_after_anim": False,
@@ -55,16 +49,109 @@ def test_live_jobj_payload_clears_transn_per_action_anim_flags():
     assert "clear_transn_after_anim: bool" in rust
     assert (
         "const FALCON_FIGA_ACTION_36: FalconFigaAction = FalconFigaAction { "
-        "clear_transn_after_anim: false, tracks: &FALCON_FIGA_TRACKS_ACTION_36 "
+        "clear_transn_after_anim: false, end_frame: f32::from_bits(0x00000000), "
+        "rewind_frame: f32::from_bits(0x00000000), aobj_flags: 0x00000000, "
+        "tracks: &FALCON_FIGA_TRACKS_ACTION_36 "
         "};"
     ) in rust
     assert (
         "const FALCON_FIGA_ACTION_307: FalconFigaAction = FalconFigaAction { "
-        "clear_transn_after_anim: true, tracks: &FALCON_FIGA_TRACKS_ACTION_307 "
+        "clear_transn_after_anim: true, end_frame: f32::from_bits(0x00000000), "
+        "rewind_frame: f32::from_bits(0x00000000), aobj_flags: 0x00000000, "
+        "tracks: &FALCON_FIGA_TRACKS_ACTION_307 "
         "};"
     ) in rust
     assert "if action.clear_transn_after_anim {" in rust
 
+
+def test_live_jobj_payload_emits_exact_aobj_descriptor_metadata():
+    rust = "\n".join(
+        render_live_jobj_payload(
+            {
+                "joints": [],
+                "ecb_source": {
+                    "joint_indices": [0, 0, 0, 0, 0, 0],
+                    "side_midpoint_offset_raw": 0.0,
+                },
+                "model_scaling": 1.0,
+                "transn_joint_index": 0,
+                "ftanim_copy_joints": [],
+                "actions": {
+                    20: {
+                        "clear_transn_after_anim": False,
+                        "end_frame": 29.5,
+                        "rewind_frame": 0.0,
+                        "aobj_flags": 0x20000000,
+                        "tracks": [],
+                    }
+                },
+            }
+        )
+    )
+
+    assert "end_frame: f32" in rust
+    assert "rewind_frame: f32" in rust
+    assert "aobj_flags: u32" in rust
+    assert "end_frame: f32::from_bits(0x41ec0000)" in rust
+    assert "rewind_frame: f32::from_bits(0x00000000)" in rust
+    assert "aobj_flags: 0x20000000" in rust
+    assert "pub(crate) fn falcon_aobj_descriptor_for_action_table_id" in rust
+    assert "SourceAObjDescriptor" in rust
+
+
+
+def test_live_jobj_payload_emits_costume_skeleton_selector():
+    neutral = {
+        "parent_index": None,
+        "flags_raw": "0x00000000",
+        "rotation_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "scale_raw": {"x": 1.0, "y": 1.0, "z": 1.0},
+        "position_raw": {"x": 0.0, "y": 0.0, "z": 0.0},
+    }
+    blue = {**neutral, "position_raw": {"x": 0.0, "y": 0.25, "z": 0.0}}
+    rust = "\n".join(
+        render_live_jobj_payload(
+            {
+                "joints": [neutral],
+                "costume_joints": [[neutral], [blue]],
+                "ecb_source": {
+                    "joint_indices": [0, 0, 0, 0, 0, 0],
+                    "side_midpoint_offset_raw": 0.0,
+                },
+                "model_scaling": 1.0,
+                "transn_joint_index": 0,
+                "ftanim_copy_joints": [],
+                "actions": {},
+            }
+        )
+    )
+
+    assert "const FALCON_SOURCE_COSTUME_JOINTS: [[FalconSourceJoint; 1]; 2]" in rust
+    assert "fn falcon_source_joints(costume_index: u8)" in rust
+    assert "falcon_source_joints(costume_index).iter()" in rust
+
+
+def test_live_jobj_payload_keeps_coll_data_minimums_in_fighter_scale_space():
+    rust = "\n".join(
+        render_live_jobj_payload(
+            {
+                "joints": [],
+                "ecb_source": {
+                    "joint_indices": [0, 0, 0, 0, 0, 0],
+                    "side_midpoint_offset_raw": 0.0,
+                    "min_height_raw": 10.0,
+                    "min_width_raw": 10.0,
+                },
+                "model_scaling": 0.97,
+                "transn_joint_index": 0,
+                "ftanim_copy_joints": [],
+                "actions": {},
+            }
+        )
+    )
+
+    assert "const FALCON_ECB_MIN_HEIGHT: f32 = f32::from_bits(0x41200000);" in rust
+    assert "const FALCON_ECB_MIN_WIDTH: f32 = f32::from_bits(0x41200000);" in rust
 
 def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     samples = {
@@ -348,15 +435,13 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     rust = render_generated_rust(samples)
 
     assert "pub(crate) const FALCON_ECB_MAPPED_ACTION_COUNT: usize = 20;" in rust
-    assert "const FALCON_ECB_ACTION_12" in rust
-    assert "const FALCON_SOURCE_ECB_ACTION_12" in rust
+    assert "const FALCON_ECB_ACTION_12" not in rust
+    assert "const FALCON_SOURCE_ECB_ACTION_12" not in rust
+    assert "fn falcon_ecb_sample_count_for_motion_state" in rust
+    assert "MotionState::Guard => Some(370)" not in rust
     assert "SourceFighterEcb" in rust
     assert (
-        f"right: SourceVec2 {{ x: {f32_bits(2.125)}, y: {f32_bits(5.25)} }}"
-        in rust
-    )
-    assert (
-        "pub(crate) fn falcon_source_ecb_samples_for_motion_state" in rust
+        "pub(crate) fn falcon_has_source_ecb_jobj_for_motion_state" in rust
     )
     assert "mut p0: f32" in rust
     assert "else { *d0 = 0.0; p0 = p1; }" in rust
@@ -366,29 +451,28 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
     assert "srts[0].scale = FALCON_TOPN_COLLISION_SCALE;" in rust
     assert "const FALCON_TRANSN_JOINT_INDEX: usize = 1;" in rust
     assert "srts[FALCON_TRANSN_JOINT_INDEX].translation = SourceVec3Gen::default();" in rust
-    assert "MotionState::Dash => Some(&FALCON_SOURCE_ECB_ACTION_12)" in rust
-    assert "MotionState::Dash => Some(&FALCON_ECB_ACTION_12)" in rust
-    assert "MotionState::KneeBend => Some(&FALCON_ECB_ACTION_15)" in rust
-    assert "MotionState::EscapeAir => Some(&FALCON_ECB_ACTION_44)" in rust
-    assert "MotionState::FallAerial => Some(&FALCON_ECB_ACTION_23)" in rust
-    assert "MotionState::FallSpecialF => Some(&FALCON_ECB_ACTION_27)" in rust
-    assert "MotionState::FallSpecialB => Some(&FALCON_ECB_ACTION_28)" in rust
-    assert "MotionState::LandingFallSpecial => Some(&FALCON_ECB_ACTION_36)" in rust
-    assert "MotionState::GuardReflect => Some(&FALCON_ECB_ACTION_37)" in rust
-    assert "MotionState::LandingAirN => Some(&FALCON_ECB_ACTION_73)" in rust
-    assert "MotionState::LandingAirF => Some(&FALCON_ECB_ACTION_74)" in rust
-    assert "MotionState::LandingAirB => Some(&FALCON_ECB_ACTION_75)" in rust
-    assert "MotionState::LandingAirHi => Some(&FALCON_ECB_ACTION_76)" in rust
-    assert "MotionState::LandingAirLw => Some(&FALCON_ECB_ACTION_77)" in rust
-    assert "MotionState::Entry => Some(&FALCON_ECB_ACTION_238)" in rust
-    assert "MotionState::EntryStart => Some(&FALCON_ECB_ACTION_238)" in rust
-    assert "MotionState::EntryEnd => Some(&FALCON_ECB_ACTION_238)" in rust
-    assert "MotionState::CliffCatch => Some(&FALCON_ECB_ACTION_216)" in rust
-    assert "MotionState::CliffWait => Some(&FALCON_ECB_ACTION_217)" in rust
-    assert "MotionState::SpecialSStart => Some(&FALCON_ECB_ACTION_303)" in rust
-    assert "MotionState::SpecialS => Some(&FALCON_ECB_ACTION_304)" in rust
-    assert "MotionState::SpecialAirSStart => Some(&FALCON_ECB_ACTION_305)" in rust
-    assert "MotionState::SpecialAirS => Some(&FALCON_ECB_ACTION_306)" in rust
+    assert "MotionState::Dash => Some(1)" in rust
+    assert "MotionState::KneeBend => Some(1)" in rust
+    assert "MotionState::EscapeAir => Some(1)" in rust
+    assert "MotionState::FallAerial => Some(1)" in rust
+    assert "MotionState::FallSpecialF => Some(1)" in rust
+    assert "MotionState::FallSpecialB => Some(1)" in rust
+    assert "MotionState::LandingFallSpecial => Some(1)" in rust
+    assert "MotionState::GuardReflect => Some(1)" in rust
+    assert "MotionState::LandingAirN => Some(1)" in rust
+    assert "MotionState::LandingAirF => Some(1)" in rust
+    assert "MotionState::LandingAirB => Some(1)" in rust
+    assert "MotionState::LandingAirHi => Some(1)" in rust
+    assert "MotionState::LandingAirLw => Some(1)" in rust
+    assert "MotionState::Entry => Some(1)" in rust
+    assert "MotionState::EntryStart => Some(1)" in rust
+    assert "MotionState::EntryEnd => Some(1)" in rust
+    assert "MotionState::CliffCatch => Some(1)" in rust
+    assert "MotionState::CliffWait => Some(1)" in rust
+    assert "MotionState::SpecialSStart => Some(1)" in rust
+    assert "MotionState::SpecialS => Some(1)" in rust
+    assert "MotionState::SpecialAirSStart => Some(1)" in rust
+    assert "MotionState::SpecialAirS => Some(1)" in rust
 
     coverage = build_coverage_payload(samples)
     assert "KneeBend" not in coverage["unmapped_derived_motion_states"]
@@ -422,3 +506,33 @@ def test_generated_falcon_ecb_rust_maps_motion_states_to_action_samples():
         "title",
         "unmapped_derived_motion_states",
     ]
+
+
+def test_generated_falcon_ecb_rust_maps_common_cliff_option_samples():
+    samples = {
+        "actions": [
+            {"action_state_id": 219, "frames": [{"frame": 0}] * 59},
+            {"action_state_id": 220, "frames": [{"frame": 0}] * 33},
+            {"action_state_id": 221, "frames": [{"frame": 0}] * 69},
+            {"action_state_id": 222, "frames": [{"frame": 0}] * 55},
+            {"action_state_id": 223, "frames": [{"frame": 0}] * 79},
+            {"action_state_id": 224, "frames": [{"frame": 0}] * 49},
+            {"action_state_id": 225, "frames": [{"frame": 0}] * 19},
+            {"action_state_id": 226, "frames": [{"frame": 0}] * 36},
+            {"action_state_id": 227, "frames": [{"frame": 0}] * 12},
+            {"action_state_id": 228, "frames": [{"frame": 0}] * 33},
+        ]
+    }
+
+    rust = render_generated_rust(samples)
+
+    assert "MotionState::CliffClimbSlow => Some(59)" in rust
+    assert "MotionState::CliffClimbQuick => Some(33)" in rust
+    assert "MotionState::CliffAttackSlow => Some(69)" in rust
+    assert "MotionState::CliffAttackQuick => Some(55)" in rust
+    assert "MotionState::CliffEscapeSlow => Some(79)" in rust
+    assert "MotionState::CliffEscapeQuick => Some(49)" in rust
+    assert "MotionState::CliffJumpSlow1 => Some(19)" in rust
+    assert "MotionState::CliffJumpSlow2 => Some(36)" in rust
+    assert "MotionState::CliffJumpQuick1 => Some(12)" in rust
+    assert "MotionState::CliffJumpQuick2 => Some(33)" in rust

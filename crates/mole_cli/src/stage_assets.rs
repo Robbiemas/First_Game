@@ -201,6 +201,8 @@ fn inspect_stage_report(root: &Path, stage_id: &str) -> Value {
             "line_count": value.get("line_count").cloned().unwrap_or(Value::Null),
             "joint_count": value.get("joint_count").cloned().unwrap_or(Value::Null),
             "scale": value.get("scale").cloned().unwrap_or(Value::Null),
+            "line_ranges": value.get("line_ranges").cloned().unwrap_or(Value::Null),
+            "line_flag_refs": value.get("line_flag_refs").cloned().unwrap_or(Value::Null),
         })),
         "current_surfaces": surface_summary(asset.as_ref().or(baked_asset.as_ref())),
         "decomp_refs": decomp_refs(&resolved),
@@ -807,6 +809,10 @@ struct ExtractedStageVertex {
     index: u16,
     source_x: f32,
     source_y: f32,
+    pos_x: Option<f32>,
+    pos_y: Option<f32>,
+    x10: Option<f32>,
+    x14: Option<f32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1365,12 +1371,24 @@ fn build_engine_stage_module_for_asset(asset: &Value) -> Result<Option<String>, 
     )
     .unwrap();
     for vertex in &stage.collision.vertices {
+        let pos_x = vertex
+            .pos_x
+            .unwrap_or(vertex.source_x * stage.collision.scale);
+        let pos_y = vertex
+            .pos_y
+            .unwrap_or(vertex.source_y * stage.collision.scale);
+        let x10 = vertex.x10.unwrap_or(pos_x);
+        let x14 = vertex.x14.unwrap_or(pos_y);
         writeln!(
             text,
-            "    StageCollisionVertex {{ index: {}, source_x: {}, source_y: {} }},",
+            "    StageCollisionVertex {{ index: {}, source_x: {}, source_y: {}, pos_x: {}, pos_y: {}, x10: {}, x14: {} }},",
             vertex.index,
             rust_f32(vertex.source_x)?,
-            rust_f32(vertex.source_y)?
+            rust_f32(vertex.source_y)?,
+            rust_f32(pos_x)?,
+            rust_f32(pos_y)?,
+            rust_f32(x10)?,
+            rust_f32(x14)?
         )
         .unwrap();
     }
@@ -1791,6 +1809,8 @@ struct MapCollData {
 struct CollVertex {
     source_x: f32,
     source_y: f32,
+    pos_x: f32,
+    pos_y: f32,
     x: i32,
     y: i32,
 }
@@ -2466,6 +2486,10 @@ fn build_stage_asset_from_dat(stage: &ResolvedStageInput, dat: &[u8]) -> Result<
                 "index": index,
                 "source_x": vertex.source_x,
                 "source_y": vertex.source_y,
+                "pos_x": vertex.pos_x,
+                "pos_y": vertex.pos_y,
+                "x10": vertex.pos_x,
+                "x14": vertex.pos_y,
                 "x": vertex.x,
                 "y": vertex.y,
             })).collect::<Vec<_>>(),
@@ -2658,11 +2682,15 @@ fn parse_vertices(
         let offset = coll.verts_offset as usize + index * 0x08;
         let source_x = read_data_f32(dat, roots.data_block_size, offset, "CollVtx.x")?;
         let source_y = read_data_f32(dat, roots.data_block_size, offset + 0x04, "CollVtx.y")?;
+        let pos_x = source_x * scale;
+        let pos_y = source_y * scale;
         vertices.push(CollVertex {
             source_x,
             source_y,
-            x: source_units_to_milli(source_x * scale),
-            y: source_units_to_milli(source_y * scale),
+            pos_x,
+            pos_y,
+            x: source_units_to_milli(pos_x),
+            y: source_units_to_milli(pos_y),
         });
     }
     Ok(vertices)
@@ -4705,12 +4733,16 @@ mod tests {
             CollVertex {
                 source_x: -10.0,
                 source_y: 0.0,
+                pos_x: -10.0,
+                pos_y: 0.0,
                 x: -10_000,
                 y: 0,
             },
             CollVertex {
                 source_x: 10.0,
                 source_y: 0.0,
+                pos_x: 10.0,
+                pos_y: 0.0,
                 x: 10_000,
                 y: 0,
             },

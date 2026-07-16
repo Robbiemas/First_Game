@@ -91,6 +91,7 @@ GLOBAL_CATEGORIES = {
         "platform_drop_delay_ticks",
         "guard_on_catch_dash_window",
         "guard_reflect_input_window",
+        "shield_aim_smoothing",
         "catch_ground_friction_multiplier",
     ],
     "escape_air": [
@@ -183,6 +184,10 @@ CHARACTER_CATEGORIES = {
         "model_scaling",
         "entry_platform_offset_y",
     ],
+    "shield_and_defense": [
+        "initial_shield_size",
+        "shield_break_initial_velocity",
+    ],
 }
 
 GLOBAL_COMBAT_CATEGORIES = {
@@ -197,8 +202,10 @@ GLOBAL_COMBAT_CATEGORIES = {
         "knockback_result_offset",
         "damage_knockback_velocity_scale",
         "damage_ground_knockback_friction_multiplier",
+        "damage_ground_knockback_init_clamp",
         "damage_knockback_frame_decay",
         "throw_knockback_weight",
+        "throw_weight_animation_scale",
     ],
     "damage_motion_thresholds": [
         "damage_landing_basic_knockback_threshold",
@@ -222,6 +229,7 @@ GLOBAL_COMBAT_CATEGORIES = {
         "hitlag_base_frames",
         "hitlag_crouch_multiplier",
         "hitlag_damage_scale",
+        "hitlag_electric_multiplier",
         "hitlag_max_frames",
         "lcancel_divisor",
         "lcancel_window",
@@ -251,16 +259,48 @@ GLOBAL_COMBAT_CATEGORIES = {
         "shield_hit_lightshield_max",
         "shield_hold_lightshield_min",
         "shield_hold_lightshield_max",
+        "shield_break_furafura_percent_base",
+        "shield_break_furafura_timer_base",
+        "shield_break_furafura_timer_decrement",
+        "shield_break_furafura_mash_decrement",
+        "guard_reflect_timer",
+        "guard_reflect_damage_skip_timer",
+        "shield_setoff_duration_base",
+        "shield_setoff_duration_damage_scale",
+        "shield_setoff_lightshield_min",
+        "shield_setoff_lightshield_max",
+        "shield_setoff_pushback_scale",
+        "shield_setoff_pushback_cap",
+        "shield_setoff_nonreflect_pushback_multiplier",
     ],
     "damage_response": [
         "damage_duration_scale",
         "throw_collision_lockout_ticks",
+    ],
+    "grab_and_capture": [
+        "grab_mash_stick_threshold",
+        "grab_timer_base",
+        "grab_timer_handicap_scale",
+        "grab_timer_handicap_offset",
+        "grab_timer_rank_scale",
+        "grab_timer_rank_offset",
+        "grab_timer_percent_scale",
+        "catch_cut_ground_velocity",
+        "capture_jump_velocity_x",
+        "capture_jump_velocity_y",
+        "grab_timer_decrement",
+        "grab_mash_timer_decrement",
+        "capture_wait_jump_input_window",
+        "capture_wait_mash_anim_timer",
+        "capture_wait_mash_anim_rate",
+        "throw_down_y",
     ],
 }
 
 FALCON_COMBAT_CATEGORIES = {
     "combat_attributes": [
         "weight",
+        "weight_independent_throws_mask",
     ],
 }
 

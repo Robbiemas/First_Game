@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "command": "runtime-data gap-ledger",
+  "phase": "phase_1_foundation",
+  "purpose": "Named decomp-parity foundation gaps for compact runtime and replay parity work. This ledger is an index, not source truth; inspect the decomp before changing runtime behavior.",
+  "rules": [
+    "Decomp is the primary source of truth; Slippi is a secondary witness.",
+    "Assign replay divergence to a decomp phase before implementing a parity change.",
+    "Keep source floats as floats through extraction, overlays, baking, and runtime.",
+    "Normal runtime consumes compact baked artifacts, not debug/sample JSON.",
+    "Devtool ECB edits resolve through source pose/rig/animation data and typed overrides, not hand-authored gameplay ECB boxes."
+  ],
+  "gaps": [
+    {
+      "id": "ecb_runtime_live_evaluation",
+      "subsystem": "ecb",
+      "priority": 1,
+      "status": "open",
+      "decomp_phase": "ECB setup, JObj sampling, sanitize, bottom lock, and interpolation",
+      "decomp_refs": [
+        "mpColl_LoadECB_JObj",
+        "Fighter_procMap",
+        "mpcoll.c ECB sanitize/interpolation helpers"
+      ],
+      "rust_refs": [
+        "crates/mole_core/src/generated/falcon_ecb.rs",
+        "resources/melee/extracted/captain_falcon_ecb_source.json",
+        "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
+      ],
+      "known_gap": "Runtime no longer emits per-frame EcbDiamond runtime samples or per-frame SourceFighterEcb source sample arrays in crates/mole_core/src/generated/falcon_ecb.rs. The live JObj evaluator is now the normal ECB source path and accepts mpColl_LoadECB_JObj flags, including the raw +/-2.0F expansion branch used by flags such as 0x12. The remaining ECB runtime size gap is that the live evaluator is still embedded as a large legacy Rust artifact instead of a compact source-backed runtime bundle. Live source pose coverage is also missing for the common ledge option batch: CliffClimbSlow, CliffClimbQuick, CliffAttackSlow, CliffAttackQuick, CliffEscapeSlow, CliffEscapeQuick, CliffJumpSlow1, CliffJumpSlow2, CliffJumpQuick1, and CliffJumpQuick2.",
+      "next_proof": "Move the flag-aware live JObj ECB evaluator out of the legacy generated Rust artifact into compact runtime data, and extract/route the common ledge option action pose data from the decomp/source assets instead of relying on fallback ECB."
+    },
+    {
+      "id": "collision_loops_all_surfaces",
+      "subsystem": "collision",
+      "priority": 2,
+      "status": "open",
+      "decomp_phase": "Ground, wall, ceiling, ledge, pass-through platform, floor-skip, and connectivity collision loops",
+      "decomp_refs": [
+        "mpcoll.c",
+        "ftcliffcommon.c",
+        "common Coll callbacks in ftCommon state files"
+      ],
+      "rust_refs": [
+        "crates/mole_core/src/collision.rs",
+        "crates/mole_core/src/sim.rs",
+        "crates/mole_core/tests/collision_contract.rs"
+      ],
+      "known_gap": "Grounded collision has the strongest Rust coverage. Wall, ceiling, ledge, platform pass, and connectivity behavior are still incomplete relative to the decomp-shaped loops.",
+      "next_proof": "Implement collision loop slices only after identifying the matching decomp helper and required state callback phase."
+    },
+    {
+      "id": "stage_mapcoll_topology",
+      "subsystem": "stage_collision",
+      "priority": 3,
+      "status": "open",
+      "decomp_phase": "MapCollData topology, line flags, links, surface attributes, friction, and ledge metadata",
+      "decomp_refs": [
+        "MapCollData",
+        "mpcoll.c stage line lookup helpers",
+        "Battlefield stage collision data"
+      ],
+      "rust_refs": [
+        "resources/melee/extracted/stages/battlefield_stage.json",
+        "crates/mole_core/src/generated/stages.rs",
+        "crates/mole_core/src/stage.rs",
+        "crates/mole_cli/src/stage_assets.rs"
+      ],
+      "known_gap": "Battlefield extraction and generated runtime data now preserve MapCollData-style topology for the first dev stage: vertex/line/joint counts, floor/ceiling/right-wall/left-wall ranges, raw line flags, ledge metadata, callbacks, and map_head data are guarded by core tests. The remaining stage parity gap is broader validation of dynamic collision behavior and applying the same compact topology contract to additional stages.",
+      "next_proof": "Use Battlefield as the proven stage format, then validate dynamic line/joint callback behavior against the decomp before broadening to other stages."
+    },
+    {
+      "id": "fighter_state_decomp_phase_routing",
+      "subsystem": "fighter_state",
+      "priority": 4,
+      "status": "open",
+      "decomp_phase": "Anim -> IASA -> Phys -> Coll callback order and state transition tables",
+      "decomp_refs": [
+        "ftmotionstates.c",
+        "src/melee/ft/chara/ftCommon/*",
+        "ft_0D4D.c",
+        "ftcliffcommon.c"
+      ],
+      "rust_refs": [
+        "crates/mole_core/src/sim.rs",
+        "crates/mole_core/src/state.rs",
+        "docs/research/iasa-state-transition-parity-ledger.md",
+        "docs/state_graphs/mole_current_graph.json"
+      ],
+      "known_gap": "Rust still has state shortcuts and partial callback groups. Throws/capture, tech/passive, wall/ceiling damage, downed, ledge, shield, and UCF interactions must be integrated in decomp-shaped batches.",
+      "next_proof": "For every replay divergence, identify the exact decomp callback phase and table row before changing Rust behavior."
+    }
+  ]
+}

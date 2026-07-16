@@ -124,22 +124,30 @@ pub struct MeleeCommonData {
     pub damage_motion_tier_1_threshold: f32,
     pub damage_motion_tier_2_threshold: f32,
     pub damage_motion_tier_3_threshold: f32,
+    pub damage_ground_knockback_init_clamp: f32,
     pub damage_fly_top_angle_min_radians: f32,
     pub damage_fly_top_angle_max_radians: f32,
     pub damage_fly_top_random_percent_threshold: u16,
     pub damage_fly_top_random_chance: f32,
     pub damage_landing_down_bound_knockback_threshold: f32,
     pub damage_landing_basic_knockback_threshold: f32,
+    pub damage_floor_reflect_angle_radians: f32,
+    pub damage_floor_reflect_velocity_scale: f32,
+    pub damage_air_v_cancel_window: u8,
+    pub damage_air_v_cancel_knockback_scale: f32,
     pub passive_input_age_threshold: u8,
     pub passive_window_max: f32,
     pub passive_stand_stick_x: f32,
     pub special_air_drift_stick_threshold: f32,
+    pub grab_mash_stick_threshold: i8,
     pub down_stand_stick_y: i8,
+    pub down_roll_stick_x: i8,
     pub down_wait_timer: f32,
     pub hitlag_max_frames: f32,
     pub hitlag_damage_scale: f32,
     pub hitlag_base_frames: f32,
     pub hitlag_crouch_multiplier: f32,
+    pub hitlag_electric_multiplier: f32,
     pub di_angle_degrees: f32,
     pub trigger_di_knockback_multiplier: f32,
     pub air_speed_clamp_friction: f32,
@@ -162,6 +170,22 @@ pub struct MeleeCommonData {
     pub escapeair_decay: f32,
     pub escapeair_landing_lag_ticks: u8,
     pub throw_collision_lockout_ticks: u16,
+    pub throw_weight_animation_scale: f32,
+    pub grab_timer_base: f32,
+    pub grab_timer_handicap_scale: f32,
+    pub grab_timer_handicap_offset: f32,
+    pub grab_timer_rank_scale: f32,
+    pub grab_timer_rank_offset: f32,
+    pub grab_timer_percent_scale: f32,
+    pub catch_cut_ground_velocity: f32,
+    pub capture_jump_velocity_x: f32,
+    pub capture_jump_velocity_y: f32,
+    pub grab_timer_decrement: f32,
+    pub grab_mash_timer_decrement: f32,
+    pub capture_wait_jump_input_window: f32,
+    pub capture_wait_mash_anim_timer: f32,
+    pub capture_wait_mash_anim_rate: f32,
+    pub capture_pulled_high_delta_y: f32,
     pub walk_middle_velocity_ratio: f32,
     pub walk_fast_velocity_ratio: f32,
     pub walk_accel_taper: f32,
@@ -173,6 +197,7 @@ pub struct MeleeCommonData {
     pub animation_velocity_scale: f32,
     pub fall_animation_drift_threshold: f32,
     pub fall_animation_blend: f32,
+    pub shield_aim_smoothing: f32,
     pub landing_wait_y_velocity_threshold: f32,
     pub player_nudge_x: f32,
     pub player_nudge_z: f32,
@@ -180,16 +205,36 @@ pub struct MeleeCommonData {
     pub transformed_player_nudge_z: f32,
     pub transformed_player_nudge_z_clamp: f32,
     pub shield_start_health: f32,
+    pub shield_size_health_scale: f32,
     pub shield_release_lockout_frames: u8,
     pub shield_hold_drain: f32,
     pub shield_regen: f32,
     pub shield_break_reset_health: f32,
     pub shield_hit_drain_damage_scale: f32,
     pub shield_hit_drain_base: f32,
+    pub shield_setoff_duration_damage_scale: f32,
+    pub shield_setoff_duration_base: f32,
+    pub shield_setoff_pushback_scale: f32,
+    pub shield_setoff_pushback_cap: f32,
+    pub shield_setoff_nonreflect_pushback_multiplier: f32,
+    pub attacker_shield_knockback_damage_scale: f32,
+    pub attacker_shield_knockback_base: f32,
+    pub attacker_shield_knockback_frame_decay: f32,
+    pub attacker_shield_ground_friction_multiplier: f32,
+    pub shield_size_light_min: f32,
+    pub shield_size_light_max: f32,
     pub shield_hit_lightshield_min: f32,
     pub shield_hit_lightshield_max: f32,
+    pub shield_setoff_lightshield_min: f32,
+    pub shield_setoff_lightshield_max: f32,
     pub shield_hold_lightshield_min: f32,
     pub shield_hold_lightshield_max: f32,
+    pub shield_break_furafura_percent_base: f32,
+    pub shield_break_furafura_timer_base: f32,
+    pub shield_break_furafura_timer_decrement: f32,
+    pub shield_break_furafura_mash_decrement: f32,
+    pub guard_reflect_timer: f32,
+    pub guard_reflect_damage_skip_timer: f32,
     pub fallspecial_platform_landing_y: i8,
     pub platform_pass_y: i8,
     pub platform_pass_y_tap_window: u8,
@@ -297,22 +342,30 @@ impl MeleeCommonData {
         damage_motion_tier_1_threshold: 10.0,
         damage_motion_tier_2_threshold: 21.0,
         damage_motion_tier_3_threshold: 32.0,
+        damage_ground_knockback_init_clamp: 8.300000190734863,
         damage_fly_top_angle_min_radians: 1.2217304706573486,
         damage_fly_top_angle_max_radians: 1.919862151145935,
         damage_fly_top_random_percent_threshold: 100,
         damage_fly_top_random_chance: 0.30000001192092896,
         damage_landing_down_bound_knockback_threshold: 5.0,
         damage_landing_basic_knockback_threshold: 0.5,
+        damage_floor_reflect_angle_radians: 0.17453293,
+        damage_floor_reflect_velocity_scale: 0.80000001,
+        damage_air_v_cancel_window: 2,
+        damage_air_v_cancel_knockback_scale: 0.949999988079071,
         passive_input_age_threshold: 40,
         passive_window_max: 20.0,
         passive_stand_stick_x: 0.20000000298023224,
         special_air_drift_stick_threshold: 0.10000000149011612,
+        grab_mash_stick_threshold: 64,
         down_stand_stick_y: 25,
+        down_roll_stick_x: 26,
         down_wait_timer: 220.0,
         hitlag_max_frames: 20.0,
         hitlag_damage_scale: 0.3333333432674408,
         hitlag_base_frames: 3.0,
         hitlag_crouch_multiplier: 0.6666666865348816,
+        hitlag_electric_multiplier: 1.5,
         di_angle_degrees: 18.0,
         trigger_di_knockback_multiplier: 1.0,
         air_speed_clamp_friction: 0.029999999329447746,
@@ -335,6 +388,22 @@ impl MeleeCommonData {
         escapeair_decay: 0.8999999761581421,
         escapeair_landing_lag_ticks: 10,
         throw_collision_lockout_ticks: 8,
+        throw_weight_animation_scale: 0.009999999776482582,
+        grab_timer_base: 30.0,
+        grab_timer_handicap_scale: 8.0,
+        grab_timer_handicap_offset: 9.0,
+        grab_timer_rank_scale: 15.0,
+        grab_timer_rank_offset: 4.0,
+        grab_timer_percent_scale: 1.600000023841858,
+        catch_cut_ground_velocity: 1.0,
+        capture_jump_velocity_x: 1.0,
+        capture_jump_velocity_y: 2.0,
+        grab_timer_decrement: 1.0,
+        grab_mash_timer_decrement: 6.0,
+        capture_wait_jump_input_window: 16.0,
+        capture_wait_mash_anim_timer: 10.0,
+        capture_wait_mash_anim_rate: 2.0,
+        capture_pulled_high_delta_y: 1.0,
         walk_middle_velocity_ratio: 0.4000000059604645,
         walk_fast_velocity_ratio: 0.800000011920929,
         walk_accel_taper: 0.5,
@@ -346,6 +415,7 @@ impl MeleeCommonData {
         animation_velocity_scale: 1.2999999523162842,
         fall_animation_drift_threshold: 0.10000000149011612,
         fall_animation_blend: 0.5,
+        shield_aim_smoothing: 0.5,
         landing_wait_y_velocity_threshold: 1.0,
         player_nudge_x: 0.30000001192092896,
         player_nudge_z: 0.10000000149011612,
@@ -353,16 +423,36 @@ impl MeleeCommonData {
         transformed_player_nudge_z: 0.20000000298023224,
         transformed_player_nudge_z_clamp: 3.799999952316284,
         shield_start_health: 60.0,
+        shield_size_health_scale: 0.15000000596046448,
         shield_release_lockout_frames: 8,
         shield_hold_drain: 0.14000000059604645,
         shield_regen: 0.07000000029802322,
         shield_break_reset_health: 30.0,
         shield_hit_drain_damage_scale: 1.0,
         shield_hit_drain_base: 0.0,
+        shield_setoff_duration_damage_scale: 1.5,
+        shield_setoff_duration_base: 2.0,
+        shield_setoff_pushback_scale: 0.20000000298023224,
+        shield_setoff_pushback_cap: 2.0,
+        shield_setoff_nonreflect_pushback_multiplier: 0.6000000238418579,
+        attacker_shield_knockback_damage_scale: 0.07000000029802322,
+        attacker_shield_knockback_base: 0.019999999552965164,
+        attacker_shield_knockback_frame_decay: 0.05000000074505806,
+        attacker_shield_ground_friction_multiplier: 1.100000023841858,
+        shield_size_light_min: 1.0,
+        shield_size_light_max: 0.5,
         shield_hit_lightshield_min: 0.10000000149011612,
         shield_hit_lightshield_max: 0.30000001192092896,
+        shield_setoff_lightshield_min: 0.05000000074505806,
+        shield_setoff_lightshield_max: 0.699999988079071,
         shield_hold_lightshield_min: 0.10000000149011612,
         shield_hold_lightshield_max: 2.0,
+        shield_break_furafura_percent_base: 400.0,
+        shield_break_furafura_timer_base: 90.0,
+        shield_break_furafura_timer_decrement: 1.0,
+        shield_break_furafura_mash_decrement: 3.0,
+        guard_reflect_timer: 1.0,
+        guard_reflect_damage_skip_timer: 3.0,
         fallspecial_platform_landing_y: -71,
         platform_pass_y: 84,
         platform_pass_y_tap_window: 6,
@@ -478,6 +568,7 @@ impl MeleeCommonData {
         data.damage_motion_tier_1_threshold = read_f32(bytes, 0x158, "x158")?;
         data.damage_motion_tier_2_threshold = read_f32(bytes, 0x15c, "x15C")?;
         data.damage_motion_tier_3_threshold = read_f32(bytes, 0x160, "x160")?;
+        data.damage_ground_knockback_init_clamp = read_f32(bytes, 0x164, "x164")?;
         data.damage_fly_top_angle_min_radians = read_f32(bytes, 0x234, "x234")?;
         data.damage_fly_top_angle_max_radians = read_f32(bytes, 0x238, "x238")?;
         data.damage_fly_top_random_percent_threshold = read_u16_from_i32(bytes, 0x23c, "x23C")?;
@@ -486,17 +577,26 @@ impl MeleeCommonData {
         data.hitlag_damage_scale = read_f32(bytes, 0x198, "x198")?;
         data.hitlag_base_frames = read_f32(bytes, 0x19c, "x19C")?;
         data.hitlag_crouch_multiplier = read_f32(bytes, 0x1a0, "x1A0")?;
+        data.hitlag_electric_multiplier = read_f32(bytes, 0x1a4, "x1A4")?;
         data.di_angle_degrees = read_f32(bytes, 0x1a8, "x1A8")?;
         data.trigger_di_knockback_multiplier = read_f32(bytes, 0x1ac, "x1AC")?;
         data.air_speed_clamp_friction = read_f32(bytes, 0x1fc, "x1FC")?;
         data.damage_landing_down_bound_knockback_threshold = read_f32(bytes, 0x1e0, "x1E0")?;
         data.damage_landing_basic_knockback_threshold = read_f32(bytes, 0x1e4, "x1E4")?;
+        data.damage_floor_reflect_angle_radians = read_f32(bytes, 0x1e8, "x1E8")?;
+        data.damage_floor_reflect_velocity_scale = read_f32(bytes, 0x1ec, "x1EC")?;
+        data.damage_air_v_cancel_window = read_u8_from_i32(bytes, 0x18c, "x18C")?;
+        data.damage_air_v_cancel_knockback_scale = read_f32(bytes, 0x190, "x190")?;
         data.down_stand_stick_y = read_stick_i8(bytes, 0x244, "x244")?;
+        data.down_roll_stick_x = read_stick_i8(bytes, 0x248, "x248")?;
         data.passive_window_max = read_f32(bytes, 0x250, "x250")?;
         data.passive_stand_stick_x = read_f32(bytes, 0x254, "x254")?;
         data.special_air_drift_stick_threshold = read_f32(bytes, 0x258, "x258")?;
         data.fallspecial_platform_landing_y = read_stick_i8(bytes, 0x25c, "x25C")?;
         data.guard_reflect_input_window = read_u8_from_i32(bytes, 0x2a0, "x2A0")?;
+        data.guard_reflect_timer = read_f32(bytes, 0x2a4, "x2A4")?;
+        data.guard_reflect_damage_skip_timer = read_f32(bytes, 0x2b4, "x2B4")?;
+        data.grab_mash_stick_threshold = read_stick_i8(bytes, 0x308, "x308")?;
         data.escape_y = read_stick_i8(bytes, 0x314, "x314")?;
         data.escape_y_tap_window = read_u8_from_i32(bytes, 0x318, "x318")?;
         data.escape_x = read_stick_i8(bytes, 0x31c, "x31C")?;
@@ -511,28 +611,63 @@ impl MeleeCommonData {
         data.escapeair_decay = read_f32(bytes, 0x33c, "escapeair_decay")?;
         data.escapeair_landing_lag_ticks = read_u8_from_f32(bytes, 0x344, "x344")?;
         data.throw_collision_lockout_ticks = read_u16_from_i32(bytes, 0x348, "x348")?;
+        data.throw_weight_animation_scale = read_f32(bytes, 0x37c, "x37C")?;
+        data.grab_timer_base = read_f32(bytes, 0x354, "x354")?;
+        data.grab_timer_handicap_scale = read_f32(bytes, 0x358, "x358")?;
+        data.grab_timer_handicap_offset = read_f32(bytes, 0x35c, "x35C")?;
+        data.grab_timer_rank_scale = read_f32(bytes, 0x360, "x360")?;
+        data.grab_timer_rank_offset = read_f32(bytes, 0x364, "x364")?;
+        data.grab_timer_percent_scale = read_f32(bytes, 0x368, "x368")?;
+        data.catch_cut_ground_velocity = read_f32(bytes, 0x370, "x370")?;
+        data.capture_jump_velocity_x = read_f32(bytes, 0x374, "x374")?;
+        data.capture_jump_velocity_y = read_f32(bytes, 0x378, "x378")?;
+        data.grab_timer_decrement = read_f32(bytes, 0x3a4, "grab_timer_decrement")?;
+        data.grab_mash_timer_decrement = read_f32(bytes, 0x3a8, "x3A8")?;
+        data.capture_wait_jump_input_window = read_f32(bytes, 0x3ac, "x3AC")?;
+        data.capture_wait_mash_anim_timer = read_f32(bytes, 0x3b0, "x3B0")?;
+        data.capture_wait_mash_anim_rate = read_f32(bytes, 0x3b4, "x3B4")?;
+        data.capture_pulled_high_delta_y = read_f32(bytes, 0x3c4, "x3C4")?;
         data.down_wait_timer = read_f32(bytes, 0x424, "x424")?;
         data.run_brake_animation_pause_velocity = read_f32(bytes, 0x42c, "x42C")?;
         data.run_turn_run_no_interrupt_frames = read_u8_from_f32(bytes, 0x430, "x430")?;
         data.animation_velocity_scale = read_f32(bytes, 0x440, "x440")?;
         data.fall_animation_drift_threshold = read_f32(bytes, 0x444, "x444")?;
         data.fall_animation_blend = read_f32(bytes, 0x448, "x448")?;
+        data.shield_aim_smoothing = read_f32(bytes, 0x44c, "x44C")?;
         data.player_nudge_x = read_f32(bytes, 0x450, "x450")?;
         data.player_nudge_z = read_f32(bytes, 0x454, "x454")?;
         data.player_nudge_z_clamp = read_f32(bytes, 0x458, "x458")?;
         data.transformed_player_nudge_z = read_f32(bytes, 0x45c, "x45C")?;
         data.transformed_player_nudge_z_clamp = read_f32(bytes, 0x460, "x460")?;
         data.shield_start_health = read_f32(bytes, 0x260, "x260_startShieldHealth")?;
+        data.shield_size_health_scale = read_f32(bytes, 0x264, "x264")?;
         data.shield_release_lockout_frames = read_u8_from_f32(bytes, 0x268, "x268")?;
         data.shield_hold_drain = read_f32(bytes, 0x278, "x278")?;
         data.shield_regen = read_f32(bytes, 0x27c, "x27C")?;
         data.shield_break_reset_health = read_f32(bytes, 0x280, "x280_unkShieldHealth")?;
         data.shield_hit_drain_damage_scale = read_f32(bytes, 0x284, "x284")?;
         data.shield_hit_drain_base = read_f32(bytes, 0x288, "x288")?;
+        data.shield_setoff_duration_damage_scale = read_f32(bytes, 0x28c, "x28C")?;
+        data.shield_setoff_duration_base = read_f32(bytes, 0x290, "x290")?;
+        data.shield_setoff_pushback_scale = read_f32(bytes, 0x294, "x294")?;
+        data.shield_setoff_pushback_cap = read_f32(bytes, 0x298, "x298")?;
+        data.shield_setoff_nonreflect_pushback_multiplier = read_f32(bytes, 0x2bc, "x2BC")?;
+        data.attacker_shield_knockback_damage_scale = read_f32(bytes, 0x3e0, "x3E0")?;
+        data.attacker_shield_knockback_base = read_f32(bytes, 0x3e4, "x3E4")?;
+        data.attacker_shield_knockback_frame_decay = read_f32(bytes, 0x3e8, "x3E8")?;
+        data.attacker_shield_ground_friction_multiplier = read_f32(bytes, 0x3ec, "x3EC")?;
+        data.shield_size_light_min = read_f32(bytes, 0x2d4, "x2D4")?;
+        data.shield_size_light_max = read_f32(bytes, 0x2d8, "x2D8")?;
         data.shield_hit_lightshield_min = read_f32(bytes, 0x2dc, "x2DC")?;
         data.shield_hit_lightshield_max = read_f32(bytes, 0x2e0, "x2E0")?;
+        data.shield_setoff_lightshield_min = read_f32(bytes, 0x2e4, "x2E4")?;
+        data.shield_setoff_lightshield_max = read_f32(bytes, 0x2e8, "x2E8")?;
         data.shield_hold_lightshield_min = read_f32(bytes, 0x2ec, "x2EC")?;
         data.shield_hold_lightshield_max = read_f32(bytes, 0x2f0, "x2F0")?;
+        data.shield_break_furafura_percent_base = read_f32(bytes, 0x2f8, "x2F8")?;
+        data.shield_break_furafura_timer_base = read_f32(bytes, 0x2fc, "x2FC")?;
+        data.shield_break_furafura_timer_decrement = read_f32(bytes, 0x300, "x300")?;
+        data.shield_break_furafura_mash_decrement = read_f32(bytes, 0x304, "x304")?;
         data.platform_pass_y = read_stick_i8(bytes, 0x464, "x464")?;
         data.platform_pass_y_tap_window = read_u8_from_f32(bytes, 0x468, "x468")?;
         data.pass_initial_y_velocity = read_f32(bytes, 0x46c, "x46C")?;
@@ -968,9 +1103,123 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "guard_reflect_timer",
+        source_name: "x2A4",
+        offset: 0x2a4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "guard_reflect_damage_skip_timer",
+        source_name: "x2B4",
+        offset: 0x2b4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_mash_stick_threshold",
+        source_name: "x308",
+        offset: 0x308,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "throw_collision_lockout_ticks",
         source_name: "x348",
         offset: 0x348,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "throw_weight_animation_scale",
+        source_name: "x37C",
+        offset: 0x37c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_base",
+        source_name: "x354",
+        offset: 0x354,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_handicap_scale",
+        source_name: "x358",
+        offset: 0x358,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_handicap_offset",
+        source_name: "x35C",
+        offset: 0x35c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_rank_scale",
+        source_name: "x360",
+        offset: 0x360,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_rank_offset",
+        source_name: "x364",
+        offset: 0x364,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_percent_scale",
+        source_name: "x368",
+        offset: 0x368,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "catch_cut_ground_velocity",
+        source_name: "x370",
+        offset: 0x370,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_jump_velocity_x",
+        source_name: "x374",
+        offset: 0x374,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_jump_velocity_y",
+        source_name: "x378",
+        offset: 0x378,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_timer_decrement",
+        source_name: "grab_timer_decrement",
+        offset: 0x3a4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "grab_mash_timer_decrement",
+        source_name: "x3A8",
+        offset: 0x3a8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_wait_jump_input_window",
+        source_name: "x3AC",
+        offset: 0x3ac,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_wait_mash_anim_timer",
+        source_name: "x3B0",
+        offset: 0x3b0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_wait_mash_anim_rate",
+        source_name: "x3B4",
+        offset: 0x3b4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "capture_pulled_high_delta_y",
+        source_name: "x3C4",
+        offset: 0x3c4,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1007,6 +1256,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "fall_animation_blend",
         source_name: "x448",
         offset: 0x448,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_aim_smoothing",
+        source_name: "x44C",
+        offset: 0x44c,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1250,6 +1505,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "damage_ground_knockback_init_clamp",
+        source_name: "x164",
+        offset: 0x164,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "damage_fly_top_angle_min_radians",
         source_name: "x234",
         offset: 0x234,
@@ -1298,6 +1559,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "hitlag_electric_multiplier",
+        source_name: "x1A4",
+        offset: 0x1a4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "di_angle_degrees",
         source_name: "x1A8",
         offset: 0x1a8,
@@ -1328,9 +1595,39 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "damage_floor_reflect_angle_radians",
+        source_name: "x1E8",
+        offset: 0x1e8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_floor_reflect_velocity_scale",
+        source_name: "x1EC",
+        offset: 0x1ec,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_air_v_cancel_window",
+        source_name: "x18C",
+        offset: 0x18c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "damage_air_v_cancel_knockback_scale",
+        source_name: "x190",
+        offset: 0x190,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "down_stand_stick_y",
         source_name: "x244",
         offset: 0x244,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "down_roll_stick_x",
+        source_name: "x248",
+        offset: 0x248,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1355,6 +1652,12 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "shield_start_health",
         source_name: "x260_startShieldHealth",
         offset: 0x260,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_size_health_scale",
+        source_name: "x264",
+        offset: 0x264,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
@@ -1394,6 +1697,48 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "shield_setoff_duration_damage_scale",
+        source_name: "x28C",
+        offset: 0x28c,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_setoff_duration_base",
+        source_name: "x290",
+        offset: 0x290,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_setoff_pushback_scale",
+        source_name: "x294",
+        offset: 0x294,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_setoff_pushback_cap",
+        source_name: "x298",
+        offset: 0x298,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_setoff_nonreflect_pushback_multiplier",
+        source_name: "x2BC",
+        offset: 0x2bc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_size_light_min",
+        source_name: "x2D4",
+        offset: 0x2d4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_size_light_max",
+        source_name: "x2D8",
+        offset: 0x2d8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "shield_hit_lightshield_min",
         source_name: "x2DC",
         offset: 0x2dc,
@@ -1406,6 +1751,18 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {
+        rust_name: "shield_setoff_lightshield_min",
+        source_name: "x2E4",
+        offset: 0x2e4,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_setoff_lightshield_max",
+        source_name: "x2E8",
+        offset: 0x2e8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
         rust_name: "shield_hold_lightshield_min",
         source_name: "x2EC",
         offset: 0x2ec,
@@ -1415,6 +1772,30 @@ pub const INPUT_COMMON_DATA_FIELD_SOURCES: &[CommonDataFieldSource] = &[
         rust_name: "shield_hold_lightshield_max",
         source_name: "x2F0",
         offset: 0x2f0,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_break_furafura_percent_base",
+        source_name: "x2F8",
+        offset: 0x2f8,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_break_furafura_timer_base",
+        source_name: "x2FC",
+        offset: 0x2fc,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_break_furafura_timer_decrement",
+        source_name: "x300",
+        offset: 0x300,
+        provenance: CommonDataProvenance::ExtractedPlCo,
+    },
+    CommonDataFieldSource {
+        rust_name: "shield_break_furafura_mash_decrement",
+        source_name: "x304",
+        offset: 0x304,
         provenance: CommonDataProvenance::ExtractedPlCo,
     },
     CommonDataFieldSource {

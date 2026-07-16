@@ -122,6 +122,12 @@
       "raw": 1.899999976158142,
       "source_name": "hop_v_initial_velocity"
     },
+    "initial_shield_size": {
+      "kind": "source_f32",
+      "offset": 144,
+      "raw": 15.0,
+      "source_name": "initial_shield_size"
+    },
     "jump_h_initial_velocity": {
       "kind": "source_f32",
       "offset": 60,
@@ -221,6 +227,12 @@
       "raw": 2.3299999237060547,
       "source_name": "run_animation_scaling"
     },
+    "shield_break_initial_velocity": {
+      "kind": "source_f32",
+      "offset": 148,
+      "raw": 2.700000047683716,
+      "source_name": "shield_break_initial_velocity"
+    },
     "slow_walk_max_velocity": {
       "kind": "source_f32",
       "offset": 12,
@@ -256,6 +268,12 @@
       "offset": 136,
       "raw": 104.0,
       "source_name": "weight"
+    },
+    "weight_independent_throws_mask": {
+      "kind": "source_u8",
+      "offset": 384,
+      "raw": 7,
+      "source_name": "weight_independent_throws_mask"
     }
   },
   "source": {

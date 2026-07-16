@@ -16,6 +16,7 @@ use mole_ledger::LedgerMap;
 
 mod action_motion_tables;
 mod decomp;
+mod falcon;
 mod fighter_common;
 mod formatting;
 mod frame_data;
@@ -25,6 +26,7 @@ mod graph;
 mod ledger_map;
 mod package;
 mod replay;
+mod runtime_data;
 mod stage_assets;
 mod value_sheets;
 mod verify;
@@ -62,6 +64,9 @@ enum CliCommand {
     Replay(ReplayCommand),
     Decomp(DecompCommand),
     FrameData(FrameDataCommand),
+    RuntimeData(RuntimeDataCommand),
+    Fighter(FighterCommand),
+    Falcon(FalconCommand),
     Package(PackageCommand),
     FriendConnect(FriendConnectCommand),
     FighterCommon(FighterCommonCommand),
@@ -161,6 +166,7 @@ pub(crate) struct StageExtractIsoOptions {
 pub(crate) enum ReplayCommand {
     Artifacts,
     Check(ReplayCheckOptions),
+    Explain(ReplayExplainOptions),
     Scan(ReplayScanOptions),
     Trace(ReplayTraceOptions),
 }
@@ -180,6 +186,23 @@ pub(crate) enum FrameDataCommand {
     ExportRuntimeAll(FrameDataExportBatchOptions),
     Sample(FrameDataSampleOptions),
     Show(FrameDataOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RuntimeDataCommand {
+    GapLedger,
+    IdentityReport,
+    SizeReport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FighterCommand {
+    Coverage(falcon::FighterCoverageOptions),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FalconCommand {
+    Coverage,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -273,15 +296,26 @@ pub(crate) struct ReplayCheckOptions {
 pub(crate) struct ReplayTraceOptions {
     pub inputs: String,
     pub frames: usize,
+    pub mode: ReplayCheckMode,
     pub player_index: usize,
     pub source_frame_start: i32,
     pub source_frame_end: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReplayExplainOptions {
+    pub inputs: String,
+    pub frames: usize,
+    pub player_index: usize,
+    pub source_frame: i32,
+    pub window: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ReplayScanOptions {
     pub inputs: String,
     pub frames: Option<usize>,
+    pub mode: ReplayCheckMode,
     pub lookahead_frames: usize,
     pub max_scenarios: Option<usize>,
     pub position_tolerance_milli: i32,
@@ -493,6 +527,9 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "replay" => parse_replay_command(&positional[1..]).map(CliCommand::Replay),
         "decomp" => parse_decomp_command(&positional[1..]).map(CliCommand::Decomp),
         "frame-data" => parse_frame_data_command(&positional[1..]).map(CliCommand::FrameData),
+        "runtime-data" => parse_runtime_data_command(&positional[1..]).map(CliCommand::RuntimeData),
+        "fighter" => parse_fighter_command(&positional[1..]).map(CliCommand::Fighter),
+        "falcon" => parse_falcon_command(&positional[1..]).map(CliCommand::Falcon),
         "package" => parse_package_command(&positional[1..]).map(CliCommand::Package),
         "fighter-common" => {
             parse_fighter_common_command(&positional[1..]).map(CliCommand::FighterCommon)
@@ -510,6 +547,58 @@ fn parse_command(positional: &[String]) -> Result<CliCommand, String> {
         "request" => parse_request_command(&positional[1..]).map(CliCommand::Request),
         "help" => ensure_no_extra_args(command, &positional[1..]).map(|()| CliCommand::Help),
         other => Err(format!("unknown mole command: {other}")),
+    }
+}
+
+fn parse_runtime_data_command(args: &[String]) -> Result<RuntimeDataCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("size-report");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "gap-ledger" => ensure_no_extra_args("runtime-data gap-ledger", rest)
+            .map(|()| RuntimeDataCommand::GapLedger),
+        "identity-report" => ensure_no_extra_args("runtime-data identity-report", rest)
+            .map(|()| RuntimeDataCommand::IdentityReport),
+        "size-report" => ensure_no_extra_args("runtime-data size-report", rest)
+            .map(|()| RuntimeDataCommand::SizeReport),
+        other => Err(format!("unknown mole runtime-data command: {other}")),
+    }
+}
+
+fn parse_fighter_command(args: &[String]) -> Result<FighterCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("coverage");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "coverage" => parse_fighter_coverage(rest).map(FighterCommand::Coverage),
+        other => Err(format!("unknown mole fighter command: {other}")),
+    }
+}
+
+fn parse_fighter_coverage(args: &[String]) -> Result<falcon::FighterCoverageOptions, String> {
+    let mut options = falcon::FighterCoverageOptions::captain_dolphin_mole();
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--source-character" => {
+                options.source_character = take_flag_value(args, &mut index, "--source-character")?
+            }
+            "--target-character" => {
+                options.target_character = take_flag_value(args, &mut index, "--target-character")?
+            }
+            other => return Err(format!("unexpected argument for fighter coverage: {other}")),
+        }
+        index += 1;
+    }
+    Ok(options)
+}
+
+fn parse_falcon_command(args: &[String]) -> Result<FalconCommand, String> {
+    let subcommand = args.first().map(String::as_str).unwrap_or("coverage");
+    let rest = subcommand_args(args);
+    match subcommand {
+        "coverage" => {
+            ensure_no_extra_args("falcon coverage", rest).map(|()| FalconCommand::Coverage)
+        }
+        other => Err(format!("unknown mole falcon command: {other}")),
     }
 }
 
@@ -1221,6 +1310,7 @@ fn parse_replay_command(args: &[String]) -> Result<ReplayCommand, String> {
             ensure_no_extra_args("replay artifacts", rest).map(|()| ReplayCommand::Artifacts)
         }
         "check" => parse_replay_check(rest).map(ReplayCommand::Check),
+        "explain" => parse_replay_explain(rest).map(ReplayCommand::Explain),
         "scan" => parse_replay_scan(rest).map(ReplayCommand::Scan),
         "trace" => parse_replay_trace(rest).map(ReplayCommand::Trace),
         other => Err(format!("unknown mole replay command: {other}")),
@@ -1280,9 +1370,62 @@ fn parse_replay_check(args: &[String]) -> Result<ReplayCheckOptions, String> {
     }
 }
 
+fn parse_replay_explain(args: &[String]) -> Result<ReplayExplainOptions, String> {
+    let mut inputs = None;
+    let mut frames = 1_800usize;
+    let mut player_index = 0usize;
+    let mut source_frame = None;
+    let mut window = 2i32;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--inputs" => inputs = Some(take_flag_value(args, &mut index, "--inputs")?),
+            "--frames" => {
+                frames = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--frames")?,
+                    "--frames",
+                )?
+            }
+            "--player" => {
+                let player = parse_positive_usize(
+                    &take_flag_value(args, &mut index, "--player")?,
+                    "--player",
+                )?;
+                if !(1..=2).contains(&player) {
+                    return Err("--player must be 1 or 2".to_string());
+                }
+                player_index = player - 1;
+            }
+            "--frame" => {
+                source_frame = Some(parse_i32(
+                    &take_flag_value(args, &mut index, "--frame")?,
+                    "--frame",
+                )?)
+            }
+            "--window" => {
+                window =
+                    parse_positive_i32(&take_flag_value(args, &mut index, "--window")?, "--window")?
+            }
+            other => return Err(format!("unexpected argument for replay explain: {other}")),
+        }
+        index += 1;
+    }
+
+    Ok(ReplayExplainOptions {
+        inputs: inputs.ok_or_else(|| "replay explain requires --inputs <path>".to_string())?,
+        frames,
+        player_index,
+        source_frame: source_frame
+            .ok_or_else(|| "replay explain requires --frame <source-frame>".to_string())?,
+        window,
+    })
+}
+
 fn parse_replay_scan(args: &[String]) -> Result<ReplayScanOptions, String> {
     let mut inputs = None;
     let mut frames = None;
+    let mut mode = ReplayCheckMode::MatchStart;
     let mut lookahead_frames = 5usize;
     let mut max_scenarios = None;
     let mut position_tolerance_milli = 100i32;
@@ -1297,6 +1440,17 @@ fn parse_replay_scan(args: &[String]) -> Result<ReplayScanOptions, String> {
                     &take_flag_value(args, &mut index, "--frames")?,
                     "--frames",
                 )?)
+            }
+            "--mode" => {
+                mode = match take_flag_value(args, &mut index, "--mode")?.as_str() {
+                    "match-start" => ReplayCheckMode::MatchStart,
+                    "seeded" => ReplayCheckMode::Seeded,
+                    other => {
+                        return Err(format!(
+                            "--mode requires match-start or seeded, got {other}"
+                        ))
+                    }
+                }
             }
             "--lookahead" => {
                 lookahead_frames = parse_positive_usize(
@@ -1330,6 +1484,7 @@ fn parse_replay_scan(args: &[String]) -> Result<ReplayScanOptions, String> {
     Ok(ReplayScanOptions {
         inputs: inputs.ok_or_else(|| "replay scan requires --inputs <path>".to_string())?,
         frames,
+        mode,
         lookahead_frames,
         max_scenarios,
         position_tolerance_milli,
@@ -1340,6 +1495,7 @@ fn parse_replay_scan(args: &[String]) -> Result<ReplayScanOptions, String> {
 fn parse_replay_trace(args: &[String]) -> Result<ReplayTraceOptions, String> {
     let mut inputs = None;
     let mut frames = 1_800usize;
+    let mut mode = ReplayCheckMode::MatchStart;
     let mut player_index = 0usize;
     let mut source_frame_start = 0i32;
     let mut source_frame_end = 0i32;
@@ -1353,6 +1509,17 @@ fn parse_replay_trace(args: &[String]) -> Result<ReplayTraceOptions, String> {
                     &take_flag_value(args, &mut index, "--frames")?,
                     "--frames",
                 )?
+            }
+            "--mode" => {
+                mode = match take_flag_value(args, &mut index, "--mode")?.as_str() {
+                    "match-start" => ReplayCheckMode::MatchStart,
+                    "seeded" => ReplayCheckMode::Seeded,
+                    other => {
+                        return Err(format!(
+                            "--mode requires match-start or seeded, got {other}"
+                        ))
+                    }
+                }
             }
             "--player" => {
                 let player = parse_positive_usize(
@@ -1385,6 +1552,7 @@ fn parse_replay_trace(args: &[String]) -> Result<ReplayTraceOptions, String> {
     Ok(ReplayTraceOptions {
         inputs: inputs.ok_or_else(|| "replay trace requires --inputs <path>".to_string())?,
         frames,
+        mode,
         player_index,
         source_frame_start,
         source_frame_end,
@@ -1541,6 +1709,17 @@ fn command_report(options: &CliOptions) -> Value {
         CliCommand::Replay(command) => replay::replay_report(&options.root, command),
         CliCommand::Decomp(command) => decomp::decomp_report(&options.root, command),
         CliCommand::FrameData(command) => frame_data::frame_data_report(&options.root, command),
+        CliCommand::RuntimeData(command) => {
+            runtime_data::runtime_data_report(&options.root, command)
+        }
+        CliCommand::Fighter(command) => match command {
+            FighterCommand::Coverage(coverage_options) => {
+                falcon::fighter_coverage_report(&options.root, coverage_options)
+            }
+        },
+        CliCommand::Falcon(command) => match command {
+            FalconCommand::Coverage => falcon::falcon_coverage_report(&options.root),
+        },
         CliCommand::Package(command) => package::package_report(&options.root, command),
         CliCommand::FighterCommon(command) => {
             fighter_common::fighter_common_report(&options.root, command)
@@ -2660,6 +2839,10 @@ fn help_report() -> Value {
             "cargo run -p mole_cli -- generated check --format markdown",
             "cargo run -p mole_cli -- workspace health --json",
             "cargo run -p mole_cli -- workspace health --format markdown",
+            "cargo run -p mole_cli -- runtime-data gap-ledger --json",
+            "cargo run -p mole_cli -- runtime-data size-report --json",
+            "cargo run -p mole_cli -- fighter coverage --source-character captain --target-character dolphin_mole --json",
+            "cargo run -p mole_cli -- falcon coverage --format markdown",
             "cargo run -p mole_cli -- finish check --json",
             "cargo run -p mole_cli -- finish check --format markdown",
             "cargo run -p mole_cli -- replay check --replay replays\\Game_20260530T214929.slp --frames 1800 --json",
@@ -2872,6 +3055,66 @@ fn command_help_catalog() -> Value {
             "agent_notes": "Use before debugging launch latency or replay parity so missing local prerequisites are visible without mutating the workspace."
         },
         {
+            "name": "runtime-data size-report",
+            "usage": "mole runtime-data size-report [--json]",
+            "purpose": "Audit runtime artifact sizes, classify debug/sample extraction artifacts outside the normal runtime contract, and flag expanded runtime data that should become compact source-backed evaluation.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json"],
+            "aliases": ["runtime-data"],
+            "agent_notes": "Use before ECB/stage/runtime parity work to prove whether a large artifact is debug-only, middleware-only, compact runtime data, or legacy expanded runtime data."
+        },
+        {
+            "name": "runtime-data gap-ledger",
+            "usage": "mole runtime-data gap-ledger [--json]",
+            "purpose": "Load the Phase 1 parity gap ledger for ECB, collision, stage topology, and action-state execution foundation work.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json"],
+            "aliases": [],
+            "agent_notes": "Use before selecting the next decomp-parity slice so each change starts from a named subsystem gap and source reference instead of a replay hunch."
+        },
+        {
+            "name": "runtime-data identity-report",
+            "usage": "mole runtime-data identity-report [--json]",
+            "purpose": "Inspect baked runtime bindings with separate Melee motion-state IDs and extracted source action-table indices.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json"],
+            "aliases": [],
+            "agent_notes": "Use when investigating action/state parity so source table values are not conflated with runtime or Slippi motion-state IDs."
+        },
+        {
+            "name": "fighter coverage",
+            "usage": "mole fighter coverage [--source-character captain] [--target-character dolphin_mole] [--json|--format markdown]",
+            "purpose": "Audit source-state, runtime binding, render-contract, and gameplay-route coverage for a source/target character pair.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--source-character", "--target-character", "--root", "--json", "--text", "--format"],
+            "aliases": ["falcon coverage"],
+            "agent_notes": "Generic coverage path for future mix-and-match character source work; defaults to captain -> dolphin_mole."
+        },
+        {
+            "name": "falcon coverage",
+            "usage": "mole falcon coverage [--json|--format markdown]",
+            "purpose": "Convenience alias for `mole fighter coverage --source-character captain --target-character dolphin_mole`.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": [],
+            "optional_flags": ["--root", "--json", "--text", "--format"],
+            "aliases": ["fighter coverage"],
+            "agent_notes": "Alias only; do not add Falcon-only extraction behavior here."
+        },
+        {
             "name": "devtool ledger",
             "usage": "mole devtool ledger [--json|--format markdown]",
             "purpose": "Load the Rust parity ledger map into a GUI-ready view model for the native dev-tool layer.",
@@ -3021,28 +3264,40 @@ fn command_help_catalog() -> Value {
             "agent_notes": "Use before wiring GUI artifact selectors. Direct .slp replay files are the primary user workflow; exported JSON inputs are diagnostic fixtures."
         },
         {
+            "name": "replay explain",
+            "usage": "mole replay explain --inputs PATH --frame N [--player 1|2] [--window N] [--frames N] [--json|--format markdown]",
+            "purpose": "Explain a replay divergence window through the decomp-first fighter tick phase model.",
+            "mutates_workspace": false,
+            "writes": [],
+            "output_modes": ["json", "text", "markdown"],
+            "required_flags": ["--inputs", "--frame"],
+            "optional_flags": ["--player", "--window", "--frames", "--root", "--json", "--text", "--format"],
+            "aliases": [],
+            "agent_notes": "Use after replay check or replay trace identifies a divergent frame. The decomp phase checklist is primary; Slippi rows are sampled witness data."
+        },
+        {
             "name": "replay scan",
-            "usage": "mole replay scan --inputs PATH [--frames N] [--lookahead N] [--max-scenarios N] [--position-tolerance-milli N] [--velocity-tolerance-milli N] [--json|--format markdown]",
-            "purpose": "diagnostic-only replay of an existing Slippi input export from match start, grouping every divergence into scenario runs with lookahead realignment diagnostics.",
+            "usage": "mole replay scan --inputs PATH [--frames N] [--mode match-start|seeded] [--lookahead N] [--max-scenarios N] [--position-tolerance-milli N] [--velocity-tolerance-milli N] [--json|--format markdown]",
+            "purpose": "diagnostic-only replay of an existing Slippi input export, grouping every divergence into scenario runs with lookahead realignment diagnostics.",
             "mutates_workspace": false,
             "writes": [],
             "output_modes": ["json", "text", "markdown"],
             "required_flags": ["--inputs"],
-            "optional_flags": ["--frames", "--lookahead", "--max-scenarios", "--position-tolerance-milli", "--velocity-tolerance-milli", "--root", "--json", "--text", "--format"],
+            "optional_flags": ["--frames", "--mode", "--lookahead", "--max-scenarios", "--position-tolerance-milli", "--velocity-tolerance-milli", "--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Use before picking a decomp parity fix. The scan records first divergent source frames, whether rollback replay is deterministic, and whether each scenario realigns within the lookahead window."
+            "agent_notes": "Use match-start before picking a decomp parity fix. Use seeded only for phase-local inspection after an earlier known cascade; it starts each comparable frame from Slippi pre-frame state."
         },
         {
             "name": "replay trace",
-            "usage": "mole replay trace --inputs PATH [--player 1|2] [--start N] [--end N] [--frames N] [--json|--format markdown]",
-            "purpose": "diagnostic-only replay of an existing Slippi input export from match start, returning a compact per-frame trace window for one player.",
+            "usage": "mole replay trace --inputs PATH [--mode match-start|seeded] [--player 1|2] [--start N] [--end N] [--frames N] [--json|--format markdown]",
+            "purpose": "diagnostic-only replay of an existing Slippi input export, returning a compact per-frame trace window for one player.",
             "mutates_workspace": false,
             "writes": [],
             "output_modes": ["json", "text", "markdown"],
             "required_flags": ["--inputs"],
-            "optional_flags": ["--player", "--start", "--end", "--frames", "--root", "--json", "--text", "--format"],
+            "optional_flags": ["--mode", "--player", "--start", "--end", "--frames", "--root", "--json", "--text", "--format"],
             "aliases": [],
-            "agent_notes": "Use after replay check identifies a divergence; includes source frame, input, expected state, actual state, actual motion frame, position, and velocity deltas."
+            "agent_notes": "Use match-start mode for sequential replay divergence and seeded mode for phase-local inspection after an earlier known cascade; includes source frame, input, expected state, actual state, actual motion frame, position, and velocity deltas."
         },
         {
             "name": "decomp search",

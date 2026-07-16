@@ -199,6 +199,284 @@ fn workspace_health_markdown_names_fast_replay_prerequisites() {
 }
 
 #[test]
+fn runtime_data_size_report_classifies_debug_artifacts_outside_runtime_contract() {
+    let root = temp_project_root("runtime_data_size_report");
+    fs::create_dir_all(root.join("resources/melee/raw")).unwrap();
+    fs::create_dir_all(root.join("resources/melee/extracted")).unwrap();
+    fs::create_dir_all(root.join("resources/melee/frame_data/dolphin_mole")).unwrap();
+    fs::create_dir_all(root.join("crates/mole_runtime/src/generated/source_frame_data")).unwrap();
+    fs::create_dir_all(root.join("crates/mole_core/src/generated")).unwrap();
+
+    write_bytes(root.join("resources/melee/raw/PlCa.dat"), 128);
+    write_bytes(root.join("resources/melee/raw/PlCaAJ.dat"), 256);
+    write_bytes(root.join("resources/melee/raw/PlCaNr.dat"), 64);
+    write_bytes(
+        root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        4_096,
+    );
+    write_bytes(
+        root.join("resources/melee/extracted/captain_falcon_action_ecb_samples.json"),
+        8_192,
+    );
+    write_bytes(
+        root.join("resources/melee/frame_data/dolphin_mole/source_manifest.json"),
+        1_024,
+    );
+    write_bytes(
+        root.join("crates/mole_runtime/src/generated/source_frame_data.rs"),
+        512,
+    );
+    write_bytes(
+        root.join("crates/mole_runtime/src/generated/source_frame_data/source_frame_capsules.bin"),
+        96,
+    );
+    write_bytes(
+        root.join("crates/mole_runtime/src/generated/source_frame_data/source_figatree_bundle.bin"),
+        192,
+    );
+    write_bytes(
+        root.join("crates/mole_runtime/src/generated/source_frame_data/source_manifest.json"),
+        128,
+    );
+    let legacy_ecb_fixture =
+        "const FALCON_SOURCE_ECB_ACTION_2: [SourceFighterEcb; 1] = [];\nfn falcon_eval_source_ecb_from_jobj() {}\n";
+    fs::write(
+        root.join("crates/mole_core/src/generated/falcon_ecb.rs"),
+        legacy_ecb_fixture,
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "runtime-data".to_string(),
+        "size-report".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "runtime-data size-report");
+    assert_eq!(parsed["ok"], false);
+    assert_eq!(parsed["source_baseline"]["bytes"], 448);
+    assert_eq!(
+        parsed["totals"]["runtime_bytes"],
+        928 + legacy_ecb_fixture.len() as u64
+    );
+    assert_eq!(parsed["totals"]["debug_bytes"], 12_288);
+    assert_eq!(
+        parsed["policy"]["normal_runtime_may_consume_debug_artifacts"],
+        false
+    );
+    assert!(parsed["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|warning| warning.as_str().unwrap_or("").contains("falcon_ecb.rs")));
+
+    let artifacts = parsed["artifacts"].as_array().unwrap();
+    assert!(artifacts.iter().any(|artifact| {
+        artifact["path"] == "resources/melee/extracted/captain_falcon_action_ecb_samples.json"
+            && artifact["role"] == "debug_sample_cache"
+            && artifact["runtime_input"] == false
+    }));
+    assert!(artifacts.iter().any(|artifact| {
+        artifact["path"] == "resources/melee/extracted/captain_falcon_action_animation_table.json"
+            && artifact["role"] == "debug_inspection"
+            && artifact["runtime_input"] == false
+    }));
+    assert!(artifacts.iter().any(|artifact| {
+        artifact["path"]
+            == "crates/mole_runtime/src/generated/source_frame_data/source_frame_capsules.bin"
+            && artifact["role"] == "compact_runtime"
+            && artifact["runtime_input"] == true
+    }));
+    assert!(artifacts.iter().any(|artifact| {
+        artifact["path"] == "crates/mole_core/src/generated/falcon_ecb.rs"
+            && artifact["role"] == "legacy_expanded_runtime"
+            && artifact["status"] == "expanded_runtime_warning"
+            && artifact["expansion_reasons"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|reason| reason == "per_frame_source_ecb_samples")
+    }));
+}
+
+#[test]
+fn help_catalog_documents_runtime_data_size_report_as_read_only_guardrail() {
+    let output = run_cli(&["help".to_string()]).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let commands = parsed["commands"].as_array().unwrap();
+
+    assert!(commands.iter().any(|command| {
+        command["name"] == "runtime-data size-report"
+            && command["mutates_workspace"] == false
+            && command["purpose"]
+                .as_str()
+                .unwrap_or("")
+                .contains("runtime artifact sizes")
+    }));
+    assert!(parsed["ai_contract"]["mutating_commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|command| command != "runtime-data size-report"));
+}
+
+#[test]
+fn runtime_data_gap_ledger_loads_phase_one_foundation_gaps() {
+    let root = temp_project_root("runtime_data_gap_ledger");
+    fs::create_dir_all(root.join("docs/research")).unwrap();
+    write_json(
+        &root.join("docs/research/decomp-parity-gap-ledger.json"),
+        &json!({
+            "schema_version": 1,
+            "command": "runtime-data gap-ledger",
+            "phase": "phase_1_foundation",
+            "gaps": [
+                {
+                    "id": "ecb_runtime_live_evaluation",
+                    "subsystem": "ecb",
+                    "priority": 1,
+                    "status": "open",
+                    "decomp_refs": ["mpColl_LoadECB_JObj"],
+                    "rust_refs": ["crates/mole_core/src/generated/falcon_ecb.rs"],
+                    "next_proof": "Transcribe source-backed ECB evaluator and compare against samples."
+                },
+                {
+                    "id": "stage_mapcoll_topology",
+                    "subsystem": "stage_collision",
+                    "priority": 2,
+                    "status": "open",
+                    "decomp_refs": ["mpcoll.c"],
+                    "rust_refs": ["crates/mole_core/src/generated/stages.rs"],
+                    "next_proof": "Load extracted collision topology instead of fixed Battlefield assumptions."
+                }
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "runtime-data".to_string(),
+        "gap-ledger".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "runtime-data gap-ledger");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(
+        parsed["source_path"],
+        "docs/research/decomp-parity-gap-ledger.json"
+    );
+    assert_eq!(parsed["summary"]["open"], 2);
+    assert_eq!(parsed["summary"]["by_subsystem"]["ecb"], 1);
+    assert_eq!(parsed["summary"]["by_subsystem"]["stage_collision"], 1);
+    assert!(parsed["gaps"].as_array().unwrap().iter().any(|gap| {
+        gap["id"] == "ecb_runtime_live_evaluation"
+            && gap["decomp_refs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|reference| reference == "mpColl_LoadECB_JObj")
+    }));
+}
+
+#[test]
+fn help_catalog_documents_runtime_data_gap_ledger() {
+    let output = run_cli(&["help".to_string()]).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let commands = parsed["commands"].as_array().unwrap();
+
+    assert!(commands.iter().any(|command| {
+        command["name"] == "runtime-data gap-ledger"
+            && command["mutates_workspace"] == false
+            && command["purpose"]
+                .as_str()
+                .unwrap_or("")
+                .contains("Phase 1 parity gap ledger")
+    }));
+}
+
+#[test]
+fn runtime_data_identity_report_separates_escape_air_identity_spaces() {
+    let root = temp_project_root("runtime_data_identity_report");
+    let generated_dir = root.join("crates/mole_runtime/src/generated");
+    fs::create_dir_all(&generated_dir).unwrap();
+    fs::write(
+        generated_dir.join("source_frame_data.rs"),
+        r#"
+pub(crate) const ACTION_BINDINGS: &[RuntimeActionBinding] = &[
+    RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(236)), source_action_table_index: SourceActionTableIndex::new(44), source_action_key: "EscapeAir", motion_state: Some(MotionState::EscapeAir) },
+    RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(247), source_action_key: "ThrowF", motion_state: None },
+];
+"#,
+    )
+    .unwrap();
+
+    let output = run_cli(&[
+        "runtime-data".to_string(),
+        "identity-report".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "runtime-data identity-report");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(
+        parsed["source_path"],
+        "crates/mole_runtime/src/generated/source_frame_data.rs"
+    );
+    assert_eq!(parsed["summary"]["total_bindings"], 2);
+    assert_eq!(parsed["summary"]["runtime_motion_bindings"], 1);
+    assert_eq!(parsed["summary"]["source_only_bindings"], 1);
+    assert_eq!(parsed["summary"]["distinct_identity_bindings"], 1);
+
+    let bindings = parsed["bindings"].as_array().unwrap();
+    let escape_air = bindings
+        .iter()
+        .find(|binding| binding["source_action_key"] == "EscapeAir")
+        .expect("EscapeAir binding should be reported");
+    assert_eq!(escape_air["motion_state"], "EscapeAir");
+    assert_eq!(escape_air["melee_motion_state_id"], 236);
+    assert_eq!(escape_air["source_action_table_index"], 44);
+    assert_eq!(escape_air["identity_status"], "distinct");
+
+    let throw_f = bindings
+        .iter()
+        .find(|binding| binding["source_action_key"] == "ThrowF")
+        .expect("source-only ThrowF binding should be reported");
+    assert_eq!(throw_f["melee_motion_state_id"], serde_json::Value::Null);
+    assert_eq!(throw_f["source_action_table_index"], 247);
+    assert_eq!(throw_f["identity_status"], "source_only");
+}
+
+#[test]
+fn help_catalog_documents_runtime_data_identity_report() {
+    let output = run_cli(&["help".to_string()]).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let commands = parsed["commands"].as_array().unwrap();
+
+    assert!(commands.iter().any(|command| {
+        command["name"] == "runtime-data identity-report"
+            && command["mutates_workspace"] == false
+            && command["purpose"]
+                .as_str()
+                .unwrap_or("")
+                .contains("Melee motion-state IDs")
+    }));
+    assert!(parsed["ai_contract"]["mutating_commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|command| command != "runtime-data identity-report"));
+}
+
+#[test]
 fn decomp_search_returns_agent_sized_matches_with_followup_commands() {
     let root = temp_project_root("decomp_search");
     let decomp = root.join(".research/doldecomp-melee");
@@ -1062,33 +1340,33 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("include_bytes!(\"source_frame_data/source_figatree_bundle.bin\")"));
     assert!(!generated.contains(".figatree.bin"));
     assert!(generated.contains("RuntimeActionBinding"));
-    assert!(generated.contains("MeleeActionStateId::new(65)"));
-    assert!(generated.contains("MeleeActionStateId::new(75)"));
-    assert!(generated.contains("MeleeActionStateId::new(45)"));
-    assert!(generated.contains("MeleeActionStateId::new(46)"));
-    assert!(generated.contains("MeleeActionStateId::new(47)"));
-    assert!(generated.contains("MeleeActionStateId::new(48)"));
-    assert!(generated.contains("MeleeActionStateId::new(49)"));
-    assert!(generated.contains("MeleeActionStateId::new(91)"));
-    assert!(generated.contains("MeleeActionStateId::new(183)"));
-    assert!(generated.contains("MeleeActionStateId::new(184)"));
-    assert!(generated.contains("MeleeActionStateId::new(186)"));
-    assert!(generated.contains("MeleeActionStateId::new(187)"));
-    assert!(generated.contains("MeleeActionStateId::new(191)"));
-    assert!(generated.contains("MeleeActionStateId::new(192)"));
-    assert!(generated.contains("MeleeActionStateId::new(194)"));
-    assert!(generated.contains("MeleeActionStateId::new(195)"));
-    assert!(generated.contains("MeleeActionStateId::new(199)"));
-    assert!(generated.contains("MeleeActionStateId::new(200)"));
-    assert!(generated.contains("MeleeActionStateId::new(201)"));
-    assert!(generated.contains("MeleeActionStateId::new(275)"));
-    assert!(generated.contains("MeleeActionStateId::new(355)"));
-    assert!(generated.contains("MeleeActionStateId::new(356)"));
-    assert!(generated.contains("MeleeActionStateId::new(358)"));
-    assert!(generated.contains("MeleeActionStateId::new(360)"));
-    assert!(generated.contains("MeleeActionStateId::new(361)"));
-    assert!(generated.contains("MeleeActionStateId::new(362)"));
-    assert!(generated.contains("MeleeActionStateId::new(363)"));
+    assert!(generated.contains("MeleeMotionStateId::new(65)"));
+    assert!(generated.contains("SourceActionTableIndex::new(68)"));
+    assert!(generated.contains("SourceActionTableIndex::new(47)"));
+    assert!(generated.contains("SourceActionTableIndex::new(48)"));
+    assert!(generated.contains("SourceActionTableIndex::new(49)"));
+    assert!(generated.contains("SourceActionTableIndex::new(50)"));
+    assert!(generated.contains("SourceActionTableIndex::new(51)"));
+    assert!(generated.contains("SourceActionTableIndex::new(181)"));
+    assert!(generated.contains("SourceActionTableIndex::new(288)"));
+    assert!(generated.contains("SourceActionTableIndex::new(184)"));
+    assert!(generated.contains("SourceActionTableIndex::new(290)"));
+    assert!(generated.contains("SourceActionTableIndex::new(187)"));
+    assert!(generated.contains("SourceActionTableIndex::new(289)"));
+    assert!(generated.contains("SourceActionTableIndex::new(192)"));
+    assert!(generated.contains("SourceActionTableIndex::new(291)"));
+    assert!(generated.contains("SourceActionTableIndex::new(195)"));
+    assert!(generated.contains("SourceActionTableIndex::new(199)"));
+    assert!(generated.contains("SourceActionTableIndex::new(200)"));
+    assert!(generated.contains("SourceActionTableIndex::new(201)"));
+    assert!(generated.contains("SourceActionTableIndex::new(276)"));
+    assert!(generated.contains("MeleeMotionStateId::new(355)"));
+    assert!(generated.contains("MeleeMotionStateId::new(356)"));
+    assert!(generated.contains("MeleeMotionStateId::new(358)"));
+    assert!(generated.contains("MeleeMotionStateId::new(360)"));
+    assert!(generated.contains("MeleeMotionStateId::new(361)"));
+    assert!(generated.contains("MeleeMotionStateId::new(362)"));
+    assert!(generated.contains("MeleeMotionStateId::new(363)"));
     assert!(generated.contains("source_action_key: \"DamageHi1\""));
     assert!(generated.contains("source_action_key: \"Attack12\""));
     assert!(generated.contains("source_action_key: \"Attack13\""));
@@ -1116,96 +1394,102 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(generated.contains("source_action_key: \"SpecialLwEndAir\""));
     assert!(generated.contains("source_action_key: \"CliffCatch\""));
     assert!(generated.contains("source_action_key: \"CliffWait1\""));
+    assert!(
+        generated.contains(
+            "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(236)), source_action_table_index: SourceActionTableIndex::new(44), source_action_key: \"EscapeAir\", motion_state: Some(MotionState::EscapeAir) }"
+        ),
+        "EscapeAir binding must preserve common motion-state id 236 and Falcon action table index 44"
+    );
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(45), source_action_key: \"Attack12\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(47), source_action_key: \"Attack12\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(46), source_action_key: \"Attack13\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(48), source_action_key: \"Attack13\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(47), source_action_key: \"Attack100Start\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(49), source_action_key: \"Attack100Start\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(48), source_action_key: \"Attack100Loop\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(50), source_action_key: \"Attack100Loop\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(49), source_action_key: \"Attack100End\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(51), source_action_key: \"Attack100End\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(75), source_action_key: \"DamageHi1\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(165), source_action_key: \"DamageHi1\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(91), source_action_key: \"DamageFlyRoll\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(181), source_action_key: \"DamageFlyRoll\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(183), source_action_key: \"DownBoundU\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(288), source_action_key: \"DownBoundU\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(184), source_action_key: \"DownWaitU\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(184), source_action_key: \"DownWaitU\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(186), source_action_key: \"DownStandU\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(290), source_action_key: \"DownStandU\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(187), source_action_key: \"DownAttackU\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(187), source_action_key: \"DownAttackU\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(191), source_action_key: \"DownBoundD\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(289), source_action_key: \"DownBoundD\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(192), source_action_key: \"DownWaitD\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(192), source_action_key: \"DownWaitD\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(194), source_action_key: \"DownStandD\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(291), source_action_key: \"DownStandD\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(195), source_action_key: \"DownAttackD\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(195), source_action_key: \"DownAttackD\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(199), source_action_key: \"Passive\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(199), source_action_key: \"Passive\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(200), source_action_key: \"PassiveStandF\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(200), source_action_key: \"PassiveStandF\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(201), source_action_key: \"PassiveStandB\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(201), source_action_key: \"PassiveStandB\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(275), source_action_key: \"TCaptainSpecialHi\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: None, source_action_table_index: SourceActionTableIndex::new(276), source_action_key: \"TCaptainSpecialHi\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(355), source_action_key: \"SpecialHiCatch\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(355)), source_action_table_index: SourceActionTableIndex::new(309), source_action_key: \"SpecialHiCatch\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(356), source_action_key: \"SpecialHiThrow\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(356)), source_action_table_index: SourceActionTableIndex::new(310), source_action_key: \"SpecialHiThrow\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(358), source_action_key: \"SpecialLwEnd\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(358)), source_action_table_index: SourceActionTableIndex::new(312), source_action_key: \"SpecialLwEnd\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(360), source_action_key: \"SpecialAirLwEnd\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(360)), source_action_table_index: SourceActionTableIndex::new(314), source_action_key: \"SpecialAirLwEnd\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(361), source_action_key: \"SpecialAirLwEndAir\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(361)), source_action_table_index: SourceActionTableIndex::new(316), source_action_key: \"SpecialAirLwEndAir\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(362), source_action_key: \"SpecialLwEndAir\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(362)), source_action_table_index: SourceActionTableIndex::new(315), source_action_key: \"SpecialLwEndAir\", motion_state: None }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(363), source_action_key: \"SpecialHiThrow\", motion_state: None }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(363)), source_action_table_index: SourceActionTableIndex::new(317), source_action_key: \"SpecialHiThrow\", motion_state: None }"
     ));
-    assert!(generated.contains("MeleeActionStateId::new(322)"));
-    assert!(generated.contains("MeleeActionStateId::new(323)"));
-    assert!(generated.contains("MeleeActionStateId::new(324)"));
+    assert!(generated.contains("MeleeMotionStateId::new(322)"));
+    assert!(generated.contains("MeleeMotionStateId::new(323)"));
+    assert!(generated.contains("MeleeMotionStateId::new(324)"));
     assert!(generated.contains("source_action_key: \"Entry\""));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(322), source_action_key: \"Entry\", motion_state: Some(MotionState::Entry) }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(322)), source_action_table_index: SourceActionTableIndex::new(238), source_action_key: \"Entry\", motion_state: Some(MotionState::Entry) }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(323), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryStart) }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(323)), source_action_table_index: SourceActionTableIndex::new(238), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryStart) }"
     ));
     assert!(generated.contains(
-        "RuntimeActionBinding { action_state_id: MeleeActionStateId::new(324), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryEnd) }"
+        "RuntimeActionBinding { melee_motion_state_id: Some(MeleeMotionStateId::new(324)), source_action_table_index: SourceActionTableIndex::new(238), source_action_key: \"Entry\", motion_state: Some(MotionState::EntryEnd) }"
     ));
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
@@ -1393,10 +1677,21 @@ fn frame_data_export_runtime_all_states_compact_manifest_writes_compact_source_e
     assert!(attack13.script_events.iter().any(|event| matches!(
         event,
         RuntimeSourceScriptEvent::SetJabRapid(event)
-            if event.source_frame == 10
+            if event.source_frame == 12
                 && event.state
                 && event.word_offset == 30
                 && event.raw_word == 0x78000001
+    )));
+    let attack_air_lw = decoded_capsules
+        .iter()
+        .find(|action| action.source_action_key == "AttackAirLw")
+        .expect("all-states runtime export should bake AttackAirLw");
+    assert!(attack_air_lw.script_events.iter().any(|event| matches!(
+        event,
+        RuntimeSourceScriptEvent::AllowInterrupt(event)
+            if event.source_frame == 38
+                && event.word_offset == 35
+                && event.raw_word == 0x5c000000
     )));
     for source_action_key in [
         "SpecialHiCatch",
@@ -1582,7 +1877,8 @@ fn frame_data_export_runtime_state_samples_compact_manifest() {
     assert!(generated.contains("SOURCE_FIGATREE_BUNDLE_BYTES"));
     assert!(generated.contains("SourceFigatreeBundleEntry"));
     assert!(generated.contains("RuntimeActionBinding"));
-    assert!(generated.contains("MeleeActionStateId::new(65)"));
+    assert!(generated.contains("MeleeMotionStateId::new(65)"));
+    assert!(generated.contains("SourceActionTableIndex::new(68)"));
     assert!(generated.contains("source_action_key: \"AttackAirN\""));
     assert!(generated.contains("motion_state: Some(MotionState::AttackAirN)"));
     assert!(generated.contains("SOURCE_FRAME_CAPSULES_BYTES"));
@@ -2262,7 +2558,6 @@ fn frame_data_extract_decodes_source_action_script_cmd_var_procedures() {
     let script_words = [
         0x08000004u32,
         0x4c000001,
-        0x1c000000,
         0x08000022,
         0x4c000000,
         0x00000000,
@@ -2400,6 +2695,76 @@ fn frame_data_extract_decodes_source_jab_script_procedures() {
             && procedure["frame"] == 10
             && procedure["raw_words"] == json!(["0x78000001"])
             && procedure["state"] == true
+    }));
+}
+
+#[test]
+fn frame_data_extract_decodes_source_set_airborne_state_procedure() {
+    let root = temp_project_root("frame_data_source_set_airborne_state");
+    write_json(
+        &root.join("resources/melee/frame_data/dolphin_mole/DownBoundU.json"),
+        &json!({
+            "schema_version": 1,
+            "target_character": "dolphin_mole",
+            "target_character_label": "Dolphin Mole",
+            "source_character": "captain",
+            "source_character_label": "Captain Falcon",
+            "state": "DownBoundU",
+            "label": "DownBoundU",
+            "projection": {"source_space": "melee_xyz", "default_view": "xy", "z_policy": "preserve_and_project"},
+            "sources": [{"kind": "decomp", "path": "src/melee/ft/ftaction.c", "line": 522}],
+            "summary": {"total_frames": 26, "iasa_frame": "unknown", "active_hitbox_windows": []},
+            "keyframes": [{"frame": 1, "hitboxes": [], "hurtboxes": []}],
+            "gaps": [],
+            "overrides": []
+        }),
+    );
+    write_json(
+        &root.join("resources/melee/extracted/captain_falcon_action_animation_table.json"),
+        &json!({
+            "actions": [{
+                "action_state_id": 183,
+                "name": "PlyCaptain5K_Share_ACTION_DownBoundU_figatree",
+                "source_action_key": "DownBoundU",
+                "subaction_script_offset": 0x59A0
+            }]
+        }),
+    );
+    let script_start = 0x20 + 0x59A0;
+    let script_words = [0x08000004u32, 0x64000001, 0x00000000];
+    let mut plca = vec![0u8; script_start + script_words.len() * 4];
+    for (index, word) in script_words.iter().enumerate() {
+        plca[script_start + index * 4..script_start + index * 4 + 4]
+            .copy_from_slice(&word.to_be_bytes());
+    }
+    let raw_path = root.join("resources/melee/raw/PlCa.dat");
+    fs::create_dir_all(raw_path.parent().unwrap()).unwrap();
+    fs::write(&raw_path, plca).unwrap();
+
+    let output = run_cli(&[
+        "--root".to_string(),
+        root.display().to_string(),
+        "frame-data".to_string(),
+        "extract".to_string(),
+        "--character".to_string(),
+        "dolphin_mole".to_string(),
+        "--source-character".to_string(),
+        "captain".to_string(),
+        "--state".to_string(),
+        "DownBoundU".to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let procedures = parsed["artifact"]["decoded_action_script"]["procedures"]
+        .as_array()
+        .expect("source action script should decode set_airborne_state");
+
+    assert!(procedures.iter().any(|procedure| {
+        procedure["procedure"] == "fighter.set_airborne_state"
+            && procedure["handler"] == "ftAction_80071998"
+            && procedure["frame"] == 4
+            && procedure["raw_words"] == json!(["0x64000001"])
+            && procedure["state"] == 1
     }));
 }
 
@@ -5414,6 +5779,163 @@ fn replay_trace_returns_match_start_trace_rows() {
 }
 
 #[test]
+fn replay_trace_seeded_mode_uses_pre_frame_state() {
+    let root = temp_project_root("replay_trace_seeded_mode");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "frames": [
+                {
+                    "frame": 0,
+                    "players": {"0": {
+                        "pre": {
+                            "position": [0.0, 0.0],
+                            "facing": 1.0,
+                            "action_state_id": 29,
+                            "action_state_frame": 0.0,
+                            "rust": {"stick_x": 0, "stick_y": 0, "physical_button_bits": 0}
+                        },
+                        "post": {
+                            "action_state_id": 29,
+                            "position": [200.0, 0.0],
+                            "facing": 1.0,
+                            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                        }
+                    }}
+                },
+                {
+                    "frame": 1,
+                    "players": {"0": {
+                        "pre": {
+                            "position": [10.0, 20.0],
+                            "facing": 1.0,
+                            "action_state_id": 29,
+                            "action_state_frame": 0.0,
+                            "rust": {"stick_x": 0, "stick_y": 0, "physical_button_bits": 0}
+                        },
+                        "post": {
+                            "action_state_id": 29,
+                            "position": [10.0, 20.0],
+                            "facing": 1.0,
+                            "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                        }
+                    }}
+                }
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "trace".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--mode".to_string(),
+        "seeded".to_string(),
+        "--player".to_string(),
+        "1".to_string(),
+        "--start".to_string(),
+        "1".to_string(),
+        "--end".to_string(),
+        "1".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay trace");
+    assert_eq!(parsed["trace"]["mode"], "seeded");
+    assert_eq!(parsed["trace"]["rows"][0]["source_frame"], 1);
+    assert_eq!(
+        parsed["trace"]["rows"][0]["actual_source_position"]["x"],
+        json!(10.0)
+    );
+}
+
+#[test]
+fn replay_explain_returns_decomp_phase_report_for_trace_window() {
+    let root = temp_project_root("replay_explain");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "source": {"replay_path": "fixture.slp"},
+            "settings": {
+                "stage_id": 31,
+                "players": {
+                    "0": {"controller_fix": "UCF"},
+                    "1": {"controller_fix": "UCF"}
+                }
+            },
+            "frames": [
+                {"frame": 0, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 14,
+                        "position": [-32.0, 0.0],
+                        "facing": 1,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 14,
+                        "position": [-32.0, 0.0],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}}
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "explain".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--player".to_string(),
+        "1".to_string(),
+        "--frame".to_string(),
+        "0".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay explain");
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["explanation"]["player"], 1);
+    assert_eq!(parsed["explanation"]["target_source_frame"], 0);
+    assert!(parsed["explanation"]["trace"]["rows"].is_array());
+    assert!(parsed["explanation"]["decomp_phase_model"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|phase| phase["decomp_function"] == "ftCo_EscapeAir_Phys"));
+    assert!(parsed["explanation"]["audit_checklist"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["name"] == "Collision callback timing"));
+}
+
+#[test]
 fn replay_scan_returns_grouped_divergence_scenarios() {
     let root = temp_project_root("replay_scan");
     fs::create_dir_all(root.join(".git")).unwrap();
@@ -5506,6 +6028,91 @@ fn replay_scan_returns_grouped_divergence_scenarios() {
         parsed["scan"]["scenarios"][0]["rollback_replay_deterministic"],
         true
     );
+}
+
+#[test]
+fn replay_scan_seeded_mode_realigns_from_each_slippi_pre_frame() {
+    let root = temp_project_root("replay_scan_seeded");
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(root.join("docs/state_graphs")).unwrap();
+    fs::create_dir_all(root.join("debug/slippi")).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+    let export_path = root.join("debug/slippi/fixture.inputs.json");
+    write_json(
+        &export_path,
+        &json!({
+            "frames": [
+                {"frame": 0, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 14,
+                        "position": [0.0, 0.0],
+                        "facing": 1.0,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 14,
+                        "position": [100.0, 0.0],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}},
+                {"frame": 1, "players": {"0": {
+                    "pre": {
+                        "action_state_id": 14,
+                        "position": [10.0, 0.0],
+                        "facing": 1.0,
+                        "rust_player_input": {
+                            "stick_x": 0,
+                            "stick_y": 0,
+                            "c_stick_x": 0,
+                            "c_stick_y": 0,
+                            "left_trigger": 0,
+                            "right_trigger": 0,
+                            "physical_button_bits": 0,
+                            "ucf_dashback_amendment": false
+                        }
+                    },
+                    "post": {
+                        "action_state_id": 14,
+                        "position": [10.0, 0.0],
+                        "self_induced_speeds": {"ground_x": 0.0, "air_x": 0.0, "y": 0.0}
+                    }
+                }}}
+            ]
+        }),
+    );
+
+    let output = run_cli(&[
+        "replay".to_string(),
+        "scan".to_string(),
+        "--inputs".to_string(),
+        export_path.display().to_string(),
+        "--mode".to_string(),
+        "seeded".to_string(),
+        "--lookahead".to_string(),
+        "3".to_string(),
+        "--root".to_string(),
+        root.display().to_string(),
+    ])
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+
+    assert_eq!(parsed["command"], "replay scan");
+    assert_eq!(parsed["source"]["mode"], "seeded");
+    assert_eq!(parsed["scan"]["frames_scanned"], 2);
+    assert_eq!(parsed["scan"]["scenario_count"], 1);
+    assert_eq!(parsed["scan"]["scenarios"][0]["kind"], "position_drift");
+    assert_eq!(parsed["scan"]["scenarios"][0]["source_frame"], 0);
+    assert_eq!(parsed["scan"]["scenarios"][0]["realign_source_frame"], 1);
+    assert!(parsed["scan"]["scenarios"][0]["cascades_from_source_frame"].is_null());
 }
 
 #[test]
@@ -6272,6 +6879,10 @@ fn put_u32_be_at_end(data: &mut Vec<u8>, value: u32) {
 
 fn put_f32_be(data: &mut [u8], offset: usize, value: f32) {
     data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+}
+
+fn write_bytes(path: PathBuf, len: usize) {
+    fs::write(path, vec![0xAB; len]).unwrap();
 }
 
 fn run_git_test_command(root: &Path, args: &[&str]) {

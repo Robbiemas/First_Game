@@ -139,6 +139,10 @@ positions/facing; the common fighter entry path supplies the platform accessory
 and timing. Runtime rendering may draw a lightweight cue, but gameplay must use
 the decomp-sourced Entry timers, spawn positions, and profile offset rather than
 a renderer-sized rectangle.
+For future stage imports such as Yoshi's Story, keep this split lossless:
+extract each stage's spawn/facing and respawn final-position data from the stage
+sources, and resolve the visible/collidable match-entry platform from the common
+fighter accessory profile instead of baking it into the stage's MapCollData.
 
 Refresh the baked common accessory profile with:
 
@@ -227,8 +231,16 @@ costume skeleton snapshot records the HSD joint preorder used by
 
 The generated action ECB samples evaluate selected Captain Falcon figatrees
 against that skeleton and reduce the six source joints through the same
-`mpColl_LoadECB_JObj` min/max path. The Rust ECB table is generated from those
-samples by:
+`mpColl_LoadECB_JObj` min/max path.
+
+The per-frame ECB sample JSON is a parity/debug artifact, not the target
+shipping representation. The lossless baseline is the extracted source data:
+DAT animation tracks, skeleton joints, ECB source joints, ledge snap values, and
+runtime setup fields such as `ecb_source.x128/x12C = 10.0F * fp->x34_scale.y`.
+Dev-tool or CLI customization should live in a separate editable overlay that
+resolves against that baseline before runtime code generation, so source truth
+stays intact and character edits do not require bloating compact source data
+into pre-expanded frame caches.
 
 The legacy generated ECB table maps Rust `MotionState` names only when there is
 an explicit Captain Falcon action-table equivalent. Canonical source-only

@@ -1289,6 +1289,8 @@ def _parse_rust_scalar(value: str) -> Any:
         return None
     if value.startswith('"') and value.endswith('"'):
         return value[1:-1]
+    if re.fullmatch(r"0x[0-9a-fA-F][0-9a-fA-F_]*", value):
+        return int(value.replace("_", ""), 16)
     if re.fullmatch(r"-?\d[\d_]*", value):
         return int(value.replace("_", ""))
     if re.fullmatch(r"-?(?:\d[\d_]*)?\.\d[\d_]*(?:[eE][+-]?\d[\d_]*)?", value):

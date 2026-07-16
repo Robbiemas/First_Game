@@ -45,6 +45,7 @@ pub struct RuntimeSourceCapsuleSample {
     pub b: RuntimeSourcePoint,
     pub radius: f32,
     pub hurt_height: u8,
+    pub hurt_matrix: Option<Mat3x4>,
     pub hitbox_lifecycle_id: Option<SourceHitboxLifecycleId>,
     pub hitbox: Option<SourceHitboxAttributes>,
     pub hitbox_flags: SourceHitboxFlags,
@@ -95,6 +96,29 @@ pub struct RuntimeSourceCmdVarEvent {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeSourceAllowInterruptEvent {
+    pub source_frame: u8,
+    pub word_offset: u16,
+    pub raw_word: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeSourceAirborneStateEvent {
+    pub source_frame: u8,
+    pub state: u8,
+    pub word_offset: u16,
+    pub raw_word: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeSourceCollisionStateEvent {
+    pub source_frame: u8,
+    pub state: u8,
+    pub word_offset: u16,
+    pub raw_word: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeSourceJabComboEvent {
     pub source_frame: u8,
     pub disabled: bool,
@@ -130,6 +154,9 @@ pub struct RuntimeSourceThrowHitboxEvent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeSourceScriptEvent {
     SetCmdVar(RuntimeSourceCmdVarEvent),
+    AllowInterrupt(RuntimeSourceAllowInterruptEvent),
+    SetAirborneState(RuntimeSourceAirborneStateEvent),
+    SetCollisionState(RuntimeSourceCollisionStateEvent),
     SetJabCombo(RuntimeSourceJabComboEvent),
     SetJabRapid(RuntimeSourceJabRapidEvent),
     SetThrowFlag(RuntimeSourceThrowFlagEvent),
@@ -146,7 +173,11 @@ pub struct RuntimeSourceActionFrameSamples {
     pub script_events: Vec<RuntimeSourceScriptEvent>,
 }
 
-const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0013";
+const RUNTIME_SOURCE_FRAME_CAPSULES_MAGIC: &[u8; 8] = b"MSFC0017";
+const RUNTIME_SOURCE_FRAME_CAPSULES_NO_COLLISION_STATE_MAGIC: &[u8; 8] = b"MSFC0016";
+const RUNTIME_SOURCE_FRAME_CAPSULES_NO_ALLOW_INTERRUPT_MAGIC: &[u8; 8] = b"MSFC0015";
+const RUNTIME_SOURCE_FRAME_CAPSULES_NO_AIRBORNE_STATE_MAGIC: &[u8; 8] = b"MSFC0014";
+const RUNTIME_SOURCE_FRAME_CAPSULES_NO_HURT_MATRIX_MAGIC: &[u8; 8] = b"MSFC0013";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_PLAYBACK_MAGIC: &[u8; 8] = b"MSFC0012";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROW_HITBOX_EVENTS_MAGIC: &[u8; 8] = b"MSFC0011";
 const RUNTIME_SOURCE_FRAME_CAPSULES_NO_HITBOX_FLAGS_MAGIC: &[u8; 8] = b"MSFC0010";
@@ -176,6 +207,7 @@ struct RuntimeSourceFrameCapsuleFormat {
     has_thrown_hitbox_pose: bool,
     has_hitbox_flags: bool,
     has_action_playback: bool,
+    has_hurt_matrix: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -253,11 +285,13 @@ pub fn decode_runtime_source_frame_capsules(
                 format.float_width,
                 format.has_hurt_height,
                 format.has_hitbox_flags,
+                format.has_hurt_matrix,
             )?;
             let hurt_capsules = reader.read_capsules(
                 format.float_width,
                 format.has_hurt_height,
                 format.has_hitbox_flags,
+                format.has_hurt_matrix,
             )?;
             frames.push(RuntimeSourceFrameSample {
                 source_frame,
@@ -379,6 +413,13 @@ fn push_capsules(
         push_point(bytes, capsule.b);
         push_f32(bytes, capsule.radius);
         push_u8(bytes, capsule.hurt_height);
+        match capsule.hurt_matrix {
+            Some(matrix) => {
+                push_u8(bytes, 1);
+                push_matrix(bytes, matrix);
+            }
+            None => push_u8(bytes, 0),
+        }
         match capsule.hitbox_lifecycle_id {
             Some(lifecycle_id) => {
                 push_u8(bytes, 1);
@@ -426,6 +467,26 @@ fn push_script_events(
                 push_u16(bytes, event.word_offset);
                 push_u32(bytes, event.raw_word);
             }
+            RuntimeSourceScriptEvent::AllowInterrupt(event) => {
+                push_u8(bytes, 7);
+                push_u8(bytes, event.source_frame);
+                push_u16(bytes, event.word_offset);
+                push_u32(bytes, event.raw_word);
+            }
+            RuntimeSourceScriptEvent::SetAirborneState(event) => {
+                push_u8(bytes, 6);
+                push_u8(bytes, event.source_frame);
+                push_u8(bytes, event.state);
+                push_u16(bytes, event.word_offset);
+                push_u32(bytes, event.raw_word);
+            }
+            RuntimeSourceScriptEvent::SetCollisionState(event) => {
+                push_u8(bytes, 8);
+                push_u8(bytes, event.source_frame);
+                push_u8(bytes, event.state);
+                push_u16(bytes, event.word_offset);
+                push_u32(bytes, event.raw_word);
+            }
             RuntimeSourceScriptEvent::SetJabCombo(event) => {
                 push_u8(bytes, 2);
                 push_u8(bytes, event.source_frame);
@@ -470,6 +531,14 @@ fn push_script_events(
     Ok(())
 }
 
+fn push_matrix(bytes: &mut Vec<u8>, matrix: Mat3x4) {
+    for row in matrix.rows {
+        for value in row {
+            push_f32(bytes, value);
+        }
+    }
+}
+
 fn cmd_var_events_from_script_events(
     events: &[RuntimeSourceScriptEvent],
 ) -> Vec<RuntimeSourceCmdVarEvent> {
@@ -505,6 +574,59 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: true,
                 has_action_playback: true,
+                has_hurt_matrix: true,
+            })
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_COLLISION_STATE_MAGIC {
+            Ok(RuntimeSourceFrameCapsuleFormat {
+                float_width: RuntimeSourceFloatWidth::F32,
+                script_event_format: RuntimeSourceScriptEventFormat::Generic,
+                has_hurt_height: true,
+                has_capture_pose: true,
+                has_extended_capture_pose: true,
+                has_source_root_position: true,
+                has_thrown_hitbox_pose: true,
+                has_hitbox_flags: true,
+                has_action_playback: true,
+                has_hurt_matrix: true,
+            })
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_ALLOW_INTERRUPT_MAGIC {
+            Ok(RuntimeSourceFrameCapsuleFormat {
+                float_width: RuntimeSourceFloatWidth::F32,
+                script_event_format: RuntimeSourceScriptEventFormat::Generic,
+                has_hurt_height: true,
+                has_capture_pose: true,
+                has_extended_capture_pose: true,
+                has_source_root_position: true,
+                has_thrown_hitbox_pose: true,
+                has_hitbox_flags: true,
+                has_action_playback: true,
+                has_hurt_matrix: true,
+            })
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_AIRBORNE_STATE_MAGIC {
+            Ok(RuntimeSourceFrameCapsuleFormat {
+                float_width: RuntimeSourceFloatWidth::F32,
+                script_event_format: RuntimeSourceScriptEventFormat::Generic,
+                has_hurt_height: true,
+                has_capture_pose: true,
+                has_extended_capture_pose: true,
+                has_source_root_position: true,
+                has_thrown_hitbox_pose: true,
+                has_hitbox_flags: true,
+                has_action_playback: true,
+                has_hurt_matrix: true,
+            })
+        } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_HURT_MATRIX_MAGIC {
+            Ok(RuntimeSourceFrameCapsuleFormat {
+                float_width: RuntimeSourceFloatWidth::F32,
+                script_event_format: RuntimeSourceScriptEventFormat::Generic,
+                has_hurt_height: true,
+                has_capture_pose: true,
+                has_extended_capture_pose: true,
+                has_source_root_position: true,
+                has_thrown_hitbox_pose: true,
+                has_hitbox_flags: true,
+                has_action_playback: true,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_PLAYBACK_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -517,6 +639,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: true,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROW_HITBOX_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -529,6 +652,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: true,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_HITBOX_FLAGS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -541,6 +665,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: true,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_THROWN_HITBOX_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -553,6 +678,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_ROOT_POSE_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -565,6 +691,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_CAPTURE_POSE_V1_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -577,6 +704,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_CAPTURE_POSE_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -589,6 +717,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_CMD_VAR_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -601,6 +730,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_NO_HURT_HEIGHT_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -613,6 +743,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_F32_NO_EVENTS_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -625,6 +756,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else if magic == RUNTIME_SOURCE_FRAME_CAPSULES_F64_MAGIC {
             Ok(RuntimeSourceFrameCapsuleFormat {
@@ -637,6 +769,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 has_thrown_hitbox_pose: false,
                 has_hitbox_flags: false,
                 has_action_playback: false,
+                has_hurt_matrix: false,
             })
         } else {
             Err("runtime source frame capsule sidecar has an unsupported format".to_string())
@@ -788,6 +921,7 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
         float_width: RuntimeSourceFloatWidth,
         has_hurt_height: bool,
         has_hitbox_flags: bool,
+        has_hurt_matrix: bool,
     ) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
         let capsule_count = self.read_u16()? as usize;
         let mut capsules = Vec::with_capacity(capsule_count);
@@ -800,6 +934,19 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 self.read_u8()?
             } else {
                 SOURCE_HURT_HEIGHT_MID
+            };
+            let hurt_matrix = if has_hurt_matrix {
+                match self.read_u8()? {
+                    0 => None,
+                    1 => Some(self.read_matrix(float_width)?),
+                    value => {
+                        return Err(format!(
+                            "runtime source frame capsule hurt matrix tag {value} is invalid"
+                        ))
+                    }
+                }
+            } else {
+                None
             };
             let hitbox_lifecycle_id = match self.read_u8()? {
                 0 => None,
@@ -842,12 +989,23 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                 b,
                 radius,
                 hurt_height,
+                hurt_matrix,
                 hitbox_lifecycle_id,
                 hitbox,
                 hitbox_flags,
             });
         }
         Ok(capsules)
+    }
+
+    fn read_matrix(&mut self, float_width: RuntimeSourceFloatWidth) -> Result<Mat3x4, String> {
+        let mut rows = [[0.0; 4]; 3];
+        for row in &mut rows {
+            for value in row {
+                *value = self.read_source_float(float_width)?;
+            }
+        }
+        Ok(Mat3x4::from_rows(rows))
     }
 
     fn read_cmd_var_events(&mut self) -> Result<Vec<RuntimeSourceCmdVarEvent>, String> {
@@ -878,6 +1036,25 @@ impl<'a> RuntimeSourceFrameCapsuleReader<'a> {
                     word_offset: self.read_u16()?,
                     raw_word: self.read_u32()?,
                 }),
+                7 => RuntimeSourceScriptEvent::AllowInterrupt(RuntimeSourceAllowInterruptEvent {
+                    source_frame: self.read_u8()?,
+                    word_offset: self.read_u16()?,
+                    raw_word: self.read_u32()?,
+                }),
+                6 => RuntimeSourceScriptEvent::SetAirborneState(RuntimeSourceAirborneStateEvent {
+                    source_frame: self.read_u8()?,
+                    state: self.read_u8()?,
+                    word_offset: self.read_u16()?,
+                    raw_word: self.read_u32()?,
+                }),
+                8 => {
+                    RuntimeSourceScriptEvent::SetCollisionState(RuntimeSourceCollisionStateEvent {
+                        source_frame: self.read_u8()?,
+                        state: self.read_u8()?,
+                        word_offset: self.read_u16()?,
+                        raw_word: self.read_u32()?,
+                    })
+                }
                 2 => RuntimeSourceScriptEvent::SetJabCombo(RuntimeSourceJabComboEvent {
                     source_frame: self.read_u8()?,
                     disabled: self.read_bool()?,
@@ -995,6 +1172,10 @@ impl RuntimeActionFrameEvaluator {
         self.source.total_frames
     }
 
+    pub fn clears_transn_after_sampling(&self) -> bool {
+        self.source.anim_flags_raw & 0x8000_0000 != 0
+    }
+
     pub fn sample_frame(&self, frame: u64) -> Result<Value, String> {
         self.source.sample_frame_json(frame)
     }
@@ -1005,6 +1186,13 @@ impl RuntimeActionFrameEvaluator {
 
     pub fn sample_live_pose(&self, anim_frame: f32) -> Result<RuntimeSourceLivePoseSample, String> {
         self.source.sample_live_pose(anim_frame)
+    }
+
+    pub fn sample_live_hurt_capsules(
+        &self,
+        anim_frame: f32,
+    ) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
+        self.source.sample_live_hurt_capsules(anim_frame)
     }
 
     pub fn cmd_var_events(&self) -> Result<Vec<RuntimeSourceCmdVarEvent>, String> {
@@ -1054,7 +1242,8 @@ pub fn sample_action_keyframes(
     for frame in 1..=source.total_frames {
         poses.push((frame, source.sample_pose(frame)?));
     }
-    let hitboxes_by_frame = sample_hitboxes_by_frame(&poses, &source.procedures);
+    let hitboxes_by_frame =
+        sample_hitboxes_by_frame(&poses, &source.procedures, &source.common_parts);
     let mut keyframes = Vec::new();
     let mut previous_transn = Vec3::new(0.0, 0.0, 0.0);
     for (frame, pose) in &poses {
@@ -1062,7 +1251,7 @@ pub fn sample_action_keyframes(
         let hurtboxes =
             sample_hurtboxes_for_frame(pose, &source.hurtbox_inits, &source.procedures, *frame)?;
         let source_root_motion = source_root_motion_json(pose, previous_transn)?;
-        let source_capture_pose = source_capture_pose_json(pose, source.common_parts)?;
+        let source_capture_pose = source_capture_pose_json(pose, &source.common_parts)?;
         previous_transn = transn_translation(pose)?;
         keyframes.push(source.sample_json(
             *frame,
@@ -1092,7 +1281,8 @@ pub fn sample_action_keyframes_from_export(
     for frame in 1..=source.total_frames {
         poses.push((frame, source.sample_pose(frame)?));
     }
-    let hitboxes_by_frame = sample_hitboxes_by_frame(&poses, &source.procedures);
+    let hitboxes_by_frame =
+        sample_hitboxes_by_frame(&poses, &source.procedures, &source.common_parts);
     let mut keyframes = Vec::new();
     let mut previous_transn = Vec3::new(0.0, 0.0, 0.0);
     for (frame, pose) in &poses {
@@ -1100,7 +1290,7 @@ pub fn sample_action_keyframes_from_export(
         let hurtboxes =
             sample_hurtboxes_for_frame(pose, &source.hurtbox_inits, &source.procedures, *frame)?;
         let source_root_motion = source_root_motion_json(pose, previous_transn)?;
-        let source_capture_pose = source_capture_pose_json(pose, source.common_parts)?;
+        let source_capture_pose = source_capture_pose_json(pose, &source.common_parts)?;
         previous_transn = transn_translation(pose)?;
         keyframes.push(source.sample_json(
             *frame,
@@ -1122,6 +1312,7 @@ struct ActionSampleSource {
     source_action_key: String,
     source_action_name: String,
     action_state_id: u64,
+    anim_flags_raw: u32,
     total_frames: u64,
     projection: Value,
     figatree_chunk: Vec<u8>,
@@ -1201,12 +1392,17 @@ impl ActionSampleSource {
             .map(transn_translation)
             .transpose()?
             .unwrap_or(Vec3::new(0.0, 0.0, 0.0));
-        let hitboxes =
-            sample_hitboxes_for_frame(&pose, previous_pose.as_deref(), &self.procedures, frame);
+        let hitboxes = sample_hitboxes_for_frame(
+            &pose,
+            previous_pose.as_deref(),
+            &self.procedures,
+            &self.common_parts,
+            frame,
+        );
         let hurtboxes =
             sample_hurtboxes_for_frame(&pose, &self.hurtbox_inits, &self.procedures, frame)?;
         let source_root_motion = source_root_motion_json(&pose, previous_transn)?;
-        let source_capture_pose = source_capture_pose_json(&pose, self.common_parts)?;
+        let source_capture_pose = source_capture_pose_json(&pose, &self.common_parts)?;
 
         Ok(self.sample_json(
             frame,
@@ -1240,12 +1436,13 @@ impl ActionSampleSource {
         Ok(RuntimeSourceFrameSample {
             source_frame,
             source_root_position: source_root_position(&pose)?,
-            down_bound_pose: source_down_bound_pose(&pose, self.common_parts)?,
-            capture_pose: source_capture_pose(&pose, self.common_parts)?,
+            down_bound_pose: source_down_bound_pose(&pose, &self.common_parts)?,
+            capture_pose: source_capture_pose(&pose, &self.common_parts)?,
             hit_capsules: sample_hitbox_capsules_for_frame(
                 &pose,
                 previous_pose.as_deref(),
                 &self.procedures,
+                &self.common_parts,
                 frame,
             ),
             hurt_capsules: sample_hurtbox_capsules_for_frame(
@@ -1261,9 +1458,22 @@ impl ActionSampleSource {
         let pose = self.sample_pose_at_anim_frame(anim_frame)?;
         Ok(RuntimeSourceLivePoseSample {
             source_root_position: source_root_position(&pose)?,
-            down_bound_pose: source_down_bound_pose(&pose, self.common_parts)?,
-            capture_pose: source_capture_pose(&pose, self.common_parts)?,
+            down_bound_pose: source_down_bound_pose(&pose, &self.common_parts)?,
+            capture_pose: source_capture_pose(&pose, &self.common_parts)?,
         })
+    }
+
+    fn sample_live_hurt_capsules(
+        &self,
+        anim_frame: f32,
+    ) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
+        let pose = self.sample_pose_at_anim_frame(anim_frame)?;
+        sample_hurtbox_capsules_for_frame(
+            &pose,
+            &self.hurtbox_inits,
+            &self.procedures,
+            anim_frame.floor().max(1.0) as u64,
+        )
     }
 
     fn cmd_var_events(&self) -> Result<Vec<RuntimeSourceCmdVarEvent>, String> {
@@ -1289,6 +1499,41 @@ impl ActionSampleSource {
                         cmd_var: *cmd_var,
                         value: *value,
                     },
+                )),
+                Procedure::AllowInterrupt {
+                    frame,
+                    word_offset,
+                    raw_word,
+                } => Some(source_script_event_from_parts(
+                    self.source_action_key.as_str(),
+                    *frame,
+                    *word_offset,
+                    *raw_word,
+                    SourceScriptEventParts::AllowInterrupt,
+                )),
+                Procedure::SetAirborneState {
+                    frame,
+                    state,
+                    word_offset,
+                    raw_word,
+                } => Some(source_script_event_from_parts(
+                    self.source_action_key.as_str(),
+                    *frame,
+                    *word_offset,
+                    *raw_word,
+                    SourceScriptEventParts::AirborneState { state: *state },
+                )),
+                Procedure::SetCollisionState {
+                    frame,
+                    state,
+                    word_offset,
+                    raw_word,
+                } => Some(source_script_event_from_parts(
+                    self.source_action_key.as_str(),
+                    *frame,
+                    *word_offset,
+                    *raw_word,
+                    SourceScriptEventParts::CollisionState { state: *state },
                 )),
                 Procedure::SetJabCombo {
                     frame,
@@ -1353,6 +1598,13 @@ enum SourceScriptEventParts {
         cmd_var: u8,
         value: u32,
     },
+    AllowInterrupt,
+    AirborneState {
+        state: u8,
+    },
+    CollisionState {
+        state: u8,
+    },
     JabCombo {
         disabled: bool,
     },
@@ -1394,6 +1646,29 @@ fn source_script_event_from_parts(
                 raw_word,
             })
         }
+        SourceScriptEventParts::AllowInterrupt => {
+            RuntimeSourceScriptEvent::AllowInterrupt(RuntimeSourceAllowInterruptEvent {
+                source_frame,
+                word_offset,
+                raw_word,
+            })
+        }
+        SourceScriptEventParts::AirborneState { state } => {
+            RuntimeSourceScriptEvent::SetAirborneState(RuntimeSourceAirborneStateEvent {
+                source_frame,
+                state,
+                word_offset,
+                raw_word,
+            })
+        }
+        SourceScriptEventParts::CollisionState { state } => {
+            RuntimeSourceScriptEvent::SetCollisionState(RuntimeSourceCollisionStateEvent {
+                source_frame,
+                state,
+                word_offset,
+                raw_word,
+            })
+        }
         SourceScriptEventParts::JabCombo { disabled } => {
             RuntimeSourceScriptEvent::SetJabCombo(RuntimeSourceJabComboEvent {
                 source_frame,
@@ -1430,7 +1705,7 @@ fn source_script_event_from_parts(
     })
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct SourceCommonParts {
     transn_joint: usize,
     xrotn_joint: usize,
@@ -1439,6 +1714,7 @@ struct SourceCommonParts {
     transn2_joint: usize,
     thrown_hitbox_joint: usize,
     thrown_hitbox_scale: f32,
+    part_to_joint: Vec<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -1483,6 +1759,11 @@ fn load_action_sample_source(
         .cloned()
         .unwrap_or_else(|| json!({}));
     let action_state_id = required_u64(&action, &["action_state_id"])?;
+    let anim_flags_raw = parse_hex_u32(
+        optional_str(&action, &["source_action", "flags_raw"])
+            .ok_or_else(|| "source action is missing flags_raw".to_string())?
+            .as_str(),
+    )?;
     let total_frames = required_u64(action, &["total_frames"])?;
     let figatree_offset =
         required_u64(&action, &["source_action", "figatree_archive_offset"])? as usize;
@@ -1507,6 +1788,7 @@ fn load_action_sample_source(
             .unwrap_or_else(|| options.state.clone()),
         source_action_name: optional_str(&action, &["source_action_name"]).unwrap_or_default(),
         action_state_id,
+        anim_flags_raw,
         total_frames,
         projection,
         figatree_chunk,
@@ -1557,6 +1839,11 @@ fn load_action_sample_source_from_export_manifest(
         .cloned()
         .unwrap_or_else(|| json!({}));
     let action_state_id = required_u64(&action, &["action_state_id"])?;
+    let anim_flags_raw = parse_hex_u32(
+        optional_str(&action, &["source_action", "flags_raw"])
+            .ok_or_else(|| "source action is missing flags_raw".to_string())?
+            .as_str(),
+    )?;
     let total_frames = required_u64(action, &["total_frames"])?;
     let figatree = required_value(&action, &["source_action", "figatree"])?;
     let skeleton = required_array(manifest, &["rig", "skeleton", "data", "joints"])?;
@@ -1584,6 +1871,7 @@ fn load_action_sample_source_from_export_manifest(
         source_action_key,
         source_action_name: optional_str(&action, &["source_action_name"]).unwrap_or_default(),
         action_state_id,
+        anim_flags_raw,
         total_frames,
         projection,
         figatree_chunk,
@@ -1597,6 +1885,19 @@ fn load_action_sample_source_from_export_manifest(
 }
 
 fn source_common_parts_from_manifest(manifest: &Value) -> Result<SourceCommonParts, String> {
+    let part_to_joint =
+        match required_array(manifest, &["rig", "common_parts", "data", "part_to_joint"]) {
+            Ok(values) => values
+                .iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    value.as_u64().map(|value| value as usize).ok_or_else(|| {
+                        format!("rig.common_parts.data.part_to_joint[{index}] must be an integer")
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            Err(_) => Vec::new(),
+        };
     Ok(SourceCommonParts {
         transn_joint: required_u64(manifest, &["rig", "common_parts", "data", "transn_joint"])?
             as usize,
@@ -1618,6 +1919,7 @@ fn source_common_parts_from_manifest(manifest: &Value) -> Result<SourceCommonPar
             manifest,
             &["rig", "common_parts", "data", "thrown_hitbox_scale"],
         )?,
+        part_to_joint,
     })
 }
 
@@ -1811,7 +2113,7 @@ fn sample_pose_at_anim_frame(
 
 fn source_down_bound_pose(
     pose: &[JointPose],
-    common_parts: SourceCommonParts,
+    common_parts: &SourceCommonParts,
 ) -> Result<RuntimeSourceDownBoundPoseSample, String> {
     // ftCo_80097570 samples fp->parts[ftParts_GetBoneIndex(fp, FtPart_HipN)].
     let hip = pose.get(common_parts.hipn_joint).ok_or_else(|| {
@@ -1830,7 +2132,7 @@ fn source_down_bound_pose(
 
 fn source_capture_pose(
     pose: &[JointPose],
-    common_parts: SourceCommonParts,
+    common_parts: &SourceCommonParts,
 ) -> Result<RuntimeSourceCapturePoseSample, String> {
     Ok(RuntimeSourceCapturePoseSample {
         capture_anchor: source_capture_world_point(
@@ -1852,7 +2154,7 @@ fn source_capture_pose(
 
 fn source_capture_pose_json(
     pose: &[JointPose],
-    common_parts: SourceCommonParts,
+    common_parts: &SourceCommonParts,
 ) -> Result<Value, String> {
     let pose = source_capture_pose(pose, common_parts)?;
     Ok(json!({
@@ -1891,7 +2193,7 @@ fn source_capture_world_point(
 
 fn source_x1a70_point(
     pose: &[JointPose],
-    common_parts: SourceCommonParts,
+    common_parts: &SourceCommonParts,
 ) -> Result<RuntimeSourcePoint, String> {
     let transn = pose.get(common_parts.transn_joint).ok_or_else(|| {
         format!(
@@ -2471,6 +2773,23 @@ enum Procedure {
         word_offset: usize,
         raw_word: u32,
     },
+    AllowInterrupt {
+        frame: u64,
+        word_offset: usize,
+        raw_word: u32,
+    },
+    SetAirborneState {
+        frame: u64,
+        state: u8,
+        word_offset: usize,
+        raw_word: u32,
+    },
+    SetCollisionState {
+        frame: u64,
+        state: u8,
+        word_offset: usize,
+        raw_word: u32,
+    },
     SetJabCombo {
         frame: u64,
         disabled: bool,
@@ -2494,6 +2813,11 @@ enum Procedure {
     SetHurtState {
         frame: u64,
         bone_idx: u64,
+        state: u64,
+        word_offset: usize,
+    },
+    SetAllHurtState {
+        frame: u64,
         state: u64,
         word_offset: usize,
     },
@@ -2560,6 +2884,44 @@ fn decode_procedures(action: &Value) -> Result<Vec<Procedure>, String> {
                         .map_err(|_| format!("set_cmd_var value {value} does not fit u32"))?,
                     word_offset: required_u64(procedure, &["word_offset"])? as usize,
                     raw_word: parse_hex_u32(raw_word)?,
+                });
+            }
+            "fighter.allow_interrupt" => {
+                let raw_word = first_raw_word(procedure, "allow_interrupt")?;
+                decoded.push(Procedure::AllowInterrupt {
+                    frame: required_u64(procedure, &["frame"])?,
+                    word_offset: required_u64(procedure, &["word_offset"])? as usize,
+                    raw_word,
+                });
+            }
+            "fighter.set_airborne_state" => {
+                let raw_word = first_raw_word(procedure, "set_airborne_state")?;
+                let state = required_u64(procedure, &["state"])?;
+                decoded.push(Procedure::SetAirborneState {
+                    frame: required_u64(procedure, &["frame"])?,
+                    state: u8::try_from(state)
+                        .map_err(|_| format!("set_airborne_state state {state} does not fit u8"))?,
+                    word_offset: required_u64(procedure, &["word_offset"])? as usize,
+                    raw_word,
+                });
+            }
+            "fighter.set_collision_state" => {
+                let raw_word = first_raw_word(procedure, "set_collision_state")?;
+                let state = required_u64(procedure, &["state"])?;
+                decoded.push(Procedure::SetCollisionState {
+                    frame: required_u64(procedure, &["frame"])?,
+                    state: u8::try_from(state).map_err(|_| {
+                        format!("set_collision_state state {state} does not fit u8")
+                    })?,
+                    word_offset: required_u64(procedure, &["word_offset"])? as usize,
+                    raw_word,
+                });
+            }
+            "fighter.set_all_hurt_state" => {
+                decoded.push(Procedure::SetAllHurtState {
+                    frame: required_u64(procedure, &["frame"])?,
+                    state: required_u64(procedure, &["state_raw"])?,
+                    word_offset: required_u64(procedure, &["word_offset"])? as usize,
                 });
             }
             "fighter.set_jab_combo" => {
@@ -2665,6 +3027,15 @@ fn decode_procedures(action: &Value) -> Result<Vec<Procedure>, String> {
         Procedure::SetCmdVar {
             frame, word_offset, ..
         } => (*frame, *word_offset),
+        Procedure::AllowInterrupt {
+            frame, word_offset, ..
+        } => (*frame, *word_offset),
+        Procedure::SetAirborneState {
+            frame, word_offset, ..
+        } => (*frame, *word_offset),
+        Procedure::SetCollisionState {
+            frame, word_offset, ..
+        } => (*frame, *word_offset),
         Procedure::SetJabCombo {
             frame, word_offset, ..
         } => (*frame, *word_offset),
@@ -2676,6 +3047,9 @@ fn decode_procedures(action: &Value) -> Result<Vec<Procedure>, String> {
         } => (*frame, *word_offset),
         Procedure::SetThrowHitbox(throw_hitbox) => (throw_hitbox.frame, throw_hitbox.word_offset),
         Procedure::SetHurtState {
+            frame, word_offset, ..
+        } => (*frame, *word_offset),
+        Procedure::SetAllHurtState {
             frame, word_offset, ..
         } => (*frame, *word_offset),
     });
@@ -2750,6 +3124,7 @@ struct ActiveHitbox {
 fn sample_hitboxes_by_frame(
     poses: &[(u64, Vec<JointPose>)],
     procedures: &[Procedure],
+    common_parts: &SourceCommonParts,
 ) -> BTreeMap<u64, Vec<Value>> {
     let mut active: BTreeMap<u64, (DecodedHitbox, SourceHitCapsuleState, Option<Vec3>)> =
         BTreeMap::new();
@@ -2768,17 +3143,23 @@ fn sample_hitboxes_by_frame(
                 }
                 Procedure::ClearAllHitboxes { .. } => active.clear(),
                 Procedure::SetCmdVar { .. } => {}
+                Procedure::AllowInterrupt { .. } => {}
+                Procedure::SetAirborneState { .. } => {}
+                Procedure::SetCollisionState { .. } => {}
                 Procedure::SetJabCombo { .. } => {}
                 Procedure::SetJabRapid { .. } => {}
                 Procedure::SetThrowFlag { .. } => {}
                 Procedure::SetThrowHitbox(_) => {}
                 Procedure::SetHurtState { .. } => {}
+                Procedure::SetAllHurtState { .. } => {}
             }
         }
-        advance_hitbox_states(pose, &mut active);
+        advance_hitbox_states(pose, common_parts, &mut active);
         let frame_hitboxes = active
             .values()
-            .map(|(hitbox, state, previous)| hitbox_sample_json(hitbox, *state, *previous, pose))
+            .map(|(hitbox, state, previous)| {
+                hitbox_sample_json(hitbox, *state, *previous, pose, common_parts)
+            })
             .collect::<Vec<_>>();
         if !frame_hitboxes.is_empty() {
             output.insert(*frame, frame_hitboxes);
@@ -2791,6 +3172,7 @@ fn sample_hitboxes_for_frame(
     pose: &[JointPose],
     previous_pose: Option<&[JointPose]>,
     procedures: &[Procedure],
+    common_parts: &SourceCommonParts,
     target_frame: u64,
 ) -> Vec<Value> {
     let mut active: BTreeMap<u64, (DecodedHitbox, u64)> = BTreeMap::new();
@@ -2804,25 +3186,31 @@ fn sample_hitboxes_for_frame(
             }
             Procedure::ClearAllHitboxes { .. } => active.clear(),
             Procedure::SetCmdVar { .. } => {}
+            Procedure::AllowInterrupt { .. } => {}
+            Procedure::SetAirborneState { .. } => {}
+            Procedure::SetCollisionState { .. } => {}
             Procedure::SetJabCombo { .. } => {}
             Procedure::SetJabRapid { .. } => {}
             Procedure::SetThrowFlag { .. } => {}
             Procedure::SetThrowHitbox(_) => {}
             Procedure::SetHurtState { .. } => {}
+            Procedure::SetAllHurtState { .. } => {}
         }
     }
 
     active
         .values()
         .map(|(hitbox, spawn_frame)| {
-            let current_center = hitbox_source_center(hitbox, pose);
+            let current_center = hitbox_source_center(hitbox, pose, common_parts);
             let (state, previous_center) = if *spawn_frame == target_frame {
                 (SourceHitCapsuleState::Unk2, current_center)
             } else {
                 (
                     SourceHitCapsuleState::Unk3,
                     previous_pose
-                        .map(|previous_pose| hitbox_source_center(hitbox, previous_pose))
+                        .map(|previous_pose| {
+                            hitbox_source_center(hitbox, previous_pose, common_parts)
+                        })
                         .unwrap_or(current_center),
                 )
             };
@@ -2835,6 +3223,7 @@ fn sample_hitbox_capsules_for_frame(
     pose: &[JointPose],
     previous_pose: Option<&[JointPose]>,
     procedures: &[Procedure],
+    common_parts: &SourceCommonParts,
     target_frame: u64,
 ) -> Vec<RuntimeSourceCapsuleSample> {
     let mut active: BTreeMap<u64, ActiveHitbox> = BTreeMap::new();
@@ -2856,11 +3245,15 @@ fn sample_hitbox_capsules_for_frame(
             }
             Procedure::ClearAllHitboxes { .. } => active.clear(),
             Procedure::SetCmdVar { .. } => {}
+            Procedure::AllowInterrupt { .. } => {}
+            Procedure::SetAirborneState { .. } => {}
+            Procedure::SetCollisionState { .. } => {}
             Procedure::SetJabCombo { .. } => {}
             Procedure::SetJabRapid { .. } => {}
             Procedure::SetThrowFlag { .. } => {}
             Procedure::SetThrowHitbox(_) => {}
             Procedure::SetHurtState { .. } => {}
+            Procedure::SetAllHurtState { .. } => {}
         }
     }
 
@@ -2868,12 +3261,12 @@ fn sample_hitbox_capsules_for_frame(
         .values()
         .map(|active_hitbox| {
             let hitbox = &active_hitbox.hitbox;
-            let current_center = hitbox_source_center(hitbox, pose);
+            let current_center = hitbox_source_center(hitbox, pose, common_parts);
             let previous_center = if active_hitbox.spawn_frame == target_frame {
                 current_center
             } else {
                 previous_pose
-                    .map(|previous_pose| hitbox_source_center(hitbox, previous_pose))
+                    .map(|previous_pose| hitbox_source_center(hitbox, previous_pose, common_parts))
                     .unwrap_or(current_center)
             };
             RuntimeSourceCapsuleSample {
@@ -2882,9 +3275,11 @@ fn sample_hitbox_capsules_for_frame(
                 b: runtime_source_point(current_center),
                 radius: hitbox.radius,
                 hurt_height: SOURCE_HURT_HEIGHT_MID,
+                hurt_matrix: None,
                 hitbox_lifecycle_id: Some(active_hitbox.lifecycle_id),
                 hitbox: Some(SourceHitboxAttributes {
-                    bone: hitbox.bone as u16,
+                    bone: hitbox_joint_index(hitbox, common_parts).unwrap_or(hitbox.bone as usize)
+                        as u16,
                     hit_group: hitbox.hit_group as u8,
                     damage: hitbox.damage as u16,
                     angle: hitbox.angle as u16,
@@ -2925,8 +3320,9 @@ fn hitbox_sample_json(
     state: SourceHitCapsuleState,
     previous: Option<Vec3>,
     pose: &[JointPose],
+    common_parts: &SourceCommonParts,
 ) -> Value {
-    let current_center = hitbox_source_center(hitbox, pose);
+    let current_center = hitbox_source_center(hitbox, pose, common_parts);
     let previous_center = match state {
         SourceHitCapsuleState::Enabled => current_center,
         SourceHitCapsuleState::Unk2 | SourceHitCapsuleState::Unk3 => {
@@ -3013,10 +3409,11 @@ fn hitbox_sample_json_with_centers(
 
 fn advance_hitbox_states(
     pose: &[JointPose],
+    common_parts: &SourceCommonParts,
     active: &mut BTreeMap<u64, (DecodedHitbox, SourceHitCapsuleState, Option<Vec3>)>,
 ) {
     for (hitbox, state, previous) in active.values_mut() {
-        let current_center = hitbox_source_center(hitbox, pose);
+        let current_center = hitbox_source_center(hitbox, pose, common_parts);
         *previous = Some(current_center);
         *state = match state {
             SourceHitCapsuleState::Enabled => SourceHitCapsuleState::Unk2,
@@ -3027,14 +3424,27 @@ fn advance_hitbox_states(
     }
 }
 
-fn hitbox_source_center(hitbox: &DecodedHitbox, pose: &[JointPose]) -> Vec3 {
+fn hitbox_source_center(
+    hitbox: &DecodedHitbox,
+    pose: &[JointPose],
+    common_parts: &SourceCommonParts,
+) -> Vec3 {
     let offset = Vec3::new(hitbox.center_x, hitbox.center_y, hitbox.center_z);
-    if hitbox.use_common_bone_ids {
-        return offset;
-    }
-    pose.get(hitbox.bone as usize)
+    hitbox_joint_index(hitbox, common_parts)
+        .and_then(|joint_index| pose.get(joint_index))
         .map(|joint| joint.world_matrix.transform_point(offset))
         .unwrap_or(offset)
+}
+
+fn hitbox_joint_index(hitbox: &DecodedHitbox, common_parts: &SourceCommonParts) -> Option<usize> {
+    if hitbox.use_common_bone_ids {
+        common_parts
+            .part_to_joint
+            .get(hitbox.bone as usize)
+            .copied()
+    } else {
+        Some(hitbox.bone as usize)
+    }
 }
 
 fn sample_hurtboxes_for_frame(
@@ -3044,16 +3454,20 @@ fn sample_hurtboxes_for_frame(
     target_frame: u64,
 ) -> Result<Vec<Value>, String> {
     let mut hurt_states = BTreeMap::new();
+    let mut all_hurt_state = 0;
     for procedure in procedures {
-        if let Procedure::SetHurtState {
-            frame,
-            bone_idx,
-            state,
-            ..
-        } = procedure
-        {
-            if *frame <= target_frame {
-                hurt_states.insert(*bone_idx, *state);
+        if procedure_frame(procedure) <= target_frame {
+            match procedure {
+                Procedure::SetHurtState {
+                    bone_idx, state, ..
+                } => {
+                    hurt_states.insert(*bone_idx, *state);
+                }
+                Procedure::SetAllHurtState { state, .. } => {
+                    all_hurt_state = *state;
+                    hurt_states.clear();
+                }
+                _ => {}
             }
         }
     }
@@ -3071,7 +3485,7 @@ fn sample_hurtboxes_for_frame(
             matrix.transform_point(vec3_from_value(required_value(hurtbox, &["b_offset_raw"])?));
         let projected_a = flatten_right_facing(source_a);
         let projected_b = flatten_right_facing(source_b);
-        let state_raw = *hurt_states.get(&bone_idx).unwrap_or(&0);
+        let state_raw = *hurt_states.get(&bone_idx).unwrap_or(&all_hurt_state);
         sampled.push(json!({
             "id": required_u64(hurtbox, &["id"])?,
             "bone": bone_idx,
@@ -3109,16 +3523,20 @@ fn sample_hurtbox_capsules_for_frame(
     target_frame: u64,
 ) -> Result<Vec<RuntimeSourceCapsuleSample>, String> {
     let mut hurt_states = BTreeMap::new();
+    let mut all_hurt_state = 0;
     for procedure in procedures {
-        if let Procedure::SetHurtState {
-            frame,
-            bone_idx,
-            state,
-            ..
-        } = procedure
-        {
-            if *frame <= target_frame {
-                hurt_states.insert(*bone_idx, *state);
+        if procedure_frame(procedure) <= target_frame {
+            match procedure {
+                Procedure::SetHurtState {
+                    bone_idx, state, ..
+                } => {
+                    hurt_states.insert(*bone_idx, *state);
+                }
+                Procedure::SetAllHurtState { state, .. } => {
+                    all_hurt_state = *state;
+                    hurt_states.clear();
+                }
+                _ => {}
             }
         }
     }
@@ -3134,13 +3552,14 @@ fn sample_hurtbox_capsules_for_frame(
             matrix.transform_point(vec3_from_value(required_value(hurtbox, &["a_offset_raw"])?));
         let source_b =
             matrix.transform_point(vec3_from_value(required_value(hurtbox, &["b_offset_raw"])?));
-        let _state_raw = *hurt_states.get(&bone_idx).unwrap_or(&0);
+        let _state_raw = *hurt_states.get(&bone_idx).unwrap_or(&all_hurt_state);
         sampled.push(RuntimeSourceCapsuleSample {
             id: required_u64(hurtbox, &["id"])?,
             a: runtime_source_point(source_a),
             b: runtime_source_point(source_b),
             radius: required_f32(hurtbox, &["scale_raw"])?,
             hurt_height: required_hurt_height(hurtbox, &["height"])?,
+            hurt_matrix: Some(matrix),
             hitbox_lifecycle_id: None,
             hitbox: None,
             hitbox_flags: SourceHitboxFlags::none(),
@@ -3162,11 +3581,15 @@ fn procedure_frame(procedure: &Procedure) -> u64 {
         Procedure::SpawnHitbox(hitbox) => hitbox.frame,
         Procedure::ClearAllHitboxes { frame, .. } => *frame,
         Procedure::SetCmdVar { frame, .. } => *frame,
+        Procedure::AllowInterrupt { frame, .. } => *frame,
+        Procedure::SetAirborneState { frame, .. } => *frame,
+        Procedure::SetCollisionState { frame, .. } => *frame,
         Procedure::SetJabCombo { frame, .. } => *frame,
         Procedure::SetJabRapid { frame, .. } => *frame,
         Procedure::SetThrowFlag { frame, .. } => *frame,
         Procedure::SetThrowHitbox(throw_hitbox) => throw_hitbox.frame,
         Procedure::SetHurtState { frame, .. } => *frame,
+        Procedure::SetAllHurtState { frame, .. } => *frame,
     }
 }
 
@@ -3434,6 +3857,7 @@ mod tests {
                     b: RuntimeSourcePoint::default(),
                     radius: 1.0,
                     hurt_height: SOURCE_HURT_HEIGHT_MID,
+                    hurt_matrix: None,
                     hitbox_lifecycle_id: Some(SourceHitboxLifecycleId::new(1)),
                     hitbox: Some(SourceHitboxAttributes {
                         bone: 0,
@@ -3501,7 +3925,7 @@ mod tests {
 
         let encoded =
             encode_runtime_source_frame_capsules(&actions).expect("sidecar should encode");
-        assert_eq!(&encoded[..8], b"MSFC0013");
+        assert_eq!(&encoded[..8], b"MSFC0017");
         let decoded =
             decode_runtime_source_frame_capsules(&encoded).expect("sidecar should decode");
 
@@ -3514,6 +3938,91 @@ mod tests {
             decoded[0].loops,
             "looping action playback metadata should round-trip through compact runtime sidecars"
         );
+    }
+
+    #[test]
+    fn runtime_source_capsule_sidecar_round_trips_allow_interrupt_events() {
+        let event = RuntimeSourceScriptEvent::AllowInterrupt(RuntimeSourceAllowInterruptEvent {
+            source_frame: 38,
+            word_offset: 35,
+            raw_word: 0x5c000000,
+        });
+        let actions = vec![RuntimeSourceActionFrameSamples {
+            source_action_key: "AttackAirLw".to_string(),
+            total_frames: 45,
+            loops: false,
+            frames: Vec::new(),
+            cmd_var_events: Vec::new(),
+            script_events: vec![event],
+        }];
+
+        let encoded =
+            encode_runtime_source_frame_capsules(&actions).expect("sidecar should encode");
+        assert_eq!(&encoded[..8], b"MSFC0017");
+        let decoded =
+            decode_runtime_source_frame_capsules(&encoded).expect("sidecar should decode");
+
+        assert_eq!(
+            decoded[0].script_events,
+            vec![event],
+            "ftAction_80071950 allow-interrupt commands must survive compact runtime export as fp->allow_interrupt script events"
+        );
+    }
+
+    #[test]
+    fn runtime_source_capsule_sidecar_round_trips_airborne_state_events() {
+        let event = RuntimeSourceScriptEvent::SetAirborneState(RuntimeSourceAirborneStateEvent {
+            source_frame: 4,
+            state: 1,
+            word_offset: 1,
+            raw_word: 0x64000001,
+        });
+        let actions = vec![RuntimeSourceActionFrameSamples {
+            source_action_key: "DownBoundU".to_string(),
+            total_frames: 26,
+            loops: false,
+            frames: Vec::new(),
+            cmd_var_events: Vec::new(),
+            script_events: vec![event],
+        }];
+
+        let encoded =
+            encode_runtime_source_frame_capsules(&actions).expect("sidecar should encode");
+        assert_eq!(&encoded[..8], b"MSFC0017");
+        let decoded =
+            decode_runtime_source_frame_capsules(&encoded).expect("sidecar should decode");
+
+        assert_eq!(
+            decoded[0].script_events,
+            vec![event],
+            "ftAction_80071998 airborne-state commands must survive compact runtime export so source scripts can call ftCommon_8007D5D4 at the decomp-authored frame"
+        );
+    }
+
+    #[test]
+    fn runtime_source_capsule_sidecar_round_trips_collision_state_events() {
+        let event = RuntimeSourceScriptEvent::SetCollisionState(RuntimeSourceCollisionStateEvent {
+            source_frame: 0,
+            state: 2,
+            word_offset: 0,
+            raw_word: 0x68000002,
+        });
+        let actions = vec![RuntimeSourceActionFrameSamples {
+            source_action_key: "CliffCatch".to_string(),
+            total_frames: 7,
+            loops: false,
+            frames: Vec::new(),
+            cmd_var_events: Vec::new(),
+            script_events: vec![event],
+        }];
+
+        let encoded =
+            encode_runtime_source_frame_capsules(&actions).expect("sidecar should encode");
+        assert_eq!(&encoded[..8], b"MSFC0017");
+        let decoded =
+            decode_runtime_source_frame_capsules(&encoded).expect("sidecar should decode");
+
+        assert_eq!(decoded[0].script_events, vec![event]);
     }
 
     #[test]
@@ -3533,7 +4042,8 @@ mod tests {
                         "hipn_joint": 4,
                         "transn2_joint": 61,
                         "thrown_hitbox_joint": 27,
-                        "thrown_hitbox_scale": 4.25
+                        "thrown_hitbox_scale": 4.25,
+                        "part_to_joint": [0, 1, 2, 9, 4]
                     }
                 }
             }
@@ -3554,6 +4064,69 @@ mod tests {
             parts.thrown_hitbox_scale, 4.25,
             "ft_8007C17C copies ftData.x34->scale into x1064_thrownHitbox.scale"
         );
+        assert_eq!(
+            parts.part_to_joint[3], 9,
+            "ordinary hitbox command bones index fp->parts and must resolve through the fighter part-to-JObj table"
+        );
+    }
+
+    #[test]
+    fn common_hitbox_bone_resolves_fighter_part_to_jobj_joint() {
+        let mut part_to_joint = vec![0, 1, 2, 3, 4];
+        part_to_joint[3] = 4;
+        let common_parts = SourceCommonParts {
+            transn_joint: 0,
+            xrotn_joint: 0,
+            hipn_joint: 0,
+            capture_anchor_part: 0,
+            transn2_joint: 0,
+            thrown_hitbox_joint: 0,
+            thrown_hitbox_scale: 1.0,
+            part_to_joint,
+        };
+        let pose = (0..5)
+            .map(|index| JointPose {
+                world_matrix: Mat3x4::from_rows([
+                    [1.0, 0.0, 0.0, index as f32 * 10.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ]),
+                local_translation: Vec3::new(0.0, 0.0, 0.0),
+            })
+            .collect::<Vec<_>>();
+        let hitbox = DecodedHitbox {
+            frame: 1,
+            word_offset: 0,
+            id: 0,
+            hit_group: 0,
+            bone: 3,
+            use_common_bone_ids: true,
+            damage: 1,
+            radius: 1.0,
+            center_x: 2.0,
+            center_y: 0.0,
+            center_z: 0.0,
+            angle: 0,
+            kbg: 0,
+            weight_set_kb: 0,
+            bkb: 0,
+            element: 0,
+            shield_damage: 0,
+            hit_grounded: true,
+            hit_aerial: true,
+            hitbox_flags: SourceHitboxFlags::none(),
+        };
+
+        assert_eq!(
+            hitbox_joint_index(&hitbox, &common_parts),
+            Some(4),
+            "compact collision metadata must retain the resolved JObj joint used by ftAction_8007121C",
+        );
+        assert_eq!(
+            hitbox_source_center(&hitbox, &pose, &common_parts),
+            Vec3::new(42.0, 0.0, 0.0),
+            "ftAction_8007121C resolves common IDs with ftParts_GetBoneIndex before indexing fp->parts"
+        );
     }
 
     #[test]
@@ -3569,7 +4142,7 @@ mod tests {
         .expect("source pose should sample");
 
         let capture_pose =
-            source_capture_pose(&pose, source.common_parts).expect("capture pose should sample");
+            source_capture_pose(&pose, &source.common_parts).expect("capture pose should sample");
         let expected_capture_anchor =
             joint_world_point(&pose, source.common_parts.capture_anchor_part);
         let expected_xrotn = joint_world_point(&pose, source.common_parts.xrotn_joint);

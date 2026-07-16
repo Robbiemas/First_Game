@@ -281,11 +281,13 @@ impl WupInputMapper {
             UcfPreprocessedPad {
                 pad: native,
                 dashback_amendment: false,
+                shield_drop_amendment: false,
             }
         };
         let snapshot = self.melee_processors[port_index].update(preprocessed.pad);
         let input = player_input_from_snapshot(snapshot)
-            .with_ucf_dashback_amendment(preprocessed.dashback_amendment);
+            .with_ucf_dashback_amendment(preprocessed.dashback_amendment)
+            .with_ucf_shield_drop_amendment(preprocessed.shield_drop_amendment);
         WupPlayerInputTrace {
             source_port: port_index,
             raw: port.pad,

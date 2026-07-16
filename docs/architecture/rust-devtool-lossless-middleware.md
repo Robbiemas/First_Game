@@ -74,6 +74,8 @@ Every middleware artifact that can feed the engine should carry:
 - Overrides/edits as explicit data, not silent replacement.
 - Import/export status and generated runtime output paths.
 
+Source identity fields must be typed by source table. A Melee common motion-state ID, a character action animation table index, a FigaTree archive reference, and a Rust runtime variant are separate identities connected by explicit binding records. Do not write or consume unqualified `action_state_id` fields in new artifacts; use names such as `melee_motion_state_id`, `source_action_table_index`, `source_action_key`, and `runtime_motion_state` so the source table remains obvious.
+
 If a GUI edit cannot be represented in the artifact and replayed through the CLI, do not treat it as durable.
 
 ## Move Keyframes And Source Imports

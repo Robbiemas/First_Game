@@ -7,24 +7,26 @@ use std::{
 use mole_core::{source_units_to_milli, SourceCollEcbSnapshot, SourceVec2, Vec2};
 use mole_runtime::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
-    scan_slippi_export_from_match_start_with_core, slippi_core_report_path,
-    trace_slippi_export_from_match_start_with_core, write_slippi_core_report, SlippiCoreComparison,
+    scan_slippi_export_from_match_start_with_core, scan_slippi_export_seeded_pre_frame_with_core,
+    slippi_core_report_path, trace_slippi_export_from_match_start_with_core,
+    trace_slippi_export_seeded_pre_frame_with_core, write_slippi_core_report, SlippiCoreComparison,
     SlippiCoreComparisonConfig, SlippiCoreComparisonMode, SlippiCoreDivergenceKind,
     SlippiCoreDivergenceScan, SlippiCoreDivergenceScanConfig, SlippiCoreDivergenceScenario,
-    SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace, SlippiCoreTraceConfig,
-    SlippiCoreTraceRow,
+    SlippiCoreFirstDivergence, SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace,
+    SlippiCoreTraceConfig, SlippiCoreTraceRow,
 };
 use serde_json::{json, Value};
 
 use crate::{
-    base_report, ReplayCheckMode, ReplayCheckOptions, ReplayCommand, ReplayScanOptions,
-    ReplayTraceOptions, SCHEMA_VERSION,
+    base_report, ReplayCheckMode, ReplayCheckOptions, ReplayCommand, ReplayExplainOptions,
+    ReplayScanOptions, ReplayTraceOptions, SCHEMA_VERSION,
 };
 
 pub(crate) fn replay_report(root: &Path, command: &ReplayCommand) -> Value {
     match command {
         ReplayCommand::Artifacts => replay_artifacts_report(root),
         ReplayCommand::Check(options) => replay_check_report(root, options),
+        ReplayCommand::Explain(options) => replay_explain_report(root, options),
         ReplayCommand::Scan(options) => replay_scan_report(root, options),
         ReplayCommand::Trace(options) => replay_trace_report(root, options),
     }
@@ -91,6 +93,7 @@ fn replay_scan_report(root: &Path, options: &ReplayScanOptions) -> Value {
             report["source"] = json!({
                 "input_export_path": options.inputs,
                 "frames_requested": options.frames,
+                "mode": replay_mode_label(options.mode),
                 "lookahead_frames": options.lookahead_frames,
             });
             report["errors"] = json!([error]);
@@ -107,27 +110,29 @@ fn run_replay_scan(root: &Path, options: &ReplayScanOptions) -> Result<Value, St
             input_export_path.display()
         )
     })?;
-    let scan = scan_slippi_export_from_match_start_with_core(
-        &text,
-        SlippiCoreDivergenceScanConfig {
-            compare_players: [true, true],
-            max_frames: options.frames,
-            lookahead_frames: options.lookahead_frames,
-            max_scenarios: options.max_scenarios,
-            position_tolerance_milli: options.position_tolerance_milli,
-            velocity_tolerance_milli: options.velocity_tolerance_milli,
-        },
-    )
+    let config = SlippiCoreDivergenceScanConfig {
+        compare_players: [true, true],
+        max_frames: options.frames,
+        lookahead_frames: options.lookahead_frames,
+        max_scenarios: options.max_scenarios,
+        position_tolerance_milli: options.position_tolerance_milli,
+        velocity_tolerance_milli: options.velocity_tolerance_milli,
+    };
+    let scan = match options.mode {
+        ReplayCheckMode::MatchStart => scan_slippi_export_from_match_start_with_core(&text, config),
+        ReplayCheckMode::Seeded => scan_slippi_export_seeded_pre_frame_with_core(&text, config),
+    }
     .map_err(|error| error.to_string())?;
 
     Ok(json!({
         "schema_version": SCHEMA_VERSION,
         "command": "replay scan",
         "project_root": root.display().to_string(),
-        "ok": scan.scenarios.is_empty(),
+        "ok": !scan_has_independent_engine_divergence(&scan),
         "source": {
             "input_export_path": input_export_path.display().to_string(),
             "frames_requested": options.frames,
+            "mode": replay_mode_label(options.mode),
             "lookahead_frames": options.lookahead_frames,
             "max_scenarios": options.max_scenarios,
             "position_tolerance_milli": options.position_tolerance_milli,
@@ -154,6 +159,71 @@ fn replay_trace_report(root: &Path, options: &ReplayTraceOptions) -> Value {
     }
 }
 
+fn replay_explain_report(root: &Path, options: &ReplayExplainOptions) -> Value {
+    match run_replay_explain(root, options) {
+        Ok(report) => report,
+        Err(error) => {
+            let mut report = base_report("replay explain", root);
+            report["ok"] = json!(false);
+            report["source"] = json!({
+                "input_export_path": options.inputs,
+                "frames_requested": options.frames,
+                "target_source_frame": options.source_frame,
+            });
+            report["errors"] = json!([error]);
+            report
+        }
+    }
+}
+
+fn run_replay_explain(root: &Path, options: &ReplayExplainOptions) -> Result<Value, String> {
+    let input_export_path = resolve_project_path(root, &options.inputs);
+    let text = fs::read_to_string(&input_export_path).map_err(|error| {
+        format!(
+            "failed to read Slippi input export {}: {error}",
+            input_export_path.display()
+        )
+    })?;
+    let source_frame_start = options.source_frame.saturating_sub(options.window);
+    let source_frame_end = options.source_frame.saturating_add(options.window);
+    let trace = trace_slippi_export_from_match_start_with_core(
+        &text,
+        SlippiCoreTraceConfig {
+            player_index: options.player_index,
+            source_frame_start,
+            source_frame_end,
+            max_frames: Some(options.frames),
+        },
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(json!({
+        "schema_version": SCHEMA_VERSION,
+        "command": "replay explain",
+        "project_root": root.display().to_string(),
+        "ok": true,
+        "source": {
+            "input_export_path": input_export_path.display().to_string(),
+            "frames_requested": options.frames,
+        },
+        "explanation": {
+            "player": options.player_index + 1,
+            "target_source_frame": options.source_frame,
+            "trace_window": {
+                "source_frame_start": source_frame_start,
+                "source_frame_end": source_frame_end,
+            },
+            "primary_reference": "decomp",
+            "secondary_reference": "Slippi replay export",
+            "interpretation_rule": "Do not patch Rust to match a Slippi row until the decomp tick phase and source fields at that logical point are proven.",
+            "decomp_phase_model": decomp_fighter_tick_phase_model(),
+            "audit_checklist": decomp_parity_audit_checklist(),
+            "trace": trace_json(&trace, ReplayCheckMode::MatchStart),
+        },
+        "errors": [],
+    }))
+}
+
 fn run_replay_trace(root: &Path, options: &ReplayTraceOptions) -> Result<Value, String> {
     let input_export_path = resolve_project_path(root, &options.inputs);
     let text = fs::read_to_string(&input_export_path).map_err(|error| {
@@ -162,15 +232,20 @@ fn run_replay_trace(root: &Path, options: &ReplayTraceOptions) -> Result<Value, 
             input_export_path.display()
         )
     })?;
-    let trace = trace_slippi_export_from_match_start_with_core(
-        &text,
-        SlippiCoreTraceConfig {
-            player_index: options.player_index,
-            source_frame_start: options.source_frame_start,
-            source_frame_end: options.source_frame_end,
-            max_frames: Some(options.frames),
-        },
-    )
+    let trace_config = SlippiCoreTraceConfig {
+        player_index: options.player_index,
+        source_frame_start: options.source_frame_start,
+        source_frame_end: options.source_frame_end,
+        max_frames: Some(options.frames),
+    };
+    let trace = match options.mode {
+        ReplayCheckMode::MatchStart => {
+            trace_slippi_export_from_match_start_with_core(&text, trace_config)
+        }
+        ReplayCheckMode::Seeded => {
+            trace_slippi_export_seeded_pre_frame_with_core(&text, trace_config)
+        }
+    }
     .map_err(|error| error.to_string())?;
 
     Ok(json!({
@@ -182,9 +257,80 @@ fn run_replay_trace(root: &Path, options: &ReplayTraceOptions) -> Result<Value, 
             "input_export_path": input_export_path.display().to_string(),
             "frames_requested": options.frames,
         },
-        "trace": trace_json(&trace),
+        "trace": trace_json(&trace, options.mode),
         "errors": [],
     }))
+}
+
+fn decomp_fighter_tick_phase_model() -> Vec<Value> {
+    vec![
+        json!({
+            "phase": "action physics",
+            "decomp_function": "ftCo_EscapeAir_Phys",
+            "rust_anchor": "EscapeAir branch before collision",
+            "parity_question": "Does Rust apply escapeair_decay only while cmd_skip_decay is false, and does it avoid grounded traction before collision callback?"
+        }),
+        json!({
+            "phase": "airborne collision",
+            "decomp_function": "ftCo_EscapeAir_Coll -> ft_80082C74 -> ft_80081D0C -> mpColl_800471F8",
+            "rust_anchor": "source-collision floor sweep",
+            "parity_question": "Does Rust use the previous/current ECB floor sweep and mpLineIntersectionH tolerances without replay-specific platform exceptions?"
+        }),
+        json!({
+            "phase": "landing callback",
+            "decomp_function": "ftCo_80099D70 -> ftCo_LandingFallSpecial_Enter",
+            "rust_anchor": "enter_landing_fall_special",
+            "parity_question": "Does Rust enter LandingFallSpecial immediately when the decomp collision callback fires?"
+        }),
+        json!({
+            "phase": "ground entry primitive",
+            "decomp_function": "ftCommon_8007D7FC -> ftCommon_8007D6A4",
+            "rust_anchor": "source_ft_common_8007d6a4_ground_velocity_x",
+            "parity_question": "Does Rust copy the correct pre-transition self_vel.x or TransN velocity into gr_vel without changing unrelated fields?"
+        }),
+        json!({
+            "phase": "landing physics",
+            "decomp_function": "ftCo_Landing_Phys -> ft_80084F3C",
+            "rust_anchor": "LandingFallSpecial branch apply_ground_traction",
+            "parity_question": "Does Rust apply gr_friction, high-speed multiplier x6C, floor friction multiplier, and staged ground accel in the same order?"
+        }),
+        json!({
+            "phase": "fighter outer commit",
+            "decomp_function": "fighter.c gr_vel += xE4 + xE8; self_vel += x74_anim_vel",
+            "rust_anchor": "commit_ground_velocity and grounded_position_delta_x",
+            "parity_question": "Does Rust keep gr_vel, staged accel, self_vel, and public/composed velocity distinct until the decomp commit point?"
+        }),
+    ]
+}
+
+fn decomp_parity_audit_checklist() -> Vec<Value> {
+    vec![
+        json!({
+            "name": "Frame phase",
+            "required_reference": "decomp fighter tick order",
+            "done_when": "The divergence is assigned to a specific decomp phase before any sim change."
+        }),
+        json!({
+            "name": "Collision callback timing",
+            "required_reference": "ftCo_EscapeAir_Coll, ft_80082C74, ft_80081D0C, mpColl_800471F8",
+            "done_when": "Rust enters landing on the same collision callback condition as the decomp, independent of Slippi row timing."
+        }),
+        json!({
+            "name": "Field identity",
+            "required_reference": "Fighter fields gr_vel, self_vel, x74_anim_vel, xE4/xE8 ground accels",
+            "done_when": "Each Rust field used in the trace maps to exactly one decomp field or is explicitly marked as a public composed/export field."
+        }),
+        json!({
+            "name": "Float preservation",
+            "required_reference": "decomp f32 fields and extracted source artifacts",
+            "done_when": "No f32 field is routed through milli-integer storage before being used by physics or collision."
+        }),
+        json!({
+            "name": "Replay sampling phase",
+            "required_reference": "Slippi post-frame export fields",
+            "done_when": "Any Slippi mismatch is categorized as sim mismatch, expected mixed-phase export, or unsupported source behavior with evidence."
+        }),
+    ]
 }
 
 fn export_slippi_replay(
@@ -338,6 +484,19 @@ fn comparison_json(comparison: &SlippiCoreComparison) -> Value {
             .map(position_drift_json)
             .collect::<Vec<_>>(),
         "first_state_mismatch": mismatch_json(comparison.first_state_mismatch),
+        "first_classified_divergence": first_divergence_json(comparison.first_divergence.clone()),
+    })
+}
+
+fn first_divergence_json(divergence: Option<SlippiCoreFirstDivergence>) -> Value {
+    let Some(divergence) = divergence else {
+        return Value::Null;
+    };
+    json!({
+        "kind": divergence_kind_label(divergence.kind),
+        "player": divergence.player_index + 1,
+        "core_frame": divergence.core_frame.0,
+        "source_frame": divergence.source_frame,
     })
 }
 
@@ -419,6 +578,14 @@ fn source_coll_ecb_json(value: SourceCollEcbSnapshot) -> Value {
     })
 }
 
+fn action_identity_json(identity: mole_runtime::SlippiActionIdentity) -> Value {
+    json!({
+        "melee_motion_state_id": identity.melee_motion_state_id.map(|id| id.get()),
+        "source_action_table_index": identity.source_action_table_index.map(|index| index.get()),
+        "source_action_key": identity.source_action_key,
+    })
+}
+
 fn vec2_delta_json(actual: Vec2, expected: Vec2) -> Value {
     json!({
         "x_milli": actual.x - expected.x,
@@ -440,9 +607,10 @@ fn replay_mode_label(mode: ReplayCheckMode) -> &'static str {
     }
 }
 
-fn trace_json(trace: &SlippiCoreTrace) -> Value {
+fn trace_json(trace: &SlippiCoreTrace, mode: ReplayCheckMode) -> Value {
     json!({
         "source_replay_path": trace.source_replay_path.as_deref(),
+        "mode": replay_mode_label(mode),
         "player": trace.config.player_index + 1,
         "source_frame_start": trace.config.source_frame_start,
         "source_frame_end": trace.config.source_frame_end,
@@ -456,6 +624,16 @@ fn divergence_scan_json(scan: &SlippiCoreDivergenceScan) -> Value {
         "source_replay_path": scan.source_replay_path.as_deref(),
         "frames_scanned": scan.frames_scanned,
         "scenario_count": scan.scenarios.len(),
+        "independent_scenario_count": scan.scenarios
+            .iter()
+            .filter(|scenario| scenario.cascades_from_source_frame.is_none())
+            .count(),
+        "engine_root_scenario_count": independent_engine_divergence_count(scan),
+        "first_engine_root_scenario": scan
+            .scenarios
+            .iter()
+            .find(|scenario| is_independent_engine_divergence_scenario(scenario))
+            .map(divergence_scenario_summary_json),
         "lookahead_frames": scan.config.lookahead_frames,
         "position_tolerance_milli": scan.config.position_tolerance_milli,
         "velocity_tolerance_milli": scan.config.velocity_tolerance_milli,
@@ -463,6 +641,35 @@ fn divergence_scan_json(scan: &SlippiCoreDivergenceScan) -> Value {
             .iter()
             .map(divergence_scenario_json)
             .collect::<Vec<_>>(),
+    })
+}
+
+fn scan_has_independent_engine_divergence(scan: &SlippiCoreDivergenceScan) -> bool {
+    scan.scenarios
+        .iter()
+        .any(is_independent_engine_divergence_scenario)
+}
+
+fn independent_engine_divergence_count(scan: &SlippiCoreDivergenceScan) -> usize {
+    scan.scenarios
+        .iter()
+        .filter(|scenario| is_independent_engine_divergence_scenario(scenario))
+        .count()
+}
+
+fn is_independent_engine_divergence_scenario(scenario: &SlippiCoreDivergenceScenario) -> bool {
+    scenario.cascades_from_source_frame.is_none()
+}
+
+fn divergence_scenario_summary_json(scenario: &SlippiCoreDivergenceScenario) -> Value {
+    json!({
+        "scenario_index": scenario.scenario_index,
+        "kind": divergence_kind_label(scenario.kind),
+        "player": scenario.player_index + 1,
+        "core_frame": scenario.core_frame.0,
+        "source_frame": scenario.source_frame,
+        "end_source_frame": scenario.end_source_frame,
+        "duration_frames": scenario.duration_frames,
     })
 }
 
@@ -479,6 +686,7 @@ fn divergence_scenario_json(scenario: &SlippiCoreDivergenceScenario) -> Value {
         "realigned_within_lookahead": scenario.realigned_within_lookahead,
         "realign_core_frame": scenario.realign_core_frame.map(|frame| frame.0),
         "realign_source_frame": scenario.realign_source_frame,
+        "cascades_from_source_frame": scenario.cascades_from_source_frame,
         "rollback_replay_deterministic": scenario.rollback_replay_deterministic,
         "max_abs_position_delta_milli": scenario.max_abs_position_delta_milli,
         "max_abs_velocity_delta_milli": scenario.max_abs_velocity_delta_milli,
@@ -489,6 +697,7 @@ fn divergence_scenario_json(scenario: &SlippiCoreDivergenceScenario) -> Value {
 fn divergence_kind_label(kind: SlippiCoreDivergenceKind) -> &'static str {
     match kind {
         SlippiCoreDivergenceKind::UnsupportedState => "unsupported_state",
+        SlippiCoreDivergenceKind::MixedPhaseWitness => "mixed_phase_witness",
         SlippiCoreDivergenceKind::StateMismatch => "state_mismatch",
         SlippiCoreDivergenceKind::PositionDrift => "position_drift",
         SlippiCoreDivergenceKind::VelocityDrift => "velocity_drift",
@@ -507,6 +716,7 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
             "left_trigger": row.input_left_trigger,
             "right_trigger": row.input_right_trigger,
             "ucf_dashback_amendment": row.input_ucf_dashback_amendment,
+            "ucf_shield_drop_amendment": row.input_ucf_shield_drop_amendment,
             "actual_jump_pressed": row.actual_input_jump_pressed,
             "actual_normal_jump_pressed": row.actual_input_normal_jump_pressed,
             "actual_shield_held": row.actual_input_shield_held,
@@ -515,6 +725,8 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
         "expected_slippi_state_id": row.expected_slippi_state_id,
         "expected_action_state_id": row.expected_action_state_id.get(),
         "actual_action_state_id": row.actual_action_state_id.map(|state| state.get()),
+        "expected_action_identity": action_identity_json(row.expected_action_identity),
+        "actual_action_identity": action_identity_json(row.actual_action_identity),
         "expected_motion_state": row
             .expected_motion_state
             .map(|state| format!("{state:?}")),
@@ -522,6 +734,8 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
         "actual_grounded": row.actual_grounded,
         "actual_motion_frame": row.actual_motion_frame,
         "actual_motion_anim_frame_milli": row.actual_motion_anim_frame_milli,
+        "actual_source_fall_anim_blend": row.actual_source_fall_anim_blend,
+        "actual_source_fall_anim_pose": format!("{:?}", row.actual_source_fall_anim_pose),
         "expected_facing": row.expected_facing,
         "actual_facing": row.actual_facing,
         "expected_position": vec2_json(row.expected_position),
@@ -548,6 +762,8 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
         "actual_source_knockback_velocity_x": row.actual_source_knockback_velocity_x,
         "actual_source_knockback_velocity_y": row.actual_source_knockback_velocity_y,
         "actual_source_ground_knockback_velocity": row.actual_source_ground_knockback_velocity,
+        "actual_player_nudge_x": row.actual_player_nudge_x,
+        "actual_player_nudge_z": row.actual_player_nudge_z,
         "actual_ground_velocity_x": row.actual_ground_velocity_x,
         "actual_ground_accel_x": row.actual_ground_accel_x,
         "actual_ground_accel_x2": row.actual_ground_accel_x2,
@@ -561,6 +777,8 @@ fn trace_row_json(row: &SlippiCoreTraceRow) -> Value {
         "actual_source_coll_desired_ecb": source_coll_ecb_json(row.actual_source_coll_desired_ecb),
         "actual_ecb_bottom_lock_timer": row.actual_ecb_bottom_lock_timer,
         "actual_source_coll_x130_locked": row.actual_source_coll_x130_locked,
+        "actual_floor_skip_surface": row.actual_floor_skip_surface,
+        "actual_source_floor_skip_line": row.actual_source_floor_skip_line,
         "actual_source_floor_surface": row.actual_source_floor_surface,
         "actual_source_floor_line": row.actual_source_floor_line,
         "actual_source_coll_env_flags": row.actual_source_coll_env_flags,
@@ -671,7 +889,11 @@ struct ReplayExportPaths {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mole_core::{Frame, MeleeActionStateId, MotionState, SourceVec2};
+    use mole_core::{
+        Frame, MeleeActionStateId, MeleeMotionStateId, MotionState, SourceActionTableIndex,
+        SourceVec2,
+    };
+    use mole_runtime::SlippiActionIdentity;
 
     #[test]
     fn trace_row_json_reports_ground_delta_from_actual_ground_velocity() {
@@ -685,6 +907,7 @@ mod tests {
             input_left_trigger: 0,
             input_right_trigger: 0,
             input_ucf_dashback_amendment: false,
+            input_ucf_shield_drop_amendment: false,
             actual_input_jump_pressed: false,
             actual_input_normal_jump_pressed: false,
             actual_input_shield_held: false,
@@ -692,11 +915,23 @@ mod tests {
             expected_slippi_state_id: 26,
             expected_action_state_id: MeleeActionStateId::new(26),
             actual_action_state_id: Some(MeleeActionStateId::new(26)),
+            expected_action_identity: SlippiActionIdentity {
+                melee_motion_state_id: Some(MeleeMotionStateId::new(26)),
+                source_action_table_index: Some(SourceActionTableIndex::new(17)),
+                source_action_key: Some("JumpB"),
+            },
+            actual_action_identity: SlippiActionIdentity {
+                melee_motion_state_id: Some(MeleeMotionStateId::new(26)),
+                source_action_table_index: Some(SourceActionTableIndex::new(17)),
+                source_action_key: Some("JumpB"),
+            },
             expected_motion_state: Some(MotionState::JumpB),
             actual_motion_state: MotionState::JumpB,
             actual_grounded: false,
             actual_motion_frame: 22,
             actual_motion_anim_frame_milli: 22_000,
+            actual_source_fall_anim_blend: 0.0,
+            actual_source_fall_anim_pose: MotionState::Fall,
             expected_facing: -1,
             actual_facing: 1,
             expected_position: Vec2 { x: 0, y: 0 },
@@ -725,6 +960,8 @@ mod tests {
             actual_ground_velocity_x: 0.0,
             actual_ground_accel_x: 0.0,
             actual_ground_accel_x2: 0.0,
+            actual_player_nudge_x: 0.0,
+            actual_player_nudge_z: 0.0,
             actual_dash_entry_velocity_delta: 0.0,
             actual_dash_x0: 0.0,
             actual_source_coll_last_pos: SourceVec2 { x: 1.0, y: 2.0 },
@@ -735,6 +972,8 @@ mod tests {
             actual_source_coll_desired_ecb: SourceCollEcbSnapshot::default(),
             actual_ecb_bottom_lock_timer: 0,
             actual_source_coll_x130_locked: false,
+            actual_floor_skip_surface: None,
+            actual_source_floor_skip_line: None,
             actual_source_floor_surface: Some(0),
             actual_source_floor_line: Some(12),
             actual_source_coll_env_flags: 0x20,
@@ -747,6 +986,24 @@ mod tests {
         assert_eq!(json["air_velocity_x_delta"], -1);
         assert_eq!(json["expected_facing"], -1);
         assert_eq!(json["actual_facing"], 1);
+        assert_eq!(
+            json["expected_action_identity"]["melee_motion_state_id"],
+            26
+        );
+        assert_eq!(
+            json["expected_action_identity"]["source_action_table_index"],
+            17
+        );
+        assert_eq!(
+            json["expected_action_identity"]["source_action_key"],
+            "JumpB"
+        );
+        assert_eq!(json["actual_action_identity"]["melee_motion_state_id"], 26);
+        assert_eq!(
+            json["actual_action_identity"]["source_action_table_index"],
+            17
+        );
+        assert_eq!(json["actual_action_identity"]["source_action_key"], "JumpB");
         assert_eq!(json["expected_source_position"]["x"], 1.25);
         assert_eq!(json["actual_source_position"]["y"], -2.25);
         assert_eq!(json["actual_motion_anim_frame_milli"], 22_000);
@@ -760,5 +1017,206 @@ mod tests {
         assert_eq!(json["actual_source_ground_knockback_velocity"], 3.75);
         assert_eq!(json["actual_ecb_bottom_lock_timer"], 0);
         assert_eq!(json["actual_source_coll_x130_locked"], false);
+    }
+
+    #[test]
+    fn scan_summary_counts_mixed_phase_witness_as_parity_root() {
+        let scan = test_divergence_scan(vec![
+            test_divergence_scenario(SlippiCoreDivergenceKind::MixedPhaseWitness, 1, 142, None),
+            test_divergence_scenario(SlippiCoreDivergenceKind::StateMismatch, 1, 143, Some(142)),
+            test_divergence_scenario(SlippiCoreDivergenceKind::PositionDrift, 1, 189, Some(142)),
+        ]);
+
+        let json = divergence_scan_json(&scan);
+
+        assert!(scan_has_independent_engine_divergence(&scan));
+        assert_eq!(json["independent_scenario_count"], 1);
+        assert_eq!(json["engine_root_scenario_count"], 1);
+        assert_eq!(
+            json["first_engine_root_scenario"]["kind"],
+            "mixed_phase_witness"
+        );
+        assert_eq!(json["first_engine_root_scenario"]["source_frame"], 142);
+    }
+
+    #[test]
+    fn scan_summary_reports_first_independent_root_even_when_mixed() {
+        let scan = test_divergence_scan(vec![
+            test_divergence_scenario(SlippiCoreDivergenceKind::MixedPhaseWitness, 1, 142, None),
+            test_divergence_scenario(SlippiCoreDivergenceKind::StateMismatch, 1, 189, None),
+        ]);
+
+        let json = divergence_scan_json(&scan);
+
+        assert!(scan_has_independent_engine_divergence(&scan));
+        assert_eq!(json["independent_scenario_count"], 2);
+        assert_eq!(json["engine_root_scenario_count"], 2);
+        assert_eq!(
+            json["first_engine_root_scenario"]["kind"],
+            "mixed_phase_witness"
+        );
+        assert_eq!(json["first_engine_root_scenario"]["source_frame"], 142);
+    }
+
+    #[test]
+    fn comparison_json_reports_first_classified_divergence() {
+        let mut comparison = test_comparison(SlippiCoreComparisonMode::SequentialMatchStart);
+        comparison.first_divergence = Some(mole_runtime::SlippiCoreFirstDivergence {
+            kind: SlippiCoreDivergenceKind::MixedPhaseWitness,
+            player_index: 1,
+            core_frame: Frame(2748),
+            source_frame: 2625,
+        });
+
+        let json = comparison_json(&comparison);
+
+        assert_eq!(
+            json["first_classified_divergence"]["kind"],
+            "mixed_phase_witness"
+        );
+        assert_eq!(json["first_classified_divergence"]["player"], 2);
+        assert_eq!(json["first_classified_divergence"]["core_frame"], 2748);
+        assert_eq!(json["first_classified_divergence"]["source_frame"], 2625);
+    }
+
+    fn test_comparison(mode: SlippiCoreComparisonMode) -> SlippiCoreComparison {
+        SlippiCoreComparison {
+            mode,
+            source_replay_path: None,
+            ucf_players: [false; mole_core::PLAYER_COUNT],
+            ucf_dashback_amendment_frames: [0; mole_core::PLAYER_COUNT],
+            frames_compared: 0,
+            player_frames_compared: [0; mole_core::PLAYER_COUNT],
+            unsupported_state_count: 0,
+            unsupported_states: Vec::new(),
+            state_mismatch_count: 0,
+            max_abs_ground_velocity_diff: [0; mole_core::PLAYER_COUNT],
+            first_position_drift: None,
+            first_position_drift_by_player: [None; mole_core::PLAYER_COUNT],
+            first_state_mismatch: None,
+            first_divergence: None,
+        }
+    }
+
+    fn test_divergence_scan(
+        scenarios: Vec<SlippiCoreDivergenceScenario>,
+    ) -> SlippiCoreDivergenceScan {
+        SlippiCoreDivergenceScan {
+            source_replay_path: None,
+            config: SlippiCoreDivergenceScanConfig::default(),
+            frames_scanned: 0,
+            scenarios,
+        }
+    }
+
+    fn test_divergence_scenario(
+        kind: SlippiCoreDivergenceKind,
+        player_index: usize,
+        source_frame: i32,
+        cascades_from_source_frame: Option<i32>,
+    ) -> SlippiCoreDivergenceScenario {
+        SlippiCoreDivergenceScenario {
+            scenario_index: 1,
+            kind,
+            player_index,
+            core_frame: Frame(source_frame.max(0) as u32),
+            source_frame,
+            end_core_frame: Frame(source_frame.max(0) as u32),
+            end_source_frame: source_frame,
+            duration_frames: 1,
+            realigned_within_lookahead: false,
+            realign_core_frame: None,
+            realign_source_frame: None,
+            rollback_replay_deterministic: true,
+            first_frame: test_trace_row(player_index, source_frame),
+            max_abs_position_delta_milli: 0,
+            max_abs_velocity_delta_milli: 0,
+            cascades_from_source_frame,
+        }
+    }
+
+    fn test_trace_row(player_index: usize, source_frame: i32) -> SlippiCoreTraceRow {
+        SlippiCoreTraceRow {
+            core_frame: Frame(source_frame.max(0) as u32),
+            source_frame,
+            player_index,
+            input_stick_x: 0,
+            input_stick_y: 0,
+            input_button_bits: 0,
+            input_left_trigger: 0,
+            input_right_trigger: 0,
+            input_ucf_dashback_amendment: false,
+            input_ucf_shield_drop_amendment: false,
+            actual_input_jump_pressed: false,
+            actual_input_normal_jump_pressed: false,
+            actual_input_shield_held: false,
+            actual_input_shield_pressed: false,
+            expected_slippi_state_id: 29,
+            expected_action_state_id: MeleeActionStateId::new(29),
+            actual_action_state_id: Some(MeleeActionStateId::new(29)),
+            expected_action_identity: SlippiActionIdentity {
+                melee_motion_state_id: Some(MeleeMotionStateId::new(29)),
+                source_action_table_index: Some(SourceActionTableIndex::new(20)),
+                source_action_key: Some("Fall"),
+            },
+            actual_action_identity: SlippiActionIdentity {
+                melee_motion_state_id: Some(MeleeMotionStateId::new(29)),
+                source_action_table_index: Some(SourceActionTableIndex::new(20)),
+                source_action_key: Some("Fall"),
+            },
+            expected_motion_state: Some(MotionState::Fall),
+            actual_motion_state: MotionState::Fall,
+            actual_grounded: false,
+            actual_motion_frame: 0,
+            actual_motion_anim_frame_milli: 0,
+            actual_source_fall_anim_blend: 0.0,
+            actual_source_fall_anim_pose: MotionState::Fall,
+            expected_facing: 1,
+            actual_facing: 1,
+            expected_position: Vec2 { x: 0, y: 0 },
+            actual_position: Vec2 { x: 0, y: 0 },
+            expected_source_position: SourceVec2 { x: 0.0, y: 0.0 },
+            actual_source_position: SourceVec2 { x: 0.0, y: 0.0 },
+            expected_ground_velocity_x: 0,
+            expected_air_velocity_x: 0,
+            expected_velocity_y: 0,
+            expected_attack_velocity_x: 0,
+            expected_attack_velocity_y: 0,
+            expected_composed_velocity_x: 0,
+            expected_composed_velocity_y: 0,
+            expected_ground_velocity_x_source: 0.0,
+            expected_air_velocity_x_source: 0.0,
+            expected_velocity_y_source: 0.0,
+            expected_attack_velocity_x_source: 0.0,
+            expected_attack_velocity_y_source: 0.0,
+            actual_velocity_x: 0,
+            actual_velocity_y: 0,
+            actual_source_self_velocity_x: 0.0,
+            actual_source_self_velocity_y: 0.0,
+            actual_source_knockback_velocity_x: 0.0,
+            actual_source_knockback_velocity_y: 0.0,
+            actual_source_ground_knockback_velocity: 0.0,
+            actual_ground_velocity_x: 0.0,
+            actual_ground_accel_x: 0.0,
+            actual_ground_accel_x2: 0.0,
+            actual_player_nudge_x: 0.0,
+            actual_player_nudge_z: 0.0,
+            actual_dash_entry_velocity_delta: 0.0,
+            actual_dash_x0: 0.0,
+            actual_source_coll_last_pos: SourceVec2 { x: 0.0, y: 0.0 },
+            actual_source_coll_cur_pos: SourceVec2 { x: 0.0, y: 0.0 },
+            actual_source_coll_prev_pos: SourceVec2 { x: 0.0, y: 0.0 },
+            actual_source_coll_ecb: SourceCollEcbSnapshot::default(),
+            actual_source_coll_prev_ecb: SourceCollEcbSnapshot::default(),
+            actual_source_coll_desired_ecb: SourceCollEcbSnapshot::default(),
+            actual_ecb_bottom_lock_timer: 0,
+            actual_source_coll_x130_locked: false,
+            actual_floor_skip_surface: None,
+            actual_source_floor_skip_line: None,
+            actual_source_floor_surface: None,
+            actual_source_floor_line: None,
+            actual_source_coll_env_flags: 0,
+            actual_source_coll_prev_env_flags: 0,
+        }
     }
 }

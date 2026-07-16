@@ -285,13 +285,20 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0xAC, 0.26)
     put_f32(data_block, common_offset + 0xDC, 0.43)
     put_f32(data_block, common_offset + 0xE0, 0.44)
+    put_f32(data_block, common_offset + 0x164, 8.3)
     put_f32(data_block, common_offset + 0x1FC, 0.04)
     put_f32(data_block, common_offset + 0x200, 1.5)
     put_f32(data_block, common_offset + 0x204, 0.051)
+    put_f32(data_block, common_offset + 0x1A4, 1.25)
     put_f32(data_block, common_offset + 0x10C, 109.36)
     put_f32(data_block, common_offset + 0x258, 0.1)
     put_f32(data_block, common_offset + 0x25C, -0.62)
+    put_f32(data_block, common_offset + 0x2F8, 402.0)
+    put_f32(data_block, common_offset + 0x2FC, 92.0)
+    put_f32(data_block, common_offset + 0x300, 1.25)
+    put_f32(data_block, common_offset + 0x304, 3.5)
     put_i32(data_block, common_offset + 0x2A0, 2)
+    put_f32(data_block, common_offset + 0x308, 33.0 / 127.0)
     put_f32(data_block, common_offset + 0x314, 0.84)
     put_i32(data_block, common_offset + 0x318, 3)
     put_f32(data_block, common_offset + 0x31C, 0.85)
@@ -303,10 +310,26 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     put_f32(data_block, common_offset + 0x33C, 0.915)
     put_f32(data_block, common_offset + 0x344, 10.0)
     put_i32(data_block, common_offset + 0x348, 9)
+    put_f32(data_block, common_offset + 0x354, 30.0)
+    put_f32(data_block, common_offset + 0x358, 8.0)
+    put_f32(data_block, common_offset + 0x35C, 9.0)
+    put_f32(data_block, common_offset + 0x360, 15.0)
+    put_f32(data_block, common_offset + 0x364, 4.0)
+    put_f32(data_block, common_offset + 0x368, 1.6)
+    put_f32(data_block, common_offset + 0x370, 1.0)
+    put_f32(data_block, common_offset + 0x374, 1.25)
+    put_f32(data_block, common_offset + 0x378, 2.5)
+    put_f32(data_block, common_offset + 0x37C, 0.01)
+    put_f32(data_block, common_offset + 0x3A4, 1.0)
+    put_f32(data_block, common_offset + 0x3A8, 6.0)
+    put_f32(data_block, common_offset + 0x3AC, 16.0)
+    put_f32(data_block, common_offset + 0x3B0, 10.0)
+    put_f32(data_block, common_offset + 0x3B4, 2.0)
     put_f32(data_block, common_offset + 0x42C, 1.25)
     put_f32(data_block, common_offset + 0x430, 2.0)
     put_f32(data_block, common_offset + 0x444, 0.18)
     put_f32(data_block, common_offset + 0x448, 0.42)
+    put_f32(data_block, common_offset + 0x44C, 0.625)
     put_f32(data_block, common_offset + 0x464, 0.63)
     put_f32(data_block, common_offset + 0x468, 5.0)
     put_f32(data_block, common_offset + 0x46C, -1.25)
@@ -332,9 +355,24 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
     assert extracted["fields"]["escapeair_landing_lag_ticks"]["ticks"] == 10
     assert extracted["fields"]["throw_collision_lockout_ticks"]["source_name"] == "x348"
     assert extracted["fields"]["throw_collision_lockout_ticks"]["ticks"] == 9
+    assert extracted["fields"]["throw_weight_animation_scale"]["source_name"] == "x37C"
+    assert extracted["fields"]["throw_weight_animation_scale"]["raw"] == 0.009999999776482582
+    assert extracted["fields"]["grab_mash_stick_threshold"]["source_name"] == "x308"
+    assert extracted["fields"]["grab_mash_stick_threshold"]["stick_byte"] == 33
+    assert extracted["fields"]["grab_timer_base"]["raw"] == 30.0
+    assert extracted["fields"]["grab_timer_percent_scale"]["raw"] == 1.600000023841858
+    assert extracted["fields"]["capture_jump_velocity_x"]["raw"] == 1.25
+    assert extracted["fields"]["capture_jump_velocity_y"]["raw"] == 2.5
+    assert extracted["fields"]["grab_timer_decrement"]["raw"] == 1.0
+    assert extracted["fields"]["grab_mash_timer_decrement"]["raw"] == 6.0
+    assert extracted["fields"]["capture_wait_jump_input_window"]["raw"] == 16.0
+    assert extracted["fields"]["capture_wait_mash_anim_rate"]["raw"] == 2.0
     assert extracted["fields"]["catch_ground_friction_multiplier"]["kind"] == "source_f32"
     assert extracted["fields"]["catch_ground_friction_multiplier"]["source_name"] == "x64"
     assert extracted["fields"]["catch_ground_friction_multiplier"]["raw"] == 0.25
+    assert extracted["fields"]["hitlag_electric_multiplier"]["kind"] == "source_f32"
+    assert extracted["fields"]["hitlag_electric_multiplier"]["source_name"] == "x1A4"
+    assert extracted["fields"]["hitlag_electric_multiplier"]["raw"] == 1.25
     assert extracted["fields"]["high_speed_ground_friction_multiplier"]["kind"] == "source_f32"
     assert extracted["fields"]["high_speed_ground_friction_multiplier"]["raw"] == 2.0
     assert extracted["fields"]["turn_run_x"]["stick_byte"] == -44
@@ -358,12 +396,25 @@ def test_extract_common_data_from_plco_uses_ftload_common_attribute_pointer():
         == "x204_knockbackFrameDecay"
     )
     assert extracted["fields"]["damage_knockback_frame_decay"]["raw"] == 0.050999999046325684
+    assert extracted["fields"]["damage_ground_knockback_init_clamp"]["source_name"] == "x164"
+    assert extracted["fields"]["damage_ground_knockback_init_clamp"]["raw"] == 8.300000190734863
     assert extracted["fields"]["throw_knockback_weight"]["source_name"] == "x10C"
     assert extracted["fields"]["throw_knockback_weight"]["raw"] == 109.36000061035156
     assert extracted["fields"]["special_air_drift_stick_threshold"]["source_name"] == "x258"
     assert extracted["fields"]["special_air_drift_stick_threshold"]["raw"] == 0.10000000149011612
     assert extracted["fields"]["fall_animation_blend"]["kind"] == "source_f32"
     assert extracted["fields"]["fall_animation_blend"]["raw"] == 0.41999998688697815
+    assert extracted["fields"]["shield_aim_smoothing"]["source_name"] == "x44C"
+    assert extracted["fields"]["shield_aim_smoothing"]["kind"] == "source_f32"
+    assert extracted["fields"]["shield_aim_smoothing"]["raw"] == 0.625
+    assert extracted["fields"]["shield_break_furafura_percent_base"]["source_name"] == "x2F8"
+    assert extracted["fields"]["shield_break_furafura_percent_base"]["raw"] == 402.0
+    assert extracted["fields"]["shield_break_furafura_timer_base"]["source_name"] == "x2FC"
+    assert extracted["fields"]["shield_break_furafura_timer_base"]["raw"] == 92.0
+    assert extracted["fields"]["shield_break_furafura_timer_decrement"]["source_name"] == "x300"
+    assert extracted["fields"]["shield_break_furafura_timer_decrement"]["raw"] == 1.25
+    assert extracted["fields"]["shield_break_furafura_mash_decrement"]["source_name"] == "x304"
+    assert extracted["fields"]["shield_break_furafura_mash_decrement"]["raw"] == 3.5
     assert extracted["fields"]["guard_reflect_input_window"]["ticks"] == 2
     assert extracted["fields"]["dead_wait_ticks"]["source_name"] == "x500"
     assert extracted["fields"]["dead_wait_ticks"]["ticks"] == 60
@@ -457,7 +508,7 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     data_block = bytearray(0x400)
     ftdata_offset = 0x60
     attrs_offset = 0x100
-    attrs_end = 0x280
+    attrs_end = 0x284
     data_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
     data_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
 
@@ -479,6 +530,7 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     put_f32(data_block, attrs_offset + 0xF4, 15.0)
     put_f32(data_block, attrs_offset + 0xF8, 24.0)
     put_f32(data_block, attrs_offset + 0x110, 1.1)
+    data_block[attrs_offset + 0x180] = 0x07
 
     dat = make_dat("ftDataCaptain", data_block, ftdata_offset)
     extracted = extract_captain_profile_from_plca(dat, source_path=Path("PlCa.dat"))
@@ -501,6 +553,12 @@ def test_extract_captain_profile_from_plca_uses_ftdata_attribute_range():
     assert extracted["fields"]["landingairhi_lag"]["ticks"] == 15
     assert extracted["fields"]["landingairlw_lag"]["ticks"] == 24
     assert extracted["fields"]["entry_platform_offset_y"]["milli"] == 1647
+    assert extracted["fields"]["weight_independent_throws_mask"] == {
+        "source_name": "weight_independent_throws_mask",
+        "offset": 0x180,
+        "kind": "source_u8",
+        "raw": 0x07,
+    }
 
 
 def test_extract_captain_special_attrs_from_plca_reads_ftdata_ext_attr():
@@ -619,6 +677,7 @@ def test_extract_character_common_parts_resolves_source_parts_through_ftparts_ta
         "hipn_part": 4,
         "transn2_part": 52,
     }
+    assert extracted["part_to_joint"] == part_to_joint
     assert extracted["transn_part"] == 1
     assert extracted["xrotn_part"] == 2
     assert extracted["hipn_part"] == 4
@@ -968,6 +1027,65 @@ def test_compute_ecb_from_jobj_pose_matches_mpcoll_jobj_reduction():
     assert ecb["bottom_milli"] == {"x": 0, "y": 0}
 
 
+def test_compute_ecb_from_jobj_pose_uses_source_min_extents():
+    pose = {
+        "joints": [
+            {"world_position_raw": {"x": 5.0, "y": 0.0, "z": 0.0}},
+            {"world_position_raw": {"x": 10.0, "y": 1.0, "z": 0.0}},
+            {"world_position_raw": {"x": 7.0, "y": 0.5, "z": 0.0}},
+            {"world_position_raw": {"x": 8.0, "y": 0.5, "z": 0.0}},
+            {"world_position_raw": {"x": 6.0, "y": 0.25, "z": 0.0}},
+            {"world_position_raw": {"x": 9.0, "y": 0.25, "z": 0.0}},
+        ]
+    }
+    ecb_source = {
+        "joint_indices": [0, 1, 2, 3, 4, 5],
+        "side_midpoint_offset_raw": 0.0,
+        "min_height_raw": 4.0,
+        "min_width_raw": 4.0,
+    }
+
+    ecb = compute_ecb_from_jobj_pose(pose, ecb_source, flags=6)
+
+    assert ecb["bottom"] == {"x": 0.0, "y": 0.0}
+    assert ecb["right"]["x"] == 10.0
+    assert ecb["left"]["x"] == -2.0
+
+
+def test_extract_character_ecb_source_records_runtime_min_extents():
+    ftdata_offset = 0x20
+    ecb_source_offset = 0x80
+    data_block = bytearray(0xC0)
+    put_u32(data_block, ftdata_offset + 0x44, ecb_source_offset)
+    for index, joint_index in enumerate((39, 47, 25, 14, 8, 4)):
+        data_block[ecb_source_offset + index * 2 : ecb_source_offset + index * 2 + 2] = (
+            joint_index.to_bytes(2, "big", signed=True)
+        )
+    put_f32(data_block, ecb_source_offset + 0x0C, 0.25)
+    put_f32(data_block, ecb_source_offset + 0x10, 9.0)
+    put_f32(data_block, ecb_source_offset + 0x14, 17.0)
+    put_f32(data_block, ecb_source_offset + 0x18, 11.0)
+    dat = make_dat("ftDataTest", data_block, ftdata_offset)
+    spec = CharacterResourceSpec(
+        id="test",
+        output_stem="test_character",
+        data_dat="Test.dat",
+        action_dat="TestAJ.dat",
+        neutral_costume_dat="TestNr.dat",
+        ft_data_symbol="ftDataTest",
+        neutral_joint_root="Test_joint",
+    )
+
+    extracted = melee_resources.extract_character_ecb_source_from_dat(
+        dat, Path("resources/melee/raw/Test.dat"), spec
+    )
+
+    assert extracted["ecb_source"]["min_height_raw"] == 10.0
+    assert extracted["ecb_source"]["min_width_raw"] == 10.0
+    assert extracted["ecb_source"]["min_height_source"] == "ft_80081B38 sets ecb_source.x128 = 10.0F * fp->x34_scale.y"
+    assert extracted["ecb_source"]["min_width_source"] == "ft_80081B38 sets ecb_source.x12C = 10.0F * fp->x34_scale.y"
+
+
 def test_extract_captain_action_ecb_samples_uses_figatree_skeleton_and_source_joints():
     chunk = make_sampled_figatree_chunk()
     data_block = bytearray(0x100)
@@ -996,6 +1114,8 @@ def test_extract_captain_action_ecb_samples_uses_figatree_skeleton_and_source_jo
         chunk, action_table, skeleton, ecb_source, action_state_ids=(44,)
     )
 
+    assert samples["actions"][0]["identity_kind"] == "fighter_wait_anim_data_index"
+    assert samples["actions"][0]["action_table_index"] == 44
     assert samples["actions"][0]["action_state_id"] == 44
     assert samples["actions"][0]["frames"][5]["bottom_milli"] == {"x": 0, "y": 10000}
     assert samples["actions"][0]["frames"][5]["top_milli"] == {"x": 0, "y": 12000}
@@ -1361,9 +1481,13 @@ def test_extract_captain_action_animation_table_links_plca_records_to_plcaaj_chu
 
     assert extracted["source"]["action_table_offset"] == action_table_offset
     assert extracted["source"]["action_count"] == 2
+    assert extracted["actions"][0]["identity_kind"] == "fighter_wait_anim_data_index"
+    assert extracted["actions"][0]["action_table_index"] == 0
     assert extracted["actions"][0]["action_state_id"] == 0
     assert extracted["actions"][0]["name"] == "Wait1_action"
     assert extracted["actions"][0]["figatree_root"] == "PlyCaptain5K_Share_ACTION_Wait1_figatree"
+    assert extracted["actions"][1]["identity_kind"] == "fighter_wait_anim_data_index"
+    assert extracted["actions"][1]["action_table_index"] == 1
     assert extracted["actions"][1]["action_state_id"] == 1
     assert extracted["actions"][1]["figatree_archive_offset"] == 0x200
     assert extracted["actions"][1]["figatree_root"] == "PlyCaptain5K_Share_ACTION_Dash_figatree"
@@ -1424,6 +1548,9 @@ def test_extract_captain_escape_air_script_skip_decay_gate_from_real_resources()
     )
     escape_air = extracted["actions"][44]
 
+    assert escape_air["identity_kind"] == "fighter_wait_anim_data_index"
+    assert escape_air["action_table_index"] == 44
+    assert escape_air["action_state_id"] == 44
     assert escape_air["figatree_root"] == "PlyCaptain5K_Share_ACTION_EscapeAir_figatree"
     assert escape_air["figatree"]["frames_ticks"] == 50
     assert escape_air["cmd_var_events"] == [
@@ -1497,7 +1624,7 @@ def test_extract_character_profile_accepts_marth_ftdata_root():
     data_block = bytearray(0x400)
     ftdata_offset = 0x60
     attrs_offset = 0x100
-    attrs_end = 0x280
+    attrs_end = 0x284
     data_block[ftdata_offset : ftdata_offset + 4] = be32(attrs_offset)
     data_block[ftdata_offset + 4 : ftdata_offset + 8] = be32(attrs_end)
     put_f32(data_block, attrs_offset + 0x18, 0.09)
@@ -1538,7 +1665,7 @@ def test_extract_resources_writes_marth_character_scoped_outputs(tmp_path):
     fighter_block = bytearray(0x500)
     ftdata_offset = 0x40
     attrs_offset = 0x100
-    attrs_end = 0x280
+    attrs_end = 0x284
     ecb_source_offset = 0x2C0
     hurtbox_table_offset = 0x300
     hurtbox_inits_offset = 0x340

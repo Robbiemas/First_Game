@@ -42,6 +42,10 @@ impl SnapshotBuffer {
         world.restore_rollback_snapshot(&snapshot.world);
         true
     }
+
+    const fn capacity(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -160,7 +164,12 @@ impl RollbackSession {
     pub fn advance(&mut self, frame: Frame, inputs: [PlayerInput; 2]) {
         self.snapshots.save(frame, &self.world);
         self.inputs.insert(frame, inputs);
+        self.prune_unrecoverable_inputs(frame);
         (self.step_world_fn)(&mut self.world, frame, &inputs);
+    }
+
+    pub fn retained_input_frame_count(&self) -> usize {
+        self.inputs.len()
     }
 
     pub fn advance_with_prediction(
@@ -216,10 +225,10 @@ impl RollbackSession {
         corrected_inputs: [PlayerInput; 2],
         current_frame: Frame,
     ) -> bool {
-        self.inputs.insert(corrected_frame, corrected_inputs);
         if !self.snapshots.restore(corrected_frame, &mut self.world) {
             return false;
         }
+        self.inputs.insert(corrected_frame, corrected_inputs);
 
         for frame_number in corrected_frame.0..current_frame.0 {
             let frame = Frame(frame_number);
@@ -243,5 +252,11 @@ impl RollbackSession {
             .get(&Frame(frame.0 - 1))
             .map(|inputs| inputs[player_index])
             .unwrap_or(PlayerInput::neutral())
+    }
+
+    fn prune_unrecoverable_inputs(&mut self, newest_frame: Frame) {
+        let retained_frames = self.snapshots.capacity().saturating_sub(1) as u32;
+        let oldest_recoverable = Frame(newest_frame.0.saturating_sub(retained_frames));
+        self.inputs = self.inputs.split_off(&oldest_recoverable);
     }
 }

@@ -48,6 +48,9 @@ def test_global_value_sheet_groups_common_movement_fields():
     assert fields["fall_animation_blend"]["source_name"] == "x448"
     assert fields["fall_animation_blend"]["kind"] == "source_f32"
     assert fields["fall_animation_blend"]["converted_value"] == 0.5
+    assert fields["shield_aim_smoothing"]["source_name"] == "x44C"
+    assert fields["shield_aim_smoothing"]["kind"] == "source_f32"
+    assert fields["shield_aim_smoothing"]["converted_value"] == 0.5
 
 
 def test_character_value_sheet_groups_falcon_locomotion_fields():
@@ -77,6 +80,9 @@ def test_character_value_sheet_groups_falcon_locomotion_fields():
     assert fields["landingairhi_lag"]["converted_value"] == 15
     assert fields["landingairlw_lag"]["converted_value"] == 24
     assert fields["entry_platform_offset_y"]["converted_value"] == 1647
+    assert fields["initial_shield_size"]["source_name"] == "initial_shield_size"
+    assert fields["initial_shield_size"]["kind"] == "source_f32"
+    assert fields["initial_shield_size"]["converted_value"] == 15.0
 
 
 def test_value_sheets_expose_every_extracted_decomp_field():
@@ -120,7 +126,7 @@ def test_combat_value_sheets_split_global_and_falcon_fields():
 
     assert global_combat["id"] == "global_combat_values"
     assert global_combat["scope"] == "global_combat"
-    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 56
+    assert sum(len(category["fields"]) for category in global_combat["categories"]) == 88
     assert all(
         field.get("owner_scope") == "global"
         for category in global_combat["categories"]
@@ -135,16 +141,28 @@ def test_combat_value_sheets_split_global_and_falcon_fields():
     assert global_fields["passive_window_max"]["converted_value"] == 20.0
     assert global_fields["shield_start_health"]["converted_value"] == 60.0
     assert global_fields["shield_regen"]["converted_value"] == 0.07000000029802322
+    assert global_fields["shield_break_furafura_percent_base"]["converted_value"] == 400.0
+    assert global_fields["shield_break_furafura_timer_base"]["converted_value"] == 90.0
+    assert global_fields["shield_break_furafura_timer_decrement"]["converted_value"] == 1.0
+    assert global_fields["shield_break_furafura_mash_decrement"]["converted_value"] == 3.0
+    assert global_fields["guard_reflect_timer"]["converted_value"] == 1.0
+    assert global_fields["guard_reflect_damage_skip_timer"]["converted_value"] == 3.0
 
     assert falcon_combat["id"] == "captain_falcon_combat_values"
     assert falcon_combat["scope"] == "character_combat"
     assert falcon_combat["character_id"] == "captain_falcon"
-    assert sum(len(category["fields"]) for category in falcon_combat["categories"]) == 1
-    weight = falcon_combat["categories"][0]["fields"][0]
+    assert sum(len(category["fields"]) for category in falcon_combat["categories"]) == 2
+    falcon_fields = {
+        field["rust_name"]: field
+        for category in falcon_combat["categories"]
+        for field in category["fields"]
+    }
+    weight = falcon_fields["weight"]
     assert weight["rust_name"] == "weight"
     assert weight["owner_scope"] == "character"
     assert weight["owner_id"] == "captain_falcon"
     assert weight["converted_value"] == 104.0
+    assert falcon_fields["weight_independent_throws_mask"]["converted_value"] == 7
 
 
 def test_generate_value_sheets_writes_stable_json_files(tmp_path):

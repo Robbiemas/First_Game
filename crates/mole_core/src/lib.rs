@@ -34,7 +34,7 @@ pub use stage::{
 };
 pub use state::{
     canonical_source_action_binding_for_runtime_id,
-    canonical_source_action_binding_for_source_table_id, has_source_ecb_samples_for_motion_state,
+    canonical_source_action_binding_for_source_table_id, has_source_ecb_pose_data_for_motion_state,
     is_source_damage_action_state_id, is_source_dead_motion_state, is_source_rebirth_motion_state,
     melee_action_state_id_for_motion_state, motion_state_for_runtime_variant,
     runtime_motion_state_for_source_key, source_binding_for_motion_state, source_root_motion_delta,
@@ -45,9 +45,10 @@ pub use state::{
     source_state_sequence_for_motion_state, CanonicalSourceActionBinding, CaptainSpecialAttrs,
     EngineFeatureToggles, FighterActionFrames, FighterCameraBox, FighterCommonAccessoryProfile,
     FighterEntryPlatformProfile, FighterProfile, FighterProfileExtractError, MatchPhase,
-    MeleeActionStateId, MotionState, MotionStateSourceBinding, PlayerRenderSnapshot, PlayerState,
-    SourceActionKey, SourceActionPoseMetadata, SourceActionScriptEvent, SourceActionScriptEvents,
-    SourceBounds3, SourceCapturePose, SourceCharacterSpecialActionBindings, SourceCollEcbSnapshot,
+    MeleeActionStateId, MeleeMotionStateId, MotionState, MotionStateSourceBinding,
+    PlayerRenderSnapshot, PlayerState, SourceActionKey, SourceActionPoseMetadata,
+    SourceActionScriptEvent, SourceActionScriptEvents, SourceActionTableIndex, SourceBounds3,
+    SourceCapturePose, SourceCharacterSpecialActionBindings, SourceCollEcbSnapshot,
     SourceCollisionStep, SourceDownBoundPose, SourcePosePoint, SourceSpecialActionBinding,
     SourceSpecialCaptureTransition, SourceStateCallback, SourceStateSequence,
     SourceStateTransition, SourceVec2, SourceVec3, Vec2, World, WorldRollbackSnapshot,

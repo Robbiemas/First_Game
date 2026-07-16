@@ -12,6 +12,7 @@ const DPAD_DOWN_BIT: u64 = 1 << 25;
 const DPAD_LEFT_BIT: u64 = 1 << 26;
 const DPAD_RIGHT_BIT: u64 = 1 << 27;
 pub const UCF_DASHBACK_AMENDMENT_BIT: u64 = 1 << 29;
+pub const UCF_SHIELD_DROP_AMENDMENT_BIT: u64 = 1 << 30;
 const STICK_X_SHIFT: u32 = 8;
 const STICK_Y_SHIFT: u32 = 16;
 const C_STICK_X_SHIFT: u32 = 32;
@@ -34,6 +35,7 @@ const USED_BITS: u64 = ATTACK_BIT
     | DPAD_LEFT_BIT
     | DPAD_RIGHT_BIT
     | UCF_DASHBACK_AMENDMENT_BIT
+    | UCF_SHIELD_DROP_AMENDMENT_BIT
     | (STICK_BYTE_MASK << STICK_X_SHIFT)
     | (STICK_BYTE_MASK << STICK_Y_SHIFT)
     | (STICK_BYTE_MASK << C_STICK_X_SHIFT)
@@ -533,6 +535,8 @@ pub enum WalkSpeedBucket {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MeleeInputFacts {
+    pub lstick: (i8, i8),
+    pub cstick: (i8, i8),
     pub walk_direction: i8,
     pub walk_speed_bucket: WalkSpeedBucket,
     pub turn_direction: i8,
@@ -701,6 +705,8 @@ impl MeleeInputSnapshot {
             shield_roll_direction(self.lstick, self.cstick, self.x_tap_timer, thresholds);
 
         MeleeInputFacts {
+            lstick: self.lstick,
+            cstick: self.cstick,
             walk_direction,
             walk_speed_bucket,
             turn_direction,
@@ -1075,6 +1081,10 @@ impl PlayerInput {
         self.with_button(UCF_DASHBACK_AMENDMENT_BIT, active)
     }
 
+    pub fn with_ucf_shield_drop_amendment(self, active: bool) -> Self {
+        self.with_button(UCF_SHIELD_DROP_AMENDMENT_BIT, active)
+    }
+
     pub const fn attack(self) -> bool {
         self.bits & ATTACK_BIT != 0
     }
@@ -1141,6 +1151,10 @@ impl PlayerInput {
 
     pub const fn ucf_dashback_amendment(self) -> bool {
         self.bits & UCF_DASHBACK_AMENDMENT_BIT != 0
+    }
+
+    pub const fn ucf_shield_drop_amendment(self) -> bool {
+        self.bits & UCF_SHIELD_DROP_AMENDMENT_BIT != 0
     }
 
     pub const fn stick_x(self) -> i8 {

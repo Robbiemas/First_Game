@@ -262,6 +262,10 @@ pub struct StageCollisionVertex {
     pub index: u16,
     pub source_x: f32,
     pub source_y: f32,
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub x10: f32,
+    pub x14: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -447,7 +451,13 @@ impl StageCollisionProfile {
     pub fn scaled_vertex(self, index: usize) -> Option<(f32, f32)> {
         self.vertices
             .get(index)
-            .map(|vertex| (vertex.source_x * self.scale, vertex.source_y * self.scale))
+            .map(|vertex| (vertex.pos_x, vertex.pos_y))
+    }
+
+    pub fn previous_vertex(self, index: usize) -> Option<(f32, f32)> {
+        self.vertices
+            .get(index)
+            .map(|vertex| (vertex.x10, vertex.x14))
     }
 
     pub fn scaled_line(self, index: usize) -> Option<StageScaledCollisionLine> {

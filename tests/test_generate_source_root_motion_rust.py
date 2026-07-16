@@ -2,6 +2,7 @@ import struct
 
 from tools.generate_source_root_motion_rust import (
     SOURCE_ACTIONS,
+    SOURCE_ACTION_TABLES,
     SOURCE_STATES,
     fmt_float,
     normalize_vec3_float_literals,
@@ -41,6 +42,15 @@ def test_source_root_motion_generator_covers_source_ledge_option_actions():
         "CliffJumpSlow2",
     ]:
         assert source_action_key in SOURCE_ACTIONS
+
+
+def test_source_root_motion_generator_covers_falcon_side_special_ground_actions():
+    assert SOURCE_ACTIONS["SpecialSStart"] == "SPECIAL_S_START"
+    assert SOURCE_ACTIONS["SpecialS"] == "SPECIAL_S"
+
+
+def test_source_root_motion_generator_covers_attack_dash_transn_motion():
+    assert SOURCE_ACTION_TABLES["AttackDash"] == "ATTACK_DASH"
 
 
 def test_source_root_motion_generator_normalizes_existing_vec3_float_literals():

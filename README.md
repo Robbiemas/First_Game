@@ -83,6 +83,10 @@ frame-cap wait.
 
 ## Current Status
 
+- [Captain Falcon/Battlefield full-replay parity milestone (2026-07-15)](docs/release_notes/2026-07-15-captain-falcon-battlefield-full-replay-parity.md)
+  records the first strict end-to-end fixture with no classified divergence.
+  This is a scoped parity checkpoint, not a claim that every fighter, stage,
+  or common action is complete.
 - Native Rust SDL3 runtime launches and runs the playable test shell.
 - WUP-028 GameCube adapter input is supported directly through the native path.
 - UCF-style controller preprocessing is enabled by default, with a vanilla
@@ -94,7 +98,7 @@ frame-cap wait.
 
 ## Quick Start
 
-From `D:\Mole Game\First_Game`:
+From the repository root:
 
 ```powershell
 cargo test --workspace

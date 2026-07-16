@@ -25,6 +25,9 @@ SOURCE_STATES = {
 }
 
 SOURCE_ACTIONS = {
+    "AttackDash": "ATTACK_DASH",
+    "SpecialSStart": "SPECIAL_S_START",
+    "SpecialS": "SPECIAL_S",
     "CliffAttackQuick": "CLIFF_ATTACK_QUICK",
     "CliffAttackSlow": "CLIFF_ATTACK_SLOW",
     "CliffClimbQuick": "CLIFF_CLIMB_QUICK",
@@ -37,6 +40,21 @@ SOURCE_ACTIONS = {
     "CliffJumpSlow2": "CLIFF_JUMP_SLOW2",
     "PassiveStandF": "PASSIVE_STAND_F",
     "PassiveStandB": "PASSIVE_STAND_B",
+    "DownFowardD": "DOWN_FORWARD_D",
+}
+
+SOURCE_ACTION_MOTION_STATES = {
+    "AttackDash": "AttackDash",
+    "CliffAttackQuick": "CliffAttackQuick",
+    "CliffAttackSlow": "CliffAttackSlow",
+    "CliffClimbQuick": "CliffClimbQuick",
+    "CliffClimbSlow": "CliffClimbSlow",
+    "CliffEscapeQuick": "CliffEscapeQuick",
+    "CliffEscapeSlow": "CliffEscapeSlow",
+    "CliffJumpQuick1": "CliffJumpQuick1",
+    "CliffJumpQuick2": "CliffJumpQuick2",
+    "CliffJumpSlow1": "CliffJumpSlow1",
+    "CliffJumpSlow2": "CliffJumpSlow2",
 }
 
 SOURCE_ACTION_TABLES = {
@@ -224,6 +242,18 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--mole-bin", type=Path, default=DEFAULT_MOLE_BIN)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument(
+        "--source-action",
+        action="append",
+        choices=sorted(SOURCE_ACTIONS),
+        help="Regenerate one compact source-action TransN table. May be passed more than once.",
+    )
+    parser.add_argument(
+        "--source-state",
+        action="append",
+        choices=sorted(SOURCE_STATES),
+        help="Regenerate one compact motion-state TransN table. May be passed more than once.",
+    )
     args = parser.parse_args()
 
     if not args.mole_bin.exists():
@@ -231,7 +261,16 @@ def main() -> int:
 
     manifest: dict[str, Any] = json.loads(args.manifest.read_text(encoding="utf-8"))
     module = args.output.read_text(encoding="utf-8")
+    if args.source_state or args.source_action:
+        selected_states = set(args.source_state or [])
+        selected_actions = set(args.source_action or [])
+    else:
+        selected_states = set(SOURCE_STATES)
+        selected_actions = set(SOURCE_ACTIONS)
+
     for state, (const_prefix, frame_count) in SOURCE_STATES.items():
+        if state not in selected_states:
+            continue
         offsets: list[dict[str, float]] = []
         positions: list[dict[str, float]] = []
         for frame in range(1, frame_count + 1):
@@ -248,6 +287,8 @@ def main() -> int:
         module = ensure_frame_count_arm(module, state, const_prefix)
 
     for source_action_key, const_prefix in SOURCE_ACTIONS.items():
+        if source_action_key not in selected_actions:
+            continue
         frame_count = total_frames_for_action(manifest, source_action_key)
         offsets = []
         positions = []
@@ -260,6 +301,12 @@ def main() -> int:
         position_const = render_const(const_prefix, "POSITION", positions)
         module = replace_or_insert_const(module, offset_const, "const TURN_RUN_TRANSN_OFFSET")
         module = replace_or_insert_const(module, position_const, "const TURN_RUN_TRANSN_OFFSET")
+
+    for source_action_key, state in SOURCE_ACTION_MOTION_STATES.items():
+        const_prefix = SOURCE_ACTIONS[source_action_key]
+        module = ensure_match_arm(module, "transn_offset", state, const_prefix, "OFFSET")
+        module = ensure_match_arm(module, "transn_position", state, const_prefix, "POSITION")
+        module = ensure_frame_count_arm(module, state, const_prefix)
 
     module = ensure_action_key_import(module)
     module = replace_or_insert_function(

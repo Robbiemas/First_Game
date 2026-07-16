@@ -15,10 +15,11 @@ use mole_frame_data::{
 
 use mole_core::collision::{
     source_collision_hits, source_damage_accumulator_after_stages, source_damage_result_for_victim,
-    source_damage_stages_from_confirms, source_hit_confirms, Capsule3, SourceCollisionCapsule,
-    SourceCollisionFrame, SourceCollisionHit, SourceDamageAccumulator, SourceDamageResult,
-    SourceDamageResultInput, SourceDamageStage, SourceHitConfirm, SourceHitboxAttributes,
-    SourceHitboxFlags, SourceHitboxLifecycleId, Vec3, SOURCE_HIT_ELEMENT_CATCH,
+    source_damage_stages_from_confirms, source_hit_confirms, Capsule3, Mat3x4,
+    SourceCollisionCapsule, SourceCollisionFrame, SourceCollisionHit, SourceDamageAccumulator,
+    SourceDamageResult, SourceDamageResultInput, SourceDamageStage, SourceHitConfirm,
+    SourceHitboxAttributes, SourceHitboxFlags, SourceHitboxLifecycleId, Vec3,
+    SOURCE_HIT_ELEMENT_CATCH, SOURCE_SHIELD_HURTBOX_ID,
 };
 use mole_core::{
     canonical_source_action_binding_for_runtime_id, source_root_motion_position,
@@ -56,15 +57,17 @@ mod slippi_diagnostic;
 pub use slippi_diagnostic::{
     compare_slippi_export_from_match_start_with_core, compare_slippi_export_with_core,
     first_slippi_divergence_from_match_start_with_core,
-    scan_slippi_export_from_match_start_with_core, slippi_core_report_path,
+    scan_slippi_export_from_match_start_with_core, scan_slippi_export_seeded_pre_frame_with_core,
+    slippi_core_report_path, slippi_match_start_world_from_export,
     slippi_visual_replay_divergence_for_frame, slippi_visual_replay_inputs_from_match_start,
-    trace_slippi_export_from_match_start_with_core, write_slippi_core_report,
-    write_slippi_core_trace_report, SlippiCoreComparison, SlippiCoreComparisonConfig,
-    SlippiCoreComparisonMode, SlippiCoreDiagnosticError, SlippiCoreDivergenceKind,
-    SlippiCoreDivergenceScan, SlippiCoreDivergenceScanConfig, SlippiCoreDivergenceScenario,
-    SlippiCoreFirstDivergence, SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace,
-    SlippiCoreTraceConfig, SlippiCoreTraceRow, SlippiVisualReplayDivergence,
-    SlippiVisualReplayDivergenceGate, SlippiVisualReplayFrame,
+    trace_slippi_export_from_match_start_with_core, trace_slippi_export_seeded_pre_frame_with_core,
+    write_slippi_core_report, write_slippi_core_trace_report, SlippiActionIdentity,
+    SlippiCoreComparison, SlippiCoreComparisonConfig, SlippiCoreComparisonMode,
+    SlippiCoreDiagnosticError, SlippiCoreDivergenceKind, SlippiCoreDivergenceScan,
+    SlippiCoreDivergenceScanConfig, SlippiCoreDivergenceScenario, SlippiCoreFirstDivergence,
+    SlippiCoreMismatch, SlippiCorePositionDrift, SlippiCoreTrace, SlippiCoreTraceConfig,
+    SlippiCoreTraceRow, SlippiVisualReplayDivergence, SlippiVisualReplayDivergenceGate,
+    SlippiVisualReplayFrame,
 };
 
 #[rustfmt::skip]
@@ -408,6 +411,7 @@ pub fn step_world_with_source_collision_step(
         runtime_source_pose_metadata_for_player,
         runtime_source_action_total_frames_for_action_state_id,
     );
+    update_source_shield_hit_positions(world);
     let source_step = apply_source_collisions_for_world(world);
     world.apply_source_damage_results_with_action_total_frames(
         &source_step.results,
@@ -415,6 +419,63 @@ pub fn step_world_with_source_collision_step(
     );
     world.commit_staged_source_damage();
     source_step
+}
+
+fn update_source_shield_hit_positions(world: &mut World) {
+    let players = *world.players();
+    for (player_index, mut player) in players.into_iter().enumerate() {
+        if !player.source_shield_hit_active || !player.source_shield_hit_update_pos {
+            continue;
+        }
+        let Some(shield_joint) = runtime_source_guard_shield_joint(&player) else {
+            continue;
+        };
+        let facing = if player.facing < 0 { -1.0 } else { 1.0 };
+        player.source_shield_hit_position = SourcePosePoint {
+            x: player.source_position.x + shield_joint.x * facing,
+            y: player.source_position.y + shield_joint.y,
+            z: player.source_position_z + shield_joint.z * facing,
+        };
+        player.source_shield_hit_update_pos = false;
+        let _ = world.set_player_state_for_diagnostic(player_index, player);
+    }
+}
+
+fn runtime_source_guard_shield_joint(player: &PlayerState) -> Option<SourcePosePoint> {
+    let base_pose = runtime_source_guard_base_pose(player);
+    let aim_blend = source_guard_aim_blend_amount(
+        player.source_shield_aim_magnitude,
+        player.source_shield_aim_angle_degrees,
+    );
+    if aim_blend > 0.0 {
+        let aimed_pose = runtime_source_live_pose(
+            Some(SourceActionKey::new("Guard")),
+            player.source_shield_aim_angle_degrees,
+        )?;
+        let aimed_point =
+            runtime_source_pose_point_from_sample(aimed_pose.capture_pose.capture_anchor);
+        if aim_blend >= 1.0 {
+            return Some(aimed_point);
+        }
+        if let Some(base_pose) = base_pose {
+            let base_point =
+                runtime_source_pose_point_from_sample(base_pose.capture_pose.capture_anchor);
+            return Some(lerp_source_pose_point(base_point, aimed_point, aim_blend));
+        }
+        return Some(aimed_point);
+    }
+    Some(runtime_source_pose_point_from_sample(
+        base_pose?.capture_pose.capture_anchor,
+    ))
+}
+
+const SOURCE_GUARD_NEUTRAL_FRAME: f32 = 10.0;
+
+fn runtime_source_guard_base_pose(player: &PlayerState) -> Option<RuntimeSourceLivePoseSample> {
+    runtime_source_live_pose(
+        source_action_key_for_player_state(player),
+        player.source_motion_anim_frame,
+    )
 }
 
 pub fn preload_runtime_source_frame_data() -> Result<usize, String> {
@@ -437,6 +498,29 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
         let action_state_id = frame.player_source_pose_action_state_ids[player_index];
         let damage_hit_source_frame =
             source_collision_capsule_frame_for_player(frame, player_index, source_action_key);
+        let mut damage_geometry_hit_source_frame = source_damage_hit_geometry_frame(
+            source_action_key,
+            damage_hit_source_frame,
+            SourceHitElementFilter::NonCatch,
+        );
+        if frame
+            .player_source_shield_collision_active
+            .iter()
+            .enumerate()
+            .any(|(index, active)| {
+                index != player_index
+                    && *active
+                    && frame.player_action_state_ids[index] == Some(MeleeActionStateId::new(178))
+                    && frame.player_state_frames[index] == 0
+            })
+        {
+            // A guard installed by this fighter pass is collided after the other
+            // fighter's JObj refresh, while retaining that hitbox's current attrs.
+            damage_geometry_hit_source_frame = normalize_runtime_source_frame(
+                source_action_key,
+                damage_geometry_hit_source_frame.saturating_add(1),
+            );
+        }
         let catch_hit_source_frame = damage_hit_source_frame;
         extend_source_hits_for_player(
             &mut hits,
@@ -445,7 +529,7 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
             source_action_key,
             action_state_id,
             catch_hit_source_frame,
-            damage_hit_source_frame,
+            damage_geometry_hit_source_frame,
             SourceHitElementFilter::NonCatch,
         );
         extend_source_hits_for_player(
@@ -459,73 +543,134 @@ pub fn source_collision_frame_from_frame(frame: &RenderFrame) -> SourceCollision
             SourceHitElementFilter::Catch,
         );
         if frame.player_source_collision_states[player_index] == SOURCE_COLLISION_STATE_NORMAL {
-            let hurt_source_action_key = source_hurt_action_key_for_player(frame, player_index);
-            let hurt_source_frame = source_collision_hurt_capsule_frame_for_player(
-                frame,
-                player_index,
-                hurt_source_action_key,
-            );
-            let hurt_source_root = source_render_root_position(
-                frame,
-                player_index,
-                hurt_source_action_key,
-                hurt_source_frame,
-            );
-            if let Some(source_capsules) =
-                runtime_source_frame_capsules_ref(hurt_source_action_key, hurt_source_frame)
+            let hurt_pose_selection = source_hurt_pose_selection_for_player(frame, player_index);
+            let hurt_source_root =
+                runtime_source_hurt_root_for_selection(frame, player_index, hurt_pose_selection);
+            if let Some(hurt_capsules) =
+                runtime_source_hurt_capsules_for_selection(hurt_pose_selection)
             {
                 let thrown_constraint = source_thrown_hurt_constraint(frame, player_index);
-                hurts.extend(
-                    source_capsules
-                        .hurt_capsules
-                        .iter()
-                        .copied()
-                        .map(|capsule| {
-                            let current_capsule = if let Some(constraint) = thrown_constraint {
-                                source_capsule_to_constrained_xrotn_world_3d(
-                                    capsule,
-                                    constraint.current_anchor,
-                                    frame.player_model_facing(player_index),
-                                    constraint.victim_xrotn,
-                                )
-                            } else {
-                                source_capsule_to_world_3d(
-                                    capsule,
-                                    frame.player_source_positions[player_index],
-                                    frame.player_model_facing(player_index),
-                                    hurt_source_root,
-                                )
-                            };
-                            let previous_capsule = if let Some(constraint) = thrown_constraint {
-                                source_capsule_to_constrained_xrotn_world_3d(
-                                    capsule,
-                                    constraint.previous_anchor,
-                                    frame.player_model_facing(player_index),
-                                    constraint.victim_xrotn,
-                                )
-                            } else {
-                                source_capsule_to_world_3d(
-                                    capsule,
-                                    frame.player_source_previous_positions[player_index],
-                                    frame.player_model_facing(player_index),
-                                    hurt_source_root,
-                                )
-                            };
-                            SourceCollisionCapsule::new(player_index, capsule.id, current_capsule)
-                                .with_previous_capsule(previous_capsule)
-                                .with_owner_grounded(frame.player_grounded[player_index])
-                                .with_source_pose(
-                                    action_state_id,
-                                    source_action_key,
-                                    hurt_source_frame,
-                                )
-                                .with_hurt_height(capsule.hurt_height)
-                        }),
-                );
+                hurts.extend(hurt_capsules.into_iter().map(|capsule| {
+                    let current_capsule = if let Some(constraint) = thrown_constraint {
+                        source_capsule_to_constrained_xrotn_world_3d(
+                            capsule,
+                            constraint.current_anchor,
+                            frame.player_model_facing(player_index),
+                            constraint.victim_xrotn,
+                        )
+                    } else {
+                        source_capsule_to_world_3d(
+                            capsule,
+                            frame.player_source_positions[player_index],
+                            frame.player_source_position_z[player_index],
+                            frame.player_model_facing(player_index),
+                            hurt_source_root,
+                        )
+                    };
+                    let previous_capsule = if let Some(constraint) = thrown_constraint {
+                        source_capsule_to_constrained_xrotn_world_3d(
+                            capsule,
+                            constraint.previous_anchor,
+                            frame.player_model_facing(player_index),
+                            constraint.victim_xrotn,
+                        )
+                    } else {
+                        source_capsule_to_world_3d(
+                            capsule,
+                            frame.player_source_previous_positions[player_index],
+                            frame.player_source_previous_position_z[player_index],
+                            frame.player_model_facing(player_index),
+                            hurt_source_root,
+                        )
+                    };
+                    SourceCollisionCapsule::new(player_index, capsule.id, current_capsule)
+                        .with_previous_capsule(previous_capsule)
+                        .with_owner_grounded(frame.player_grounded[player_index])
+                        .with_source_pose(
+                            action_state_id,
+                            hurt_pose_selection.source_action_key,
+                            hurt_pose_selection.source_frame,
+                        )
+                        .with_optional_hurt_matrix(capsule.hurt_matrix.map(|matrix| {
+                            source_matrix_to_world_3d(
+                                matrix,
+                                frame.player_model_facing(player_index),
+                            )
+                        }))
+                        .with_hurt_height(capsule.hurt_height)
+                }));
+            }
+            if let Some(shield_capsule) = source_guard_shield_collision_capsule(frame, player_index)
+            {
+                hurts.push(shield_capsule);
             }
         }
     }
     SourceCollisionFrame { hits, hurts }
+}
+
+fn source_guard_shield_size(frame: &RenderFrame, player_index: usize) -> Option<f32> {
+    if !frame.player_source_shield_collision_active[player_index] {
+        return None;
+    }
+    let common = frame.common_data;
+    let initial_shield_size = frame.player_profile_initial_shield_sizes[player_index];
+    let local_shield_size = if frame.player_profile_is_yoshi[player_index] {
+        initial_shield_size
+    } else {
+        let health_frac = if common.shield_start_health > 0.0 {
+            frame.player_shield_healths[player_index] / common.shield_start_health
+        } else {
+            0.0
+        }
+        .clamp(0.0, 1.0);
+        let lightshield = frame.player_lightshield_amounts[player_index].clamp(0.0, 1.0);
+        let light_scale = lightshield
+            * (common.shield_size_light_max - common.shield_size_light_min)
+            + common.shield_size_light_min;
+        let health_scale = 1.0 - common.shield_size_health_scale;
+        (health_scale * (health_frac * light_scale) + common.shield_size_health_scale)
+            * initial_shield_size
+    };
+    // lbColl_80007BCC measures the shield desc through the shield JObj matrix;
+    // this folds the parent TopN/model scale into the radius-only Rust proxy.
+    let shield_size = local_shield_size * frame.player_profile_model_scalings[player_index];
+    if shield_size <= 0.0 {
+        return None;
+    }
+    Some(shield_size)
+}
+
+fn source_guard_shield_collision_capsule(
+    frame: &RenderFrame,
+    player_index: usize,
+) -> Option<SourceCollisionCapsule> {
+    let shield_size = source_guard_shield_size(frame, player_index)?;
+    let pose_selection = source_hurt_pose_selection_for_player(frame, player_index);
+    const SOURCE_COLLISION_UNIT_SCALE: f32 = 1_000.0;
+    let source_position = frame.player_source_shield_hit_positions[player_index];
+    let center = Vec3 {
+        x: source_position.x * SOURCE_COLLISION_UNIT_SCALE,
+        y: source_position.y * SOURCE_COLLISION_UNIT_SCALE,
+        z: source_position.z * SOURCE_COLLISION_UNIT_SCALE,
+    };
+    Some(
+        SourceCollisionCapsule::new(
+            player_index,
+            SOURCE_SHIELD_HURTBOX_ID,
+            Capsule3 {
+                a: center,
+                b: center,
+                radius: shield_size * SOURCE_COLLISION_UNIT_SCALE,
+            },
+        )
+        .with_owner_grounded(frame.player_grounded[player_index])
+        .with_source_pose(
+            frame.player_source_pose_action_state_ids[player_index],
+            pose_selection.source_action_key,
+            pose_selection.source_frame,
+        ),
+    )
 }
 
 #[derive(Clone, Copy)]
@@ -546,6 +691,60 @@ impl SourceHitElementFilter {
     }
 }
 
+fn source_damage_hit_geometry_frame(
+    source_action_key: Option<SourceActionKey>,
+    active_hit_source_frame: u8,
+    filter: SourceHitElementFilter,
+) -> u8 {
+    let refreshed_source_frame = normalize_runtime_source_frame(
+        source_action_key,
+        active_hit_source_frame.saturating_add(1),
+    );
+    if source_frame_has_refreshed_hitbox_lifecycle(
+        source_action_key,
+        active_hit_source_frame,
+        refreshed_source_frame,
+        filter,
+    ) {
+        refreshed_source_frame
+    } else {
+        active_hit_source_frame
+    }
+}
+
+fn source_frame_has_refreshed_hitbox_lifecycle(
+    source_action_key: Option<SourceActionKey>,
+    active_source_frame: u8,
+    refreshed_source_frame: u8,
+    filter: SourceHitElementFilter,
+) -> bool {
+    let Some(active_capsules) =
+        runtime_source_frame_capsules_ref(source_action_key, active_source_frame)
+    else {
+        return false;
+    };
+    let Some(refreshed_capsules) =
+        runtime_source_frame_capsules_ref(source_action_key, refreshed_source_frame)
+    else {
+        return false;
+    };
+    active_capsules
+        .hit_capsules
+        .iter()
+        .copied()
+        .filter(|capsule| filter.accepts(*capsule))
+        .filter_map(|capsule| capsule.hitbox_lifecycle_id)
+        .any(|lifecycle_id| {
+            refreshed_capsules
+                .hit_capsules
+                .iter()
+                .copied()
+                .any(|capsule| {
+                    filter.accepts(capsule) && capsule.hitbox_lifecycle_id == Some(lifecycle_id)
+                })
+        })
+}
+
 fn extend_source_hits_for_player(
     hits: &mut Vec<SourceCollisionCapsule>,
     frame: &RenderFrame,
@@ -557,13 +756,13 @@ fn extend_source_hits_for_player(
     filter: SourceHitElementFilter,
 ) {
     let previous_hit_source_frame = geometry_hit_source_frame.saturating_sub(1).max(1);
-    let hit_source_root = source_render_root_position(
+    let sampled_hit_source_root = source_render_root_position(
         frame,
         player_index,
         source_action_key,
         geometry_hit_source_frame,
     );
-    let previous_source_root = source_render_root_position(
+    let sampled_previous_source_root = source_render_root_position(
         frame,
         player_index,
         source_action_key,
@@ -585,7 +784,16 @@ fn extend_source_hits_for_player(
                         || frame.player_source_thrown_hitbox_owner_indexes[player_index].is_some()
                 })
                 .map(|capsule| {
-                    let geometry_capsule = geometry_source_capsules
+                    // ftAction_8007121C stores the resolved JObj on each HitCapsule.
+                    // TopN (joint 0) is above TransN and therefore does not inherit
+                    // the root translation that ground physics consumes.
+                    let (previous_source_root, hit_source_root) =
+                        if capsule.hitbox.is_some_and(|hitbox| hitbox.bone == 0) {
+                            (Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0))
+                        } else {
+                            (sampled_previous_source_root, sampled_hit_source_root)
+                        };
+                    let mut geometry_capsule = geometry_source_capsules
                         .and_then(|geometry_source_capsules| {
                             source_hit_geometry_capsule_for_active(
                                 capsule,
@@ -594,6 +802,16 @@ fn extend_source_hits_for_player(
                             )
                         })
                         .unwrap_or(capsule);
+                    if source_hit_capsule_lifecycle_starts_on_frame(
+                        capsule,
+                        active_hit_source_frame,
+                    ) {
+                        // ftColl_8007AD18 initializes a newly enabled capsule with
+                        // x58 == x4C at the current JObj position. The N+1 baked
+                        // sample supplies that current endpoint but its `a` belongs
+                        // to the prior pose and must not become a spawn-frame sweep.
+                        geometry_capsule.a = geometry_capsule.b;
+                    }
                     let collision_capsule = RuntimeSourceCapsule {
                         a: geometry_capsule.a,
                         b: geometry_capsule.b,
@@ -602,7 +820,7 @@ fn extend_source_hits_for_player(
                     };
                     let uses_previous_root = source_hit_capsule_uses_previous_root(
                         collision_capsule,
-                        geometry_hit_source_frame,
+                        active_hit_source_frame,
                     );
                     let a_root_position = if uses_previous_root {
                         frame.player_source_previous_positions[player_index]
@@ -621,6 +839,12 @@ fn extend_source_hits_for_player(
                             collision_capsule,
                             a_root_position,
                             frame.player_source_positions[player_index],
+                            if uses_previous_root {
+                                frame.player_source_previous_position_z[player_index]
+                            } else {
+                                frame.player_source_position_z[player_index]
+                            },
+                            frame.player_source_position_z[player_index],
                             frame.player_model_facing(player_index),
                             a_source_root,
                             hit_source_root,
@@ -850,7 +1074,9 @@ pub struct RenderFrame {
     pub player_stocks: [i8; 2],
     pub player_positions: [Vec2; 2],
     pub player_source_positions: [SourceVec2; 2],
+    pub player_source_position_z: [f32; 2],
     pub player_source_previous_positions: [SourceVec2; 2],
+    pub player_source_previous_position_z: [f32; 2],
     pub player_velocities: [Vec2; 2],
     pub player_camera_boxes: [FighterCameraBox; 2],
     pub player_ecbs: [EcbDiamond; 2],
@@ -866,6 +1092,17 @@ pub struct RenderFrame {
     pub player_damage_hitstun_frames: [u16; 2],
     pub player_source_collision_states: [u8; 2],
     pub player_profile_weights: [f32; 2],
+    pub player_profile_initial_shield_sizes: [f32; 2],
+    pub player_profile_model_scalings: [f32; 2],
+    pub player_profile_is_yoshi: [bool; 2],
+    pub player_shield_healths: [f32; 2],
+    pub player_lightshield_amounts: [f32; 2],
+    pub player_source_shield_collision_active: [bool; 2],
+    pub player_source_shield_hit_active: [bool; 2],
+    pub player_source_shield_hit_update_pos: [bool; 2],
+    pub player_source_shield_hit_positions: [SourcePosePoint; 2],
+    pub player_source_shield_aim_angle_degrees: [f32; 2],
+    pub player_source_shield_aim_magnitudes: [f32; 2],
     pub player_action_state_ids: [Option<MeleeActionStateId>; 2],
     pub player_source_action_keys: [Option<SourceActionKey>; 2],
     pub player_source_thrown_hitbox_owner_indexes: [Option<u8>; 2],
@@ -913,6 +1150,43 @@ pub struct RenderFrame {
     pub checksum: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeSourceSelection {
+    pub source_action_key: Option<SourceActionKey>,
+    pub source_frame: u8,
+}
+
+pub fn render_source_hitbox_selection(frame: &RenderFrame, index: usize) -> RuntimeSourceSelection {
+    if index >= frame.player_states.len() || !frame.player_participates(index) {
+        return RuntimeSourceSelection {
+            source_action_key: None,
+            source_frame: 0,
+        };
+    }
+    let source_action_key = source_action_key_for_player(frame, index);
+    RuntimeSourceSelection {
+        source_action_key,
+        source_frame: source_collision_capsule_frame_for_player(frame, index, source_action_key),
+    }
+}
+
+pub fn render_source_hurtbox_selection(
+    frame: &RenderFrame,
+    index: usize,
+) -> RuntimeSourceSelection {
+    if index >= frame.player_states.len() || !frame.player_participates(index) {
+        return RuntimeSourceSelection {
+            source_action_key: None,
+            source_frame: 0,
+        };
+    }
+    let pose_selection = source_hurt_pose_selection_for_player(frame, index);
+    RuntimeSourceSelection {
+        source_action_key: pose_selection.source_action_key,
+        source_frame: pose_selection.source_frame,
+    }
+}
+
 impl RenderFrame {
     pub fn from_world(world: &World) -> Self {
         Self::from_snapshot(world.snapshot())
@@ -935,9 +1209,17 @@ impl RenderFrame {
                 snapshot.players[0].source_position,
                 snapshot.players[1].source_position,
             ],
+            player_source_position_z: [
+                snapshot.players[0].source_position_z,
+                snapshot.players[1].source_position_z,
+            ],
             player_source_previous_positions: [
-                snapshot.players[0].source_coll_prev_pos,
-                snapshot.players[1].source_coll_prev_pos,
+                snapshot.players[0].source_previous_position,
+                snapshot.players[1].source_previous_position,
+            ],
+            player_source_previous_position_z: [
+                snapshot.players[0].source_previous_position_z,
+                snapshot.players[1].source_previous_position_z,
             ],
             player_velocities: [snapshot.players[0].velocity, snapshot.players[1].velocity],
             player_camera_boxes: [
@@ -989,6 +1271,50 @@ impl RenderFrame {
             player_profile_weights: [
                 snapshot.players[0].profile_weight,
                 snapshot.players[1].profile_weight,
+            ],
+            player_profile_initial_shield_sizes: [
+                snapshot.players[0].profile_initial_shield_size,
+                snapshot.players[1].profile_initial_shield_size,
+            ],
+            player_profile_model_scalings: [
+                snapshot.players[0].profile_model_scaling,
+                snapshot.players[1].profile_model_scaling,
+            ],
+            player_profile_is_yoshi: [
+                snapshot.players[0].profile_is_yoshi,
+                snapshot.players[1].profile_is_yoshi,
+            ],
+            player_shield_healths: [
+                snapshot.players[0].shield_health,
+                snapshot.players[1].shield_health,
+            ],
+            player_lightshield_amounts: [
+                snapshot.players[0].lightshield_amount,
+                snapshot.players[1].lightshield_amount,
+            ],
+            player_source_shield_collision_active: [
+                snapshot.players[0].source_shield_collision_active,
+                snapshot.players[1].source_shield_collision_active,
+            ],
+            player_source_shield_hit_active: [
+                snapshot.players[0].source_shield_hit_active,
+                snapshot.players[1].source_shield_hit_active,
+            ],
+            player_source_shield_hit_update_pos: [
+                snapshot.players[0].source_shield_hit_update_pos,
+                snapshot.players[1].source_shield_hit_update_pos,
+            ],
+            player_source_shield_hit_positions: [
+                snapshot.players[0].source_shield_hit_position,
+                snapshot.players[1].source_shield_hit_position,
+            ],
+            player_source_shield_aim_angle_degrees: [
+                snapshot.players[0].source_shield_aim_angle_degrees,
+                snapshot.players[1].source_shield_aim_angle_degrees,
+            ],
+            player_source_shield_aim_magnitudes: [
+                snapshot.players[0].source_shield_aim_magnitude,
+                snapshot.players[1].source_shield_aim_magnitude,
             ],
             player_action_state_ids: [
                 snapshot.players[0].melee_action_state_id,
@@ -1929,8 +2255,8 @@ impl RenderScene {
             ],
             player_sprites,
             player_shields: [
-                player_shield(frame.player_motion_states[0], players[0]),
-                player_shield(frame.player_motion_states[1], players[1]),
+                player_shield(frame, 0, players[0], transform),
+                player_shield(frame, 1, players[1], transform),
             ],
             player_hitbox_pills: [
                 player_hitbox_pills(frame, 0, transform),
@@ -2232,7 +2558,7 @@ fn player_debug_json(
         .join(",");
 
     format!(
-        "{{\"index\":{},\"bits\":{},\"action_state_id\":{},\"source_action_key\":{},\"motion_state\":\"{:?}\",\"motion_state_alias\":{},\"state_frame\":{},\"position_x\":{},\"position_y\":{},\"velocity_x\":{},\"velocity_y\":{},\"damage_percent\":{},\"damage_percent_temp\":{},\"damage_applied\":{},\"damage_knockback\":{},\"damage_angle\":{},\"damage_element\":{},\"hitlag_frames\":{},\"damage_hitstun_frames\":{},\"profile_weight\":{},\"ecb\":[{}]}}",
+        "{{\"index\":{},\"bits\":{},\"action_state_id\":{},\"source_action_key\":{},\"motion_state\":\"{:?}\",\"motion_state_alias\":{},\"state_frame\":{},\"position_x\":{},\"position_y\":{},\"velocity_x\":{},\"velocity_y\":{},\"damage_percent\":{},\"damage_percent_temp\":{},\"damage_applied\":{},\"damage_knockback\":{},\"damage_angle\":{},\"damage_element\":{},\"hitlag_frames\":{},\"damage_hitstun_frames\":{},\"profile_weight\":{},\"shield_collision_active\":{},\"shield_hit_active\":{},\"shield_hit_position\":{{\"x\":{},\"y\":{},\"z\":{}}},\"shield_health\":{},\"lightshield_amount\":{},\"shield_aim_angle_degrees\":{},\"shield_aim_magnitude\":{},\"ecb\":[{}]}}",
         index,
         input.bits(),
         optional_action_state_id_json(frame.player_action_state_ids[index]),
@@ -2253,6 +2579,15 @@ fn player_debug_json(
         frame.player_hitlag_frames[index],
         frame.player_damage_hitstun_frames[index],
         frame.player_profile_weights[index],
+        frame.player_source_shield_collision_active[index],
+        frame.player_source_shield_hit_active[index],
+        frame.player_source_shield_hit_positions[index].x,
+        frame.player_source_shield_hit_positions[index].y,
+        frame.player_source_shield_hit_positions[index].z,
+        frame.player_shield_healths[index],
+        frame.player_lightshield_amounts[index],
+        frame.player_source_shield_aim_angle_degrees[index],
+        frame.player_source_shield_aim_magnitudes[index],
         ecb
     )
 }
@@ -2306,26 +2641,24 @@ fn active_player_rect(
     player_rect(bottom_center, transform, sprite, visual, color)
 }
 
-fn player_shield(motion_state: MotionState, player: RenderRect) -> Option<RenderCircle> {
+fn player_shield(
+    frame: &RenderFrame,
+    index: usize,
+    player: RenderRect,
+    transform: RenderTransform,
+) -> Option<RenderCircle> {
     if player.width == 0 || player.height == 0 {
         return None;
     }
-    if !matches!(
-        motion_state,
-        MotionState::GuardOn
-            | MotionState::Guard
-            | MotionState::GuardOff
-            | MotionState::GuardReflect
-    ) {
-        return None;
-    }
+    let shield_size = source_guard_shield_size(frame, index)?;
+    let source_position = frame.player_source_shield_hit_positions[index];
 
     Some(RenderCircle {
-        center: RenderPoint {
-            x: player.x + player.width as i32 / 2,
-            y: player.y + player.height as i32 / 2,
-        },
-        radius: player.width.max(player.height) * 58 / 100,
+        center: transform.world_to_screen(Vec2 {
+            x: source_units_to_milli(source_position.x),
+            y: source_units_to_milli(source_position.y),
+        }),
+        radius: transform.core_length_to_screen(source_units_to_milli(shield_size)),
         color: RenderColor::SHIELD_BUBBLE,
     })
 }
@@ -2380,15 +2713,11 @@ fn player_hurtbox_pills(
     if !frame.player_participates(index) {
         return Vec::new();
     }
-    let source_action_key = source_hurt_action_key_for_player(frame, index);
-    let source_frame =
-        source_collision_hurt_capsule_frame_for_player(frame, index, source_action_key);
-    let source_root = source_render_root_position(frame, index, source_action_key, source_frame);
-    runtime_source_frame_capsules_ref(source_action_key, source_frame)
-        .map(|source_capsules| source_capsules.hurt_capsules.as_slice())
-        .unwrap_or(&[])
-        .iter()
-        .copied()
+    let pose_selection = source_hurt_pose_selection_for_player(frame, index);
+    let source_root = runtime_source_hurt_root_for_selection(frame, index, pose_selection);
+    runtime_source_hurt_capsules_for_selection(pose_selection)
+        .unwrap_or_default()
+        .into_iter()
         .map(|hurtbox| {
             render_source_capsule(
                 hurtbox,
@@ -2401,6 +2730,78 @@ fn player_hurtbox_pills(
             )
         })
         .collect()
+}
+
+fn runtime_source_hurt_capsules_for_render(
+    source_action_key: Option<SourceActionKey>,
+    anim_frame: f32,
+    source_frame: u8,
+) -> Option<Vec<RuntimeSourceCapsule>> {
+    runtime_source_live_hurt_capsules(source_action_key, anim_frame).or_else(|| {
+        runtime_source_frame_capsules_ref(source_action_key, source_frame)
+            .map(|source_capsules| source_capsules.hurt_capsules.clone())
+    })
+}
+
+fn runtime_source_root_for_pose(
+    frame: &RenderFrame,
+    index: usize,
+    source_action_key: Option<SourceActionKey>,
+    anim_frame: f32,
+    source_frame: u8,
+) -> Vec3 {
+    if !source_action_key.is_some_and(runtime_source_action_clears_transn_after_sampling) {
+        return Vec3::new(0.0, 0.0, 0.0);
+    }
+    runtime_source_live_pose(source_action_key, anim_frame)
+        .map(|pose| runtime_source_vec3_from_sample(pose.source_root_position))
+        .unwrap_or_else(|| {
+            source_render_root_position(frame, index, source_action_key, source_frame)
+        })
+}
+
+fn runtime_source_hurt_root_for_selection(
+    frame: &RenderFrame,
+    index: usize,
+    selection: SourceHurtPoseSelection,
+) -> Vec3 {
+    let aimed_root = runtime_source_root_for_pose(
+        frame,
+        index,
+        selection.source_action_key,
+        selection.anim_frame,
+        selection.source_frame,
+    );
+    if selection.guard_aim_blend <= 0.0 || selection.guard_aim_blend >= 1.0 {
+        return aimed_root;
+    }
+    let base_root = runtime_source_root_for_pose(
+        frame,
+        index,
+        selection.base_source_action_key,
+        selection.base_anim_frame,
+        selection.base_source_frame,
+    );
+    lerp_vec3(base_root, aimed_root, selection.guard_aim_blend)
+}
+
+fn runtime_source_hurt_capsules_for_selection(
+    selection: SourceHurtPoseSelection,
+) -> Option<Vec<RuntimeSourceCapsule>> {
+    let aimed_capsules = runtime_source_hurt_capsules_for_render(
+        selection.source_action_key,
+        selection.anim_frame,
+        selection.source_frame,
+    )?;
+    if selection.guard_aim_blend <= 0.0 || selection.guard_aim_blend >= 1.0 {
+        return Some(aimed_capsules);
+    }
+    let base_capsules = runtime_source_hurt_capsules_for_render(
+        selection.base_source_action_key,
+        selection.base_anim_frame,
+        selection.base_source_frame,
+    )?;
+    blend_runtime_source_capsules(base_capsules, aimed_capsules, selection.guard_aim_blend)
 }
 
 fn source_capsule_frame_for_player(
@@ -2417,26 +2818,100 @@ fn source_collision_capsule_frame_for_player(
     index: usize,
     source_action_key: Option<SourceActionKey>,
 ) -> u8 {
-    let live_frame = frame.player_source_motion_anim_frames[index];
+    source_collision_capsule_frame_for_anim_frame(
+        frame,
+        index,
+        source_action_key,
+        frame.player_source_motion_anim_frames[index],
+    )
+}
+
+fn source_collision_capsule_frame_for_anim_frame(
+    frame: &RenderFrame,
+    index: usize,
+    source_action_key: Option<SourceActionKey>,
+    live_frame: f32,
+) -> u8 {
     let source_frame = if live_frame > 0.0 && live_frame.is_finite() {
-        (live_frame.floor().clamp(0.0, f32::from(u8::MAX)) as u8).saturating_add(1)
+        (live_frame.floor().clamp(1.0, f32::from(u8::MAX)) as u8).max(1)
     } else {
         frame.player_source_pose_frames[index].max(1)
     };
     normalize_runtime_source_frame(source_action_key, source_frame)
 }
 
-fn source_collision_hurt_capsule_frame_for_player(
+#[derive(Clone, Copy)]
+struct SourceHurtPoseSelection {
+    source_action_key: Option<SourceActionKey>,
+    anim_frame: f32,
+    source_frame: u8,
+    base_source_action_key: Option<SourceActionKey>,
+    base_anim_frame: f32,
+    base_source_frame: u8,
+    guard_aim_blend: f32,
+}
+
+fn source_hurt_pose_selection_for_player(
     frame: &RenderFrame,
     index: usize,
-    source_action_key: Option<SourceActionKey>,
-) -> u8 {
-    source_collision_capsule_frame_for_player(frame, index, source_action_key)
+) -> SourceHurtPoseSelection {
+    let base_source_action_key = source_hurt_action_key_for_player(frame, index);
+    let base_anim_frame = frame.player_source_motion_anim_frames[index];
+    let base_source_frame = source_collision_capsule_frame_for_anim_frame(
+        frame,
+        index,
+        base_source_action_key,
+        base_anim_frame,
+    );
+    let guard_aim_blend = source_hurt_pose_guard_aim_blend(frame, index);
+    let shield_pose_active = frame.player_source_shield_collision_active[index];
+    let source_action_key = if shield_pose_active {
+        Some(SourceActionKey::new("Guard"))
+    } else {
+        base_source_action_key
+    };
+    let anim_frame = if guard_aim_blend > 0.0 {
+        frame.player_source_shield_aim_angle_degrees[index]
+    } else if shield_pose_active {
+        SOURCE_GUARD_NEUTRAL_FRAME
+    } else {
+        base_anim_frame
+    };
+    let source_frame =
+        source_collision_capsule_frame_for_anim_frame(frame, index, source_action_key, anim_frame);
+    SourceHurtPoseSelection {
+        source_action_key,
+        anim_frame,
+        source_frame,
+        base_source_action_key,
+        base_anim_frame,
+        base_source_frame,
+        guard_aim_blend,
+    }
+}
+
+fn source_hurt_pose_guard_aim_blend(frame: &RenderFrame, index: usize) -> f32 {
+    if !frame.player_source_shield_collision_active[index] {
+        return 0.0;
+    }
+    source_guard_aim_blend_amount(
+        frame.player_source_shield_aim_magnitudes[index],
+        frame.player_source_shield_aim_angle_degrees[index],
+    )
 }
 
 fn source_action_key_for_player(frame: &RenderFrame, index: usize) -> Option<SourceActionKey> {
     if let Some(action_state_id) = frame.player_source_pose_action_state_ids[index] {
-        if let Some(key) = source_frame_data::source_action_key_for_action_state_id(action_state_id)
+        if let Some(binding) = canonical_source_action_binding_for_runtime_id(action_state_id) {
+            return Some(binding.source_action_key);
+        }
+        if let Some(binding) = source_special_action_binding_for_runtime_id(action_state_id) {
+            if binding.motion_state.is_none() {
+                return Some(binding.source_action_key);
+            }
+        }
+        if let Some(key) =
+            source_frame_data::source_action_key_for_source_pose_action_state_id(action_state_id)
         {
             return Some(SourceActionKey::new(key));
         }
@@ -2493,6 +2968,9 @@ fn source_render_root_position(
     source_action_key: Option<SourceActionKey>,
     source_frame: u8,
 ) -> Vec3 {
+    if !source_action_key.is_some_and(runtime_source_action_clears_transn_after_sampling) {
+        return Vec3::new(0.0, 0.0, 0.0);
+    }
     runtime_source_frame_capsules_ref(source_action_key, source_frame)
         .map(|capsules| capsules.source_root_position)
         .or_else(|| {
@@ -2611,6 +3089,8 @@ fn source_hit_capsule_to_world_3d(
     capsule: RuntimeSourceCapsule,
     previous_root_position: SourceVec2,
     current_root_position: SourceVec2,
+    previous_root_position_z: f32,
+    current_root_position_z: f32,
     facing: i8,
     previous_source_root: Vec3,
     current_source_root: Vec3,
@@ -2619,12 +3099,14 @@ fn source_hit_capsule_to_world_3d(
         source_point_to_world_3d(
             capsule.a,
             previous_root_position,
+            previous_root_position_z,
             facing,
             previous_source_root,
         ),
         source_point_to_world_3d(
             capsule.b,
             current_root_position,
+            current_root_position_z,
             facing,
             current_source_root,
         ),
@@ -2639,15 +3121,37 @@ fn source_hit_capsule_uses_previous_root(capsule: RuntimeSourceCapsule, source_f
         .unwrap_or(capsule.a != capsule.b)
 }
 
+fn source_hit_capsule_lifecycle_starts_on_frame(
+    capsule: RuntimeSourceCapsule,
+    source_frame: u8,
+) -> bool {
+    capsule
+        .hitbox_lifecycle_id
+        .is_some_and(|lifecycle_id| (lifecycle_id.get() >> 32) == u64::from(source_frame))
+}
+
 fn source_capsule_to_world_3d(
     capsule: RuntimeSourceCapsule,
     root_position: SourceVec2,
+    root_position_z: f32,
     facing: i8,
     source_root: Vec3,
 ) -> Capsule3 {
     Capsule3::new(
-        source_point_to_world_3d(capsule.a, root_position, facing, source_root),
-        source_point_to_world_3d(capsule.b, root_position, facing, source_root),
+        source_point_to_world_3d(
+            capsule.a,
+            root_position,
+            root_position_z,
+            facing,
+            source_root,
+        ),
+        source_point_to_world_3d(
+            capsule.b,
+            root_position,
+            root_position_z,
+            facing,
+            source_root,
+        ),
         source_units_to_core_units_f32(capsule.radius),
     )
 }
@@ -2696,6 +3200,7 @@ fn source_point_to_constrained_xrotn_world_3d(
 fn source_point_to_world_3d(
     point: RuntimeSourcePoint,
     root_position: SourceVec2,
+    root_position_z: f32,
     facing: i8,
     source_root: Vec3,
 ) -> Vec3 {
@@ -2703,8 +3208,23 @@ fn source_point_to_world_3d(
     Vec3::new(
         source_units_to_core_units_f32(root_position.x + (point.x - source_root.z) * facing_sign),
         source_units_to_core_units_f32(root_position.y + point.y - source_root.y),
-        source_units_to_core_units_f32((point.z - source_root.x) * facing_sign),
+        source_units_to_core_units_f32(root_position_z + (point.z + source_root.x) * facing_sign),
     )
+}
+
+fn source_matrix_to_world_3d(matrix: Mat3x4, facing: i8) -> Mat3x4 {
+    let facing_sign = if facing < 0 { -1.0_f32 } else { 1.0_f32 };
+    let rows = matrix.rows;
+    Mat3x4::from_rows([
+        [rows[2][2], rows[2][1] * facing_sign, rows[2][0], 0.0],
+        [
+            rows[1][2] * facing_sign,
+            rows[1][1],
+            rows[1][0] * facing_sign,
+            0.0,
+        ],
+        [rows[0][2], rows[0][1] * facing_sign, rows[0][0], 0.0],
+    ])
 }
 
 fn source_units_to_core_units(value: f32) -> i32 {
@@ -2729,9 +3249,107 @@ struct RuntimeSourceCapsule {
     b: RuntimeSourcePoint,
     radius: f32,
     hurt_height: u8,
+    hurt_matrix: Option<Mat3x4>,
     hitbox_lifecycle_id: Option<SourceHitboxLifecycleId>,
     hitbox: Option<SourceHitboxAttributes>,
     hitbox_flags: SourceHitboxFlags,
+}
+
+fn source_guard_aim_blend_amount(aim_magnitude: f32, aim_angle_degrees: f32) -> f32 {
+    if !aim_magnitude.is_finite() || !aim_angle_degrees.is_finite() {
+        return 0.0;
+    }
+    aim_magnitude.clamp(0.0, 1.0)
+}
+
+fn lerp_f32(start: f32, end: f32, amount: f32) -> f32 {
+    start + (end - start) * amount
+}
+
+fn lerp_runtime_source_point(
+    start: RuntimeSourcePoint,
+    end: RuntimeSourcePoint,
+    amount: f32,
+) -> RuntimeSourcePoint {
+    RuntimeSourcePoint {
+        x: lerp_f32(start.x, end.x, amount),
+        y: lerp_f32(start.y, end.y, amount),
+        z: lerp_f32(start.z, end.z, amount),
+    }
+}
+
+fn lerp_source_pose_point(
+    start: SourcePosePoint,
+    end: SourcePosePoint,
+    amount: f32,
+) -> SourcePosePoint {
+    SourcePosePoint {
+        x: lerp_f32(start.x, end.x, amount),
+        y: lerp_f32(start.y, end.y, amount),
+        z: lerp_f32(start.z, end.z, amount),
+    }
+}
+
+fn lerp_vec3(start: Vec3, end: Vec3, amount: f32) -> Vec3 {
+    Vec3 {
+        x: lerp_f32(start.x, end.x, amount),
+        y: lerp_f32(start.y, end.y, amount),
+        z: lerp_f32(start.z, end.z, amount),
+    }
+}
+
+fn lerp_mat3x4(start: Mat3x4, end: Mat3x4, amount: f32) -> Mat3x4 {
+    let mut rows = start.rows;
+    for row in 0..3 {
+        for col in 0..4 {
+            rows[row][col] = lerp_f32(start.rows[row][col], end.rows[row][col], amount);
+        }
+    }
+    Mat3x4 { rows }
+}
+
+fn lerp_optional_mat3x4(start: Option<Mat3x4>, end: Option<Mat3x4>, amount: f32) -> Option<Mat3x4> {
+    match (start, end) {
+        (Some(start), Some(end)) => Some(lerp_mat3x4(start, end, amount)),
+        (None, Some(end)) => Some(end),
+        (Some(start), None) => Some(start),
+        (None, None) => None,
+    }
+}
+
+fn blend_runtime_source_capsule(
+    base: RuntimeSourceCapsule,
+    aimed: RuntimeSourceCapsule,
+    amount: f32,
+) -> Option<RuntimeSourceCapsule> {
+    if base.id != aimed.id {
+        return None;
+    }
+    Some(RuntimeSourceCapsule {
+        id: aimed.id,
+        a: lerp_runtime_source_point(base.a, aimed.a, amount),
+        b: lerp_runtime_source_point(base.b, aimed.b, amount),
+        radius: lerp_f32(base.radius, aimed.radius, amount),
+        hurt_height: aimed.hurt_height,
+        hurt_matrix: lerp_optional_mat3x4(base.hurt_matrix, aimed.hurt_matrix, amount),
+        hitbox_lifecycle_id: aimed.hitbox_lifecycle_id,
+        hitbox: aimed.hitbox,
+        hitbox_flags: aimed.hitbox_flags,
+    })
+}
+
+fn blend_runtime_source_capsules(
+    base: Vec<RuntimeSourceCapsule>,
+    aimed: Vec<RuntimeSourceCapsule>,
+    amount: f32,
+) -> Option<Vec<RuntimeSourceCapsule>> {
+    if base.len() != aimed.len() {
+        return None;
+    }
+    base.into_iter()
+        .zip(aimed.into_iter())
+        .map(|(base, aimed)| blend_runtime_source_capsule(base, aimed, amount))
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2755,6 +3373,7 @@ struct RuntimeSourceAction {
     source_action_key: SourceActionKey,
     total_frames: u8,
     loops: bool,
+    clears_transn_after_sampling: bool,
     frames: Vec<RuntimeSourceFrameCapsules>,
     live_pose_evaluator: RuntimeActionFrameEvaluator,
     script_events: Vec<RuntimeSourceActionScriptEvent>,
@@ -2782,6 +3401,9 @@ fn runtime_source_frame_capsules_ref(
 fn runtime_source_action_total_frames_for_action_state_id(
     action_state_id: MeleeActionStateId,
 ) -> Option<u8> {
+    if let Some(binding) = canonical_source_action_binding_for_runtime_id(action_state_id) {
+        return runtime_source_action_total_frames(binding.source_action_key);
+    }
     source_frame_data::source_action_key_for_action_state_id(action_state_id)
         .map(SourceActionKey::new)
         .and_then(runtime_source_action_total_frames)
@@ -2826,13 +3448,19 @@ fn runtime_source_primary_hitbox(
 }
 
 fn source_action_key_for_player_state(player: &PlayerState) -> Option<SourceActionKey> {
+    if let Some(source_action_key) = player.source_action_key {
+        return Some(source_action_key);
+    }
     if let Some(action_state_id) = player.melee_action_state_id {
+        if let Some(binding) = canonical_source_action_binding_for_runtime_id(action_state_id) {
+            return Some(binding.source_action_key);
+        }
         if let Some(key) = source_frame_data::source_action_key_for_action_state_id(action_state_id)
         {
             return Some(SourceActionKey::new(key));
         }
     }
-    player.source_action_key
+    None
 }
 
 fn source_collision_frame_for_player_state(player: &PlayerState) -> u8 {
@@ -2844,9 +3472,8 @@ fn source_collision_frame_for_player_state(player: &PlayerState) -> u8 {
     } else {
         0
     };
-    let frame = anim_frame.saturating_add(1);
     let source_action_key = source_action_key_for_player_state(player);
-    normalize_runtime_source_frame(source_action_key, frame)
+    normalize_runtime_source_frame(source_action_key, anim_frame.max(1))
 }
 
 fn normalize_runtime_source_frame(
@@ -2894,6 +3521,18 @@ fn runtime_source_action_loops(source_action_key: SourceActionKey) -> bool {
         .unwrap_or(false)
 }
 
+fn runtime_source_action_clears_transn_after_sampling(source_action_key: SourceActionKey) -> bool {
+    runtime_source_actions()
+        .ok()
+        .and_then(|actions| {
+            actions
+                .iter()
+                .find(|action| action.source_action_key == source_action_key)
+                .map(|action| action.clears_transn_after_sampling)
+        })
+        .unwrap_or(false)
+}
+
 fn runtime_source_live_pose(
     source_action_key: Option<SourceActionKey>,
     anim_frame: f32,
@@ -2904,6 +3543,18 @@ fn runtime_source_live_pose(
         .iter()
         .find(|action| action.source_action_key == source_action_key)?
         .sample_live_pose(anim_frame)
+}
+
+fn runtime_source_live_hurt_capsules(
+    source_action_key: Option<SourceActionKey>,
+    anim_frame: f32,
+) -> Option<Vec<RuntimeSourceCapsule>> {
+    let source_action_key = source_action_key?;
+    let cache = runtime_source_actions().ok()?;
+    cache
+        .iter()
+        .find(|action| action.source_action_key == source_action_key)?
+        .sample_live_hurt_capsules(anim_frame)
 }
 
 fn runtime_source_down_bound_pose_from_live_sample(
@@ -2989,6 +3640,7 @@ fn load_all_runtime_source_actions() -> Result<Vec<RuntimeSourceAction>, String>
                 })?;
             let source_action_key =
                 SourceActionKey::new(leak_runtime_source_action_key(source_action_key_text));
+            let clears_transn_after_sampling = live_pose_evaluator.clears_transn_after_sampling();
             let frames = action
                 .frames
                 .into_iter()
@@ -3003,6 +3655,7 @@ fn load_all_runtime_source_actions() -> Result<Vec<RuntimeSourceAction>, String>
                 source_action_key,
                 total_frames: action.total_frames,
                 loops: action.loops,
+                clears_transn_after_sampling,
                 frames,
                 live_pose_evaluator,
                 script_events,
@@ -3061,6 +3714,24 @@ fn runtime_source_script_event_from_sample(
                     cmd_var: event.cmd_var,
                     value: event.value,
                 },
+            })
+        }
+        FrameDataRuntimeSourceScriptEvent::AllowInterrupt(event) => {
+            Some(RuntimeSourceActionScriptEvent {
+                source_frame: event.source_frame,
+                event: SourceActionScriptEvent::AllowInterrupt,
+            })
+        }
+        FrameDataRuntimeSourceScriptEvent::SetAirborneState(event) => {
+            Some(RuntimeSourceActionScriptEvent {
+                source_frame: event.source_frame,
+                event: SourceActionScriptEvent::SetAirborneState { state: event.state },
+            })
+        }
+        FrameDataRuntimeSourceScriptEvent::SetCollisionState(event) => {
+            Some(RuntimeSourceActionScriptEvent {
+                source_frame: event.source_frame,
+                event: SourceActionScriptEvent::SetCollisionState { state: event.state },
             })
         }
         FrameDataRuntimeSourceScriptEvent::SetJabCombo(event) => {
@@ -3122,6 +3793,7 @@ fn runtime_source_capsule_from_sample(sample: RuntimeSourceCapsuleSample) -> Run
         },
         radius: sample.radius,
         hurt_height: sample.hurt_height,
+        hurt_matrix: sample.hurt_matrix,
         hitbox_lifecycle_id: sample.hitbox_lifecycle_id,
         hitbox: sample.hitbox,
         hitbox_flags: sample.hitbox_flags,
@@ -3136,6 +3808,18 @@ impl RuntimeSourceAction {
 
     fn sample_live_pose(&self, anim_frame: f32) -> Option<RuntimeSourceLivePoseSample> {
         self.live_pose_evaluator.sample_live_pose(anim_frame).ok()
+    }
+
+    fn sample_live_hurt_capsules(&self, anim_frame: f32) -> Option<Vec<RuntimeSourceCapsule>> {
+        self.live_pose_evaluator
+            .sample_live_hurt_capsules(anim_frame)
+            .ok()
+            .map(|capsules| {
+                capsules
+                    .into_iter()
+                    .map(runtime_source_capsule_from_sample)
+                    .collect()
+            })
     }
 }
 
@@ -3649,4 +4333,262 @@ fn optional_arg(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag)
         .map(|pair| pair[1].clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cliff_catch_runtime_metadata_carries_global_collision_state() {
+        assert_eq!(
+            runtime_source_script_events(Some(SourceActionKey::new("CliffCatch")), 1, true)
+                .iter()
+                .collect::<Vec<_>>(),
+            vec![SourceActionScriptEvent::SetCollisionState { state: 2 }]
+        );
+    }
+
+    #[test]
+    fn source_metadata_prefers_explicit_source_action_key_over_common_state_id() {
+        let mut player = PlayerState::new(1, 0, -1);
+        player.set_motion_state_alias(MotionState::Attack1);
+        player.melee_action_state_id = Some(MeleeActionStateId::new(44));
+        player.source_action_key = Some(SourceActionKey::new("Attack11"));
+
+        assert_eq!(
+            source_action_key_for_player_state(&player),
+            Some(SourceActionKey::new("Attack11")),
+            "common state id 44 is Attack11, but Falcon source action table id 44 is EscapeAir; live source metadata must not remap away from the explicit source key"
+        );
+    }
+
+    #[test]
+    fn source_pose_action_state_ids_do_not_alias_to_source_table_indices() {
+        assert_eq!(
+            source_frame_data::source_action_key_for_source_pose_action_state_id(
+                MeleeActionStateId::new(66)
+            ),
+            Some("AttackAirF"),
+            "a live pose action-state id is the Melee motion-state id for common actions; it must not be interpreted as Falcon source action-table slot 66"
+        );
+    }
+
+    #[test]
+    fn attack_air_n_collision_uses_current_anim_frame_before_frame_seven_hitboxes() {
+        let source_action_key = Some(SourceActionKey::new("AttackAirN"));
+        assert!(
+            runtime_source_primary_hitbox(source_action_key, 6).is_none(),
+            "Falcon AttackAirN frame 6 has no extracted hitbox"
+        );
+        assert!(
+            runtime_source_primary_hitbox(source_action_key, 7).is_some(),
+            "Falcon AttackAirN first hitboxes are extracted at frame 7"
+        );
+
+        let mut player = PlayerState::new(0, 0, 1);
+        player.set_motion_state_alias(MotionState::AttackAirN);
+        player.melee_action_state_id = Some(MeleeActionStateId::new(65));
+        player.source_action_key = source_action_key;
+        player.set_source_motion_anim_frame(6.0);
+
+        assert_eq!(
+            source_collision_frame_for_player_state(&player),
+            6,
+            "ftAction command processing is keyed from the current cur_anim_frame; collision must not expose frame-7 hitboxes while cur_anim_frame is still 6.0"
+        );
+    }
+
+    #[test]
+    fn attack_air_f_hitboxes_persist_until_clear_like_ftcoll_8007ad18() {
+        let source_action_key = Some(SourceActionKey::new("AttackAirF"));
+        assert!(
+            runtime_source_primary_hitbox(source_action_key, 13).is_none(),
+            "Falcon AttackAirF does not spawn hitboxes before its frame-14 source command"
+        );
+
+        let frame14 = runtime_source_primary_hitbox(source_action_key, 14)
+            .expect("Falcon AttackAirF frame-14 source command must create a hit capsule");
+        assert_eq!(frame14.damage, 18);
+
+        let frame16 = runtime_source_primary_hitbox(source_action_key, 16).expect(
+            "ftColl_8007AD18 keeps enabled hit capsules live across frames until a later source command clears or replaces them",
+        );
+        assert_eq!(frame16.damage, 18);
+
+        let frame17 = runtime_source_primary_hitbox(source_action_key, 17)
+            .expect("Falcon AttackAirF frame-17 source command must replace the hit capsule");
+        assert_eq!(frame17.damage, 6);
+    }
+
+    #[test]
+    fn attack_air_hi_sustained_hitbox_geometry_uses_refreshed_collision_sample() {
+        let source_action_key = Some(SourceActionKey::new("AttackAirHi"));
+        let frame7 = runtime_source_frame_capsules_ref(source_action_key, 7)
+            .expect("Falcon AttackAirHi frame 7 must keep the frame-6 hitbox lifecycle active");
+        let frame8 = runtime_source_frame_capsules_ref(source_action_key, 8)
+            .expect("Falcon AttackAirHi frame 8 must keep the same hitbox lifecycle active");
+        let frame7_lifecycle = frame7
+            .hit_capsules
+            .iter()
+            .find_map(|capsule| capsule.hitbox_lifecycle_id)
+            .expect("AttackAirHi frame 7 hitbox must carry a decomp hit capsule lifecycle");
+        assert!(
+            frame8
+                .hit_capsules
+                .iter()
+                .any(|capsule| capsule.hitbox_lifecycle_id == Some(frame7_lifecycle)),
+            "the next baked frame must contain the same decomp hit capsule lifecycle"
+        );
+
+        assert_eq!(
+            source_damage_hit_geometry_frame(source_action_key, 7, SourceHitElementFilter::NonCatch),
+            8,
+            "ftColl_8007AD18 refreshes active hit capsules before the collision pass; sustained hitboxes must use the refreshed x4C sample, not the stale previous-frame geometry"
+        );
+    }
+
+    #[test]
+    fn damage_hitlag_render_hurtboxes_use_live_jobj_pose_like_collision() {
+        let source_action_key = Some(SourceActionKey::new("DamageAir3"));
+        let live_hurt_capsules = runtime_source_live_hurt_capsules(source_action_key, 2.0)
+            .expect("DamageAir3 must have live JObj-derived hurt capsules during hitlag");
+        assert!(
+            !live_hurt_capsules.is_empty(),
+            "hitlag freezes Fighter_procUpdate in the decomp, but it does not remove the fighter's JObj-derived hurt geometry"
+        );
+
+        let render_hurt_capsules =
+            runtime_source_hurt_capsules_for_render(source_action_key, 2.0, 2)
+                .expect("debug render must use the same live hurt source as collision");
+        assert_eq!(
+            render_hurt_capsules.len(),
+            live_hurt_capsules.len(),
+            "render/debug hurtboxes must not disappear during source-only damage actions when live JObj hurt geometry is available"
+        );
+    }
+
+    #[test]
+    fn render_scene_keeps_damage_hitlag_defender_hurtboxes_visible() {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_action_state_ids[1] = Some(MeleeActionStateId::new(86));
+        frame.player_source_action_keys[1] = None;
+        frame.player_motion_state_aliases[1] = None;
+        frame.player_motion_states[1] = MotionState::AttackAirF;
+        frame.player_source_motion_anim_frames[1] = 2.0;
+        frame.player_source_pose_action_state_ids[1] = Some(MeleeActionStateId::new(86));
+        frame.player_source_pose_action_keys[1] = None;
+        frame.player_source_pose_motion_states[1] = MotionState::AttackAirF;
+        frame.player_source_pose_frames[1] = 2;
+        frame.player_hitlag_frames[1] = 5;
+        frame.player_source_collision_states[1] = SOURCE_COLLISION_STATE_NORMAL;
+
+        let scene = RenderScene::from_frame(&frame, 640, 480);
+
+        assert!(
+            !scene.player_hurtbox_pills[1].is_empty(),
+            "a DamageAir3 defender in hitlag must remain visible to the debug renderer; the decomp freezes update via x2219_b5 but does not remove hurt geometry"
+        );
+    }
+
+    #[test]
+    fn render_scene_does_not_draw_shield_from_stale_guard_alias_on_source_damage() {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_action_state_ids[1] = Some(MeleeActionStateId::new(90));
+        frame.player_source_action_keys[1] = None;
+        frame.player_source_pose_action_state_ids[1] = Some(MeleeActionStateId::new(90));
+        frame.player_source_pose_action_keys[1] = None;
+        frame.player_motion_state_aliases[1] = None;
+        frame.player_motion_states[1] = MotionState::GuardOn;
+
+        let scene = RenderScene::from_frame(&frame, 640, 480);
+
+        assert!(
+            scene.player_shields[1].is_none(),
+            "source action id 90 is DamageFlyTop, not GuardOn; render/debug shield bubbles must not be driven by a stale common motion alias"
+        );
+    }
+
+    #[test]
+    fn render_scene_does_not_draw_shield_from_stale_guard_alias_on_passive_stand() {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_action_state_ids[1] = Some(MeleeActionStateId::new(201));
+        frame.player_source_action_keys[1] = None;
+        frame.player_source_pose_action_state_ids[1] = Some(MeleeActionStateId::new(201));
+        frame.player_source_pose_action_keys[1] = None;
+        frame.player_motion_state_aliases[1] = None;
+        frame.player_motion_states[1] = MotionState::GuardOn;
+
+        let scene = RenderScene::from_frame(&frame, 640, 480);
+
+        assert!(
+            scene.player_shields[1].is_none(),
+            "source action id 201 is PassiveStandB, not GuardOn; held trigger input cannot keep the shield bubble visible through passive/throw follow-through"
+        );
+    }
+
+    #[test]
+    fn render_scene_draws_shield_for_guard_source_identity() {
+        let world = World::for_two_players();
+        let mut frame = RenderFrame::from_world(&world);
+        frame.player_action_state_ids[1] = Some(MeleeActionStateId::new(178));
+        frame.player_source_action_keys[1] = None;
+        frame.player_source_pose_action_state_ids[1] = Some(MeleeActionStateId::new(178));
+        frame.player_source_pose_action_keys[1] = None;
+        frame.player_motion_state_aliases[1] = None;
+        frame.player_motion_states[1] = MotionState::GuardOn;
+        frame.player_source_shield_collision_active[1] = true;
+        frame.player_source_shield_hit_active[1] = true;
+
+        let scene = RenderScene::from_frame(&frame, 640, 480);
+
+        assert!(
+            scene.player_shields[1].is_some(),
+            "GuardOn source identity with fp->x221B_b0 installed should draw the shield bubble"
+        );
+    }
+
+    #[test]
+    fn source_hurt_matrix_basis_conversion_preserves_decomp_distance_ratio() {
+        let source_matrix = Mat3x4::from_rows([
+            [1.0, 2.0, 3.0, 99.0],
+            [4.0, 5.0, 6.0, 99.0],
+            [7.0, 8.0, 9.0, 99.0],
+        ]);
+
+        assert_eq!(
+            source_matrix_to_world_3d(source_matrix, 1),
+            Mat3x4::from_rows([
+                [9.0, 8.0, 7.0, 0.0],
+                [6.0, 5.0, 4.0, 0.0],
+                [3.0, 2.0, 1.0, 0.0],
+            ]),
+            "the collision primitive compares distance ratios, so the decomp hurt matrix must be axis-converted into runtime XYZ space without adding source-to-milli scale"
+        );
+
+        assert_eq!(
+            source_matrix_to_world_3d(source_matrix, -1),
+            Mat3x4::from_rows([
+                [9.0, -8.0, 7.0, 0.0],
+                [-6.0, 5.0, -4.0, 0.0],
+                [3.0, -2.0, 1.0, 0.0],
+            ])
+        );
+    }
+
+    #[test]
+    fn source_only_action_total_frames_use_canonical_runtime_id_binding() {
+        let throw_hi_key = SourceActionKey::new("ThrowHi");
+        let expected_total_frames = runtime_source_action_total_frames(throw_hi_key)
+            .expect("ThrowHi must be present in compact runtime source actions");
+
+        assert_eq!(
+            runtime_source_action_total_frames_for_action_state_id(MeleeActionStateId::new(221)),
+            Some(expected_total_frames),
+            "ftCo_800DD4B0 enters runtime action state 221, but Falcon's source action table slot is 249; total-frame lookup must use the canonical source binding instead of numeric coincidence"
+        );
+    }
 }

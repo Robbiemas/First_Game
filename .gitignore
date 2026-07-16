@@ -147,6 +147,8 @@ debug/replays/
 debug/slippi/
 replays/*.slp
 replays/*.slp.gz
+/tmp_*.json
+/trace_*.json
 
 # Node tooling dependencies
 node_modules/

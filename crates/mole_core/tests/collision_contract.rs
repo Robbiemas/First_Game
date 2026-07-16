@@ -3,9 +3,10 @@ use mole_core::collision::{
     source_collision_hits, source_damage_accumulator_after_stages, source_damage_result_for_victim,
     source_damage_stages_from_confirms, source_env_damage, source_hit_confirms, source_knockback,
     SourceCollisionCapsule, SourceCollisionFrame, SourceCollisionHit, SourceDamageAccumulator,
-    SourceDamageResultInput, SourceHitboxAttributes, SourceKnockbackInput,
+    SourceDamageResultInput, SourceHitboxAttributes, SourceHitboxLifecycleId, SourceKnockbackInput,
+    SOURCE_SHIELD_HURTBOX_ID,
 };
-use mole_core::MeleeCommonData;
+use mole_core::{MeleeActionStateId, MeleeCommonData, SourceActionKey};
 
 #[test]
 fn capsule_collision_preserves_z_axis_separation() {
@@ -166,6 +167,104 @@ fn source_hit_confirms_stop_at_first_hurtbox_per_hitbox_and_victim_like_decomp()
     assert_eq!(confirms.len(), 1);
     assert_eq!(confirms[0].hitbox_id, 1);
     assert_eq!(confirms[0].hurtbox_id, 10);
+}
+
+#[test]
+fn source_hit_confirms_prioritize_guard_shield_over_body_hurtboxes() {
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 5,
+        angle: 78,
+        knockback_growth: 100,
+        weight_set_knockback: 40,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let hit = SourceCollisionCapsule::new(
+        0,
+        1,
+        Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0), 0.75),
+    )
+    .with_hitbox_attributes(hitbox)
+    .with_owner_grounded(false);
+    let body_hurtbox = SourceCollisionCapsule::new(
+        1,
+        10,
+        Capsule3::new(Vec3::new(1.0, 0.0, 0.9), Vec3::new(1.0, 2.0, 0.9), 0.75),
+    )
+    .with_owner_grounded(true);
+    let shield_hurtbox = SourceCollisionCapsule::new(
+        1,
+        SOURCE_SHIELD_HURTBOX_ID,
+        Capsule3::new(Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 2.0),
+    )
+    .with_owner_grounded(true);
+
+    let confirms = source_hit_confirms(&SourceCollisionFrame {
+        hits: vec![hit],
+        hurts: vec![body_hurtbox, shield_hurtbox],
+    });
+
+    assert_eq!(confirms.len(), 1);
+    assert_eq!(confirms[0].hitbox_id, 1);
+    assert_eq!(confirms[0].hurtbox_id, SOURCE_SHIELD_HURTBOX_ID);
+}
+
+#[test]
+fn source_new_hitbox_does_not_sweep_against_damage_victim_predamage_root() {
+    let hitbox = SourceHitboxAttributes {
+        bone: 14,
+        hit_group: 0,
+        damage: 1,
+        angle: 361,
+        knockback_growth: 20,
+        weight_set_knockback: 0,
+        base_knockback: 0,
+        element: 0,
+        shield_damage: 0,
+        hit_grounded: true,
+        hit_aerial: true,
+    };
+    let frame = SourceCollisionFrame {
+        hits: vec![SourceCollisionCapsule::new(
+            0,
+            1,
+            Capsule3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), 1.0),
+        )
+        .with_owner_grounded(true)
+        .with_source_pose(
+            Some(MeleeActionStateId::new(47)),
+            Some(SourceActionKey::new("Attack100Start")),
+            4,
+        )
+        .with_hitbox_lifecycle(SourceHitboxLifecycleId::new(4_u64 << 32))
+        .with_hitbox_attributes(hitbox)],
+        hurts: vec![SourceCollisionCapsule::new(
+            1,
+            10,
+            Capsule3::new(Vec3::new(20.0, 0.0, 0.0), Vec3::new(21.0, 0.0, 0.0), 1.0),
+        )
+        .with_previous_capsule(Capsule3::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            1.0,
+        ))
+        .with_owner_grounded(false)
+        .with_source_pose(
+            Some(MeleeActionStateId::new(79)),
+            Some(SourceActionKey::new("DamageHi1")),
+            1,
+        )],
+    };
+
+    assert!(
+        source_hit_confirms(&frame).is_empty(),
+        "after ftColl damage routing enters a damage motion, rapid-jab hitboxes must collide against the victim's current damage root rather than stale pre-damage root"
+    );
 }
 
 #[test]

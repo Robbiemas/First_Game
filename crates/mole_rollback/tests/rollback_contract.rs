@@ -270,3 +270,26 @@ fn stale_confirmed_input_outside_snapshot_window_does_not_panic_or_resimulate() 
     assert!(!resimulated);
     assert_eq!(session.world().checksum(), before);
 }
+
+#[test]
+fn rollback_session_prunes_inputs_older_than_snapshot_window() {
+    let mut session = RollbackSession::new(World::for_two_players(), 8);
+
+    for frame in 0..10_000 {
+        session.advance_with_prediction(
+            Frame(frame),
+            [Some(PlayerInput::neutral()), Some(PlayerInput::neutral())],
+        );
+    }
+
+    assert_eq!(session.retained_input_frame_count(), 8);
+    let before = session.world().checksum();
+    assert!(!session.confirm_input(
+        Frame(9_990),
+        1,
+        PlayerInput::neutral().with_attack(true),
+        Frame(10_000),
+    ));
+    assert_eq!(session.retained_input_frame_count(), 8);
+    assert_eq!(session.world().checksum(), before);
+}

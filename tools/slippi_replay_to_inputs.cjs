@@ -15,7 +15,12 @@ const MELEE_MAIN_STICK_DEADZONE_Y = 36;
 const MELEE_C_STICK_DEADZONE_X = 36;
 const MELEE_C_STICK_DEADZONE_Y = 36;
 const MELEE_TAP_X_THRESHOLD = 32;
+const MELEE_TAP_Y_THRESHOLD = 32;
 const MELEE_DASH_X = 102;
+const MELEE_ESCAPE_Y = 89;
+const MELEE_ROLL_STICK_FRAMES = 4;
+const MELEE_Z_SHIELD_ANALOG = 89;
+const MELEE_PLATFORM_PASS_Y = 84;
 const MAX_MELEE_INPUT_TIMER = 0xfe;
 const COMPACT_STICK_SCALE = 127;
 const HSD_STICK_RADIUS = 127;
@@ -28,6 +33,9 @@ const UCF_PAD_BUFFER_MASK = UCF_PAD_BUFFER_SIZE - 1;
 const UCF_CARDINAL_AXIS = 80;
 const UCF_CARDINAL_SNAP_RANGE = 6;
 const UCF_TILT_INTENT_DELTA = 75;
+const UCF_SHIELD_DROP_DELTA = 44;
+const UCF_SHIELD_DROP_MIN_Y = 78;
+const UCF_AXE_SHIELD_DROP_Y_CUTOFF = 102;
 
 const HSD_BUTTON_BITS = [
   [0, "dpad_left"],
@@ -331,6 +339,7 @@ function playerSettingsByIndex(settings) {
       player_index: player.playerIndex,
       port: player.port,
       character_id: player.characterId,
+      character_color: player.characterColor ?? 0,
       display_name: player.displayName || "",
       connect_code: player.connectCode || "",
       controller_fix: player.controllerFix || "",
@@ -556,7 +565,7 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
       players,
     };
   });
-  annotateUcfDashbackAmendments(exportedFrames, playerSettings);
+  annotateUcfInputAmendments(exportedFrames, playerSettings);
 
   return {
     schema_version: 1,
@@ -564,7 +573,7 @@ function exportReplay(replayPath, frameLimit, includeNegativeFrames = false) {
         replay_path: path.resolve(replayPath),
         parser: SLIPPI_NODE_ENTRYPOINT,
         parser_note:
-        "Slippi pre-frame joystick floats are exported as observed; rust_player_input is the Melee-cleaned compact gameplay lane. When raw SendGamePreFrame stick bytes are available, they are HSD-clamped, UCF 0.84 cardinals are applied for UCF-tagged players, and PlCo x0/x4 deadzones are applied before packing signed -127..127 axes. Raw bytes at offsets 0x3B/0x40/0x41/0x42 remain in the export for audit/UCF metadata.",
+        "Slippi pre-frame joystick floats are exported as observed; rust_player_input is the Melee-cleaned compact gameplay lane. When raw SendGamePreFrame stick bytes are available, they are HSD-clamped, UCF 0.84 cardinals/shield-drop preprocessing are applied for UCF-tagged players, and PlCo x0/x4 deadzones are applied before packing signed -127..127 axes. Raw bytes at offsets 0x3B/0x40/0x41/0x42 remain in the export for audit/UCF metadata.",
       },
     settings: {
       slp_version: settings.slpVersion,
@@ -661,7 +670,7 @@ function buildDiagnostics(frames) {
   return { players };
 }
 
-function annotateUcfDashbackAmendments(frames, playerSettings) {
+function annotateUcfInputAmendments(frames, playerSettings) {
   const states = {};
 
   for (const frame of frames) {
@@ -672,41 +681,88 @@ function annotateUcfDashbackAmendments(frames, playerSettings) {
       }
 
       if (!states[playerIndex]) {
-        states[playerIndex] = newUcfDashbackState();
+        states[playerIndex] = newUcfInputState();
       }
       const state = states[playerIndex];
-      const rawX = rawStickXFromPreFrame(playerFrame.pre);
-      let processedX = nativeStickXFromPreFrame(playerFrame.pre);
+      const rawStick = rawStickFromPreFrame(playerFrame.pre);
+      const processedStick = nativeStickFromPreFrame(playerFrame.pre);
+      const processedCStick = nativeCStickFromPreFrame(playerFrame.pre);
       state.padBufferIndex = (state.padBufferIndex + 1) & UCF_PAD_BUFFER_MASK;
-      state.padBuffer[state.padBufferIndex] = rawX;
-      const previousRawX =
+      state.padBuffer[state.padBufferIndex] = rawStick;
+      const previousRawStick =
         state.padBuffer[
           (state.padBufferIndex + UCF_PAD_BUFFER_SIZE - 2) & UCF_PAD_BUFFER_MASK
         ];
-      const cleanedX = cleanAxis(processedX, MELEE_MAIN_STICK_DEADZONE_X);
+      const cleanedX = cleanAxis(processedStick[0], MELEE_MAIN_STICK_DEADZONE_X);
+      const cleanedY = cleanAxis(processedStick[1], MELEE_MAIN_STICK_DEADZONE_Y);
       state.stickXHoldTimer = updateAxisHoldTimer(
         state.stickXHoldTimer,
         state.previousCleanedX,
         cleanedX,
         MELEE_TAP_X_THRESHOLD,
       );
+      state.stickYHoldTimer = updateAxisHoldTimer(
+        state.stickYHoldTimer,
+        state.previousCleanedY,
+        cleanedY,
+        MELEE_TAP_Y_THRESHOLD,
+      );
       state.previousCleanedX = cleanedX;
+      state.previousCleanedY = cleanedY;
 
+      const ucfPlayer = isUcfPlayer(playerSettings[playerIndex]);
       rustInput.ucf_dashback_amendment =
-        isUcfPlayer(playerSettings[playerIndex]) &&
+        ucfPlayer &&
         state.stickXHoldTimer < 2 &&
-        Math.abs(processedX) >= MELEE_DASH_X &&
-        ucfAxisDeltaExceeds(previousRawX, rawX, UCF_TILT_INTENT_DELTA);
+        Math.abs(processedStick[0]) >= MELEE_DASH_X &&
+        ucfAxisDeltaExceeds(previousRawStick[0], rawStick[0], UCF_TILT_INTENT_DELTA);
+      rustInput.ucf_shield_drop_amendment = false;
+
+      if (!ucfPlayer) {
+        continue;
+      }
+      const axeShieldDrop = checkAxeMethodShieldDrop(
+        state.stickXHoldTimer,
+        processedStick,
+        processedCStick,
+      );
+      if (
+        checkSdropUp(
+          state.sdropUpFrames,
+          state.stickYHoldTimer,
+          previousRawStick,
+          rawStick,
+          processedStick,
+        )
+      ) {
+        state.sdropUpFrames = incrementMeleeTimer(state.sdropUpFrames);
+      } else {
+        state.sdropUpFrames = 0;
+      }
+      rustInput.ucf_shield_drop_amendment =
+        shieldActiveFromRustInput(rustInput) && (state.sdropUpFrames >= 2 || axeShieldDrop);
     }
   }
 }
 
-function newUcfDashbackState() {
+function annotateUcfDashbackAmendments(frames, playerSettings) {
+  annotateUcfInputAmendments(frames, playerSettings);
+}
+
+function newUcfInputState() {
   return {
-    padBuffer: [0, 0, 0, 0],
+    padBuffer: [
+      [0, 0],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ],
     padBufferIndex: 0,
     previousCleanedX: 0,
+    previousCleanedY: 0,
     stickXHoldTimer: MAX_MELEE_INPUT_TIMER,
+    stickYHoldTimer: MAX_MELEE_INPUT_TIMER,
+    sdropUpFrames: 0,
   };
 }
 
@@ -716,13 +772,40 @@ function isUcfPlayer(playerSetting) {
 
 function rawStickXFromPreFrame(pre) {
   if (Number.isFinite(pre?.raw_joystick_x)) {
-    return clamp(Math.round(pre.raw_joystick_x), -127, 127);
+    return clamp(Math.round(pre.raw_joystick_x), -128, 127);
   }
   return nativeStickXFromPreFrame(pre);
 }
 
+function rawStickYFromPreFrame(pre) {
+  if (Number.isFinite(pre?.raw_joystick_y)) {
+    return clamp(Math.round(pre.raw_joystick_y), -128, 127);
+  }
+  return nativeStickYFromPreFrame(pre);
+}
+
+function rawStickFromPreFrame(pre) {
+  return [rawStickXFromPreFrame(pre), rawStickYFromPreFrame(pre)];
+}
+
 function nativeStickXFromPreFrame(pre) {
   return clamp(Math.round(pre?.rust_player_input?.stick_x || 0), -127, 127);
+}
+
+function nativeStickYFromPreFrame(pre) {
+  return clamp(Math.round(pre?.rust_player_input?.stick_y || 0), -127, 127);
+}
+
+function nativeStickFromPreFrame(pre) {
+  return [nativeStickXFromPreFrame(pre), nativeStickYFromPreFrame(pre)];
+}
+
+function nativeCStickFromPreFrame(pre) {
+  const input = pre?.rust_player_input || {};
+  return [
+    clamp(Math.round(input.c_stick_x || 0), -127, 127),
+    clamp(Math.round(input.c_stick_y || 0), -127, 127),
+  ];
 }
 
 function cleanAxis(value, deadzone) {
@@ -748,6 +831,67 @@ function ucfAxisDeltaExceeds(previous, current, threshold) {
   return delta * delta > threshold * threshold;
 }
 
+function checkSdropUp(sdropUpFrames, stickYHoldTimer, previousStick, rawStick, processedStick) {
+  if (processedStick[1] > -UCF_SHIELD_DROP_MIN_Y) {
+    return false;
+  }
+  if (!isUcfShieldDropRimCoord(processedStick)) {
+    return false;
+  }
+  if (sdropUpFrames !== 0) {
+    return true;
+  }
+  return (
+    stickYHoldTimer < 2 &&
+    ucfAxisDeltaExceeds(previousStick[1], rawStick[1], UCF_SHIELD_DROP_DELTA)
+  );
+}
+
+function checkAxeMethodShieldDrop(stickXHoldTimer, processedStick, processedCStick) {
+  if (processedCStick[1] <= -MELEE_ESCAPE_Y) {
+    return false;
+  }
+  if (stickXHoldTimer < MELEE_ROLL_STICK_FRAMES) {
+    return false;
+  }
+  if (processedStick[1] < -UCF_AXE_SHIELD_DROP_Y_CUTOFF) {
+    return false;
+  }
+  return isUcfShieldDropRimCoord(processedStick);
+}
+
+function isUcfShieldDropRimCoord(stick) {
+  const x = ucfRimAxisCoord(stick[0]);
+  const y = ucfRimAxisCoord(stick[1]);
+  return x * x + y * y > 80 * 80 && stick[1] <= -UCF_SHIELD_DROP_MIN_Y;
+}
+
+function ucfRimAxisCoord(axis) {
+  const absAxis = Math.abs(axis);
+  const denominator = axis < 0 ? 128 : 127;
+  const numerator = absAxis * 80;
+  let coord = Math.trunc(numerator / denominator);
+  if (numerator !== 0 && numerator % denominator === 0) {
+    coord -= 1;
+  }
+  return coord + 2;
+}
+
+function shieldActiveFromRustInput(rustInput) {
+  return (
+    hasButtonBit(rustInput.physical_button_bits, 5) ||
+    hasButtonBit(rustInput.physical_button_bits, 6) ||
+    hasButtonBit(rustInput.processed_button_bits, 5) ||
+    hasButtonBit(rustInput.processed_button_bits, 6) ||
+    (rustInput.left_trigger || 0) >= MELEE_Z_SHIELD_ANALOG ||
+    (rustInput.right_trigger || 0) >= MELEE_Z_SHIELD_ANALOG
+  );
+}
+
+function hasButtonBit(bits, bit) {
+  return (Number(bits || 0) & (1 << bit)) !== 0;
+}
+
 function renderReport(exported) {
   const lines = [];
   lines.push("# Slippi Replay Input Diagnostic");
@@ -759,7 +903,7 @@ function renderReport(exported) {
   lines.push(`- Frame range: ${exported.export.first_frame}..${exported.export.last_frame}`);
   lines.push("");
   lines.push(
-    "This report preserves Slippi pre-frame analog values and post-frame Melee state/velocity facts. For UCF-tagged players it also exports adapter-owned UCF amendment bits, such as dashback, so replay diagnostics match the input layer without baking UCF into core mechanics.",
+    "This report preserves Slippi pre-frame analog values and post-frame Melee state/velocity facts. For UCF-tagged players it also exports adapter-owned UCF preprocessing, such as dashback and shield-drop input translation, so replay diagnostics match the input layer without baking UCF into core mechanics.",
   );
   lines.push("");
 
@@ -890,6 +1034,70 @@ function runSelfTest() {
     false,
   );
 
+  const shieldDropFrames = [
+    slippiUcfShieldDropSelfTestFrame(1000, 0, 0, 0, 0),
+    slippiUcfShieldDropSelfTestFrame(1001, -94, -77, -97, -79),
+    slippiUcfShieldDropSelfTestFrame(1002, -90, -96, -86, -92, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1003, -88, -94, -86, -94, { shieldHeld: true }),
+  ];
+  annotateUcfDashbackAmendments(shieldDropFrames, {
+    0: { controller_fix: "UCF" },
+  });
+  assert.strictEqual(shieldDropFrames[2].players["0"].pre.rust_player_input.stick_y, -92);
+  assert.strictEqual(
+    shieldDropFrames[2].players["0"].pre.rust_player_input.ucf_shield_drop_amendment,
+    true,
+  );
+  assert.strictEqual(shieldDropFrames[3].players["0"].pre.rust_player_input.stick_y, -94);
+  assert.strictEqual(
+    shieldDropFrames[3].players["0"].pre.rust_player_input.ucf_shield_drop_amendment,
+    true,
+  );
+
+  const vanillaShieldDropFrames = [
+    slippiUcfShieldDropSelfTestFrame(1000, 0, 0, 0, 0),
+    slippiUcfShieldDropSelfTestFrame(1001, -94, -77, -97, -79),
+    slippiUcfShieldDropSelfTestFrame(1002, -90, -96, -86, -92, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1003, -88, -94, -86, -94, { shieldHeld: true }),
+  ];
+  annotateUcfDashbackAmendments(vanillaShieldDropFrames, {
+    0: { controller_fix: "" },
+  });
+  assert.strictEqual(vanillaShieldDropFrames[3].players["0"].pre.rust_player_input.stick_y, -94);
+  assert.strictEqual(
+    Boolean(vanillaShieldDropFrames[3].players["0"].pre.rust_player_input.ucf_shield_drop_amendment),
+    false,
+  );
+
+  const axeShieldDropFrames = [
+    slippiUcfShieldDropSelfTestFrame(1068, 95, 8, 125, 0, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1069, 91, 1, 127, 0, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1070, 89, -8, 125, 0, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1071, 89, -33, 119, -43, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1072, 85, -61, 102, -73, { shieldHeld: true }),
+    slippiUcfShieldDropSelfTestFrame(1073, 82, -90, 84, -94, { shieldHeld: true }),
+  ];
+  annotateUcfDashbackAmendments(axeShieldDropFrames, {
+    0: { controller_fix: "UCF" },
+  });
+  assert.strictEqual(
+    axeShieldDropFrames[4].players["0"].pre.rust_player_input.ucf_shield_drop_amendment,
+    false,
+  );
+  assert.strictEqual(axeShieldDropFrames[5].players["0"].pre.rust_player_input.stick_x, 84);
+  assert.strictEqual(axeShieldDropFrames[5].players["0"].pre.rust_player_input.stick_y, -94);
+  assert.strictEqual(
+    axeShieldDropFrames[5].players["0"].pre.rust_player_input.ucf_shield_drop_amendment,
+    true,
+  );
+
+  const exportedSettings = playerSettingsByIndex({
+    players: [
+      { playerIndex: 1, port: 2, characterId: 0, characterColor: 5, type: 0 },
+    ],
+  });
+  assert.strictEqual(exportedSettings[1].character_color, 5);
+
   const gameFacingFrames = [
     slippiUcfSelfTestFrame(0, 0, 0),
     slippiUcfSelfTestFrame(1, -99, slippiStickToNative(-0.9875)),
@@ -923,6 +1131,37 @@ function slippiUcfSelfTestFrame(frame, rawJoystickX, stickX) {
           rust_player_input: {
             stick_x: stickX,
             stick_y: 0,
+          },
+        },
+        post: null,
+      },
+    },
+  };
+}
+
+function slippiUcfShieldDropSelfTestFrame(
+  frame,
+  rawJoystickX,
+  rawJoystickY,
+  stickX,
+  stickY,
+  options = {},
+) {
+  const shieldHeld = Boolean(options.shieldHeld);
+  return {
+    frame,
+    players: {
+      0: {
+        pre: {
+          raw_joystick_x: rawJoystickX,
+          raw_joystick_y: rawJoystickY,
+          rust_player_input: {
+            stick_x: stickX,
+            stick_y: stickY,
+            left_trigger: shieldHeld ? 255 : 0,
+            right_trigger: 0,
+            physical_button_bits: shieldHeld ? 1 << 6 : 0,
+            processed_button_bits: shieldHeld ? 1 << 6 : 0,
           },
         },
         post: null,
@@ -974,6 +1213,7 @@ if (require.main === module) {
 
 module.exports = {
   annotateUcfDashbackAmendments,
+  annotateUcfInputAmendments,
   buttonNames,
   exportReplay,
   renderReport,
