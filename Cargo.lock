@@ -1895,6 +1895,7 @@ dependencies = [
 name = "mole_runtime"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "image",
  "mole_core",
  "mole_frame_data",

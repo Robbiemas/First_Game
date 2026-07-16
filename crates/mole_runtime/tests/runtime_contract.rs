@@ -1,4 +1,4 @@
-use std::{fs, path::Path, time::Instant};
+use std::{fs, io::Read, path::Path, time::Instant};
 
 use mole_core::collision::{
     source_damage_result_for_victim, source_grab_confirms, Capsule3, SourceCollisionCapsule,
@@ -39,22 +39,36 @@ use mole_runtime::{
 };
 use mole_transport::{InputPacket, PacketAcceptResult};
 
-fn read_slippi_match_start_fixture_export() -> Option<String> {
-    let slippi_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .expect("crate should be inside workspace")
-        .join("debug")
-        .join("slippi");
-    for filename in [
-        "Game_20260530T214929.inputs.json",
-        "Game_20260530T214929.full.inputs.json",
-    ] {
-        if let Ok(text) = fs::read_to_string(slippi_dir.join(filename)) {
-            return Some(text);
-        }
-    }
-    None
+fn read_slippi_match_start_fixture_export() -> Result<String, String> {
+    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("Game_20260530T214929.inputs.json.gz");
+    let fixture = fs::File::open(&fixture_path).map_err(|error| {
+        format!(
+            "failed to open tracked Slippi fixture {}: {error}",
+            fixture_path.display()
+        )
+    })?;
+    let mut decoder = flate2::read::GzDecoder::new(fixture);
+    let mut export = String::new();
+    decoder.read_to_string(&mut export).map_err(|error| {
+        format!(
+            "failed to decompress tracked Slippi fixture {}: {error}",
+            fixture_path.display()
+        )
+    })?;
+    Ok(export)
+}
+
+#[test]
+fn slippi_match_start_fixture_is_tracked_and_complete() {
+    let export = read_slippi_match_start_fixture_export()
+        .expect("runtime parity requires its tracked Slippi fixture");
+    let frames = slippi_visual_replay_inputs_from_match_start(&export, None)
+        .expect("tracked Slippi fixture should parse");
+
+    assert_eq!(frames.len(), 5_313);
 }
 
 #[test]
@@ -509,9 +523,8 @@ fn source_collision_match_start_holds_spawn_fall_until_final_source_ecb_crosses_
 #[test]
 fn slippi_match_start_frame19_p2_turn_dash_after_stays_grounded_on_battlefield_platform() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(143))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -537,9 +550,8 @@ fn slippi_match_start_frame19_p2_turn_dash_after_stays_grounded_on_battlefield_p
 #[test]
 fn slippi_match_start_platform_grounded_y_uses_stage_floor_height_for_position_compare() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -562,9 +574,8 @@ fn slippi_match_start_platform_grounded_y_uses_stage_floor_height_for_position_c
 #[test]
 fn slippi_match_start_frame20_p2_entry_end_handoff_preserves_source_platform_y() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -587,9 +598,8 @@ fn slippi_match_start_frame20_p2_entry_end_handoff_preserves_source_platform_y()
 #[test]
 fn slippi_match_start_frame20_p2_dash_collision_enters_fall_at_top_platform_edge() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -612,9 +622,8 @@ fn slippi_match_start_frame20_p2_dash_collision_enters_fall_at_top_platform_edge
 #[test]
 fn slippi_match_start_frame48_landing_turn_dash_retains_main_floor_support() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -637,9 +646,8 @@ fn slippi_match_start_frame48_landing_turn_dash_retains_main_floor_support() {
 #[test]
 fn slippi_match_start_frame_minus59_p1_entry_end_air_handoff_runs_first_fall_physics_tick() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -662,9 +670,8 @@ fn slippi_match_start_frame_minus59_p1_entry_end_air_handoff_runs_first_fall_phy
 #[test]
 fn slippi_match_start_frame66_p2_dash_keeps_right_platform_edge_support() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -687,9 +694,8 @@ fn slippi_match_start_frame66_p2_dash_keeps_right_platform_edge_support() {
 #[test]
 fn slippi_match_start_frame68_p2_dash_uses_source_floor_fallback() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -712,9 +718,8 @@ fn slippi_match_start_frame68_p2_dash_uses_source_floor_fallback() {
 #[test]
 fn slippi_match_start_frame71_p2_turn_uses_source_ground_support() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -737,9 +742,8 @@ fn slippi_match_start_frame71_p2_turn_uses_source_ground_support() {
 #[test]
 fn slippi_match_start_frame76_p2_dash_jump_enters_kneebend_on_retained_source_floor() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -762,9 +766,8 @@ fn slippi_match_start_frame76_p2_dash_jump_enters_kneebend_on_retained_source_fl
 #[test]
 fn slippi_match_start_frame55_p2_escape_air_lands_on_solid_floor() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -785,9 +788,8 @@ fn slippi_match_start_frame55_p2_escape_air_lands_on_solid_floor() {
 #[test]
 fn slippi_match_start_frame92_p2_escape_air_source_collision_enters_landing_fall_special() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -810,9 +812,8 @@ fn slippi_match_start_frame92_p2_escape_air_source_collision_enters_landing_fall
 #[test]
 fn slippi_match_start_frame281_p2_escape_air_source_collision_enters_landing_fall_special() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -835,9 +836,8 @@ fn slippi_match_start_frame281_p2_escape_air_source_collision_enters_landing_fal
 #[test]
 fn slippi_match_start_frame142_p2_double_jump_ecb_lock_avoids_false_platform_commit() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -880,9 +880,8 @@ fn slippi_match_start_frame142_p2_double_jump_ecb_lock_avoids_false_platform_com
 #[test]
 fn slippi_match_start_frame_negative48_p1_fall_platform_commit_is_mixed_phase_witness() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -906,9 +905,8 @@ fn slippi_match_start_frame_negative48_p1_fall_platform_commit_is_mixed_phase_wi
 #[test]
 fn slippi_match_start_frame2625_p2_wait_platform_commit_stays_aligned_after_ecb_lock_fix() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -931,9 +929,8 @@ fn slippi_match_start_frame2625_p2_wait_platform_commit_stays_aligned_after_ecb_
 #[test]
 fn slippi_match_start_frame2686_p2_damage_lw3_stays_aligned_after_damage_anim_rate_fix() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -956,9 +953,8 @@ fn slippi_match_start_frame2686_p2_damage_lw3_stays_aligned_after_damage_anim_ra
 #[test]
 fn slippi_match_start_comparison_carries_first_non_witness_divergence() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreComparisonConfig {
@@ -980,9 +976,8 @@ fn slippi_match_start_comparison_carries_first_non_witness_divergence() {
 #[test]
 fn visual_replay_gate_skips_proven_telemetry_and_pauses_on_first_state_mismatch() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_200))
         .expect("visual replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -1021,9 +1016,8 @@ fn visual_replay_gate_skips_proven_telemetry_and_pauses_on_first_state_mismatch(
 fn slippi_match_start_frame_negative47_p1_landing_velocity_drift_cascades_from_floor_commit_witness(
 ) {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -1052,9 +1046,8 @@ fn slippi_match_start_frame_negative47_p1_landing_velocity_drift_cascades_from_f
 #[test]
 fn slippi_first_divergence_reports_first_non_witness_divergence() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let first = first_slippi_divergence_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -1075,9 +1068,8 @@ fn slippi_first_divergence_reports_first_non_witness_divergence() {
 #[test]
 fn slippi_match_start_frame390_p1_dash_position_drift_cascades_from_p2_unresolved_root() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreDivergenceScanConfig {
@@ -1204,9 +1196,8 @@ fn runtime_escape_air_frame212_p2_lands_when_decomp_floor_sweep_crosses_platform
 #[test]
 fn slippi_match_start_frame1383_p2_landing_fall_special_uses_source_landing_collision() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let comparison = compare_slippi_export_from_match_start_with_core(
         &export,
@@ -1229,9 +1220,8 @@ fn slippi_match_start_frame1383_p2_landing_fall_special_uses_source_landing_coll
 #[test]
 fn slippi_match_start_frame1378_p1_landing_jump_iasa_runs_kneebend_ground_physics() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let scan = scan_slippi_export_from_match_start_with_core(
         &export,
@@ -2381,9 +2371,8 @@ fn slippi_match_start_trace_reports_expected_and_actual_frame_window() {
 
 #[test]
 fn slippi_match_start_trace_applies_source_hit_collision_for_first_neutral_air_hit() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
@@ -2507,9 +2496,8 @@ fn test_source_capsule_summary(capsules: &[SourceCollisionCapsule]) -> String {
 #[test]
 fn slippi_match_start_frame2299_ground_grab_enters_capture_pull() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_423))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2648,9 +2636,8 @@ fn runtime_left_facing_catch_wait_holds_victim_on_faced_capturedamage_joint() {
 #[test]
 fn slippi_match_start_frame2301_capture_wait_lw_preserves_source_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_425))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2679,9 +2666,8 @@ fn slippi_match_start_frame2301_capture_wait_lw_preserves_source_position() {
 #[test]
 fn slippi_match_start_frame2302_thrown_hi_uses_decomp_accessory_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_426))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2713,9 +2699,8 @@ fn slippi_match_start_frame2302_thrown_hi_uses_decomp_accessory_position() {
 #[test]
 fn slippi_match_start_frame2313_thrown_hi_keeps_decomp_accessory_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_437))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2747,9 +2732,8 @@ fn slippi_match_start_frame2313_thrown_hi_keeps_decomp_accessory_position() {
 #[test]
 fn slippi_match_start_frame2318_throw_hi_waits_for_decomp_hitlag_gate_before_release() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_442))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2821,9 +2805,8 @@ fn runtime_frame_zero_throw_hitbox_event_populates_xdf4_on_first_action_tick() {
 #[test]
 fn slippi_match_start_frame2319_throw_hi_release_runs_decomp_damage_entry_update() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_443))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -2913,9 +2896,8 @@ fn slippi_match_start_frame2319_throw_hi_release_runs_decomp_damage_entry_update
 #[test]
 fn slippi_match_start_frame2454_falcon_fair_enters_damage_n3() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_578))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3085,9 +3067,8 @@ fn slippi_match_start_frame2454_falcon_fair_enters_damage_n3() {
 #[test]
 fn slippi_match_start_frame1759_p1_jumpf_lower_ecb_edge_hits_battlefield_left_wall() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -3117,9 +3098,8 @@ fn slippi_match_start_frame1759_p1_jumpf_lower_ecb_edge_hits_battlefield_left_wa
 #[test]
 fn slippi_match_start_frame1771_p2_fall_lower_ecb_edge_hits_battlefield_right_ledge_wall() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -3149,9 +3129,8 @@ fn slippi_match_start_frame1771_p2_fall_lower_ecb_edge_hits_battlefield_right_le
 #[test]
 fn slippi_match_start_frame2833_p2_cliff_catch_rejects_p1_dair_hit() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -3178,9 +3157,8 @@ fn slippi_match_start_frame2833_p2_cliff_catch_rejects_p1_dair_hit() {
 #[test]
 fn slippi_match_start_frame3025_p2_attackairhi_right_wall_scrape_matches_source_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -3210,9 +3188,8 @@ fn slippi_match_start_frame3025_p2_attackairhi_right_wall_scrape_matches_source_
 #[test]
 fn slippi_match_start_frame3026_p2_attackairhi_entry_pose_does_not_false_right_wall_correct() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -3242,9 +3219,8 @@ fn slippi_match_start_frame3026_p2_attackairhi_entry_pose_does_not_false_right_w
 #[test]
 fn slippi_match_start_frame3126_p1_bair_does_not_damage_p2_escape_air() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_300))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3339,9 +3315,8 @@ fn slippi_match_start_frame3126_p1_bair_does_not_damage_p2_escape_air() {
 #[test]
 fn slippi_match_start_frame3183_p1_nair_sets_off_p2_guard_not_body_damage() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_310))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3404,9 +3379,8 @@ fn slippi_match_start_frame3183_p1_nair_sets_off_p2_guard_not_body_damage() {
 #[test]
 fn slippi_match_start_frame3190_guard_setoff_survives_hitlag_before_jump() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_320))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3442,9 +3416,8 @@ fn slippi_match_start_frame3190_guard_setoff_survives_hitlag_before_jump() {
 #[test]
 fn slippi_match_start_frame2454_electric_fair_uses_decomp_hitlag_multiplier() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_591))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3505,9 +3478,8 @@ fn slippi_match_start_frame2454_electric_fair_uses_decomp_hitlag_multiplier() {
 #[test]
 fn slippi_match_start_frame2486_walk_analog_trigger_enters_guard_on_from_held_lr() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_610))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3536,9 +3508,8 @@ fn slippi_match_start_frame2486_walk_analog_trigger_enters_guard_on_from_held_lr
 #[test]
 fn slippi_match_start_frame2583_raptor_boost_routes_shield_detect_callback() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_760))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3622,9 +3593,8 @@ fn slippi_match_start_frame2583_raptor_boost_routes_shield_detect_callback() {
 #[test]
 fn slippi_match_start_frame2586_raptor_boost_followthrough_clears_guard_shield_object() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_760))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3719,9 +3689,8 @@ fn slippi_match_start_frame2586_raptor_boost_followthrough_clears_guard_shield_o
 #[test]
 fn slippi_match_start_frame2586_p2_damage_velocity_uses_composed_slippi_lane() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
@@ -3777,9 +3746,8 @@ fn slippi_match_start_frame2586_p2_damage_velocity_uses_composed_slippi_lane() {
 #[test]
 fn slippi_match_start_frame3268_p1_damageair2_uses_source_di_velocity() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_400))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3864,9 +3832,8 @@ fn slippi_match_start_frame3268_p1_damageair2_uses_source_di_velocity() {
 #[test]
 fn slippi_match_start_frame3426_p2_raptor_detect_precedes_nair_damage() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_560))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3934,9 +3901,8 @@ fn slippi_match_start_frame3426_p2_raptor_detect_precedes_nair_damage() {
 #[test]
 fn slippi_match_start_frame2300_p2_capture_pulled_lw_stays_grounded() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_430))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -3973,9 +3939,8 @@ fn slippi_match_start_frame2300_p2_capture_pulled_lw_stays_grounded() {
 #[test]
 fn slippi_match_start_frame3467_p2_capture_pulled_lw_transitions_airborne_hi() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_620))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4019,9 +3984,8 @@ fn slippi_match_start_frame3467_p2_capture_pulled_lw_transitions_airborne_hi() {
 #[test]
 fn slippi_match_start_frame3473_down_throw_uses_weight_scaled_pose_rate() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_620))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4061,9 +4025,8 @@ fn slippi_match_start_frame3473_down_throw_uses_weight_scaled_pose_rate() {
 #[test]
 fn slippi_match_start_frame3493_down_throw_release_uses_damage_fly_top() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_630))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4092,9 +4055,8 @@ fn slippi_match_start_frame3493_down_throw_release_uses_damage_fly_top() {
 #[test]
 fn slippi_match_start_frame3514_throw_end_runs_wait_iasa_same_tick() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_650))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4121,9 +4083,8 @@ fn slippi_match_start_frame3514_throw_end_runs_wait_iasa_same_tick() {
 #[test]
 fn slippi_match_start_frame3530_damage_hitstun_end_runs_air_jump_before_rehit() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_670))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4162,9 +4123,8 @@ fn slippi_match_start_frame3530_damage_hitstun_end_runs_air_jump_before_rehit() 
 #[test]
 fn slippi_match_start_frame3542_damage_hitlag_uses_current_input_for_sdi() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(3_680))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4198,9 +4158,8 @@ fn slippi_match_start_frame3542_damage_hitlag_uses_current_input_for_sdi() {
 #[test]
 fn slippi_match_start_frame3973_jumpsquat_iasa_nair_runs_attack_air_gravity() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_110))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4232,9 +4191,8 @@ fn slippi_match_start_frame3973_jumpsquat_iasa_nair_runs_attack_air_gravity() {
 #[test]
 fn slippi_match_start_frame4109_turn_cancel_preserves_pre_turn_facing_for_back_jump() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4260,9 +4218,8 @@ fn slippi_match_start_frame4109_turn_cancel_preserves_pre_turn_facing_for_back_j
 #[test]
 fn slippi_match_start_frame4118_double_jump_ecb_lock_prevents_false_air_dodge_landing() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4298,9 +4255,8 @@ fn slippi_match_start_frame4118_double_jump_ecb_lock_prevents_false_air_dodge_la
 #[test]
 fn slippi_match_start_frame4119_p2_nair_hits_p1_escape_air() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_250))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4347,9 +4303,8 @@ fn slippi_match_start_frame4119_p2_nair_hits_p1_escape_air() {
 #[test]
 fn slippi_match_start_frame4182_p1_upair_sets_off_p2_guard() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_310))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4395,9 +4350,8 @@ fn slippi_match_start_frame4182_p1_upair_sets_off_p2_guard() {
 #[test]
 fn slippi_match_start_frame4192_upair_update_does_not_rehit_p2_guard() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_330))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4430,9 +4384,8 @@ fn slippi_match_start_frame4192_upair_update_does_not_rehit_p2_guard() {
 #[test]
 fn slippi_match_start_frame4378_guard_setoff_exits_hitlag_at_source_position() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_510))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4452,9 +4405,8 @@ fn slippi_match_start_frame4378_guard_setoff_exits_hitlag_at_source_position() {
 #[test]
 fn slippi_match_start_frame4403_grounded_downward_hit_reflects_from_floor() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(4_535))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4480,9 +4432,8 @@ fn slippi_match_start_frame4403_grounded_downward_hit_reflects_from_floor() {
 #[test]
 fn slippi_match_start_frame4426_lcancel_timer_survives_hitlag() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4512,9 +4463,8 @@ fn slippi_match_start_frame4426_lcancel_timer_survives_hitlag() {
 #[test]
 fn slippi_match_start_frame4488_down_wait_enters_forward_roll() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4550,9 +4500,8 @@ fn slippi_match_start_frame4488_down_wait_enters_forward_roll() {
 #[test]
 fn slippi_match_start_frame4511_down_roll_clamps_to_floor_edge() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4581,9 +4530,8 @@ fn slippi_match_start_frame4511_down_roll_clamps_to_floor_edge() {
 #[test]
 fn slippi_match_start_frame4518_upair_hits_down_roll() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4612,9 +4560,8 @@ fn slippi_match_start_frame4518_upair_hits_down_roll() {
 #[test]
 fn slippi_match_start_frame4557_released_guard_startup_rejects_z_grab() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4635,9 +4582,8 @@ fn slippi_match_start_frame4557_released_guard_startup_rejects_z_grab() {
 #[test]
 fn slippi_match_start_frame4641_raptor_boost_detects_waiting_fighter() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4677,9 +4623,8 @@ fn slippi_match_start_frame4641_raptor_boost_detects_waiting_fighter() {
 #[test]
 fn slippi_match_start_frame4693_damage_fly_landing_enters_passive() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4705,9 +4650,8 @@ fn slippi_match_start_frame4693_damage_fly_landing_enters_passive() {
 #[test]
 fn slippi_match_start_frame4709_landing_to_squat_wait_keeps_ground_physics() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4730,9 +4674,8 @@ fn slippi_match_start_frame4709_landing_to_squat_wait_keeps_ground_physics() {
 #[test]
 fn slippi_match_start_frame4720_wait_has_no_stale_guard_collision_object() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4757,9 +4700,8 @@ fn slippi_match_start_frame4720_wait_has_no_stale_guard_collision_object() {
 #[test]
 fn slippi_match_start_frame4721_new_guard_object_collides_on_next_fighter_pass() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4788,9 +4730,8 @@ fn slippi_match_start_frame4721_new_guard_object_collides_on_next_fighter_pass()
 #[test]
 fn slippi_match_start_frame4788_bair_uses_source_knockback_magnitude() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(6_000))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -4824,9 +4765,8 @@ fn slippi_match_start_frame4788_bair_uses_source_knockback_magnitude() {
 
 #[test]
 fn slippi_match_start_frame4904_p2_jump_aerial_f_uses_right_facing_live_ecb() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4844,9 +4784,8 @@ fn slippi_match_start_frame4904_p2_jump_aerial_f_uses_right_facing_live_ecb() {
 
 #[test]
 fn slippi_match_start_frame4926_p2_attack_air_hi_expanding_ecb_matches_left_wall() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4867,9 +4806,8 @@ fn slippi_match_start_frame4926_p2_attack_air_hi_expanding_ecb_matches_left_wall
 
 #[test]
 fn slippi_match_start_frame4958_p1_damage_air2_animation_enters_fall() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4890,9 +4828,8 @@ fn slippi_match_start_frame4958_p1_damage_air2_animation_enters_fall() {
 
 #[test]
 fn slippi_match_start_through_frame4966_p2_grab_does_not_capture_p1() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4926,9 +4863,8 @@ fn slippi_match_start_through_frame4966_p2_grab_does_not_capture_p1() {
 
 #[test]
 fn slippi_match_start_frame4989_p2_catch_completion_allows_guard_on() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4949,9 +4885,8 @@ fn slippi_match_start_frame4989_p2_catch_completion_allows_guard_on() {
 
 #[test]
 fn slippi_match_start_frame4722_shield_setoff_uses_collision_phase_inputs() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -4977,9 +4912,8 @@ fn slippi_match_start_frame4722_shield_setoff_uses_collision_phase_inputs() {
 
 #[test]
 fn slippi_match_start_frame5016_grounded_attacker_receives_shield_recoil() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5000,9 +4934,8 @@ fn slippi_match_start_frame5016_grounded_attacker_receives_shield_recoil() {
 
 #[test]
 fn slippi_match_start_frame5037_special_s_completion_runs_wait_input_and_walk_physics() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5026,9 +4959,8 @@ fn slippi_match_start_frame5037_special_s_completion_runs_wait_input_and_walk_ph
 
 #[test]
 fn slippi_match_start_frame5040_early_dash_digital_shield_enters_escape_forward() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5051,9 +4983,8 @@ fn slippi_match_start_frame5040_early_dash_digital_shield_enters_escape_forward(
 
 #[test]
 fn slippi_match_start_frame5081_attack_dash_uses_transn_ground_motion() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5077,9 +5008,8 @@ fn slippi_match_start_frame5081_attack_dash_uses_transn_ground_motion() {
 
 #[test]
 fn slippi_match_start_frame5118_squat_collision_enters_fall_off_left_edge() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5103,9 +5033,8 @@ fn slippi_match_start_frame5118_squat_collision_enters_fall_off_left_edge() {
 
 #[test]
 fn slippi_match_start_frame326_escape_air_landing_preserves_horizontal_travel() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5129,9 +5058,8 @@ fn slippi_match_start_frame326_escape_air_landing_preserves_horizontal_travel() 
 #[test]
 fn visual_slippi_frame4926_uses_export_configured_costume_world() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(5_050))
         .expect("visual replay fixture should parse");
     let mut world = slippi_match_start_world_from_export(&export)
@@ -5160,9 +5088,8 @@ fn visual_slippi_frame4926_uses_export_configured_costume_world() {
 
 #[test]
 fn slippi_match_start_frame5124_cliff_jump_quick_uses_air_collision_correction() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5185,9 +5112,8 @@ fn slippi_match_start_frame5124_cliff_jump_quick_uses_air_collision_correction()
 
 #[test]
 fn slippi_match_start_frame5131_cliff_jump_quick_2_sets_entry_velocity() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5212,9 +5138,8 @@ fn slippi_match_start_frame5131_cliff_jump_quick_2_sets_entry_velocity() {
 
 #[test]
 fn slippi_match_start_frame5126_p1_fall_preserves_left_wall_position() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5239,9 +5164,8 @@ fn slippi_match_start_frame5126_p1_fall_preserves_left_wall_position() {
 
 #[test]
 fn slippi_match_start_frame5162_p2_cliff_jump_quick2_rejects_soft_platform() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5266,9 +5190,8 @@ fn slippi_match_start_frame5162_p2_cliff_jump_quick2_rejects_soft_platform() {
 
 #[test]
 fn slippi_match_start_frame5163_p2_cliff_jump_quick2_ends_with_aobj() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5293,9 +5216,8 @@ fn slippi_match_start_frame5163_p2_cliff_jump_quick2_ends_with_aobj() {
 
 #[test]
 fn slippi_match_start_frame5189_final_stock_enters_dead_down() {
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
         SlippiCoreTraceConfig {
@@ -5321,9 +5243,8 @@ fn slippi_match_start_frame5189_final_stock_enters_dead_down() {
 #[test]
 fn slippi_match_start_frame3289_p2_fast_falls_after_attacker_hitlag() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
 
     let trace = trace_slippi_export_from_match_start_with_core(
         &export,
@@ -5354,9 +5275,8 @@ fn slippi_match_start_frame3289_p2_fast_falls_after_attacker_hitlag() {
 fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_not_generically_damaged(
 ) {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_436))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
@@ -5446,9 +5366,8 @@ fn slippi_match_start_frame2312_throw_hi_hit_capsules_spawn_but_held_victim_is_n
 #[test]
 fn slippi_match_start_frame2662_p1_upair_hits_p2_body_not_guard_setoff() {
     preload_runtime_source_frame_data().expect("runtime source frame data should preload");
-    let Some(export) = read_slippi_match_start_fixture_export() else {
-        return;
-    };
+    let export =
+        read_slippi_match_start_fixture_export().expect("tracked Slippi fixture should load");
     let frames = slippi_visual_replay_inputs_from_match_start(&export, Some(2_860))
         .expect("replay fixture should parse");
     let mut world = World::for_slippi_battlefield_singles_match_start();
